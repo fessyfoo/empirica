@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Cockpit v1.3 — liveness filtering + bulk prune)
+- **Liveness detection** — `empirica.core.cockpit.liveness.is_alive()`
+  uses `tmux list-panes -a -F '#{pane_id} #{pane_current_command}'` to
+  distinguish "Claude is running here" from "the pane exists but it's
+  just bash". Plus PID/PPID alive check (`os.kill(pid, 0)`) for non-tmux
+  instances and a 1-hour recent-activity fallback for fresh sessions
+  before session-init has captured a PID. The current instance is always
+  considered alive (it's running this code).
+- **Live-only by default** — `empirica status`, `empirica status --all`,
+  and `empirica tui` now filter dead instances out by default. Adds
+  `--include-dead` flag (CLI) and `D` keybinding (TUI) to toggle the
+  diagnostic view that shows everything regardless of liveness.
+- **`empirica instance prune`** — bulk forget every instance that fails
+  the liveness check. Skips the current instance. `--dry-run` shows what
+  would be removed without removing it. Used to clean up the 38 stale
+  test/abandoned instances accumulated on this machine.
+- **11 new unit tests** — `tests/test_cockpit_liveness.py` covers the
+  four signal paths (tmux pane running claude, pane running other,
+  pane gone, non-tmux PID resolution).
+- **Aggregate API change** — `aggregate_all(include_dead=False)` and
+  `aggregate_instance_state(live_panes=None, current_instance_id=None)`.
+  Each instance dict now carries `alive: bool` and `liveness_reason: str`
+  fields.
+
 ### Added (Cockpit v1.2 — interactive TUI)
 - **`empirica tui`** — interactive Textual cockpit. Real clickable buttons
   for every action verb: pause/resume Sentinel, pause/resume loops, kill,

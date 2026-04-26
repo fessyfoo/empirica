@@ -26,8 +26,10 @@ from empirica.core.cockpit.instance_actions import (
 from empirica.core.cockpit.instance_state import (
     aggregate_all,
     aggregate_instance_state,
+    discover_dead_instances,
     discover_instances,
 )
+from empirica.core.cockpit.liveness import LivenessResult, is_alive
 from empirica.core.cockpit.loop_registry import (
     LoopRegistry,
     is_loop_paused,
@@ -44,13 +46,16 @@ from empirica.core.cockpit.sentinel_pause import (
 __all__ = [
     'ForgetResult',
     'KillResult',
+    'LivenessResult',
     'LoopRegistry',
     'SentinelPauseStatus',
     'aggregate_all',
     'aggregate_instance_state',
+    'discover_dead_instances',
     'discover_instances',
     'forget_instance',
     'get_label',
+    'is_alive',
     'is_loop_paused',
     'kill_instance',
     'pause_sentinel',

@@ -14,7 +14,7 @@ Three CLI surfaces on top of one core module:
 |---|---|---|
 | `empirica sentinel <pause\|resume\|status>` | `empirica.core.cockpit.sentinel_pause` | Per-instance noetic firewall toggle |
 | `empirica loop <register\|heartbeat\|pause\|...>` | `empirica.core.cockpit.loop_registry` | Per-instance loop registry CRUD |
-| `empirica instance <kill\|forget\|label>` | `empirica.core.cockpit.instance_actions` | Destructive lifecycle: terminate / scrub state / rename |
+| `empirica instance <kill\|forget\|label\|prune>` | `empirica.core.cockpit.instance_actions` | Destructive lifecycle: terminate / scrub state / rename / bulk-prune-dead |
 | `empirica status [--all\|--instance ID] [--pretty\|--json]` | `empirica.core.cockpit.instance_state` | Cockpit overview, all renderers consume the same JSON |
 | `empirica tui` | `empirica.cli.tui.cockpit_app` | Interactive Textual app — clickable buttons + keyboard shortcuts for every verb |
 
@@ -165,6 +165,7 @@ them to the cockpit on impulse — write a separate proposal first.
 - `empirica/core/cockpit/loop_registry.py` — registry CRUD with atomic writes
 - `empirica/core/cockpit/instance_state.py` — discovery + aggregation
 - `empirica/core/cockpit/instance_actions.py` — kill / forget / label
+- `empirica/core/cockpit/liveness.py` — alive/dead detection (tmux pane introspection + PID check)
 - `empirica/core/cockpit/render.py` — ANSI-aware pretty + JSON renderers, footer hints
 - `empirica/cli/tui/cockpit_app.py` — Textual interactive app (empirica tui)
 - `empirica/cli/command_handlers/cockpit_commands.py` — handler wrappers
@@ -180,6 +181,26 @@ Sentinel whitelist additions in `sentinel-gate.py:EMPIRICA_TIER1_PREFIXES`:
 - `empirica instance ` (subcommand group)
 - `empirica status` (cockpit overview)
 - `empirica tui` (interactive cockpit — destructive ops are modal-confirmed)
+
+## Liveness — what counts as "alive"
+
+By default `status` and `tui` only show instances where Claude is actually
+running. The signal hierarchy:
+
+| Signal | Verdict |
+|---|---|
+| Instance is the current one (running this code) | alive (always) |
+| `tmux_N` and `tmux list-panes` shows pane running `claude` (or `node`) | alive |
+| `tmux_N` and pane exists but runs another command (e.g. `bash`) | dead — Claude exited |
+| `tmux_N` and pane doesn't exist | dead — terminal closed |
+| Non-tmux, captured PPID is alive | alive |
+| Non-tmux, captured PPID is dead | dead |
+| Non-tmux, no PID, but state file touched < 1h ago | alive (fresh-session benefit-of-doubt) |
+| Otherwise | dead |
+
+Override with `--include-dead` (CLI) or `D` keybinding (TUI) to surface
+everything regardless of liveness — useful for diagnosing what's about to
+get pruned, or for forensics on abandoned instances.
 
 ## Kill semantics
 

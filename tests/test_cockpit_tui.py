@@ -56,7 +56,7 @@ async def test_tui_mounts_with_all_widgets(cockpit_env):
     from empirica.cli.tui import CockpitApp
     from textual.widgets import Button, DataTable, Log, Static
 
-    app = CockpitApp()
+    app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(140, 40)) as pilot:
         await pilot.pause()
         await pilot.pause()
@@ -81,7 +81,7 @@ async def test_tui_loads_instances_from_state_files(cockpit_env):
     _bind_instance(home, project, 'tmux_42')
     _bind_instance(home, project, 'tmux_99')
 
-    app = CockpitApp()
+    app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(140, 40)) as pilot:
         await pilot.pause()
         await pilot.pause()
@@ -96,7 +96,7 @@ async def test_pause_sentinel_button_writes_pause_file(cockpit_env):
     home, project = cockpit_env
     _bind_instance(home, project, 'tmux_42')
 
-    app = CockpitApp()
+    app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(140, 40)) as pilot:
         await pilot.pause()
         await pilot.pause()
@@ -118,7 +118,7 @@ async def test_resume_sentinel_button_removes_pause_file(cockpit_env):
     pause_sentinel('tmux_42', reason='setup')
     assert (home / 'sentinel_paused_tmux_42').exists()
 
-    app = CockpitApp()
+    app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(140, 40)) as pilot:
         await pilot.pause()
         await pilot.pause()
@@ -136,7 +136,7 @@ async def test_keyboard_shortcut_p_pauses_sentinel(cockpit_env):
     home, project = cockpit_env
     _bind_instance(home, project, 'tmux_42')
 
-    app = CockpitApp()
+    app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(140, 40)) as pilot:
         await pilot.pause()
         await pilot.pause()
@@ -155,7 +155,7 @@ async def test_kill_button_opens_confirm_modal(cockpit_env):
     home, project = cockpit_env
     _bind_instance(home, project, 'tmux_42')
 
-    app = CockpitApp()
+    app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(140, 40)) as pilot:
         await pilot.pause()
         await pilot.pause()
@@ -181,7 +181,7 @@ async def test_kill_modal_cancel_does_not_act(cockpit_env, monkeypatch):
     home, project = cockpit_env
     _bind_instance(home, project, 'tmux_42')
 
-    app = CockpitApp()
+    app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(140, 40)) as pilot:
         await pilot.pause()
         await pilot.pause()
@@ -206,7 +206,7 @@ async def test_summary_payload_shows_counts(cockpit_env):
     _bind_instance(home, project, 'tmux_42')
     _bind_instance(home, project, 'tmux_99')
 
-    app = CockpitApp()
+    app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(140, 40)) as pilot:
         await pilot.pause()
         await pilot.pause()

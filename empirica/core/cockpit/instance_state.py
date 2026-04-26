@@ -28,6 +28,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from empirica.core.cockpit.liveness import _live_tmux_panes, is_alive
 from empirica.core.cockpit.loop_registry import LoopRegistry, is_loop_paused
 from empirica.core.cockpit.sentinel_pause import sentinel_status
 
@@ -283,11 +284,19 @@ def _newest_instance_file_mtime(instance_id: str) -> float | None:
     return _newest_mtime(candidates)
 
 
-def aggregate_instance_state(instance_id: str) -> dict[str, Any]:
+def aggregate_instance_state(
+    instance_id: str,
+    live_panes: set[str] | None = None,
+    current_instance_id: str | None = None,
+) -> dict[str, Any]:
     """Read all state for one instance and return a serializable dict.
 
     Layout intentionally matches the proposal's --json schema. Robust to
     partial state — missing pieces become null fields, not exceptions.
+
+    `live_panes` is an optional pre-computed set of live tmux pane numbers
+    (sweep optimization). `current_instance_id` exempts the running cockpit
+    from liveness checks (it's alive by definition).
     """
     project_path = _instance_project_path(instance_id)
     label = _instance_label(instance_id, project_path)
@@ -329,6 +338,13 @@ def aggregate_instance_state(instance_id: str) -> dict[str, Any]:
     else:
         transaction = None
 
+    liveness = is_alive(
+        instance_id,
+        last_activity_seconds=tx_state['last_activity_seconds'],
+        live_panes=live_panes,
+        current_instance_id=current_instance_id,
+    )
+
     return {
         'instance_id': instance_id,
         'label': label,
@@ -338,6 +354,8 @@ def aggregate_instance_state(instance_id: str) -> dict[str, Any]:
         'transaction': transaction,
         'last_activity': tx_state['last_activity_iso'],
         'last_activity_seconds': tx_state['last_activity_seconds'],
+        'alive': liveness.alive,
+        'liveness_reason': liveness.reason,
         'sentinel': {
             'paused': sentinel.paused,
             'scope': sentinel.scope,
@@ -348,12 +366,35 @@ def aggregate_instance_state(instance_id: str) -> dict[str, Any]:
     }
 
 
-def aggregate_all() -> dict[str, Any]:
+def aggregate_all(include_dead: bool = False) -> dict[str, Any]:
     """Scan and aggregate every discoverable instance.
 
-    Returns the full status payload (matches proposal --json schema).
+    By default returns only LIVE instances (tmux pane exists, PPID alive,
+    or recent activity). Set `include_dead=True` for diagnostic mode that
+    surfaces every state-file footprint regardless of whether the
+    underlying Claude process still exists.
     """
-    instances = [aggregate_instance_state(i) for i in discover_instances()]
+    # Pre-compute the live tmux pane set once, share across instances.
+    live_panes = _live_tmux_panes()
+
+    # Resolve the current instance lazily — exempts the running cockpit
+    # from liveness checks (it's alive by definition, even if PID/PPID
+    # weren't captured by an old session-init).
+    try:
+        from empirica.utils.session_resolver import get_instance_id
+        current_id = get_instance_id()
+    except Exception:
+        current_id = None
+
+    instances = [
+        aggregate_instance_state(
+            i, live_panes=live_panes, current_instance_id=current_id,
+        )
+        for i in discover_instances()
+    ]
+
+    if not include_dead:
+        instances = [i for i in instances if i.get('alive')]
 
     loops_registered = sum(len(i['loops']) for i in instances)
     loops_paused = sum(
@@ -375,8 +416,43 @@ def aggregate_all() -> dict[str, Any]:
     }
 
 
+def discover_dead_instances() -> list[str]:
+    """Return instance_ids that fail the liveness check.
+
+    Used by `empirica instance prune` for bulk cleanup. Skips the current
+    instance even if it lacks PID capture (it's running this code).
+    """
+    live_panes = _live_tmux_panes()
+    try:
+        from empirica.utils.session_resolver import get_instance_id
+        current_id = get_instance_id()
+    except Exception:
+        current_id = None
+
+    dead: list[str] = []
+    for iid in discover_instances():
+        # We need last_activity to evaluate the recent-activity fallback,
+        # so a cheap aggregate is unavoidable. _read_transaction_state is
+        # the part that costs file I/O; we already pay it for status.
+        project_path = _instance_project_path(iid)
+        last_activity = None
+        if project_path:
+            tx = _read_transaction_state(project_path, iid)
+            last_activity = tx.get('last_activity_seconds')
+        liveness = is_alive(
+            iid,
+            last_activity_seconds=last_activity,
+            live_panes=live_panes,
+            current_instance_id=current_id,
+        )
+        if not liveness.alive:
+            dead.append(iid)
+    return dead
+
+
 __all__ = [
     'aggregate_all',
     'aggregate_instance_state',
+    'discover_dead_instances',
     'discover_instances',
 ]

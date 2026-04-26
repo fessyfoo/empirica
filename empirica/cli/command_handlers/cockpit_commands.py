@@ -22,6 +22,7 @@ from empirica.core.cockpit import (
     LoopRegistry,
     aggregate_all,
     aggregate_instance_state,
+    discover_dead_instances,
     forget_instance,
     get_label,
     is_loop_paused,
@@ -284,7 +285,7 @@ def handle_loop_status_command(args) -> int:
 
 # ─── empirica status ────────────────────────────────────────────────────────
 
-def handle_tui_command(_args) -> int:
+def handle_tui_command(args) -> int:
     """Launch the Textual cockpit TUI."""
     try:
         from empirica.cli.tui import run_tui
@@ -294,7 +295,7 @@ def handle_tui_command(_args) -> int:
             'install with: pip install textual\n'
         )
         return 2
-    return run_tui()
+    return run_tui(include_dead=bool(getattr(args, 'include_dead', False)))
 
 
 def handle_status_command(args) -> int:
@@ -317,6 +318,7 @@ def handle_status_command(args) -> int:
 
     explicit_instance = getattr(args, 'instance', None)
     show_all = getattr(args, 'all', False)
+    include_dead = bool(getattr(args, 'include_dead', False))
 
     if explicit_instance:
         payload = {
@@ -340,13 +342,13 @@ def handle_status_command(args) -> int:
         )
         all_mode = False
     elif show_all:
-        payload = aggregate_all()
+        payload = aggregate_all(include_dead=include_dead)
         all_mode = True
     else:
         current = get_instance_id()
         if current:
             payload = {
-                'generated_at': aggregate_all()['generated_at'],
+                'generated_at': aggregate_all(include_dead=True)['generated_at'],
                 'instances': [aggregate_instance_state(current)],
                 'summary': {
                     'instances': 1,
@@ -365,7 +367,7 @@ def handle_status_command(args) -> int:
             )
             all_mode = False
         else:
-            payload = aggregate_all()
+            payload = aggregate_all(include_dead=include_dead)
             all_mode = True
 
     if json_mode:
@@ -458,10 +460,46 @@ def handle_instance_label_command(args) -> int:
     return _emit(args, payload, f'Label set for {instance_id}: {new_label}')
 
 
+def handle_instance_prune_command(args) -> int:
+    """Bulk forget every instance that fails the liveness check.
+
+    Skips the current instance (it's running this code, by definition alive).
+    With --dry-run, prints what would be removed without removing anything.
+    """
+    dry_run = bool(getattr(args, 'dry_run', False))
+    dead = discover_dead_instances()
+
+    if not dead:
+        payload = {'ok': True, 'pruned': [], 'dry_run': dry_run, 'count': 0}
+        return _emit(args, payload, 'No dead instances to prune')
+
+    pruned: list[dict[str, Any]] = []
+    for iid in dead:
+        if dry_run:
+            pruned.append({'instance_id': iid, 'removed_count': None, 'dry_run': True})
+            continue
+        result = forget_instance(iid)
+        pruned.append({
+            'instance_id': iid,
+            'removed_count': len(result.removed),
+            'skipped_count': len(result.skipped),
+        })
+
+    payload = {'ok': True, 'pruned': pruned, 'dry_run': dry_run, 'count': len(pruned)}
+    if dry_run:
+        names = ', '.join(d['instance_id'] for d in pruned)
+        summary = f'[DRY RUN] would prune {len(pruned)} dead instances: {names}'
+    else:
+        total_files = sum(p.get('removed_count', 0) or 0 for p in pruned)
+        summary = f'Pruned {len(pruned)} dead instances ({total_files} state files removed)'
+    return _emit(args, payload, summary)
+
+
 _INSTANCE_DISPATCH = {
     'kill': handle_instance_kill_command,
     'forget': handle_instance_forget_command,
     'label': handle_instance_label_command,
+    'prune': handle_instance_prune_command,
 }
 
 

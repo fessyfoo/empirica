@@ -163,7 +163,8 @@ def test_aggregate_all_summary_counts(env):
     reg = lr.LoopRegistry('tmux_5')
     reg.register(name='poll', kind='monitor')
 
-    payload = ist.aggregate_all()
+    # include_dead=True so synthetic instances aren't filtered by liveness.
+    payload = ist.aggregate_all(include_dead=True)
     assert payload['summary']['instances'] == 2
     assert payload['summary']['loops_registered'] == 1
     assert payload['summary']['loops_paused'] == 0

@@ -40,10 +40,13 @@ def add_cockpit_parsers(subparsers):
 
 
 def _add_tui_command(subparsers):
-    subparsers.add_parser(
+    tui = subparsers.add_parser(
         'tui',
         help='Launch the interactive cockpit (Textual app — clickable controls)',
     )
+    tui.add_argument('--include-dead', action='store_true',
+                      help='Show instances whose Claude process is dead '
+                           '(diagnostic — toggle in-app with D)')
 
 
 def _add_instance_group(subparsers):
@@ -85,6 +88,14 @@ def _add_instance_group(subparsers):
     label.add_argument('--clear', action='store_true',
                        help='Clear the manual label (revert to project basename)')
     _add_output(label)
+
+    prune = instance_subs.add_parser(
+        'prune',
+        help='Bulk forget every instance that fails the liveness check',
+    )
+    prune.add_argument('--dry-run', action='store_true',
+                       help='Show which instances would be removed without removing them')
+    _add_output(prune)
 
 
 def _add_sentinel_group(subparsers):
@@ -174,6 +185,9 @@ def _add_status_command(subparsers):
     status.add_argument('--all', action='store_true', help='Show every discoverable instance')
     status.add_argument('--instance', metavar='ID',
                          help='Limit to a single instance')
+    status.add_argument('--include-dead', action='store_true',
+                         help='Show instances whose Claude process is dead '
+                              '(diagnostic — by default only live instances are listed)')
     fmt = status.add_mutually_exclusive_group()
     fmt.add_argument('--pretty', action='store_true',
                      help='ANSI colored layout (default for TTY)')

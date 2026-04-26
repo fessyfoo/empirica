@@ -269,12 +269,14 @@ class CockpitApp(App):
         Binding('k', 'kill', 'Kill'),
         Binding('f', 'forget', 'Forget'),
         Binding('R', 'relabel', 'Rename'),
+        Binding('D', 'toggle_dead', 'Show dead'),
     ]
 
-    def __init__(self) -> None:
+    def __init__(self, include_dead: bool = False) -> None:
         super().__init__()
         self.payload: dict[str, Any] = {'instances': [], 'summary': {}, 'generated_at': ''}
         self.selected_instance_id: str | None = None
+        self.include_dead = include_dead
 
     # ─── lifecycle ────────────────────────────────────────────────────────
 
@@ -308,7 +310,7 @@ class CockpitApp(App):
 
     def refresh_payload(self) -> None:
         try:
-            self.payload = aggregate_all()
+            self.payload = aggregate_all(include_dead=self.include_dead)
         except Exception as e:
             self._log(f'refresh failed: {e}')
             return
@@ -316,11 +318,19 @@ class CockpitApp(App):
         self._render_table()
         self._render_detail()
 
+    def action_toggle_dead(self) -> None:
+        self.include_dead = not self.include_dead
+        self._log(
+            f'showing {"all instances (incl. dead)" if self.include_dead else "live instances only"}'
+        )
+        self.refresh_payload()
+
     def _render_summary(self) -> None:
         s = self.payload.get('summary', {})
         ts = self.payload.get('generated_at', '').split('T')[-1].split('+')[0][:8]
+        mode = ' (incl. dead)' if self.include_dead else ' (live only — D to toggle)'
         text = (
-            f"{s.get('instances', 0)} instances · "
+            f"{s.get('instances', 0)} instances{mode} · "
             f"{s.get('loops_registered', 0)} loops · "
             f"{s.get('loops_paused', 0)} paused · "
             f"{s.get('active_tx', 0)} active tx · refreshed {ts}"
@@ -557,7 +567,7 @@ def _current_instance_id() -> str | None:
         return None
 
 
-def run_tui() -> int:
+def run_tui(include_dead: bool = False) -> int:
     """Entry point for `empirica tui` CLI command. Returns shell exit code."""
     # Sanity: ensure LoopRegistry import path resolves (helps surface install issues).
     try:
@@ -567,7 +577,7 @@ def run_tui() -> int:
         pass
 
     try:
-        app = CockpitApp()
+        app = CockpitApp(include_dead=include_dead)
         app.run()
         return 0
     except KeyboardInterrupt:
