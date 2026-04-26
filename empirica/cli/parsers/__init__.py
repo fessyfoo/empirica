@@ -47,6 +47,7 @@ from .architecture_parsers import add_architecture_parsers
 from .bus_parsers import add_bus_parsers
 from .cascade_parsers import add_cascade_parsers
 from .checkpoint_parsers import add_checkpoint_parsers
+from .cockpit_parsers import add_cockpit_parsers
 from .concept_graph_parsers import add_concept_graph_parsers
 from .config_parsers import add_config_parsers
 from .domain_parsers import add_domain_parsers, add_resolve_parser
@@ -81,6 +82,7 @@ __all__ = [
     'add_bus_parsers',
     'add_cascade_parsers',
     'add_checkpoint_parsers',
+    'add_cockpit_parsers',
     'add_concept_graph_parsers',
     'add_config_parsers',
     'add_domain_parsers',

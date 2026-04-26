@@ -1,0 +1,372 @@
+"""Instance discovery + state aggregation for the cockpit `status` command.
+
+Discovery is via state-file scan only — no tmux, no /proc, no process scanning.
+An instance is anything that has left a footprint in ~/.empirica/:
+
+  - instance_projects/{instance_id}.json  (canonical: instance → project map)
+  - sentinel_paused_{instance_id}         (sentinel pause flag)
+  - loops_{instance_id}.json              (loop registry)
+  - active_session_{instance_id}          (legacy session pointer)
+  - hook_counters_{instance_id}.json      (transaction hook counters)
+  - context_usage_{instance_id}.json      (context tracking)
+
+Aggregation reads the per-instance project pointer, then opens the project's
+.empirica/active_transaction{suffix}.json to derive phase + age.
+
+Phase model (file-derived, no DB):
+  - "closed"          → status == "closed"
+  - "praxic"          → status == "open" AND hook_counters has praxic_tool_calls > 0
+  - "noetic"          → status == "open" AND no praxic activity yet
+  - "no-transaction"  → no transaction file at all
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+from empirica.core.cockpit.loop_registry import LoopRegistry, is_loop_paused
+from empirica.core.cockpit.sentinel_pause import sentinel_status
+
+EMPIRICA_DIR = Path.home() / '.empirica'
+
+# Stale thresholds — drive the state symbol in --pretty.
+ACTIVE_WINDOW_S = 60
+IDLE_WINDOW_S = 30 * 60
+ABANDONED_WINDOW_S = 24 * 60 * 60
+
+# Files we scan to discover instance_ids.
+INSTANCE_GLOBS = (
+    'instance_projects/*.json',
+    'sentinel_paused_*',
+    'loops_*.json',
+    'active_session_*',
+    'hook_counters_*.json',
+    'context_usage_*.json',
+)
+
+# Files to exclude from instance discovery — they match the glob but are
+# not per-instance footprints (e.g. the global pause file).
+INSTANCE_EXCLUDE = {
+    'sentinel_paused',  # global pause file (no instance suffix)
+    'active_session',  # legacy global session
+    'active_transaction',  # legacy global transaction
+}
+
+# Loop pause files use a different suffix shape — strip the loop component.
+LOOP_PAUSE_PATTERN = re.compile(r'^loop_paused_(.+?)_(.+)$')
+
+
+def _instance_id_from_filename(filename: str) -> str | None:
+    """Extract instance_id from a state file name. Returns None if not parseable."""
+    if filename in INSTANCE_EXCLUDE:
+        return None
+
+    # JSON files: strip .json suffix
+    name = filename[:-5] if filename.endswith('.json') else filename
+
+    # Strip known prefixes
+    prefixes = (
+        'sentinel_paused_',
+        'loops_',
+        'active_session_',
+        'active_transaction_',
+        'hook_counters_',
+        'context_usage_',
+        'cortex_remote_cache_',
+        'pre_tx_calls_',
+    )
+    for prefix in prefixes:
+        if name.startswith(prefix):
+            return name[len(prefix):]
+
+    # instance_projects/{id}.json — name is just the instance_id
+    return name
+
+
+def _instance_label(instance_id: str) -> str:
+    """Read the optional human-readable label, falling back to instance_id."""
+    label_file = EMPIRICA_DIR / f'instance_label_{instance_id}'
+    if label_file.exists():
+        try:
+            text = label_file.read_text(encoding='utf-8').strip()
+            if text:
+                return text.splitlines()[0].strip()
+        except OSError:
+            pass
+    return instance_id
+
+
+def _instance_project_path(instance_id: str) -> str | None:
+    """Return the project_path the instance is currently bound to, or None."""
+    candidate = EMPIRICA_DIR / 'instance_projects' / f'{instance_id}.json'
+    if candidate.exists():
+        try:
+            with open(candidate, encoding='utf-8') as f:
+                data = json.load(f)
+            project_path = data.get('project_path')
+            if isinstance(project_path, str) and project_path:
+                return project_path
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    # Fallback: parse legacy active_session_{id}
+    session_file = EMPIRICA_DIR / f'active_session_{instance_id}'
+    if session_file.exists():
+        try:
+            with open(session_file, encoding='utf-8') as f:
+                data = json.load(f)
+            project_path = data.get('project_path')
+            if isinstance(project_path, str) and project_path:
+                return project_path
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    return None
+
+
+def _newest_mtime(paths: list[Path]) -> float | None:
+    """Return the newest mtime among existing paths, or None if none exist."""
+    best: float | None = None
+    for path in paths:
+        try:
+            mtime = path.stat().st_mtime
+        except OSError:
+            continue
+        if best is None or mtime > best:
+            best = mtime
+    return best
+
+
+def _read_transaction_state(project_path: str, instance_id: str) -> dict[str, Any]:
+    """Read transaction info for an instance. Returns dict with phase + age fields.
+
+    Returns:
+        {
+            'phase': 'noetic' | 'praxic' | 'closed' | 'no-transaction',
+            'transaction_id': str | None,
+            'transaction_age_seconds': float | None,
+            'last_activity_iso': str | None,
+            'last_activity_seconds': float | None,
+            'work_type': str | None,
+            'domain': str | None,
+        }
+    """
+    suffix = f'_{instance_id}'
+    empirica_dir = Path(project_path) / '.empirica'
+    tx_file = empirica_dir / f'active_transaction{suffix}.json'
+    counters_file = empirica_dir / f'hook_counters{suffix}.json'
+
+    result: dict[str, Any] = {
+        'phase': 'no-transaction',
+        'transaction_id': None,
+        'transaction_age_seconds': None,
+        'last_activity_iso': None,
+        'last_activity_seconds': None,
+        'work_type': None,
+        'domain': None,
+    }
+
+    if not tx_file.exists():
+        return result
+
+    try:
+        with open(tx_file, encoding='utf-8') as f:
+            tx = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return result
+
+    result['transaction_id'] = tx.get('transaction_id')
+    result['work_type'] = tx.get('work_type')
+    result['domain'] = tx.get('domain')
+
+    preflight_ts = tx.get('preflight_timestamp')
+    now = datetime.now(tz=UTC).timestamp()
+    if isinstance(preflight_ts, (int, float)):
+        result['transaction_age_seconds'] = max(0.0, now - preflight_ts)
+
+    # Last activity = newest mtime across tx + counters file
+    last_mtime = _newest_mtime([tx_file, counters_file])
+    if last_mtime is not None:
+        result['last_activity_iso'] = datetime.fromtimestamp(last_mtime, tz=UTC).isoformat()
+        result['last_activity_seconds'] = max(0.0, now - last_mtime)
+
+    status = tx.get('status', 'open')
+    if status == 'closed':
+        result['phase'] = 'closed'
+        return result
+
+    # Status open — distinguish noetic vs praxic from hook counters.
+    praxic = 0
+    if counters_file.exists():
+        try:
+            with open(counters_file, encoding='utf-8') as f:
+                counters = json.load(f)
+            praxic = int(counters.get('praxic_tool_calls', 0) or 0)
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            praxic = 0
+    result['phase'] = 'praxic' if praxic > 0 else 'noetic'
+    return result
+
+
+def _derive_state_symbol(tx_state: dict[str, Any], instance_files_mtime: float | None) -> str:
+    """Derive the cockpit state from transaction + file age.
+
+    Returns one of: 'active' | 'idle' | 'stuck' | 'closed' | 'no-claude'
+    """
+    last_seconds = tx_state.get('last_activity_seconds')
+
+    # No transaction at all — fall back to instance file age.
+    if tx_state['phase'] == 'no-transaction':
+        if instance_files_mtime is None:
+            return 'no-claude'
+        age = datetime.now(tz=UTC).timestamp() - instance_files_mtime
+        if age > ABANDONED_WINDOW_S:
+            return 'no-claude'
+        return 'closed'
+
+    if tx_state['phase'] == 'closed':
+        return 'closed'
+
+    # Open transaction — bucket on last_activity.
+    if last_seconds is None:
+        return 'closed'
+    if last_seconds < ACTIVE_WINDOW_S:
+        return 'active'
+    if last_seconds < IDLE_WINDOW_S:
+        return 'idle'
+    return 'stuck'
+
+
+def discover_instances() -> list[str]:
+    """Return the sorted list of known instance_ids.
+
+    Walks the standard state-file globs under ~/.empirica/ and unions the
+    derived instance_ids. Excludes loop pause sidecars (different suffix
+    shape) and known global files.
+    """
+    EMPIRICA_DIR.mkdir(parents=True, exist_ok=True)
+    seen: set[str] = set()
+
+    for glob in INSTANCE_GLOBS:
+        for path in EMPIRICA_DIR.glob(glob):
+            instance_id = _instance_id_from_filename(path.name)
+            if instance_id and not LOOP_PAUSE_PATTERN.match(path.name):
+                seen.add(instance_id)
+
+    return sorted(seen)
+
+
+def _newest_instance_file_mtime(instance_id: str) -> float | None:
+    """Newest mtime of any known per-instance state file. Used for staleness."""
+    candidates = [
+        EMPIRICA_DIR / 'instance_projects' / f'{instance_id}.json',
+        EMPIRICA_DIR / f'sentinel_paused_{instance_id}',
+        EMPIRICA_DIR / f'loops_{instance_id}.json',
+        EMPIRICA_DIR / f'active_session_{instance_id}',
+        EMPIRICA_DIR / f'hook_counters_{instance_id}.json',
+        EMPIRICA_DIR / f'context_usage_{instance_id}.json',
+    ]
+    return _newest_mtime(candidates)
+
+
+def aggregate_instance_state(instance_id: str) -> dict[str, Any]:
+    """Read all state for one instance and return a serializable dict.
+
+    Layout intentionally matches the proposal's --json schema. Robust to
+    partial state — missing pieces become null fields, not exceptions.
+    """
+    project_path = _instance_project_path(instance_id)
+    label = _instance_label(instance_id)
+
+    if project_path:
+        tx_state = _read_transaction_state(project_path, instance_id)
+    else:
+        tx_state = {
+            'phase': 'no-transaction',
+            'transaction_id': None,
+            'transaction_age_seconds': None,
+            'last_activity_iso': None,
+            'last_activity_seconds': None,
+            'work_type': None,
+            'domain': None,
+        }
+
+    instance_mtime = _newest_instance_file_mtime(instance_id)
+    state = _derive_state_symbol(tx_state, instance_mtime)
+
+    sentinel = sentinel_status(instance_id)
+
+    # Loop registry — graceful when registry doesn't exist.
+    registry = LoopRegistry(instance_id, label=label)
+    loops_dict: dict[str, Any] = {}
+    for entry in registry.list_loops():
+        d = entry.to_dict()
+        d['paused'] = is_loop_paused(instance_id, entry.name)
+        loops_dict[entry.name] = d
+
+    transaction: dict[str, Any] | None
+    if tx_state['transaction_id']:
+        transaction = {
+            'id': tx_state['transaction_id'],
+            'age_seconds': tx_state['transaction_age_seconds'],
+            'work_type': tx_state['work_type'],
+            'domain': tx_state['domain'],
+        }
+    else:
+        transaction = None
+
+    return {
+        'instance_id': instance_id,
+        'label': label,
+        'project_path': project_path,
+        'state': state,
+        'phase': tx_state['phase'],
+        'transaction': transaction,
+        'last_activity': tx_state['last_activity_iso'],
+        'last_activity_seconds': tx_state['last_activity_seconds'],
+        'sentinel': {
+            'paused': sentinel.paused,
+            'scope': sentinel.scope,
+            'since': sentinel.since,
+            'reason': sentinel.reason,
+        },
+        'loops': loops_dict,
+    }
+
+
+def aggregate_all() -> dict[str, Any]:
+    """Scan and aggregate every discoverable instance.
+
+    Returns the full status payload (matches proposal --json schema).
+    """
+    instances = [aggregate_instance_state(i) for i in discover_instances()]
+
+    loops_registered = sum(len(i['loops']) for i in instances)
+    loops_paused = sum(
+        1 for i in instances for loop in i['loops'].values() if loop.get('paused')
+    )
+    active_tx = sum(
+        1 for i in instances if i['phase'] in ('noetic', 'praxic')
+    )
+
+    return {
+        'generated_at': datetime.now(tz=UTC).isoformat(),
+        'instances': instances,
+        'summary': {
+            'instances': len(instances),
+            'loops_registered': loops_registered,
+            'loops_paused': loops_paused,
+            'active_tx': active_tx,
+        },
+    }
+
+
+__all__ = [
+    'aggregate_all',
+    'aggregate_instance_state',
+    'discover_instances',
+]

@@ -1,0 +1,325 @@
+"""ANSI + JSON renderers for `empirica status`.
+
+The `--json` form is the source of truth all renderers consume — pretty is
+just a colored projection of the same dict. Keep both in sync.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import sys
+from datetime import UTC, datetime
+from typing import Any
+
+_ANSI_RE = re.compile(r'\033\[[0-9;]*m')
+
+# Glyphs we use that render two visual columns in monospace terminals.
+# Most colored circle emojis are East Asian Wide; ⊘ and ⊗ are narrow.
+_WIDE_GLYPHS = frozenset('🟢🟡🔴🟠🟣🟤🟦🟧🟨🟩🟪🟫🔵🔶🔷◆●○◐⚠')
+
+
+def _visible_len(text: str) -> int:
+    """Visible column count, ANSI-stripped, with wide-glyph awareness."""
+    stripped = _ANSI_RE.sub('', text)
+    extra = sum(1 for ch in stripped if ch in _WIDE_GLYPHS)
+    return len(stripped) + extra
+
+
+def _pad(text: str, width: int) -> str:
+    """Pad text to width using visible character count (ANSI-aware)."""
+    pad = max(0, width - _visible_len(text))
+    return text + (' ' * pad)
+
+# ANSI color constants — kept tiny on purpose. We don't want a curses
+# dependency for what is fundamentally a status line.
+_RESET = '\033[0m'
+_DIM = '\033[2m'
+_BOLD = '\033[1m'
+_GREEN = '\033[32m'
+_YELLOW = '\033[33m'
+_RED = '\033[31m'
+_CYAN = '\033[36m'
+_GRAY = '\033[90m'
+
+# Mapping: instance state → (symbol, color)
+_STATE_GLYPH = {
+    'active': ('🟢', _GREEN, 'active'),
+    'idle': ('🟡', _YELLOW, 'idle'),
+    'stuck': ('🔴', _RED, 'stuck'),
+    'closed': ('⊘', _GRAY, 'closed'),
+    'no-claude': ('⊗', _GRAY, 'no-claude'),
+}
+
+_STALE_LOOP_FACTOR = 2.0  # last_run age > 2× interval → stale warning
+
+
+def _color_enabled() -> bool:
+    """Use ANSI colors only when stdout is a TTY and NO_COLOR is unset."""
+    if os.environ.get('NO_COLOR'):
+        return False
+    return sys.stdout.isatty()
+
+
+def _c(text: str, color: str, enabled: bool) -> str:
+    if not enabled or not color:
+        return text
+    return f'{color}{text}{_RESET}'
+
+
+def _humanize_seconds(seconds: float | None) -> str:
+    if seconds is None:
+        return '—'
+    seconds = max(0.0, float(seconds))
+    if seconds < 60:
+        return f'{int(seconds)}s'
+    if seconds < 3600:
+        return f'{int(seconds // 60)}m'
+    if seconds < 86_400:
+        return f'{int(seconds // 3600)}h'
+    return f'{int(seconds // 86_400)}d'
+
+
+def _short_id(uid: str | None, n: int = 8) -> str:
+    if not uid:
+        return '—'
+    return uid.split('-')[0][:n] if '-' in uid else uid[:n]
+
+
+def render_json(payload: dict[str, Any]) -> str:
+    """Serialize the cockpit payload as a JSON string."""
+    return json.dumps(payload, indent=2, sort_keys=False)
+
+
+def _interval_to_seconds(interval: str | None) -> float | None:
+    """Parse '5m' / '30s' / '2h' / '1d' to seconds. Returns None on failure."""
+    if not interval or not isinstance(interval, str):
+        return None
+    interval = interval.strip().lower()
+    if not interval:
+        return None
+    suffix_map = {'s': 1, 'm': 60, 'h': 3600, 'd': 86_400}
+    suffix = interval[-1]
+    if suffix in suffix_map:
+        try:
+            return float(interval[:-1]) * suffix_map[suffix]
+        except ValueError:
+            return None
+    try:
+        return float(interval) * 60  # bare number → minutes
+    except ValueError:
+        return None
+
+
+def _loop_age_seconds(loop: dict[str, Any]) -> float | None:
+    last_run = loop.get('last_run')
+    if not last_run:
+        return None
+    try:
+        dt = datetime.fromisoformat(last_run.replace('Z', '+00:00'))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return (datetime.now(tz=UTC) - dt).total_seconds()
+    except (ValueError, TypeError):
+        return None
+
+
+def _loop_is_stale(loop: dict[str, Any]) -> bool:
+    interval_s = _interval_to_seconds(loop.get('interval'))
+    if interval_s is None or interval_s <= 0:
+        return False
+    age = _loop_age_seconds(loop)
+    if age is None:
+        return False
+    return age > interval_s * _STALE_LOOP_FACTOR
+
+
+def _loops_summary(loops: dict[str, Any], color: bool) -> str:
+    """Render '●● 2/2' style loop summary."""
+    if not loops:
+        return _c('○ 0/0', _GRAY, color)
+
+    paused = sum(1 for loop in loops.values() if loop.get('paused'))
+    stale = any(_loop_is_stale(loop) for loop in loops.values())
+    total = len(loops)
+    active = total - paused
+
+    if paused == total:
+        glyph = _c('○', _RED, color)
+    elif paused == 0:
+        glyph = _c('●' * min(active, 3), _GREEN, color)
+    else:
+        glyph = _c('◐', _YELLOW, color)
+
+    suffix = ' ⚠' if stale else ''
+    suffix_colored = _c(suffix, _YELLOW, color) if suffix else ''
+    return f'{glyph} {active}/{total}{suffix_colored}'
+
+
+def _sentinel_cell(sentinel: dict[str, Any], color: bool) -> str:
+    if sentinel.get('paused'):
+        return f'{_c("○", _RED, color)} PAUSED'
+    return f'{_c("●", _GREEN, color)} ON'
+
+
+def _phase_cell(phase: str, color: bool) -> str:
+    if phase == 'noetic':
+        return _c('noetic', _CYAN, color)
+    if phase == 'praxic':
+        return _c('praxic', _GREEN, color)
+    if phase == 'closed':
+        return _c('closed', _GRAY, color)
+    return _c('—', _GRAY, color)
+
+
+def _state_cell(state: str, color: bool) -> str:
+    glyph, c, name = _STATE_GLYPH.get(state, ('?', _GRAY, state))
+    return f'{glyph} {_c(name, c, color)}'
+
+
+def _tx_cell(transaction: dict[str, Any] | None, color: bool) -> str:
+    if not transaction:
+        return _c('—', _GRAY, color)
+    age_s = transaction.get('age_seconds')
+    age_str = _humanize_seconds(age_s)
+    if age_s is None:
+        age_color = ''
+    elif age_s > 30 * 60:
+        age_color = _RED
+    elif age_s > 10 * 60:
+        age_color = _YELLOW
+    else:
+        age_color = ''
+    age_part = _c(age_str, age_color, color) if age_color else age_str
+    return f'{_short_id(transaction.get("id"))} {age_part}'
+
+
+def render_pretty(payload: dict[str, Any], all_instances: bool = True) -> str:
+    """Render the cockpit overview as ANSI-colored text.
+
+    When all_instances is False and the payload has exactly one instance, the
+    single-instance detail layout is used.
+    """
+    color = _color_enabled()
+    instances = payload.get('instances', [])
+    summary = payload.get('summary', {})
+
+    now_local = datetime.now().astimezone()
+    timestamp = now_local.strftime('%H:%M:%S %z')
+
+    if not all_instances and len(instances) == 1:
+        return _render_single(instances[0], timestamp, color)
+
+    return _render_overview(instances, summary, timestamp, color)
+
+
+def _render_overview(
+    instances: list[dict[str, Any]],
+    summary: dict[str, Any],
+    timestamp: str,
+    color: bool,
+) -> str:
+    lines: list[str] = []
+    title = _c('empirica cockpit', _BOLD, color)
+    pad = max(20, 60 - len('empirica cockpit'))
+    lines.append(f'{title}{" " * pad}{timestamp}')
+    lines.append('')
+
+    if not instances:
+        lines.append(_c('no instances discovered', _DIM, color))
+        lines.append('')
+        lines.append(_c('hint: empirica preflight-submit -  starts a transaction', _DIM, color))
+        return '\n'.join(lines)
+
+    cols = (14, 13, 10, 12, 18, 14)
+    header = (
+        f'{"Instance":<{cols[0]}}{"State":<{cols[1]}}{"Phase":<{cols[2]}}'
+        f'{"Sentinel":<{cols[3]}}{"Loops":<{cols[4]}}{"Last Tx":<{cols[5]}}'
+    )
+    lines.append(_c(header, _BOLD, color))
+    lines.append(_c('─' * sum(cols), _DIM, color))
+
+    for inst in instances:
+        label_raw = inst.get('label') or inst.get('instance_id', '?')
+        label = _pad(label_raw[:cols[0] - 1], cols[0])
+        state = _pad(_state_cell(inst['state'], color), cols[1])
+        phase = _pad(_phase_cell(inst['phase'], color), cols[2])
+        sentinel = _pad(_sentinel_cell(inst['sentinel'], color), cols[3])
+        loops = _pad(_loops_summary(inst.get('loops', {}), color), cols[4])
+        tx = _tx_cell(inst.get('transaction'), color)
+        lines.append(f'{label}{state}{phase}{sentinel}{loops}{tx}')
+
+    lines.append('')
+    sentence = (
+        f'{summary.get("instances", 0)} instances · '
+        f'{summary.get("loops_registered", 0)} loops registered · '
+        f'{summary.get("loops_paused", 0)} paused · '
+        f'{summary.get("active_tx", 0)} active tx'
+    )
+    lines.append(_c(sentence, _DIM, color))
+
+    return '\n'.join(lines)
+
+
+def _render_single(inst: dict[str, Any], timestamp: str, color: bool) -> str:
+    lines: list[str] = []
+    label = inst.get('label') or inst.get('instance_id', '?')
+    instance_id = inst.get('instance_id', '?')
+    title = _c(f'empirica ◆ {label} ({instance_id})', _BOLD, color)
+    pad = max(2, 60 - len(f'empirica ◆ {label} ({instance_id})'))
+    lines.append(f'{title}{" " * pad}{timestamp}')
+    lines.append('')
+
+    state_phase_tx_parts = [_state_cell(inst['state'], color), _phase_cell(inst['phase'], color)]
+    transaction = inst.get('transaction')
+    if transaction:
+        age = _humanize_seconds(transaction.get('age_seconds'))
+        state_phase_tx_parts.append(
+            f'transaction {_short_id(transaction.get("id"))} ({age})'
+        )
+    lines.append('  ·  '.join(state_phase_tx_parts))
+    lines.append('')
+
+    lines.append(f'Sentinel  {_sentinel_cell(inst["sentinel"], color)}')
+    sent_since = inst['sentinel'].get('since')
+    sent_reason = inst['sentinel'].get('reason')
+    if sent_since:
+        lines.append(_c(f'  since {sent_since}', _DIM, color))
+    if sent_reason:
+        lines.append(_c(f'  reason: {sent_reason}', _DIM, color))
+    lines.append('')
+
+    loops = inst.get('loops', {}) or {}
+    if not loops:
+        lines.append('Loops   (none registered)')
+    else:
+        lines.append('Loops')
+        for name in sorted(loops.keys()):
+            loop = loops[name]
+            paused = loop.get('paused')
+            glyph = _c('○', _RED, color) if paused else _c('●', _GREEN, color)
+            kind = loop.get('kind', 'monitor')
+            schedule = loop.get('cron') or loop.get('interval') or ''
+            schedule_str = f'{kind} {schedule}'.strip().ljust(28)
+            last_run = loop.get('last_run')
+            if last_run:
+                age = _loop_age_seconds(loop)
+                age_str = f'({_humanize_seconds(age)})'
+                stale = _c(' ⚠', _YELLOW, color) if _loop_is_stale(loop) else ''
+                last_str = f'last {last_run.split("T")[-1].split("+")[0][:8]} {age_str}{stale}'
+            else:
+                last_str = 'never run'
+            status_glyph = ''
+            status = loop.get('last_status')
+            if status == 'fail':
+                status_glyph = _c(' fail', _RED, color)
+            elif status == 'ok':
+                status_glyph = _c(' ok', _GREEN, color)
+            paused_label = _c('PAUSED', _RED, color) if paused else ''
+            lines.append(f'  {glyph} {name:<22}{schedule_str}{last_str}{status_glyph}  {paused_label}'.rstrip())
+
+    return '\n'.join(lines)
+
+
+__all__ = ['render_json', 'render_pretty']

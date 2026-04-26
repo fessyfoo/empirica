@@ -5,6 +5,46 @@ All notable changes to Empirica will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Empirica Cockpit** — three new CLI surfaces for multi-instance state
+  visibility and per-instance controls (per `PROPOSAL_SENTINEL_LOOP_TUI.md`):
+  - `empirica sentinel <pause|resume|status>` — wraps the existing
+    `~/.empirica/sentinel_paused_{instance_id}` pause-file mechanism the
+    Sentinel hook already reads. Per-instance + global scope, optional
+    `--reason` text.
+  - `empirica loop <register|unregister|pause|resume|set-interval|heartbeat|list|status>`
+    — per-instance loop registry stored at `~/.empirica/loops_{instance_id}.json`,
+    with atomic writes, idempotent `register`, auto-register-on-heartbeat,
+    and pause-via-sidecar-file (`~/.empirica/loop_paused_{id}_{name}`).
+  - `empirica status [--all] [--instance ID] [--pretty|--json]` —
+    state-file-only instance discovery, transaction phase derived from
+    `hook_counters.praxic_tool_calls`, ANSI-aware pretty renderer with
+    wide-glyph aware column alignment, JSON output is the source of
+    truth all renderers consume. The "TUI" is `watch -n 2 empirica status
+    --all --pretty` until that proves insufficient.
+- **`loop-cron` skill** — prompt template for wiring CC's built-in `/loop`
+  into the registry: register at start (idempotent), check pause flag each
+  fire, heartbeat at end. Without this wiring, a `/loop` cron is invisible
+  to the cockpit and uncontrollable from any other terminal.
+- **`docs/architecture/COCKPIT.md`** — full state-file layout, discovery
+  rules, phase-derivation table, JSON schema, and explicit out-of-scope
+  list (no ntfy, no learning loop, no goal-progress on status row in v1).
+- **40 new unit tests** — `tests/test_cockpit_sentinel_pause.py` (9),
+  `tests/test_cockpit_loop_registry.py` (16), `tests/test_cockpit_instance_state.py` (15).
+
+### Fixed
+- **Sentinel was gating `empirica noetic-batch`** — the batched noetic
+  primitive was forcing CHECK before allowing the CLI form, which defeats
+  the entire purpose. Added to `EMPIRICA_TIER1_PREFIXES` along with the
+  three new cockpit subcommand groups (`sentinel `, `loop `, `status`).
+
+### Changed
+- **`status` is no longer an alias for `system-status`** — the new
+  top-level cockpit overview takes that name. `system-status` keeps its
+  distinct kernel-style diagnostic role.
+
 ## [1.8.12] - 2026-04-25
 
 ### Added

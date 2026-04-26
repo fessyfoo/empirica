@@ -165,6 +165,11 @@ from .command_handlers.persona_commands import (
     handle_persona_promote_command,
     handle_persona_show_command,
 )
+from .command_handlers.cockpit_commands import (
+    handle_loop_group_command,
+    handle_sentinel_group_command,
+    handle_status_command as handle_cockpit_status_command,
+)
 from .command_handlers.query_commands import handle_query_command
 from .command_handlers.release_commands import handle_release_command, handle_release_ready_command
 from .command_handlers.sentinel_commands import (
@@ -189,6 +194,7 @@ from .parsers import (
     add_bus_parsers,
     add_cascade_parsers,
     add_checkpoint_parsers,
+    add_cockpit_parsers,
     add_concept_graph_parsers,
     add_config_parsers,
     add_domain_parsers,
@@ -284,6 +290,7 @@ def create_argument_parser():
     add_mcp_parsers(subparsers)
     add_message_parsers(subparsers)
     add_bus_parsers(subparsers)
+    add_cockpit_parsers(subparsers)
 
     # Built-in help command (handled in main(), not via handler)
     subparsers.add_parser('help', help='Show all commands by category')
@@ -309,6 +316,7 @@ _HELP_CATEGORIES = {
     'issue': ['issue-list', 'issue-show', 'issue-handoff', 'issue-resolve', 'issue-export', 'issue-stats'],
     'investigation': ['investigate', 'investigate-create-branch', 'investigate-checkpoint-branch', 'investigate-merge-branches', 'investigate-multi'],
     'monitoring': ['monitor', 'assess-state', 'trajectory-project', 'efficiency-report', 'workflow-patterns', 'calibration-report'],
+    'cockpit': ['status', 'sentinel', 'loop'],
     'skills': ['skill-suggest', 'skill-fetch', 'skill-extract'],
     'architecture': ['assess-component', 'assess-compare', 'assess-directory'],
     'agents': ['agent-spawn', 'agent-report', 'agent-aggregate', 'agent-parallel', 'agent-export', 'agent-import', 'agent-discover'],
@@ -478,6 +486,11 @@ def main(args=None):
             'compliance-report': handle_compliance_report_command,
             'security-audit': handle_security_audit_command,
             'noetic-batch': handle_noetic_batch_command,
+
+            # Cockpit (proposal: PROPOSAL_SENTINEL_LOOP_TUI.md)
+            'sentinel': handle_sentinel_group_command,
+            'loop': handle_loop_group_command,
+            'status': handle_cockpit_status_command,
 
             # Checkpoint commands
             'checkpoint-create': handle_checkpoint_create_command,

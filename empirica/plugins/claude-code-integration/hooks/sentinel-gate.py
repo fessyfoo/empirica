@@ -442,6 +442,10 @@ EMPIRICA_TIER1_PREFIXES = (
     'empirica --help', 'empirica -h',
     'empirica version',
     'empirica profile-status',  # Profile status - read-only
+    'empirica noetic-batch',  # Batched noetic primitive — IS a noetic operation
+    'empirica sentinel ',  # New sentinel subcommand: pause/resume/status (gating allowed)
+    'empirica loop ',  # Loop registry CRUD — instance-local control plane
+    'empirica status',  # Multi-instance status overview
 )
 
 # Tier 2: State-changing commands - allowed (these ARE the epistemic workflow)

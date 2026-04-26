@@ -39,6 +39,11 @@ from .checkpoint_signing_commands import (
 from .code_embed import (
     handle_code_embed_command,
 )
+from .cockpit_commands import (
+    handle_loop_group_command,
+    handle_sentinel_group_command,
+    handle_status_command as handle_cockpit_status_command,
+)
 from .compact_analysis import handle_compact_analysis
 from .compliance_report_commands import (
     handle_compliance_report_command,
