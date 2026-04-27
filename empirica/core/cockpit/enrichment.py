@@ -121,8 +121,35 @@ class StatuslineSummary:
     label: str | None
     know: float | None
     uncertainty: float | None
-    artifact_count: int | None
+    context: float | None
+    completion: float | None
+    confidence: float | None  # composite score 0.0-1.0
+    open_goals: int | None
+    artifact_count: int | None  # alias for open_goals; kept for backwards compat
     raw: dict[str, Any] | None
+
+
+def calculate_confidence(vectors: dict[str, Any]) -> float:
+    """Composite confidence from epistemic vectors.
+
+    Mirrors statusline_empirica.calculate_confidence (kept independent so
+    the cockpit doesn't depend on the plugin scripts directory):
+      0.40 × know
+      0.30 × (1 - uncertainty)
+      0.20 × context
+      0.10 × completion
+
+    Returns 0.0-1.0. Defaults missing vectors to 0.5 (uncertainty/context)
+    or 0.0 (completion).
+    """
+    if not vectors:
+        return 0.0
+    know = float(vectors.get('know', 0.5) or 0.5)
+    uncertainty = float(vectors.get('uncertainty', 0.5) or 0.5)
+    context = float(vectors.get('context', 0.5) or 0.5)
+    completion = float(vectors.get('completion', 0.0) or 0.0)
+    score = 0.40 * know + 0.30 * (1.0 - uncertainty) + 0.20 * context + 0.10 * completion
+    return max(0.0, min(1.0, score))
 
 
 def statusline_summary(
@@ -135,24 +162,19 @@ def statusline_summary(
 
     Source priority:
       1. project sessions.db epistemic_snapshots (live, real-time vectors)
-         — same source the empirica statusline reads
-      2. ~/.empirica/statusline_cache/{instance_id}_*.json (legacy cache,
-         can be stale)
-
-    Returns a blank summary if neither source has data.
+      2. ~/.empirica/statusline_cache/{instance_id}_*.json (legacy cache)
     """
     blank = StatuslineSummary(
         instance_id=instance_id, found=False, label=label_fallback,
-        know=None, uncertainty=None, artifact_count=None, raw=None,
+        know=None, uncertainty=None, context=None, completion=None,
+        confidence=None, open_goals=None, artifact_count=None, raw=None,
     )
 
-    # Live DB read: most recent epistemic_snapshot for this instance's session.
     if project_path and session_id:
         live = _live_statusline_from_db(project_path, session_id, label_fallback)
         if live is not None:
             return live
 
-    # Cache fallback (kept for instances without a project binding yet).
     return _statusline_from_cache(instance_id, label_fallback) or blank
 
 
@@ -184,17 +206,17 @@ def _live_statusline_from_db(
         )
         row = cur.fetchone()
 
-        # Open-goal count for the same session (best-effort; goals table
-        # is per-project, filter on session for the active scope).
-        artifact_count: int | None = None
+        # Goals table uses status='complete' (not 'completed'). Filter the
+        # not-done set: anything that isn't 'complete' is open.
+        open_goals: int | None = None
         try:
             cur.execute(
-                "SELECT COUNT(*) FROM goals WHERE session_id = ? AND status != 'completed'",
+                "SELECT COUNT(*) FROM goals WHERE session_id = ? AND status != 'complete'",
                 (session_id,),
             )
             row2 = cur.fetchone()
             if row2:
-                artifact_count = int(row2[0])
+                open_goals = int(row2[0])
         except sqlite3.Error:
             pass
 
@@ -209,13 +231,18 @@ def _live_statusline_from_db(
     except (json.JSONDecodeError, TypeError):
         return None
 
+    confidence = calculate_confidence(vectors)
     return StatuslineSummary(
-        instance_id='',  # caller binds
+        instance_id='',
         found=True,
         label=label_fallback,
         know=_safe_float(vectors.get('know')),
         uncertainty=_safe_float(vectors.get('uncertainty')),
-        artifact_count=artifact_count,
+        context=_safe_float(vectors.get('context')),
+        completion=_safe_float(vectors.get('completion')),
+        confidence=round(confidence, 2),
+        open_goals=open_goals,
+        artifact_count=open_goals,
         raw={'vectors': vectors, 'source': 'epistemic_snapshots'},
     )
 
@@ -245,16 +272,21 @@ def _statusline_from_cache(
 
     vectors = data.get('vectors') or {}
     label = data.get('project_name') or label_fallback
-    artifact_count = data.get('open_goals') or data.get('artifact_count')
-    if artifact_count is None:
-        artifact_count = (data.get('open_goals') or 0) + (data.get('open_unknowns') or 0)
+    open_goals = data.get('open_goals')
+    if open_goals is None:
+        open_goals = (data.get('open_goals') or 0) + (data.get('open_unknowns') or 0)
+    confidence = calculate_confidence(vectors) if vectors else None
     return StatuslineSummary(
         instance_id=instance_id,
         found=True,
         label=label,
         know=_safe_float(vectors.get('know')),
         uncertainty=_safe_float(vectors.get('uncertainty')),
-        artifact_count=int(artifact_count) if artifact_count is not None else None,
+        context=_safe_float(vectors.get('context')),
+        completion=_safe_float(vectors.get('completion')),
+        confidence=round(confidence, 2) if confidence is not None else None,
+        open_goals=int(open_goals) if open_goals is not None else None,
+        artifact_count=int(open_goals) if open_goals is not None else None,
         raw={**data, 'source': 'statusline_cache'},
     )
 
@@ -263,6 +295,130 @@ def _safe_float(value: Any) -> float | None:
     try:
         return round(float(value), 2)
     except (TypeError, ValueError):
+        return None
+
+
+# ─── open goals ────────────────────────────────────────────────────────────
+
+@dataclass
+class OpenGoal:
+    objective: str
+    status: str  # 'in_progress' | 'blocked'
+    age_seconds: float | None
+
+
+def open_goals_list(
+    project_path: str | None,
+    session_id: str | None,
+    limit: int = 5,
+) -> list[OpenGoal]:
+    """Return the N most recent open goals for this instance.
+
+    'Open' = goals.status != 'complete'. Sorted newest first by
+    created_timestamp. Bounded I/O — a single SQL query, safe per refresh.
+    """
+    if not project_path or not session_id:
+        return []
+    nested = Path(project_path) / '.empirica' / 'sessions' / 'sessions.db'
+    bare = Path(project_path) / '.empirica' / 'sessions.db'
+    if nested.exists() and nested.stat().st_size > 0:
+        db_path = nested
+    elif bare.exists() and bare.stat().st_size > 0:
+        db_path = bare
+    else:
+        return []
+
+    goals: list[OpenGoal] = []
+    try:
+        conn = sqlite3.connect(f'file:{db_path}?mode=ro', uri=True, timeout=1.0)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT objective, status, created_timestamp FROM goals "
+            "WHERE session_id = ? AND status != 'complete' "
+            "ORDER BY created_timestamp DESC LIMIT ?",
+            (session_id, limit),
+        )
+        now = datetime.now(tz=UTC).timestamp()
+        for objective, status, created in cur.fetchall():
+            try:
+                age = max(0.0, now - float(created)) if created is not None else None
+            except (TypeError, ValueError):
+                age = None
+            goals.append(OpenGoal(
+                objective=str(objective or ''),
+                status=str(status or 'in_progress'),
+                age_seconds=age,
+            ))
+        conn.close()
+    except sqlite3.Error:
+        return []
+    return goals
+
+
+# ─── notifications list (placeholder companion to notification_summary) ────
+
+@dataclass
+class NotificationItem:
+    title: str
+    body: str | None
+    received_iso: str | None
+    source: str  # 'enp' | 'unknown'
+
+
+def notifications_list(instance_id: str, limit: int = 5) -> list[NotificationItem]:
+    """Return per-instance open notifications.
+
+    PLACEHOLDER — reads ~/.empirica/enp/items_{id}.json if present (an
+    expected schema laid out for future ENP→cockpit integration). Returns
+    empty list otherwise. Ships an ergonomic empty-state in the TUI.
+    """
+    safe_id = instance_id.replace('/', '-').replace('%', '')
+    path = EMPIRICA_DIR / 'enp' / f'items_{safe_id}.json'
+    if not path.exists():
+        return []
+    try:
+        with open(path, encoding='utf-8') as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return []
+    items_raw = data.get('items', []) if isinstance(data, dict) else []
+    if not isinstance(items_raw, list):
+        return []
+
+    out: list[NotificationItem] = []
+    for raw in items_raw[:limit]:
+        if not isinstance(raw, dict):
+            continue
+        out.append(NotificationItem(
+            title=str(raw.get('title', '(untitled)')),
+            body=raw.get('body'),
+            received_iso=raw.get('received'),
+            source=str(raw.get('source', 'enp')),
+        ))
+    return out
+
+
+# ─── context window usage (CC writes the file; cockpit reads it) ──────────
+
+def context_usage(instance_id: str) -> int | None:
+    """Read CC's context window usage % for this instance.
+
+    Source: ~/.empirica/context_usage_{instance_id}.json (written by the
+    statusline command when CC invokes it with stdin payload). Returns
+    the integer percentage 0-100, or None if no recent file.
+    """
+    safe_id = instance_id.replace('/', '-').replace('%', '')
+    path = EMPIRICA_DIR / f'context_usage_{safe_id}.json'
+    if not path.exists():
+        return None
+    try:
+        with open(path, encoding='utf-8') as f:
+            data = json.load(f)
+        used = data.get('used_percentage')
+        if used is None:
+            return None
+        return max(0, min(100, int(used)))
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
         return None
 
 
@@ -349,13 +505,19 @@ def _format_event_action(ts: float | None, kind: str, raw: str | None) -> Recent
 
 
 __all__ = [
+    'NotificationItem',
     'NotificationSummary',
+    'OpenGoal',
     'RecentAction',
     'StatuslineSummary',
+    'calculate_confidence',
     'clear_notifications',
+    'context_usage',
     'is_asking',
     'notification_summary',
+    'notifications_list',
     'notifications_total',
+    'open_goals_list',
     'recent_actions',
     'statusline_summary',
 ]

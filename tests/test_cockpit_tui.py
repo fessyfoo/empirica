@@ -64,7 +64,9 @@ async def test_tui_mounts_compact_widgets(cockpit_env):
         assert app.query_one('#inst-table', DataTable) is not None
         assert app.query_one('#summary', Static) is not None
         assert app.query_one('#statusline', Static) is not None
-        assert app.query_one('#recent', Static) is not None
+        # v1.6: portrait layout — recent strip replaced with goals + notif
+        assert app.query_one('#goals', Static) is not None
+        assert app.query_one('#notif', Static) is not None
         for btn_id in ('btn-sent', 'btn-loops', 'btn-stop', 'btn-notif'):
             assert app.query_one(f'#{btn_id}', Button) is not None, btn_id
 
@@ -92,7 +94,8 @@ async def test_table_has_six_columns(cockpit_env):
         await pilot.pause(); await pilot.pause()
         table = app.query_one('#inst-table', DataTable)
         col_labels = [c.label.plain for c in table.columns.values()]
-        assert col_labels == ['stat', 'name', 'phase', 'S', 'L', 'N']
+        # v1.6: shortened headers for portrait fit (s/ph/S/L/N)
+        assert col_labels == ['s', 'name', 'ph', 'S', 'L', 'N']
 
 
 # ─── data loading ─────────────────────────────────────────────────────────
@@ -272,11 +275,151 @@ async def test_phase_ask_when_asking_flag_present(cockpit_env):
     async with app.run_test(headless=True, size=(54, 20)) as pilot:
         await pilot.pause(); await pilot.pause()
         table = app.query_one('#inst-table', DataTable)
-        # Match row by key (instance_id) — label may be the project basename.
         for row_key in table.rows:
             if str(row_key.value) == 'tmux_42':
                 row = table.get_row(row_key)
+                # v1.6: phase column is shortened — 'ask⚠' with no space
                 phase_cell = str(row[2])
                 assert 'ask' in phase_cell, f'expected ask phase, got {phase_cell!r}'
                 return
         pytest.fail('tmux_42 row not found')
+
+
+# ─── v1.6 statusline + open goals ─────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_statusline_format_includes_conf_and_goals(cockpit_env):
+    """Statusline format: k:X c:Y conf:Z% goals:N (when vectors available)."""
+    from empirica.cli.tui import CockpitApp
+    from textual.widgets import Static
+    from rich.console import Console
+    import sqlite3
+    import time
+
+    home, project = cockpit_env
+    _bind_instance(home, project, 'tmux_42')
+    # Create the project DB with a snapshot the cockpit can read.
+    db_dir = project / '.empirica' / 'sessions'
+    db_dir.mkdir(parents=True, exist_ok=True)
+    db = db_dir / 'sessions.db'
+    conn = sqlite3.connect(db)
+    conn.executescript("""
+        CREATE TABLE epistemic_snapshots (
+            snapshot_id TEXT PRIMARY KEY, session_id TEXT NOT NULL,
+            ai_id TEXT NOT NULL, timestamp TEXT NOT NULL,
+            cascade_phase TEXT, cascade_id TEXT,
+            vectors TEXT NOT NULL, delta TEXT, previous_snapshot_id TEXT,
+            context_summary TEXT, evidence_refs TEXT, db_session_ref TEXT,
+            domain_vectors TEXT
+        );
+        CREATE TABLE goals (
+            id TEXT PRIMARY KEY, session_id TEXT NOT NULL,
+            objective TEXT NOT NULL, scope TEXT NOT NULL,
+            created_timestamp REAL NOT NULL, completed_timestamp REAL,
+            is_completed BOOLEAN DEFAULT 0, goal_data TEXT NOT NULL,
+            status TEXT DEFAULT 'in_progress'
+        );
+    """)
+    import json as _json
+    conn.execute(
+        "INSERT INTO epistemic_snapshots (snapshot_id, session_id, ai_id, timestamp, vectors) "
+        "VALUES (?, ?, ?, ?, ?)",
+        ('snap-1', 's-1', 'cc', '2026-04-27T10:00:00+00:00',
+         _json.dumps({'know': 0.8, 'uncertainty': 0.2, 'context': 0.7, 'completion': 0.3})),
+    )
+    conn.execute(
+        "INSERT INTO goals (id, session_id, objective, scope, created_timestamp, goal_data, status) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ('g-1', 's-1', 'finish cockpit v1.6', '{}', time.time(), '{}', 'in_progress'),
+    )
+    conn.execute(
+        "INSERT INTO goals (id, session_id, objective, scope, created_timestamp, goal_data, status) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ('g-2', 's-1', 'wire ENP integration', '{}', time.time(), '{}', 'in_progress'),
+    )
+    conn.commit()
+    conn.close()
+
+    # Stub the active_transaction so session_id flows through.
+    tx = {
+        'transaction_id': 'tx-1', 'session_id': 's-1',
+        'preflight_timestamp': time.time(),
+        'status': 'open', 'project_path': str(project),
+    }
+    (project / '.empirica' / 'active_transaction_tmux_42.json').write_text(_json.dumps(tx))
+
+    app = CockpitApp(include_dead=True)
+    async with app.run_test(headless=True, size=(40, 24)) as pilot:
+        await pilot.pause(); await pilot.pause()
+        sl = app.query_one('#statusline', Static)
+        c = Console(width=40, file=open('/dev/null', 'w'))
+        with c.capture() as cap:
+            c.print(sl.render())
+        text = cap.get().strip()
+        assert 'k:0.80' in text, text
+        assert 'c:0.70' in text, text
+        assert 'conf:' in text, text
+        assert 'goals:2' in text, text
+
+
+@pytest.mark.asyncio
+async def test_open_goals_widget_shows_goals(cockpit_env):
+    """Open goals widget lists open goals, not phase events."""
+    from empirica.cli.tui import CockpitApp
+    from textual.widgets import Static
+    from rich.console import Console
+    import sqlite3, time
+
+    home, project = cockpit_env
+    _bind_instance(home, project, 'tmux_42')
+    db_dir = project / '.empirica' / 'sessions'
+    db_dir.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(db_dir / 'sessions.db')
+    conn.executescript("""
+        CREATE TABLE epistemic_snapshots (
+            snapshot_id TEXT PRIMARY KEY, session_id TEXT NOT NULL,
+            ai_id TEXT NOT NULL, timestamp TEXT NOT NULL,
+            vectors TEXT NOT NULL
+        );
+        CREATE TABLE goals (
+            id TEXT PRIMARY KEY, session_id TEXT NOT NULL,
+            objective TEXT NOT NULL, scope TEXT NOT NULL,
+            created_timestamp REAL NOT NULL, goal_data TEXT NOT NULL,
+            status TEXT DEFAULT 'in_progress'
+        );
+    """)
+    conn.execute(
+        "INSERT INTO goals VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ('g-1', 's-1', 'distinctive goal A', '{}', time.time(), '{}', 'in_progress'),
+    )
+    conn.commit()
+    conn.close()
+
+    tx = {'transaction_id': 'tx-1', 'session_id': 's-1',
+          'preflight_timestamp': time.time(), 'status': 'open',
+          'project_path': str(project)}
+    import json as _json
+    (project / '.empirica' / 'active_transaction_tmux_42.json').write_text(_json.dumps(tx))
+
+    app = CockpitApp(include_dead=True)
+    async with app.run_test(headless=True, size=(40, 24)) as pilot:
+        await pilot.pause(); await pilot.pause()
+        goals_w = app.query_one('#goals', Static)
+        c = Console(width=40, file=open('/dev/null', 'w'))
+        with c.capture() as cap:
+            c.print(goals_w.render())
+        text = cap.get().strip()
+        assert 'distinctive goal A' in text, text
+
+
+@pytest.mark.asyncio
+async def test_no_recent_widget(cockpit_env):
+    """v1.6 dropped the recent-events widget — confirm it's gone."""
+    from empirica.cli.tui import CockpitApp
+    from textual.css.query import NoMatches
+
+    app = CockpitApp(include_dead=True)
+    async with app.run_test(headless=True, size=(40, 24)) as pilot:
+        await pilot.pause(); await pilot.pause()
+        with pytest.raises(NoMatches):
+            app.query_one('#recent')

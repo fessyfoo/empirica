@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (Cockpit v1.6 — portrait layout + actionable strips)
+- **Portrait orientation** — TUI now stacks vertically, target ~36 cols ×
+  22 rows so it fits comfortably in a phone terminal in portrait mode
+  (or a tmux split-strip). Table column headers shortened (`s/name/ph/S/L/N`).
+  Phase compressed to 4-char codes (noet/prax/cls/ask⚠).
+- **Statusline reformatted** — was `▌ {name} · know:X · u:Y · N artifacts`,
+  now `k:X c:Y conf:Z% goals:N` (with optional `— ctx:M%` when CC has
+  written `~/.empirica/context_usage_{id}.json`). Project name dropped
+  (already in the row). Confidence is the composite from
+  statusline_empirica's formula (0.4·know + 0.3·(1-uncertainty) +
+  0.2·context + 0.1·completion). Goal count comes from the goals table
+  filtered by `status != 'complete'`.
+- **Recent-events strip removed; replaced with two actionable strips:**
+  - **Open goals** — top-5 unfinished goals from the project's
+    `goals` table for the selected instance's session, marked `⏸` for
+    blocked vs `·` for in-progress. Phase events (preflight/check/
+    postflight) had no actionable value to the user.
+  - **Notifications** — top-5 ENP items from
+    `~/.empirica/enp/items_{id}.json` (placeholder, ENP integration
+    spec still owned by empirica-extension Claude). Empty state reads
+    "(none — ENP integration pending)".
+- **`StatuslineSummary` extended** with `context`, `completion`,
+  `confidence`, `open_goals` fields. `artifact_count` kept as alias for
+  backwards-compat on the rendered cache fallback.
+- **New enrichment helpers** in `empirica.core.cockpit.enrichment`:
+  `calculate_confidence`, `open_goals_list`, `notifications_list`,
+  `context_usage`, plus dataclasses `OpenGoal` and `NotificationItem`.
+- **3 new TUI tests** verify the v1.6 statusline format, that open-goals
+  widget shows real DB rows (not phase events), and that the `#recent`
+  widget no longer exists. Existing structural tests updated for the
+  new column names + new widget IDs. 106/106 cockpit tests pass.
+
 ### Added (Cockpit v1.5 — loop backoff + statusline live wire)
 - **Loop exponential backoff** (per `PROPOSAL_LOOP_BACKOFF.md`) —
   empty fires lengthen the gap, found/fail snap back to base. New

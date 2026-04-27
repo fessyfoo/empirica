@@ -1,30 +1,28 @@
-"""empirica tui — compact Textual cockpit.
+"""empirica tui — portrait Textual cockpit (v1.6).
 
-Designed for phone terminals and tmux split-strip use. Targets ~50 cols ×
-17 rows. Reads the same JSON as the CLI (`aggregate_all`); no business
+Designed for phone terminals first; tmux split-strip and laptop work too.
+Targets ~36 cols × 22 rows minimum, expands gracefully when the terminal
+is taller. Reads the same JSON as the CLI (`aggregate_all`); no business
 logic duplication.
 
-Layout:
-  ┌─ Header  (title + summary)
+Vertical layout (single column):
+  ┌─ Header   (title + clock)
+  │  Summary line   (N inst · ⊕ K notif)
   │  Instance table (one row per live Claude)
   │  Action bar    [P sent] [L loops] [S stop] [N notif]
-  │  Statusline    (selected instance)
-  │  Recent log    (last 5 actions for selected instance)
-  └─ Footer  (key bindings)
+  │  Statusline    k:.. c:.. conf:..% goals:N — ctx:M%
+  │  Open goals    (selected instance, top 5)
+  │  Notifications (selected instance, top 5; placeholder for ENP)
+  └─ Footer    (key bindings)
 
 Actions (mouse OR keyboard):
-  p  toggle Sentinel pause/resume for selected instance
-  l  toggle all loops on/off (pause-all if any unpaused, else resume-all)
+  p  toggle Sentinel pause/resume
+  l  toggle all loops on/off
   s  stop = remote interrupt (tmux send-keys Escape)
-  n  clear all notifications for selected instance (placeholder — will
-     propagate to ntfy + empirica-extension once ENP-cockpit ships)
-  R  rename label (input modal)
+  n  clear all notifications for selected instance
   D  toggle live-only / include-dead view
   r  refresh now
   q  quit
-
-Kill is intentionally absent from the TUI — too nuclear for a phone
-glance. `empirica instance kill <id>` from the CLI is the escape hatch.
 """
 
 from __future__ import annotations
@@ -46,9 +44,11 @@ from empirica.core.cockpit import (
     LoopRegistry,
     aggregate_all,
     clear_notifications,
+    context_usage,
     is_loop_paused,
+    notifications_list,
+    open_goals_list,
     pause_sentinel,
-    recent_actions,
     resume_sentinel,
     set_loop_paused,
     statusline_summary,
@@ -58,17 +58,14 @@ from empirica.core.cockpit import (
 REFRESH_SECONDS = 2.0
 
 
-# ─── main app ──────────────────────────────────────────────────────────────
-
 class CockpitApp(App):
-    """Compact interactive Empirica cockpit."""
+    """Portrait interactive Empirica cockpit."""
 
     CSS = """
     Screen { layout: vertical; }
 
-    #summary { padding: 0 1; height: 1; color: $text-muted; }
-
-    #inst-table { height: 1fr; }
+    #summary  { padding: 0 1; height: 1; color: $text-muted; }
+    #inst-table { height: auto; min-height: 7; max-height: 12; }
 
     #action-bar {
         height: 3;
@@ -76,7 +73,7 @@ class CockpitApp(App):
         align-horizontal: left;
         padding: 0 1;
     }
-    #action-bar Button { margin: 0 1; min-width: 10; }
+    #action-bar Button { margin: 0 1; min-width: 8; }
 
     #statusline {
         height: 1;
@@ -85,16 +82,10 @@ class CockpitApp(App):
         background: $boost;
     }
 
-    #recent-header {
-        height: 1;
-        padding: 0 1;
-        color: $text-muted;
-    }
-    #recent {
-        height: 6;
-        padding: 0 1;
-        color: $text-muted;
-    }
+    #goals-header   { height: 1; padding: 0 1; color: $text-muted; }
+    #goals { height: 6; padding: 0 1; }
+    #notif-header   { height: 1; padding: 0 1; color: $text-muted; }
+    #notif { height: 1fr; padding: 0 1; color: $text-muted; }
     """
 
     BINDINGS = [
@@ -120,7 +111,7 @@ class CockpitApp(App):
         yield Static('', id='summary')
 
         table = DataTable(id='inst-table', cursor_type='row', zebra_stripes=True)
-        table.add_columns('stat', 'name', 'phase', 'S', 'L', 'N')
+        table.add_columns('s', 'name', 'ph', 'S', 'L', 'N')
         yield table
 
         with Horizontal(id='action-bar'):
@@ -130,8 +121,10 @@ class CockpitApp(App):
             yield Button('N notif', id='btn-notif', variant='primary')
 
         yield Static('', id='statusline')
-        yield Static('recent', id='recent-header')
-        yield Static('', id='recent')
+        yield Static('open goals', id='goals-header')
+        yield Static('(none selected)', id='goals')
+        yield Static('notifications', id='notif-header')
+        yield Static('', id='notif')
         yield Footer()
 
     def on_mount(self) -> None:
@@ -158,11 +151,9 @@ class CockpitApp(App):
     def _render_summary(self) -> None:
         s = self.payload.get('summary', {})
         notif_total = s.get('open_notifications', 0)
-        dead_mode = ' (incl. dead)' if self.include_dead else ''
-        notif_part = f' · ⊕ {notif_total} notif' if notif_total else ''
-        text = (
-            f"empirica · {s.get('instances', 0)} inst{notif_part}{dead_mode}"
-        )
+        ts = self.payload.get('generated_at', '').split('T')[-1].split('+')[0][:5]
+        notif_part = f' · ⊕{notif_total}' if notif_total else ''
+        text = f"empirica · {s.get('instances', 0)} inst{notif_part} · {ts}"
         self.query_one('#summary', Static).update(text)
 
     def _render_table(self) -> None:
@@ -173,14 +164,13 @@ class CockpitApp(App):
         for inst in rows:
             iid = inst['instance_id']
             stat = self._state_glyph(inst['state'])
-            name = (inst.get('label') or iid)[:18]
-            phase = self._phase_cell(inst.get('phase'), inst.get('asking', False))
+            name = (inst.get('label') or iid)[:16]
+            phase = self._phase_short(inst.get('phase'), inst.get('asking', False))
             sentinel = '○' if inst['sentinel']['paused'] else '●'
             loops = self._loops_glyph(inst.get('loops') or {})
             notif = self._notif_glyph(inst.get('notifications') or {})
             table.add_row(stat, name, phase, sentinel, loops, notif, key=iid)
 
-        # Re-select.
         if rows:
             target = previously_selected or rows[0]['instance_id']
             for idx, inst in enumerate(rows):
@@ -202,10 +192,16 @@ class CockpitApp(App):
         }.get(state, '?')
 
     @staticmethod
-    def _phase_cell(phase: str | None, asking: bool) -> str:
+    def _phase_short(phase: str | None, asking: bool) -> str:
+        """Compress phase to ≤4 chars to fit the narrow column."""
         if asking:
-            return 'ask ⚠'
-        return phase or '—'
+            return 'ask⚠'
+        if not phase:
+            return '—'
+        return {
+            'noetic': 'noet', 'praxic': 'prax',
+            'closed': 'cls', 'no-transaction': '—',
+        }.get(phase, phase[:4])
 
     @staticmethod
     def _loops_glyph(loops: dict[str, Any]) -> str:
@@ -234,45 +230,67 @@ class CockpitApp(App):
         return None
 
     def _render_selected_widgets(self) -> None:
-        """Statusline + recent actions for the currently-selected instance."""
+        """Statusline + open-goals + notifications for the selected instance."""
         inst = self._selected_instance()
         statusline_widget = self.query_one('#statusline', Static)
-        recent_widget = self.query_one('#recent', Static)
+        goals_widget = self.query_one('#goals', Static)
+        notif_widget = self.query_one('#notif', Static)
 
         if inst is None:
             statusline_widget.update('')
-            recent_widget.update('(no instance selected)')
+            goals_widget.update('(no instance selected)')
+            notif_widget.update('')
             return
 
+        statusline_widget.update(self._format_statusline(inst))
+        goals_widget.update(self._format_goals(inst))
+        notif_widget.update(self._format_notifications(inst))
+
+    def _format_statusline(self, inst: dict[str, Any]) -> str:
+        """k:X c:Y conf:Z% goals:N — ctx:M% (omit ctx when not available)."""
         ss = statusline_summary(
             inst['instance_id'],
             label_fallback=inst.get('label'),
             project_path=inst.get('project_path'),
             session_id=inst.get('session_id'),
         )
-        if ss.found:
-            parts = [f'▌ {ss.label or inst["instance_id"]}']
-            if ss.know is not None:
-                parts.append(f'know:{ss.know}')
-            if ss.uncertainty is not None:
-                parts.append(f'u:{ss.uncertainty}')
-            if ss.artifact_count is not None:
-                parts.append(f'{ss.artifact_count} open')
-            statusline_widget.update(' · '.join(parts))
-        else:
-            statusline_widget.update(f'▌ {inst.get("label") or inst["instance_id"]}')
+        parts: list[str] = []
+        if ss.know is not None:
+            parts.append(f'k:{ss.know:.2f}')
+        if ss.context is not None:
+            parts.append(f'c:{ss.context:.2f}')
+        if ss.confidence is not None:
+            parts.append(f'conf:{int(ss.confidence * 100)}%')
+        if ss.open_goals is not None:
+            parts.append(f'goals:{ss.open_goals}')
+        ctx = context_usage(inst['instance_id'])
+        line = ' '.join(parts) if parts else '(no vectors)'
+        if ctx is not None:
+            line = f'{line} — ctx:{ctx}%'
+        return line
 
-        # Recent actions — keyed by session_id when we have it.
-        actions = recent_actions(
-            inst.get('project_path'),
-            session_id=inst.get('session_id'),
-            limit=5,
+    def _format_goals(self, inst: dict[str, Any]) -> str:
+        goals = open_goals_list(
+            inst.get('project_path'), inst.get('session_id'), limit=5,
         )
-        if not actions:
-            recent_widget.update('(no recent actions)')
-            return
-        lines = [f'  {a.iso_time} {a.summary[:42]}' for a in actions]
-        recent_widget.update('\n'.join(lines))
+        if not goals:
+            return '(none)'
+        lines = []
+        for g in goals:
+            marker = '⏸' if g.status == 'blocked' else '·'
+            text = g.objective.replace('\n', ' ').strip()[:40]
+            lines.append(f'{marker} {text}')
+        return '\n'.join(lines)
+
+    def _format_notifications(self, inst: dict[str, Any]) -> str:
+        items = notifications_list(inst['instance_id'], limit=5)
+        if not items:
+            return '(none — ENP integration pending)'
+        lines = []
+        for n in items:
+            title = n.title[:38]
+            lines.append(f'• {title}')
+        return '\n'.join(lines)
 
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
         if event.row_key and event.row_key.value:
@@ -305,7 +323,7 @@ class CockpitApp(App):
             self._log_status(f'{inst["instance_id"]}: no loops registered')
             return
         any_unpaused = any(not v.get('paused') for v in loops.values())
-        target_state = True if any_unpaused else False
+        target_state = bool(any_unpaused)
         for name in loops:
             set_loop_paused(inst['instance_id'], name, target_state)
         verb = 'paused' if target_state else 'resumed'
@@ -353,10 +371,10 @@ class CockpitApp(App):
         return inst
 
     def _log_status(self, message: str) -> None:
-        """Status messages share the recent-actions widget (no separate log)."""
+        """Status messages share the notif widget when nothing else lives there."""
         try:
-            recent = self.query_one('#recent', Static)
-            recent.update(f'  • {message}')
+            notif = self.query_one('#notif', Static)
+            notif.update(f'• {message}')
         except Exception:
             pass
 
