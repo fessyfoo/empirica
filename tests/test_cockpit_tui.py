@@ -376,6 +376,9 @@ async def test_open_goals_widget_shows_goals(cockpit_env):
     db_dir.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_dir / 'sessions.db')
     conn.executescript("""
+        CREATE TABLE sessions (
+            session_id TEXT PRIMARY KEY, project_id TEXT
+        );
         CREATE TABLE epistemic_snapshots (
             snapshot_id TEXT PRIMARY KEY, session_id TEXT NOT NULL,
             ai_id TEXT NOT NULL, timestamp TEXT NOT NULL,
@@ -385,12 +388,15 @@ async def test_open_goals_widget_shows_goals(cockpit_env):
             id TEXT PRIMARY KEY, session_id TEXT NOT NULL,
             objective TEXT NOT NULL, scope TEXT NOT NULL,
             created_timestamp REAL NOT NULL, goal_data TEXT NOT NULL,
+            is_completed BOOLEAN DEFAULT 0,
+            project_id TEXT,
             status TEXT DEFAULT 'in_progress'
         );
     """)
+    conn.execute("INSERT INTO sessions VALUES (?, ?)", ('s-1', 'p-1'))
     conn.execute(
-        "INSERT INTO goals VALUES (?, ?, ?, ?, ?, ?, ?)",
-        ('g-1', 's-1', 'distinctive goal A', '{}', time.time(), '{}', 'in_progress'),
+        "INSERT INTO goals VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        ('g-1', 's-1', 'distinctive goal A', '{}', time.time(), '{}', 0, 'p-1', 'in_progress'),
     )
     conn.commit()
     conn.close()

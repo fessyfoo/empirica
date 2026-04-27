@@ -183,11 +183,15 @@ def statusline_summary(
 def _live_statusline_from_db(
     project_path: str, session_id: str, label_fallback: str | None,
 ) -> StatuslineSummary | None:
-    """Pull the most-recent vectors from the project's sessions DB.
+    """Pull the most-recent vectors + open-goal count from project DB.
 
-    Path resolution: prefer .empirica/sessions/sessions.db (current
-    convention); fall back to .empirica/sessions.db (legacy). Some projects
-    have both — the bare one is often a 0-byte stale file.
+    Open-goal count mirrors statusline_empirica.get_open_counts:
+      WHERE is_completed = 0 AND project_id = ?
+
+    `is_completed` is the source of truth (the `status` column has
+    historical inconsistencies); `project_id` filter scopes to the
+    current project, excluding goals from prior project_id values left
+    over from test runs or schema migrations.
     """
     nested = Path(project_path) / '.empirica' / 'sessions' / 'sessions.db'
     bare = Path(project_path) / '.empirica' / 'sessions.db'
@@ -208,19 +212,17 @@ def _live_statusline_from_db(
         )
         row = cur.fetchone()
 
-        # Goals table uses status='complete' (not 'completed'). The DB is
-        # project-scoped; count all open goals so the count matches what
-        # the open_goals_list widget shows.
-        open_goals: int | None = None
+        # Resolve project_id from sessions table for accurate goal scoping.
+        project_id: str | None = None
         try:
-            cur.execute(
-                "SELECT COUNT(*) FROM goals WHERE status != 'complete'",
-            )
-            row2 = cur.fetchone()
-            if row2:
-                open_goals = int(row2[0])
+            cur.execute('SELECT project_id FROM sessions WHERE session_id = ?', (session_id,))
+            row_pid = cur.fetchone()
+            if row_pid and row_pid[0]:
+                project_id = str(row_pid[0])
         except sqlite3.Error:
             pass
+
+        open_goals = _count_open_goals(cur, project_id)
 
         conn.close()
     except sqlite3.Error:
@@ -314,18 +316,21 @@ def open_goals_list(
     session_id: str | None = None,
     limit: int = 5,
 ) -> list[OpenGoal]:
-    """Return the N most recent open project-level goals.
+    """Return the N most recent open goals for the current project.
 
-    'Open' = goals.status != 'complete'. Sorted newest first by
-    created_timestamp. The DB is naturally project-scoped so we don't
-    filter on session_id by default — David's expectation is "all open
-    goals for this project's Claude," not just ones from the current
-    session. session_id is accepted but ignored (kept for signature
-    backwards-compat).
+    Mirrors statusline_empirica.get_open_counts logic:
+      WHERE is_completed = 0 AND project_id = ?
+
+    project_id is resolved from the `sessions` table via the passed
+    session_id. If session_id is None or no project_id can be resolved,
+    falls back to project-wide is_completed=0 (still excludes 'completed'
+    goals via the boolean source-of-truth).
+
+    `is_completed` is the canonical column for done-ness; the textual
+    `status` column has historical inconsistencies. Sorted newest first.
     """
     if not project_path:
         return []
-    _ = session_id  # accepted for backwards-compat; project-scoped query
     nested = Path(project_path) / '.empirica' / 'sessions' / 'sessions.db'
     bare = Path(project_path) / '.empirica' / 'sessions.db'
     if nested.exists() and nested.stat().st_size > 0:
@@ -339,12 +344,21 @@ def open_goals_list(
     try:
         conn = sqlite3.connect(f'file:{db_path}?mode=ro', uri=True, timeout=1.0)
         cur = conn.cursor()
-        cur.execute(
-            "SELECT objective, status, created_timestamp FROM goals "
-            "WHERE status != 'complete' "
-            "ORDER BY created_timestamp DESC LIMIT ?",
-            (limit,),
-        )
+        project_id = _resolve_project_id(cur, session_id) if session_id else None
+        if project_id:
+            cur.execute(
+                "SELECT objective, status, created_timestamp FROM goals "
+                "WHERE is_completed = 0 AND project_id = ? "
+                "ORDER BY created_timestamp DESC LIMIT ?",
+                (project_id, limit),
+            )
+        else:
+            cur.execute(
+                "SELECT objective, status, created_timestamp FROM goals "
+                "WHERE is_completed = 0 "
+                "ORDER BY created_timestamp DESC LIMIT ?",
+                (limit,),
+            )
         now = datetime.now(tz=UTC).timestamp()
         for objective, status, created in cur.fetchall():
             try:
@@ -360,6 +374,39 @@ def open_goals_list(
     except sqlite3.Error:
         return []
     return goals
+
+
+def _resolve_project_id(cur: sqlite3.Cursor, session_id: str) -> str | None:
+    """Look up project_id for a session. Returns None if not found or table absent."""
+    try:
+        cur.execute('SELECT project_id FROM sessions WHERE session_id = ?', (session_id,))
+        row = cur.fetchone()
+        if row and row[0]:
+            return str(row[0])
+    except sqlite3.Error:
+        pass
+    return None
+
+
+def _count_open_goals(cur: sqlite3.Cursor, project_id: str | None) -> int | None:
+    """Count goals with is_completed = 0 (canonical source of truth).
+
+    Project-scoped when project_id is available; otherwise project-wide.
+    """
+    try:
+        if project_id:
+            cur.execute(
+                'SELECT COUNT(*) FROM goals WHERE is_completed = 0 AND project_id = ?',
+                (project_id,),
+            )
+        else:
+            cur.execute('SELECT COUNT(*) FROM goals WHERE is_completed = 0')
+        row = cur.fetchone()
+        if row:
+            return int(row[0])
+    except sqlite3.Error:
+        pass
+    return None
 
 
 # ─── notifications list (placeholder companion to notification_summary) ────

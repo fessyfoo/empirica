@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (Cockpit v1.6.2 — open-goals count was wrong)
+- **Open-goals count now matches statusline (was 996, should be 18)**.
+  Two compounding bugs:
+  - **(a) Wrong column.** v1.5 introduced `WHERE status != 'complete'` —
+    the DB never has 'complete' as a status value (canonical values are
+    `completed`, `in_progress`, `planned`, all with `-ed`). The filter
+    matched no rows so returned everything (996).
+  - **(b) Wrong scope source.** v1.6.1 dropped session_id but didn't
+    add project_id. The statusline (which David sees in CC) uses
+    `is_completed = 0 AND project_id = ?` — and `project_id` is looked
+    up from the `sessions` table via `session_id`, not from the active
+    transaction file.
+  - Fix: cockpit's `open_goals_list` and `_live_statusline_from_db`
+    both now mirror `statusline_empirica.get_open_counts` exactly:
+    look up project_id from sessions, filter `is_completed = 0 AND
+    project_id = ?`. Verified: live count now reads 19 (matches
+    statusline's 18 + the goal logged this transaction).
+- **Status taxonomy clarified.** DB uses `completed` / `in_progress` /
+  `planned` (no `complete` value, no `open` value). The boolean
+  `is_completed` is the canonical source of truth — `status` text can
+  drift from it. The cockpit now uses `is_completed` everywhere goals
+  are filtered for done-ness.
+- **Mistake logged** — my v1.5 finding ("status uses 'complete'") was
+  a hallucination. Mistake-log entry captures the failure mode (asserted
+  enum values without a `SELECT DISTINCT` check first) and prevention
+  (statusline_empirica:79 even has a comment naming `is_completed` as
+  the source of truth — should have read it first).
+- **Goal logged** — `empirica goals prune` CLI for stale-goal cleanup.
+  Three modes proposed: `--auto-stale` (close N+ days no activity),
+  `--duplicates` (Qdrant similarity prompt-merge), `--by-status planned`
+  (bulk close planned goals that never moved). Dry-run by default.
+
 ### Changed (Cockpit v1.6.1 — wordwrap + project-scoped goals + ctx wire)
 - **Goals + notifications now wordwrap** instead of truncating. Each item
   wraps to ~36 col lines with continuation indented under the bullet so
