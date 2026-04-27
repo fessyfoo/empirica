@@ -1,4 +1,4 @@
-"""empirica tui — portrait Textual cockpit (v1.6).
+"""empirica tui — portrait Textual cockpit (v1.6.1).
 
 Designed for phone terminals first; tmux split-strip and laptop work too.
 Targets ~36 cols × 22 rows minimum, expands gracefully when the terminal
@@ -27,6 +27,7 @@ Actions (mouse OR keyboard):
 
 from __future__ import annotations
 
+import textwrap
 from typing import Any
 
 from textual.app import App, ComposeResult
@@ -57,6 +58,13 @@ from empirica.core.cockpit import (
 
 REFRESH_SECONDS = 2.0
 
+# Wrap width for the goals + notifications strips (portrait-friendly).
+# Items longer than this wrap onto continuation lines indented under
+# the bullet so the visual association is preserved.
+_WRAP_WIDTH = 36
+# Hard cap per item (David: ~200 chars) to bound widget height per row.
+_ITEM_HARD_CAP = 200
+
 
 class CockpitApp(App):
     """Portrait interactive Empirica cockpit."""
@@ -83,9 +91,9 @@ class CockpitApp(App):
     }
 
     #goals-header   { height: 1; padding: 0 1; color: $text-muted; }
-    #goals { height: 6; padding: 0 1; }
+    #goals { height: auto; min-height: 3; max-height: 14; padding: 0 1; }
     #notif-header   { height: 1; padding: 0 1; color: $text-muted; }
-    #notif { height: 1fr; padding: 0 1; color: $text-muted; }
+    #notif { height: auto; min-height: 1; padding: 0 1; color: $text-muted; }
     """
 
     BINDINGS = [
@@ -270,27 +278,26 @@ class CockpitApp(App):
         return line
 
     def _format_goals(self, inst: dict[str, Any]) -> str:
+        # Project-scoped: passes session_id through but it's ignored by
+        # the reader (kept for signature compat).
         goals = open_goals_list(
             inst.get('project_path'), inst.get('session_id'), limit=5,
         )
         if not goals:
             return '(none)'
-        lines = []
-        for g in goals:
-            marker = '⏸' if g.status == 'blocked' else '·'
-            text = g.objective.replace('\n', ' ').strip()[:40]
-            lines.append(f'{marker} {text}')
-        return '\n'.join(lines)
+        return '\n'.join(
+            _wrap_item(
+                ('⏸' if g.status == 'blocked' else '·'),
+                g.objective.replace('\n', ' ').strip(),
+            )
+            for g in goals
+        )
 
     def _format_notifications(self, inst: dict[str, Any]) -> str:
         items = notifications_list(inst['instance_id'], limit=5)
         if not items:
             return '(none — ENP integration pending)'
-        lines = []
-        for n in items:
-            title = n.title[:38]
-            lines.append(f'• {title}')
-        return '\n'.join(lines)
+        return '\n'.join(_wrap_item('•', n.title) for n in items)
 
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
         if event.row_key and event.row_key.value:
@@ -377,6 +384,33 @@ class CockpitApp(App):
             notif.update(f'• {message}')
         except Exception:
             pass
+
+
+def _wrap_item(marker: str, text: str, width: int = _WRAP_WIDTH) -> str:
+    """Wrap a single bulleted item to multiple lines.
+
+    First line: '{marker} {first chunk}'.
+    Continuation lines: indented under the marker so the bullet stays
+    visually associated. Hard cap at _ITEM_HARD_CAP chars (David's ~200).
+    """
+    if not text:
+        return marker
+    capped = text[:_ITEM_HARD_CAP]
+    if len(text) > _ITEM_HARD_CAP:
+        capped += '…'
+
+    indent = ' ' * (len(marker) + 1)
+    body_width = max(8, width - len(marker) - 1)
+    chunks = textwrap.wrap(
+        capped, width=body_width, break_long_words=True, break_on_hyphens=False,
+    )
+    if not chunks:
+        return marker
+    first, rest = chunks[0], chunks[1:]
+    lines = [f'{marker} {first}']
+    for chunk in rest:
+        lines.append(f'{indent}{chunk}')
+    return '\n'.join(lines)
 
 
 def run_tui(include_dead: bool = False) -> int:

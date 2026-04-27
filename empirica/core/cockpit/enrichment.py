@@ -157,7 +157,9 @@ def statusline_summary(
     label_fallback: str | None = None,
     project_path: str | None = None,
     session_id: str | None = None,
-) -> StatuslineSummary:
+) -> StatuslineSummary:  # noqa: D401
+    """(see body) — the open_goals count is project-scoped to match the
+    open_goals_list widget below it."""
     """Resolve the live statusline summary for an instance.
 
     Source priority:
@@ -206,13 +208,13 @@ def _live_statusline_from_db(
         )
         row = cur.fetchone()
 
-        # Goals table uses status='complete' (not 'completed'). Filter the
-        # not-done set: anything that isn't 'complete' is open.
+        # Goals table uses status='complete' (not 'completed'). The DB is
+        # project-scoped; count all open goals so the count matches what
+        # the open_goals_list widget shows.
         open_goals: int | None = None
         try:
             cur.execute(
-                "SELECT COUNT(*) FROM goals WHERE session_id = ? AND status != 'complete'",
-                (session_id,),
+                "SELECT COUNT(*) FROM goals WHERE status != 'complete'",
             )
             row2 = cur.fetchone()
             if row2:
@@ -309,16 +311,21 @@ class OpenGoal:
 
 def open_goals_list(
     project_path: str | None,
-    session_id: str | None,
+    session_id: str | None = None,
     limit: int = 5,
 ) -> list[OpenGoal]:
-    """Return the N most recent open goals for this instance.
+    """Return the N most recent open project-level goals.
 
     'Open' = goals.status != 'complete'. Sorted newest first by
-    created_timestamp. Bounded I/O — a single SQL query, safe per refresh.
+    created_timestamp. The DB is naturally project-scoped so we don't
+    filter on session_id by default — David's expectation is "all open
+    goals for this project's Claude," not just ones from the current
+    session. session_id is accepted but ignored (kept for signature
+    backwards-compat).
     """
-    if not project_path or not session_id:
+    if not project_path:
         return []
+    _ = session_id  # accepted for backwards-compat; project-scoped query
     nested = Path(project_path) / '.empirica' / 'sessions' / 'sessions.db'
     bare = Path(project_path) / '.empirica' / 'sessions.db'
     if nested.exists() and nested.stat().st_size > 0:
@@ -334,9 +341,9 @@ def open_goals_list(
         cur = conn.cursor()
         cur.execute(
             "SELECT objective, status, created_timestamp FROM goals "
-            "WHERE session_id = ? AND status != 'complete' "
+            "WHERE status != 'complete' "
             "ORDER BY created_timestamp DESC LIMIT ?",
-            (session_id, limit),
+            (limit,),
         )
         now = datetime.now(tz=UTC).timestamp()
         for objective, status, created in cur.fetchall():

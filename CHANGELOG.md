@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (Cockpit v1.6.1 — wordwrap + project-scoped goals + ctx wire)
+- **Goals + notifications now wordwrap** instead of truncating. Each item
+  wraps to ~36 col lines with continuation indented under the bullet so
+  the visual hierarchy is preserved. Hard cap per item at 200 chars
+  (David's number) with `…` ellipsis when exceeded.
+- **Open goals are project-scoped** (was session-scoped). Was filtering
+  on `session_id` which only showed goals created in the current
+  Empirica session — most goals from earlier sessions were invisible.
+  Dropped the filter; the DB is project-scoped so just `WHERE status !=
+  'complete'` is the right query. Same fix in the count surfaced in the
+  statusline (`goals:N`).
+- **Context window % now wires through to the cockpit** —
+  `statusline_empirica.py:format_context_window` was writing to a
+  shared `~/.empirica/context_usage.json` only. Now also writes to the
+  per-instance `context_usage_{id}.json` that the cockpit reader (and
+  context-shift-tracker hook) expect. Legacy shared file kept for
+  backwards-compat. After the next CC statusline tick the cockpit
+  shows `— ctx:M%` for the selected instance.
+- **TUI version bumped to v1.6.1** in module docstring.
+
 ### Changed (Cockpit v1.6 — portrait layout + actionable strips)
 - **Portrait orientation** — TUI now stacks vertically, target ~36 cols ×
   22 rows so it fits comfortably in a phone terminal in portrait mode

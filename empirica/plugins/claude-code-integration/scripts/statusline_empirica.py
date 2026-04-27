@@ -958,23 +958,42 @@ def format_deltas(deltas: dict) -> str:
 def format_context_window(stdin_context: dict) -> str:
     """Format context window usage from Claude Code stdin data.
 
-    Also writes usage to state file for UserPromptSubmit hook to read
-    (hooks don't receive context_window, only statusline does).
+    Also writes usage to a state file so other tools can read it without
+    receiving CC's stdin payload:
+      - ~/.empirica/context_usage.json          (legacy shared, kept for
+        backwards-compat with older readers)
+      - ~/.empirica/context_usage_{id}.json    (per-instance, what the
+        cockpit TUI and context-shift-tracker hook read)
     """
     ctx = stdin_context.get('context_window', {})
     used_pct = ctx.get('used_percentage', 0)
     if not used_pct:
         return ""
 
-    # Write state file for hooks to read
     try:
-        state_file = Path.home() / '.empirica' / 'context_usage.json'
         import json as _json_ctx
         import time as _time
-        state_file.write_text(_json_ctx.dumps({
+        empirica_dir = Path.home() / '.empirica'
+        empirica_dir.mkdir(parents=True, exist_ok=True)
+        payload = _json_ctx.dumps({
             'used_percentage': used_pct,
             'timestamp': _time.time(),
-        }))
+        })
+        # Legacy shared (for older readers)
+        (empirica_dir / 'context_usage.json').write_text(payload)
+        # Per-instance (cockpit, context-shift-tracker)
+        try:
+            from project_resolver import get_instance_id  # type: ignore
+            instance_id = get_instance_id()
+        except Exception:
+            try:
+                from empirica.utils.session_resolver import get_instance_id
+                instance_id = get_instance_id()
+            except Exception:
+                instance_id = None
+        if instance_id:
+            safe_id = instance_id.replace('/', '-').replace('%', '')
+            (empirica_dir / f'context_usage_{safe_id}.json').write_text(payload)
     except Exception:
         pass
 
