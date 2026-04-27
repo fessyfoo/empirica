@@ -167,3 +167,34 @@ Exit codes:
         default='human',
         help='Output format (default: human)'
     )
+
+    # Doctor command - Desktop + general install health (sibling of diagnose)
+    doctor_parser = subparsers.add_parser(
+        'doctor',
+        help='Check Empirica install health (Desktop + general — empirica-mcp, .empirica/, git remote, Cortex reachability)',
+        description="""
+Frontend-agnostic health check for Empirica installs. Sibling of `diagnose`
+(which is Claude Code-centric). Designed to be callable from Claude Desktop
+via the empirica-mcp `doctor` tool.
+
+Checks:
+  - Python version
+  - empirica CLI on PATH
+  - empirica-mcp on PATH (Desktop MCP install)
+  - .empirica/ folder presence + structure
+  - git repo + remote configured (sync_push prereq)
+  - sync state (uncommitted changes)
+  - Cortex reachability (CORTEX_URL env or default)
+
+Exit codes:
+  0  - all checks passed
+  1  - one or more FAIL checks
+  2  - one or more WARN checks (no FAIL)
+        """
+    )
+    doctor_parser.add_argument(
+        '--output',
+        choices=['human', 'json'],
+        default='json',
+        help='Output format (default: json — Desktop calls expect machine-readable)'
+    )

@@ -57,6 +57,7 @@ from .config_commands import (
     handle_config_validate_command,
 )
 from .diagnose import handle_diagnose_command
+from .doctor import handle_doctor_command
 from .doc_commands import (
     handle_doc_check_command,
     handle_doc_plan_suggest_command,
@@ -258,6 +259,7 @@ __all__ = [
     'handle_decision_log_command',
     'handle_delete_artifacts_command',
     'handle_diagnose_command',
+    'handle_doctor_command',
     'handle_doc_check_command',
     'handle_doc_plan_suggest_command',
     'handle_ecosystem_check_command',

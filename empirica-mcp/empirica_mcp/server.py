@@ -224,6 +224,20 @@ TOOL_REGISTRY: dict[str, dict] = {
         "desc": "Show sync state — remote configured, last push/pull timestamp, pending local changes.",
     },
 
+    # --- Health ---
+    "doctor": {
+        "cli": "doctor",
+        "params": {},
+        "required": [],
+        "desc": (
+            "Frontend-agnostic Empirica health check. Returns structured JSON: "
+            "Python version, empirica CLI path/version, empirica-mcp path, .empirica/ "
+            "folder state, git repo + remote, sync state (uncommitted changes), "
+            "Cortex reachability. Designed for Claude Desktop where shell exec isn't "
+            "available — narrow scoped replacement for general exec MCPs."
+        ),
+    },
+
     # --- Goals ---
     "goals_create": {
         "cli": "goals-create",
