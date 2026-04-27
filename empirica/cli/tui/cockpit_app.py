@@ -33,15 +33,12 @@ from typing import Any
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, Horizontal
-from textual.screen import ModalScreen
+from textual.containers import Horizontal
 from textual.widgets import (
     Button,
     DataTable,
     Footer,
     Header,
-    Input,
-    Label,
     Static,
 )
 
@@ -53,59 +50,12 @@ from empirica.core.cockpit import (
     pause_sentinel,
     recent_actions,
     resume_sentinel,
-    set_label,
     set_loop_paused,
     statusline_summary,
     stop_instance,
 )
 
 REFRESH_SECONDS = 2.0
-
-
-# ─── modals (rename only — confirm modal kept tiny) ────────────────────────
-
-class InputScreen(ModalScreen[str | None]):
-    DEFAULT_CSS = """
-    InputScreen { align: center middle; }
-    #dialog {
-        width: 56; height: 11;
-        border: thick $accent 80%;
-        background: $surface;
-        padding: 1 2;
-    }
-    #dialog-input { margin-top: 1; }
-    #dialog-buttons {
-        align-horizontal: center; height: 3; margin-top: 1;
-    }
-    #dialog Button { margin: 0 1; min-width: 10; }
-    """
-
-    BINDINGS = [Binding('escape', 'dismiss(None)', 'Cancel')]
-
-    def __init__(self, prompt: str, initial: str = '') -> None:
-        super().__init__()
-        self.prompt = prompt
-        self.initial = initial
-
-    def compose(self) -> ComposeResult:
-        with Container(id='dialog'):
-            yield Label(self.prompt)
-            yield Input(value=self.initial, id='dialog-input')
-            with Horizontal(id='dialog-buttons'):
-                yield Button('OK', id='ok', variant='primary')
-                yield Button('Cancel', id='cancel', variant='default')
-
-    def on_mount(self) -> None:
-        self.query_one('#dialog-input', Input).focus()
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == 'ok':
-            self.dismiss(self.query_one('#dialog-input', Input).value)
-        else:
-            self.dismiss(None)
-
-    def on_input_submitted(self, _event: Input.Submitted) -> None:
-        self.dismiss(self.query_one('#dialog-input', Input).value)
 
 
 # ─── main app ──────────────────────────────────────────────────────────────
@@ -154,7 +104,6 @@ class CockpitApp(App):
         Binding('l', 'toggle_loops', 'Loops'),
         Binding('s', 'stop', 'Stop'),
         Binding('n', 'clear_notifications', 'Notif'),
-        Binding('R', 'relabel', 'Rename'),
         Binding('D', 'toggle_dead', 'Show dead'),
     ]
 
@@ -295,7 +244,12 @@ class CockpitApp(App):
             recent_widget.update('(no instance selected)')
             return
 
-        ss = statusline_summary(inst['instance_id'], label_fallback=inst.get('label'))
+        ss = statusline_summary(
+            inst['instance_id'],
+            label_fallback=inst.get('label'),
+            project_path=inst.get('project_path'),
+            session_id=inst.get('session_id'),
+        )
         if ss.found:
             parts = [f'▌ {ss.label or inst["instance_id"]}']
             if ss.know is not None:
@@ -303,15 +257,17 @@ class CockpitApp(App):
             if ss.uncertainty is not None:
                 parts.append(f'u:{ss.uncertainty}')
             if ss.artifact_count is not None:
-                parts.append(f'{ss.artifact_count} artifacts')
+                parts.append(f'{ss.artifact_count} open')
             statusline_widget.update(' · '.join(parts))
         else:
             statusline_widget.update(f'▌ {inst.get("label") or inst["instance_id"]}')
 
-        # Recent actions — epistemic_events is keyed by session_id which we
-        # don't carry through the cockpit payload for v1. Pass project-only
-        # and let the reader return the most recent project-wide events.
-        actions = recent_actions(inst.get('project_path'), session_id=None, limit=5)
+        # Recent actions — keyed by session_id when we have it.
+        actions = recent_actions(
+            inst.get('project_path'),
+            session_id=inst.get('session_id'),
+            limit=5,
+        )
         if not actions:
             recent_widget.update('(no recent actions)')
             return
@@ -374,22 +330,6 @@ class CockpitApp(App):
         else:
             self._log_status(f'no notifications to clear for {inst["instance_id"]}')
         self.refresh_payload()
-
-    def action_relabel(self) -> None:
-        inst = self._require_selected()
-        if inst is None:
-            return
-        iid = inst['instance_id']
-        current = inst.get('label') or ''
-
-        def _on_input(value: str | None) -> None:
-            if value is None:
-                return
-            new = set_label(iid, value if value.strip() else None)
-            self._log_status(f'label {iid} → {new or "(cleared)"}')
-            self.refresh_payload()
-
-        self.push_screen(InputScreen(f'Label for {iid}:', initial=current), _on_input)
 
     # ─── button events (mouse / touch) ────────────────────────────────────
 

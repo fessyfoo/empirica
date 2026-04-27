@@ -153,6 +153,9 @@ def handle_loop_register_command(args) -> int:
             cron=getattr(args, 'cron', None),
             interval=getattr(args, 'interval', None),
             description=getattr(args, 'description', '') or '',
+            backoff_policy=getattr(args, 'backoff', None),
+            base_interval=getattr(args, 'base_interval', None),
+            max_interval=getattr(args, 'max_interval', None),
         )
     except ValueError as e:
         return _emit(args, {'ok': False, 'error': str(e)}, f'error: {e}')
@@ -163,6 +166,12 @@ def handle_loop_register_command(args) -> int:
         'loop': {'name': entry.name, **entry.to_dict()},
     }
     summary = f'Loop registered: {entry.name} ({entry.kind})'
+    if entry.backoff.policy == 'exponential':
+        from empirica.core.cockpit.loop_registry import format_duration
+        summary += (
+            f' [backoff exponential, base={format_duration(entry.backoff.base_interval_seconds)}, '
+            f'max={format_duration(entry.backoff.max_interval_seconds)}]'
+        )
     return _emit(args, payload, summary)
 
 
@@ -215,6 +224,7 @@ def handle_loop_heartbeat_command(args) -> int:
         entry = registry.heartbeat(
             name=args.name,
             status=args.status,
+            result=getattr(args, 'result', None),
             message=getattr(args, 'message', None),
         )
     except ValueError as e:
@@ -226,10 +236,54 @@ def handle_loop_heartbeat_command(args) -> int:
         'loop': {'name': entry.name, **entry.to_dict()},
         'paused': is_loop_paused(instance_id, entry.name),
     }
-    summary = f'Loop heartbeat: {entry.name} → {entry.last_status}'
+    summary = f'Loop heartbeat: {entry.name} → {entry.last_status}/{entry.last_result}'
     if entry.last_message:
         summary += f' ({entry.last_message})'
+    if entry.backoff.policy == 'exponential':
+        from empirica.core.cockpit.loop_registry import format_duration
+        summary += f' · streak={entry.backoff.empty_streak} next≥{format_duration(entry.backoff.current_interval_seconds())}'
     return _emit(args, payload, summary)
+
+
+def handle_loop_should_fire_command(args) -> int:
+    """Exit 0 if loop body should fire this cron tick, exit 1 if backoff says skip.
+
+    Loop scripts use this between the pause check and the actual work:
+
+      if ! empirica loop should-fire poll-name; then exit 0; fi
+
+    JSON output also includes the reason for traceability.
+    """
+    instance_id = _require_instance_id(args)
+    registry = LoopRegistry(instance_id)
+    should, reason = registry.should_fire(args.name)
+    payload = {
+        'ok': True,
+        'instance_id': instance_id,
+        'name': args.name,
+        'should_fire': should,
+        'reason': reason,
+    }
+    summary = f'{"FIRE" if should else "SKIP"} ({reason})'
+    _emit(args, payload, summary)
+    return 0 if should else 1
+
+
+def handle_loop_poke_command(args) -> int:
+    """Manual escape hatch — zero the streak, clear the next_fire_threshold."""
+    instance_id = _require_instance_id(args)
+    registry = LoopRegistry(instance_id)
+    entry = registry.poke(args.name)
+    if entry is None:
+        payload = {'ok': False, 'error': f'loop not registered: {args.name}',
+                   'instance_id': instance_id, 'name': args.name}
+        return _emit(args, payload, payload['error'])
+    payload = {
+        'ok': True,
+        'instance_id': instance_id,
+        'loop': {'name': entry.name, **entry.to_dict()},
+    }
+    return _emit(args, payload, f'Loop poked: {args.name} (streak cleared, next fire allowed)')
 
 
 def handle_loop_list_command(args) -> int:
@@ -532,6 +586,8 @@ _LOOP_DISPATCH = {
     'resume': handle_loop_resume_command,
     'set-interval': handle_loop_set_interval_command,
     'heartbeat': handle_loop_heartbeat_command,
+    'should-fire': handle_loop_should_fire_command,
+    'poke': handle_loop_poke_command,
     'list': handle_loop_list_command,
     'status': handle_loop_status_command,
 }
@@ -578,9 +634,11 @@ __all__ = [
     'handle_loop_heartbeat_command',
     'handle_loop_list_command',
     'handle_loop_pause_command',
+    'handle_loop_poke_command',
     'handle_loop_register_command',
     'handle_loop_resume_command',
     'handle_loop_set_interval_command',
+    'handle_loop_should_fire_command',
     'handle_loop_status_command',
     'handle_loop_unregister_command',
     'handle_sentinel_group_command',

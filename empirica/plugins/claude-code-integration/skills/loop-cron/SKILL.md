@@ -34,55 +34,104 @@ applies to **scheduled** (cron/interval) loops only.
 
 ## Cron Prompt Template
 
-When invoking `/loop` in cron mode, prepend these three CLI lines to your
-task prompt. The variables are: `{NAME}` (loop identifier, no spaces),
-`{CRON}` (cron expression), `{DESC}` (one-line description).
+When invoking `/loop` in cron mode, prepend these CLI lines to your
+task prompt. Variables: `{NAME}` (loop identifier, no spaces), `{CRON}`
+(cron expression), `{DESC}` (one-line description).
 
 ```
 At start (idempotent — safe to call every fire):
-  empirica loop register --name {NAME} --kind cron --cron "{CRON}" --description "{DESC}"
+  empirica loop register --name {NAME} --kind cron --cron "{CRON}" \
+    --description "{DESC}" \
+    --backoff exponential --base-interval 15m --max-interval 4h
 
 Check pause (exit silently if paused):
-  if [ "$(empirica loop status {NAME} --output json | python3 -c 'import json,sys; print(json.load(sys.stdin).get("paused"))')" = "True" ]; then
+  if [ "$(empirica loop status {NAME} --output json | jq -r .paused)" = "true" ]; then
+    exit 0
+  fi
+
+Check backoff (exit silently if streak says skip):
+  if ! empirica loop should-fire {NAME}; then
     exit 0
   fi
 
 [... your actual work here ...]
 
-At end:
-  empirica loop heartbeat {NAME} --status ok --message "{summary of what happened}"
+At end (distinguish found vs empty so backoff can self-regulate):
+  if [ -n "$NEW_COUNT" ] && [ "$NEW_COUNT" -gt 0 ]; then
+    empirica loop heartbeat {NAME} --status ok --result found \
+      --message "$NEW_COUNT new items"
+  else
+    empirica loop heartbeat {NAME} --status ok --result empty \
+      --message "checked, nothing new"
+  fi
 
 On failure:
-  empirica loop heartbeat {NAME} --status fail --message "{error}"
+  empirica loop heartbeat {NAME} --status fail --result fail \
+    --message "{error}"
 ```
 
-The register call is **idempotent** — it preserves `last_run`,
-`last_status`, and `last_message` while updating the schedule. So you
-can re-issue it on every fire without losing history.
+The register call is **idempotent** — it preserves runtime state
+(last_run, last_status, last_message, last_result, empty_streak,
+next_fire_threshold) while updating declarative fields. Safe to
+re-issue on every fire without losing history.
+
+**Backoff = optional but recommended for poll-style loops.** Omit
+`--backoff exponential` and your loop fires on every cron tick. With
+backoff, empty fires lengthen the gap (15m → 30m → 1h → 2h → 4h cap by
+default); the next non-empty fire snaps back to base.
+
+**`--result` is the backoff signal:**
+- `found` → there was new work this fire (e.g. inbox had new items)
+- `empty` → fire ran cleanly, found nothing to do
+- `fail` → fire errored out
+
+If you can't tell `found` from `empty`, omit `--result` and accept that
+backoff stays at base (the heartbeat defaults to `empty` which would
+mis-advance the streak).
+
+**Manual escape hatch** — when you know new work just arrived and don't
+want to wait through backoff:
+```
+empirica loop poke {NAME}
+```
+Resets the streak to 0 and clears the threshold so the next cron fire
+runs.
 
 ---
 
 ## Concrete Example
 
-A 15-minute inbox poll:
+A 15-minute inbox poll with backoff:
 
 ```
 /loop --cron "*/15 * * * *" --prompt "
 At start:
-  empirica loop register --name inbox-poll --kind cron --cron '*/15 * * * *' --description 'ECO inbox digest'
+  empirica loop register --name inbox-poll --kind cron \
+    --cron '*/15 * * * *' --description 'ECO inbox digest' \
+    --backoff exponential --base-interval 15m --max-interval 4h
 
-Check pause:
-  if [ \"\$(empirica loop status inbox-poll --output json | python3 -c 'import json,sys; print(json.load(sys.stdin).get(\"paused\"))')\" = \"True\" ]; then
+Check pause + backoff:
+  if [ \"\$(empirica loop status inbox-poll --output json | jq -r .paused)\" = \"true\" ]; then
+    exit 0
+  fi
+  if ! empirica loop should-fire inbox-poll; then
     exit 0
   fi
 
 Then: read each connected inbox, summarize unread mail, capture findings.
 
 At end:
-  empirica loop heartbeat inbox-poll --status ok --message \"\$INBOXES_CHECKED inboxes checked, \$NEW_COUNT new\"
+  if [ \"\$NEW_COUNT\" -gt 0 ]; then
+    empirica loop heartbeat inbox-poll --status ok --result found \
+      --message \"\$INBOXES_CHECKED inboxes, \$NEW_COUNT new\"
+  else
+    empirica loop heartbeat inbox-poll --status ok --result empty \
+      --message \"\$INBOXES_CHECKED inboxes, none new\"
+  fi
 
 On failure:
-  empirica loop heartbeat inbox-poll --status fail --message \"\$ERROR_MESSAGE\"
+  empirica loop heartbeat inbox-poll --status fail --result fail \
+    --message \"\$ERROR_MESSAGE\"
 "
 ```
 

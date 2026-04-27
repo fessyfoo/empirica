@@ -179,6 +179,7 @@ def _read_transaction_state(project_path: str, instance_id: str) -> dict[str, An
     result: dict[str, Any] = {
         'phase': 'no-transaction',
         'transaction_id': None,
+        'session_id': None,
         'transaction_age_seconds': None,
         'last_activity_iso': None,
         'last_activity_seconds': None,
@@ -196,6 +197,7 @@ def _read_transaction_state(project_path: str, instance_id: str) -> dict[str, An
         return result
 
     result['transaction_id'] = tx.get('transaction_id')
+    result['session_id'] = tx.get('session_id')
     result['work_type'] = tx.get('work_type')
     result['domain'] = tx.get('domain')
 
@@ -312,6 +314,7 @@ def aggregate_instance_state(
         tx_state = {
             'phase': 'no-transaction',
             'transaction_id': None,
+            'session_id': None,
             'transaction_age_seconds': None,
             'last_activity_iso': None,
             'last_activity_seconds': None,
@@ -360,6 +363,7 @@ def aggregate_instance_state(
         'instance_id': instance_id,
         'label': label,
         'project_path': project_path,
+        'session_id': tx_state['session_id'],
         'state': state,
         'phase': phase,
         'asking': asking,

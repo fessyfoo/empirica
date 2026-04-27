@@ -10,7 +10,7 @@ unchanged in sentinel_parsers.py.
 
 from __future__ import annotations
 
-from empirica.core.cockpit.loop_registry import VALID_KIND, VALID_STATUS
+from empirica.core.cockpit.loop_registry import VALID_BACKOFF, VALID_KIND, VALID_RESULT, VALID_STATUS
 
 # Add an _output flag to every leaf parser using this helper.
 _OUTPUT_CHOICES = ('human', 'json')
@@ -135,6 +135,12 @@ def _add_loop_group(subparsers):
     register.add_argument('--cron', help='Cron expression (for kind=cron)')
     register.add_argument('--interval', help='Interval like "5m", "30s", "2h" (for kind=interval)')
     register.add_argument('--description', help='Optional human-readable description')
+    register.add_argument('--backoff', choices=VALID_BACKOFF,
+                          help='Backoff policy when empty fires accumulate (default: none)')
+    register.add_argument('--base-interval',
+                          help='Backoff floor — used after a found/fail fire (default: 15m)')
+    register.add_argument('--max-interval',
+                          help='Backoff ceiling — cap on stretched interval (default: 4h)')
     _add_instance(register)
     _add_output(register)
 
@@ -163,9 +169,24 @@ def _add_loop_group(subparsers):
     heartbeat.add_argument('name', help='Loop name')
     heartbeat.add_argument('--status', choices=VALID_STATUS, default='ok',
                             help='Run status (default: ok)')
+    heartbeat.add_argument('--result', choices=VALID_RESULT,
+                            help='Backoff signal: found (new work), empty (no work), '
+                                 'fail (errored). Defaults from --status if omitted.')
     heartbeat.add_argument('--message', help='Optional summary message for this fire')
     _add_instance(heartbeat)
     _add_output(heartbeat)
+
+    should_fire = loop_subs.add_parser('should-fire',
+        help='Exit 0 if loop body should run this fire, exit 1 if backoff says skip')
+    should_fire.add_argument('name', help='Loop name')
+    _add_instance(should_fire)
+    _add_output(should_fire)
+
+    poke = loop_subs.add_parser('poke',
+        help='Manual escape hatch — zero the streak, clear next_fire_threshold')
+    poke.add_argument('name', help='Loop name')
+    _add_instance(poke)
+    _add_output(poke)
 
     list_p = loop_subs.add_parser('list', help='List all loops registered for an instance')
     _add_instance(list_p)

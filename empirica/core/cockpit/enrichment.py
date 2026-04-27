@@ -125,19 +125,109 @@ class StatuslineSummary:
     raw: dict[str, Any] | None
 
 
-def statusline_summary(instance_id: str, label_fallback: str | None = None) -> StatuslineSummary:
-    """Read the most recent statusline cache file for this instance.
+def statusline_summary(
+    instance_id: str,
+    label_fallback: str | None = None,
+    project_path: str | None = None,
+    session_id: str | None = None,
+) -> StatuslineSummary:
+    """Resolve the live statusline summary for an instance.
 
-    Files: ~/.empirica/statusline_cache/{instance_id}_*.json
-    Picks the newest by mtime. Returns blank summary if nothing found.
+    Source priority:
+      1. project sessions.db epistemic_snapshots (live, real-time vectors)
+         — same source the empirica statusline reads
+      2. ~/.empirica/statusline_cache/{instance_id}_*.json (legacy cache,
+         can be stale)
+
+    Returns a blank summary if neither source has data.
     """
+    blank = StatuslineSummary(
+        instance_id=instance_id, found=False, label=label_fallback,
+        know=None, uncertainty=None, artifact_count=None, raw=None,
+    )
+
+    # Live DB read: most recent epistemic_snapshot for this instance's session.
+    if project_path and session_id:
+        live = _live_statusline_from_db(project_path, session_id, label_fallback)
+        if live is not None:
+            return live
+
+    # Cache fallback (kept for instances without a project binding yet).
+    return _statusline_from_cache(instance_id, label_fallback) or blank
+
+
+def _live_statusline_from_db(
+    project_path: str, session_id: str, label_fallback: str | None,
+) -> StatuslineSummary | None:
+    """Pull the most-recent vectors from the project's sessions DB.
+
+    Path resolution: prefer .empirica/sessions/sessions.db (current
+    convention); fall back to .empirica/sessions.db (legacy). Some projects
+    have both — the bare one is often a 0-byte stale file.
+    """
+    nested = Path(project_path) / '.empirica' / 'sessions' / 'sessions.db'
+    bare = Path(project_path) / '.empirica' / 'sessions.db'
+    if nested.exists() and nested.stat().st_size > 0:
+        db_path = nested
+    elif bare.exists() and bare.stat().st_size > 0:
+        db_path = bare
+    else:
+        return None
+
+    try:
+        conn = sqlite3.connect(f'file:{db_path}?mode=ro', uri=True, timeout=1.0)
+        cur = conn.cursor()
+        cur.execute(
+            'SELECT vectors FROM epistemic_snapshots '
+            'WHERE session_id = ? ORDER BY timestamp DESC LIMIT 1',
+            (session_id,),
+        )
+        row = cur.fetchone()
+
+        # Open-goal count for the same session (best-effort; goals table
+        # is per-project, filter on session for the active scope).
+        artifact_count: int | None = None
+        try:
+            cur.execute(
+                "SELECT COUNT(*) FROM goals WHERE session_id = ? AND status != 'completed'",
+                (session_id,),
+            )
+            row2 = cur.fetchone()
+            if row2:
+                artifact_count = int(row2[0])
+        except sqlite3.Error:
+            pass
+
+        conn.close()
+    except sqlite3.Error:
+        return None
+
+    if not row or not row[0]:
+        return None
+    try:
+        vectors = json.loads(row[0])
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+    return StatuslineSummary(
+        instance_id='',  # caller binds
+        found=True,
+        label=label_fallback,
+        know=_safe_float(vectors.get('know')),
+        uncertainty=_safe_float(vectors.get('uncertainty')),
+        artifact_count=artifact_count,
+        raw={'vectors': vectors, 'source': 'epistemic_snapshots'},
+    )
+
+
+def _statusline_from_cache(
+    instance_id: str, label_fallback: str | None,
+) -> StatuslineSummary | None:
+    """Legacy cache fallback for instances without project/session binding."""
     safe_id = instance_id.replace('/', '-').replace('%', '')
     cache_dir = EMPIRICA_DIR / 'statusline_cache'
     if not cache_dir.exists():
-        return StatuslineSummary(
-            instance_id=instance_id, found=False, label=label_fallback,
-            know=None, uncertainty=None, artifact_count=None, raw=None,
-        )
+        return None
 
     candidates = sorted(
         cache_dir.glob(f'{safe_id}_*.json'),
@@ -145,25 +235,18 @@ def statusline_summary(instance_id: str, label_fallback: str | None = None) -> S
         reverse=True,
     )
     if not candidates:
-        return StatuslineSummary(
-            instance_id=instance_id, found=False, label=label_fallback,
-            know=None, uncertainty=None, artifact_count=None, raw=None,
-        )
+        return None
 
     try:
         with open(candidates[0], encoding='utf-8') as f:
             data = json.load(f)
     except (OSError, json.JSONDecodeError):
-        return StatuslineSummary(
-            instance_id=instance_id, found=False, label=label_fallback,
-            know=None, uncertainty=None, artifact_count=None, raw=None,
-        )
+        return None
 
     vectors = data.get('vectors') or {}
     label = data.get('project_name') or label_fallback
     artifact_count = data.get('open_goals') or data.get('artifact_count')
     if artifact_count is None:
-        # Fall back to summing what we can find.
         artifact_count = (data.get('open_goals') or 0) + (data.get('open_unknowns') or 0)
     return StatuslineSummary(
         instance_id=instance_id,
@@ -172,7 +255,7 @@ def statusline_summary(instance_id: str, label_fallback: str | None = None) -> S
         know=_safe_float(vectors.get('know')),
         uncertainty=_safe_float(vectors.get('uncertainty')),
         artifact_count=int(artifact_count) if artifact_count is not None else None,
-        raw=data,
+        raw={**data, 'source': 'statusline_cache'},
     )
 
 
@@ -206,14 +289,15 @@ def recent_actions(
     """
     if not project_path:
         return []
-    db_path = Path(project_path) / '.empirica' / 'sessions.db'
-    if not db_path.exists():
-        # Some projects use sessions/sessions.db nested
-        nested = Path(project_path) / '.empirica' / 'sessions' / 'sessions.db'
-        if nested.exists():
-            db_path = nested
-        else:
-            return []
+    # Same path resolution as _live_statusline_from_db.
+    nested = Path(project_path) / '.empirica' / 'sessions' / 'sessions.db'
+    bare = Path(project_path) / '.empirica' / 'sessions.db'
+    if nested.exists() and nested.stat().st_size > 0:
+        db_path = nested
+    elif bare.exists() and bare.stat().st_size > 0:
+        db_path = bare
+    else:
+        return []
 
     actions: list[RecentAction] = []
     try:
@@ -225,15 +309,15 @@ def recent_actions(
         try:
             if session_id:
                 cur.execute(
-                    'SELECT event_timestamp, event_type, event_data '
+                    'SELECT timestamp, event_type, data_json '
                     'FROM epistemic_events WHERE session_id = ? '
-                    'ORDER BY event_timestamp DESC LIMIT ?',
+                    'ORDER BY timestamp DESC LIMIT ?',
                     (session_id, limit * 3),
                 )
             else:
                 cur.execute(
-                    'SELECT event_timestamp, event_type, event_data '
-                    'FROM epistemic_events ORDER BY event_timestamp DESC LIMIT ?',
+                    'SELECT timestamp, event_type, data_json '
+                    'FROM epistemic_events ORDER BY timestamp DESC LIMIT ?',
                     (limit * 3,),
                 )
             for ts, kind, raw in cur.fetchall():

@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Cockpit v1.5 — loop backoff + statusline live wire)
+- **Loop exponential backoff** (per `PROPOSAL_LOOP_BACKOFF.md`) —
+  empty fires lengthen the gap, found/fail snap back to base. New
+  `register` flags `--backoff none|exponential`, `--base-interval`,
+  `--max-interval` (default envelope 15m → 4h). New `heartbeat --result
+  found|empty|fail` is the backoff signal (falls back to `empty` when
+  `--status ok` and `fail` when `--status fail`). New verbs:
+  - `empirica loop should-fire <NAME>` — exit 0 = fire, exit 1 = skip.
+    Loop body calls this between the pause check and actual work.
+  - `empirica loop poke <NAME>` — manual escape hatch, zeros the
+    streak and clears the threshold so the next fire runs at base.
+- **`BackoffState` dataclass** in `loop_registry.py` with `policy`,
+  `base_interval_seconds`, `max_interval_seconds`, `empty_streak`,
+  `next_fire_threshold` (ISO-8601 UTC). `current_interval_seconds()`
+  computes `base × 2^streak` capped at `max`.
+- **`parse_duration` / `format_duration` helpers** — `15m`, `4h`, `30s`,
+  `1d`. Bare integers default to minutes.
+- **24 backoff tests** — duration parsing, envelope storage, exponential
+  curve (30m → 1h → 2h → 4h cap), found/fail reset, threshold timing,
+  `should_fire` gate states, `poke` clear, heartbeat result inference,
+  legacy entry deserialization (no `backoff` field).
+- **loop-cron skill updated** with the new flags and the `should-fire`
+  check between pause and work, plus the `--result found/empty` heartbeat
+  pattern.
+
+### Fixed (Cockpit v1.5)
+- **TUI statusline strip now shows live data** — previously read from
+  `~/.empirica/statusline_cache/{id}_*.json` which can be stale or
+  empty. Now reads vectors directly from the project's
+  `.empirica/sessions/sessions.db` `epistemic_snapshots` table for the
+  selected instance's session, with cache as fallback. `session_id`
+  threaded through `aggregate_instance_state` payload. Same path
+  resolution applied to `recent_actions` (was hitting an empty stale
+  `.empirica/sessions.db`).
+- **Recent actions now read** — fixed column name mismatch:
+  `epistemic_events` schema has `timestamp` + `data_json` (not
+  `event_timestamp` + `event_data` which my v1.4 query assumed). Five
+  most recent preflight/check/postflight events now show under the
+  selected instance's statusline.
+
+### Removed (Cockpit v1.5)
+- **TUI `R rename` action** — no purpose for the phone-glance use case.
+  CLI verb `empirica instance label <id> <name>` remains.
+
 ### Changed (Cockpit v1.4 — compact mobile TUI)
 - **TUI redesigned for phone/split-pane** — drops the right detail pane
   + the dedicated log pane. Single-screen layout: header → 6-col
