@@ -146,6 +146,67 @@ class KillResult:
     pid: int | None = None
 
 
+@dataclass
+class StopResult:
+    """Result of a `stop` action — soft interrupt, recoverable."""
+    instance_id: str
+    success: bool
+    detail: str
+    method: str  # 'tmux-send-keys' | 'unreachable'
+
+
+def stop_instance(instance_id: str, key: str = 'Escape') -> StopResult:
+    """Send a soft interrupt to a running Claude — the remote-spacebar.
+
+    For tmux instances: `tmux send-keys -t %N <key>`. The default Escape
+    matches Claude Code's interrupt key (stops generation without killing
+    the process). The Claude instance survives — only the current turn is
+    interrupted.
+
+    For non-tmux instances we have no shell-agnostic way to inject a
+    keystroke into the TTY; return unreachable. This is recoverable: the
+    user can interrupt manually in that terminal.
+    """
+    if not instance_id:
+        raise ValueError('instance_id required')
+
+    m = TMUX_INSTANCE_PATTERN.match(instance_id)
+    if not m:
+        return StopResult(
+            instance_id=instance_id, success=False, method='unreachable',
+            detail='non-tmux instance — interrupt manually in that terminal',
+        )
+
+    pane_n = m.group(1)
+    if shutil.which('tmux') is None:
+        return StopResult(
+            instance_id=instance_id, success=False, method='unreachable',
+            detail='tmux binary not found in PATH',
+        )
+
+    try:
+        result = subprocess.run(
+            ['tmux', 'send-keys', '-t', f'%{pane_n}', key],
+            capture_output=True, text=True, timeout=3,
+        )
+    except subprocess.TimeoutExpired:
+        return StopResult(
+            instance_id=instance_id, success=False, method='tmux-send-keys',
+            detail='tmux send-keys timed out',
+        )
+
+    if result.returncode == 0:
+        return StopResult(
+            instance_id=instance_id, success=True, method='tmux-send-keys',
+            detail=f'sent {key} to pane %{pane_n}',
+        )
+    stderr = (result.stderr or '').strip() or '<no stderr>'
+    return StopResult(
+        instance_id=instance_id, success=False, method='tmux-send-keys',
+        detail=f'tmux send-keys returned {result.returncode}: {stderr}',
+    )
+
+
 def _kill_via_tmux(instance_id: str, pane_n: str) -> KillResult:
     if shutil.which('tmux') is None:
         return KillResult(instance_id, 'tmux', False,
@@ -278,8 +339,10 @@ def forget_instance(instance_id: str) -> ForgetResult:
 __all__ = [
     'ForgetResult',
     'KillResult',
+    'StopResult',
     'forget_instance',
     'get_label',
     'kill_instance',
     'set_label',
+    'stop_instance',
 ]

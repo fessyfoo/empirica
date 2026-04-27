@@ -28,6 +28,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from empirica.core.cockpit.enrichment import (
+    is_asking,
+    notification_summary,
+    notifications_total,
+)
 from empirica.core.cockpit.liveness import _live_tmux_panes, is_alive
 from empirica.core.cockpit.loop_registry import LoopRegistry, is_loop_paused
 from empirica.core.cockpit.sentinel_pause import sentinel_status
@@ -345,12 +350,19 @@ def aggregate_instance_state(
         current_instance_id=current_instance_id,
     )
 
+    # 'ask' supersedes the file-derived phase when CC is waiting for input.
+    asking = is_asking(instance_id)
+    phase = 'ask' if asking and tx_state['phase'] in ('noetic', 'praxic') else tx_state['phase']
+
+    notif = notification_summary(instance_id)
+
     return {
         'instance_id': instance_id,
         'label': label,
         'project_path': project_path,
         'state': state,
-        'phase': tx_state['phase'],
+        'phase': phase,
+        'asking': asking,
         'transaction': transaction,
         'last_activity': tx_state['last_activity_iso'],
         'last_activity_seconds': tx_state['last_activity_seconds'],
@@ -363,6 +375,10 @@ def aggregate_instance_state(
             'reason': sentinel.reason,
         },
         'loops': loops_dict,
+        'notifications': {
+            'open_count': notif.open_count,
+            'has_attention': notif.has_attention,
+        },
     }
 
 
@@ -412,6 +428,7 @@ def aggregate_all(include_dead: bool = False) -> dict[str, Any]:
             'loops_registered': loops_registered,
             'loops_paused': loops_paused,
             'active_tx': active_tx,
+            'open_notifications': notifications_total(),
         },
     }
 

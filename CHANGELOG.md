@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (Cockpit v1.4 — compact mobile TUI)
+- **TUI redesigned for phone/split-pane** — drops the right detail pane
+  + the dedicated log pane. Single-screen layout: header → 6-col
+  instance table (stat / name / phase / S / L / N) → 4 action buttons →
+  selected-instance statusline → recent-actions strip → footer. Targets
+  ~50 cols × 17 rows so it fits in a phone terminal or a tmux split-strip
+  at the bottom of a working pane.
+- **Toggle semantics** — `p` toggles Sentinel (was separate pause/resume),
+  `l` toggles all loops on/off as a unit (pause-all if any unpaused, else
+  resume-all). Cuts the action surface in half for one-key mobile UX.
+- **`stop` replaces `kill`** — TUI's destructive action is now `S stop`
+  (sends `Escape` via `tmux send-keys` to interrupt the current turn —
+  the "remote spacebar"). Recoverable: Claude keeps running, only the
+  current generation is interrupted. `kill` remains in the CLI for
+  advanced use.
+- **`phase = 'ask'`** — surfaced when Claude is waiting for input.
+  Reads `~/.empirica/asking_{instance_id}` flag; the hook that writes
+  it is a follow-up. Until then the column shows blank rather than
+  wrong.
+- **`notif` column** — placeholder for ENP→cockpit integration. Reads
+  `~/.empirica/enp/open_{id}.json` (count + has_attention). `[N notif]`
+  button calls `clear_notifications()` which currently just unlinks the
+  file; the goal logged this transaction tracks ntfy + empirica-extension
+  propagation.
+- **Selected-instance statusline strip** — reads from
+  `~/.empirica/statusline_cache/{id}_*.json`, shows label + know +
+  uncertainty + artifact count.
+- **Last 5 actions strip** — reads from project's
+  `.empirica/sessions.db` epistemic_events table (preflight / check /
+  postflight). Below the statusline, decorative-friendly (best-effort).
+- **New module:** `empirica/core/cockpit/enrichment.py` — readers for
+  ask-state, notification counts, statusline cache, recent actions.
+- **New `stop_instance(instance_id, key='Escape')`** in
+  `empirica/core/cockpit/instance_actions.py`.
+- **11 TUI tests** (was 8) — covers compact layout, toggle semantics,
+  stop dispatch, ask-phase rendering, notification clear. Asserts
+  `btn-kill` is absent. 79/79 cockpit tests pass.
+
 ### Added (Cockpit v1.3 — liveness filtering + bulk prune)
 - **Liveness detection** — `empirica.core.cockpit.liveness.is_alive()`
   uses `tmux list-panes -a -F '#{pane_id} #{pane_current_command}'` to
