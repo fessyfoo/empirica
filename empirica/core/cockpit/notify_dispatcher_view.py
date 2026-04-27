@@ -27,36 +27,13 @@ from empirica.core.notify.audit import (
     last_failure,
     read_recent,
 )
-from empirica.core.notify.backends import get_backend, known_backends
+from empirica.core.notify.backends import backends_status_snapshot
 from empirica.core.notify.config import NotifyConfig, load_config
 
 # How long after a failure the cockpit header should banner it.
 FAILURE_BANNER_WINDOW_SECONDS = 3600  # 1 hour
 
 
-def _backends_block(config: NotifyConfig) -> list[dict[str, Any]]:
-    """Snapshot of every registered backend with its current status.
-
-    Includes the auth method for ntfy so the cockpit can render
-    `bearer @ntfy.sh` style annotations without leaking the secret.
-    """
-    out: list[dict[str, Any]] = []
-    for name in known_backends():
-        bcfg = config.backend_config(name)
-        backend = get_backend(name, bcfg)
-        configured = bool(backend and backend.is_configured())
-        item: dict[str, Any] = {
-            'name': name,
-            'configured': configured,
-            'is_default': name == config.default_backend,
-        }
-        # ntfy-specific surface: auth method + server host (no secret).
-        if name == 'ntfy':
-            item['auth_method'] = bcfg.get('auth_method', 'none')
-            item['server'] = bcfg.get('server') or None
-            item['default_topic'] = bcfg.get('default_topic') or None
-        out.append(item)
-    return out
 
 
 def _failure_within_window(
@@ -117,7 +94,7 @@ def build_notify_dispatcher_block(
         failure = last_failure()
         return {
             'default_backend': cfg.default_backend,
-            'backends': _backends_block(cfg),
+            'backends': backends_status_snapshot(cfg),
             'recent': read_recent(limit=recent_limit),
             'last_failure': failure,
             'banner_failure': _failure_within_window(

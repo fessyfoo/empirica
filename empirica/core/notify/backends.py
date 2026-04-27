@@ -244,10 +244,40 @@ def known_backends() -> list[str]:
     return sorted(_BACKEND_CLASSES.keys())
 
 
+def backends_status_snapshot(config) -> list[dict[str, Any]]:
+    """Single source of truth for `is each backend configured right now?`.
+
+    Used by both `empirica notify backends` and the cockpit dispatcher view
+    so the two views can never disagree about whether a backend is
+    configured. Includes ntfy auth_method/server/default_topic for the
+    cockpit's display (no secret).
+
+    Pass a NotifyConfig (typed) so callers don't replicate
+    config.backend_config(name) lookups.
+    """
+    out: list[dict[str, Any]] = []
+    for name in known_backends():
+        bcfg = config.backend_config(name)
+        backend = get_backend(name, bcfg)
+        configured = bool(backend and backend.is_configured())
+        item: dict[str, Any] = {
+            'name': name,
+            'configured': configured,
+            'is_default': name == config.default_backend,
+        }
+        if name == 'ntfy':
+            item['auth_method'] = bcfg.get('auth_method', 'none')
+            item['server'] = bcfg.get('server') or None
+            item['default_topic'] = bcfg.get('default_topic') or None
+        out.append(item)
+    return out
+
+
 __all__ = [
     'LogBackend',
     'NtfyBackend',
     'StdoutBackend',
+    'backends_status_snapshot',
     'get_backend',
     'known_backends',
 ]

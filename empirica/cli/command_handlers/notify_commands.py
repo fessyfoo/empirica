@@ -20,7 +20,7 @@ from empirica.core.notify import (
     parse_tags,
     redact_config,
 )
-from empirica.core.notify.backends import get_backend, known_backends
+from empirica.core.notify.backends import backends_status_snapshot
 from empirica.core.notify.event import VALID_SEVERITY
 
 
@@ -139,21 +139,10 @@ def handle_notify_backends_command(args) -> int:
             'ok': False, 'detail': f'config load failed: {e}',
         }, 1)
 
-    backends_info = []
-    for name in known_backends():
-        bcfg = config.backend_config(name)
-        backend = get_backend(name, bcfg)
-        configured = backend.is_configured() if backend else False
-        backends_info.append({
-            'name': name,
-            'configured': configured,
-            'is_default': name == config.default_backend,
-        })
-
     sys.stdout.write(json.dumps({
         'ok': True,
         'default_backend': config.default_backend,
-        'backends': backends_info,
+        'backends': backends_status_snapshot(config),
     }, indent=2) + '\n')
     return 0
 

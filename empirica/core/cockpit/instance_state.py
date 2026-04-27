@@ -442,8 +442,8 @@ def aggregate_all(include_dead: bool = False) -> dict[str, Any]:
             'loops_paused': loops_paused,
             'active_tx': active_tx,
             'open_notifications': notifications_total(),
+            'notify_dispatcher': build_notify_dispatcher_block(),
         },
-        'notify_dispatcher': build_notify_dispatcher_block(),
     }
 
 
