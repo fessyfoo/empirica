@@ -32,70 +32,93 @@ applies to **scheduled** (cron/interval) loops only.
 
 ---
 
-## Cron Prompt Template
+## Cron Prompt Template (self-scheduling)
+
+Per `PROPOSAL_LOOP_SELF_SCHEDULING.md`: the body owns the schedule.
+Each fire installs the next fire as a one-shot at the timestamp the
+backoff math returns. There is no recurring cron — pause means the
+scheduler is silent (no token bleed).
 
 When invoking `/loop` in cron mode, prepend these CLI lines to your
-task prompt. Variables: `{NAME}` (loop identifier, no spaces), `{CRON}`
-(cron expression), `{DESC}` (one-line description).
+task prompt. Variables: `{NAME}` (loop identifier, no spaces),
+`{INTERVAL}` (base cadence, e.g. `15m`), `{DESC}` (one-line description).
 
 ```
 At start (idempotent — safe to call every fire):
-  empirica loop register --name {NAME} --kind cron --cron "{CRON}" \
+  empirica loop register --name {NAME} --kind cron --interval "{INTERVAL}" \
     --description "{DESC}" \
-    --backoff exponential --base-interval 15m --max-interval 4h
+    --backoff exponential --base-interval {INTERVAL} --max-interval 4h
 
-Check pause (exit silently if paused):
-  if [ "$(empirica loop status {NAME} --output json | jq -r .paused)" = "true" ]; then
-    exit 0
+Check pause — exit silently AND don't schedule next fire if paused:
+  PAUSED=$(empirica loop status {NAME} --output json | jq -r .paused)
+  if [ "$PAUSED" = "true" ]; then
+    empirica loop heartbeat {NAME} --status ok --result paused \
+      --message "skipped, paused"
+    exit 0   # CRITICAL: exit without scheduling next; loop is genuinely off
   fi
 
-Check backoff (exit silently if streak says skip):
-  if ! empirica loop should-fire {NAME}; then
-    exit 0
-  fi
+[... your actual work here, capturing $RESULT as found|empty|fail ...]
 
-[... your actual work here ...]
+At end — heartbeat with result, then schedule + install the next fire:
+  empirica loop heartbeat {NAME} --status ok --result $RESULT \
+    --message "$SUMMARY"
 
-At end (distinguish found vs empty so backoff can self-regulate):
-  if [ -n "$NEW_COUNT" ] && [ "$NEW_COUNT" -gt 0 ]; then
-    empirica loop heartbeat {NAME} --status ok --result found \
-      --message "$NEW_COUNT new items"
-  else
-    empirica loop heartbeat {NAME} --status ok --result empty \
-      --message "checked, nothing new"
-  fi
+  NEXT_CRON=$(empirica loop schedule-next {NAME} --output json | jq -r .cron_one_shot)
+
+  # Install the next one-shot using your scheduler:
+  # Claude Code:    CronCreate(cron=$NEXT_CRON, recurring=false,
+  #                            prompt='<this whole template again>')
+  # systemd-user:   systemd-run --user --on-active=$INTERVAL ...
+  # at-queue:       echo '<command>' | at -t $(date -u -d "$NEXT_FIRE" +%Y%m%d%H%M)
+
+  # Then heartbeat back the scheduler-returned job_id so pause can cancel:
+  empirica loop heartbeat {NAME} --status ok --result $RESULT \
+    --next-scheduled-job-id "$JOB_ID" --scheduler-kind cron-create
 
 On failure:
   empirica loop heartbeat {NAME} --status fail --result fail \
     --message "{error}"
+  # Failure retries at base — schedule-next still returns base interval.
 ```
 
 The register call is **idempotent** — it preserves runtime state
 (last_run, last_status, last_message, last_result, empty_streak,
-next_fire_threshold) while updating declarative fields. Safe to
+next_scheduled_job_id) while updating declarative fields. Safe to
 re-issue on every fire without losing history.
 
-**Backoff = optional but recommended for poll-style loops.** Omit
-`--backoff exponential` and your loop fires on every cron tick. With
-backoff, empty fires lengthen the gap (15m → 30m → 1h → 2h → 4h cap by
-default); the next non-empty fire snaps back to base.
+**Backoff stretches the actual schedule** (not just a body-internal
+threshold like the previous spec). `schedule-next` returns:
+- streak 0 → base interval (e.g. 15m)
+- streak 1 → base × 2 = 30m
+- streak 2 → base × 4 = 1h
+- ... capped at `--max-interval` (default 4h)
 
-**`--result` is the backoff signal:**
-- `found` → there was new work this fire (e.g. inbox had new items)
-- `empty` → fire ran cleanly, found nothing to do
-- `fail` → fire errored out
+**`--result` is the schedule signal:**
+- `found`  → new work happened — reset streak, next fire at base
+- `empty`  → fire ran cleanly, nothing to do — advance streak
+- `fail`   → errored — reset streak, retry at base (no compound delay)
+- `paused` → body short-circuited on pause check — freezes streak
 
-If you can't tell `found` from `empty`, omit `--result` and accept that
-backoff stays at base (the heartbeat defaults to `empty` which would
-mis-advance the streak).
+The body is its own next-fire scheduler — every fire installs the next
+one. `empirica loop pause` clears the recorded `next_scheduled_job_id`;
+the body's pause check at the start of the next fire is the final
+backstop (it sees the pause flag and exits without scheduling).
 
-**Manual escape hatch** — when you know new work just arrived and don't
-want to wait through backoff:
+**Manual escape hatches:**
+
 ```
 empirica loop poke {NAME}
 ```
-Resets the streak to 0 and clears the threshold so the next cron fire
-runs.
+Resets the streak to 0 and clears the threshold. The next fire (when
+it arrives) runs at base.
+
+```
+empirica loop fire {NAME}
+```
+Computes the next-fire schedule and emits the cron expression + a hint
+to install it. Bootstraps after `empirica loop resume` on Claude Code
+(the empirica CLI can't call CronCreate directly — re-issue via
+`/loop` or run the printed `CronCreate(...)` invocation).
 
 ---
 
@@ -142,15 +165,33 @@ On failure:
 From any terminal, on any machine that shares `~/.empirica/`:
 
 ```
-empirica loop pause inbox-poll      # next fire exits early
-empirica loop resume inbox-poll     # next fire runs normally
+empirica loop pause inbox-poll      # cancels next fire (no token bleed)
+empirica loop resume inbox-poll     # clears flag; bootstrap with `loop fire`
 empirica loop status inbox-poll     # show last run + paused state
 empirica loop list                  # all loops on this instance
 empirica loop unregister inbox-poll # remove from registry entirely
 ```
 
-The pause check is a single fast file-stat (`~/.empirica/loop_paused_{instance_id}_{name}`),
-so the cost of the gate is negligible even for high-frequency loops.
+`pause` clears the recorded `next_scheduled_job_id` and surfaces a
+hint about scheduler-specific cancellation. For CronCreate loops the
+empirica CLI can't call `CronDelete` directly; the body's pause check
+at the next fire is the backstop — it sees the flag and exits without
+scheduling the next fire, so the loop dies cleanly after at most one
+more silent fire.
+
+`resume` clears the pause flag. On Claude Code the next cron fire has
+to be bootstrapped manually:
+
+```
+empirica loop fire {NAME}    # prints the cron + hint
+# Then re-issue via /loop, or run the printed CronCreate invocation.
+```
+
+| State | Cron firing | Body running | Tokens |
+|---|---|---|---|
+| Active, no backoff | every base | every fire | every base |
+| Active, in backoff | every backoff_interval | every fire | every backoff_interval |
+| Paused | never | never | none |
 
 ---
 

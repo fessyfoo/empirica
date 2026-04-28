@@ -190,17 +190,84 @@ def handle_loop_unregister_command(args) -> int:
 
 
 def handle_loop_pause_command(args) -> int:
+    """Pause a loop. Per PROPOSAL_LOOP_SELF_SCHEDULING this also clears
+    the next_scheduled_job_id from the registry — pause must mean the
+    scheduler is silent, not "body filters every fire."
+
+    Cancellation is scheduler-specific and best-effort:
+      - cron-create: the empirica CLI can't call CronDelete (it's a
+        Claude Code tool). Registry surfaces the job_id; the body's
+        pause check at the next fire is the backstop.
+      - systemd-user / at-queue: out-of-process cancellation requires
+        a follow-up shell call (not invoked from this handler).
+
+    The body's pause check at start-of-fire remains the source of truth:
+    if pause flag exists, body exits without scheduling next fire and
+    the loop dies cleanly after at most one more silent fire.
+    """
     instance_id = _require_instance_id(args)
     paused = set_loop_paused(instance_id, args.name, paused=True)
-    payload = {'ok': True, 'instance_id': instance_id, 'name': args.name, 'paused': paused}
-    return _emit(args, payload, f'Loop paused: {args.name}')
+
+    registry = LoopRegistry(instance_id)
+    entry = registry.get(args.name)
+    cancelled_job_id: str | None = None
+    scheduler_kind: str | None = None
+    if entry is not None:
+        cancelled_job_id = entry.scheduling.next_scheduled_job_id
+        scheduler_kind = entry.scheduling.scheduler_kind
+        if cancelled_job_id:
+            # Clear from registry — caller may also need to do scheduler-
+            # specific cancellation (CronDelete / systemctl stop / atrm).
+            registry.heartbeat(
+                name=args.name,
+                status=entry.last_status or 'ok',
+                result=entry.last_result,
+                message=entry.last_message,
+                next_scheduled_job_id='',
+            )
+
+    payload = {
+        'ok': True,
+        'instance_id': instance_id,
+        'name': args.name,
+        'paused': paused,
+        'cancelled_job_id': cancelled_job_id,
+        'scheduler_kind': scheduler_kind,
+    }
+    summary = f'Loop paused: {args.name}'
+    if cancelled_job_id:
+        summary += f' · cleared next_job={cancelled_job_id}'
+        if scheduler_kind == 'cron-create':
+            summary += (
+                ' (CronCreate: body pause-check is the backstop; '
+                'next fire will exit silently)'
+            )
+    return _emit(args, payload, summary)
 
 
 def handle_loop_resume_command(args) -> int:
+    """Resume a loop. Per PROPOSAL_LOOP_SELF_SCHEDULING the empirica CLI
+    can't reinstall a CronCreate one-shot directly — surface a hint so
+    the user knows to re-issue via /loop or trigger one fire manually.
+    """
     instance_id = _require_instance_id(args)
     paused = set_loop_paused(instance_id, args.name, paused=False)
-    payload = {'ok': True, 'instance_id': instance_id, 'name': args.name, 'paused': paused}
-    return _emit(args, payload, f'Loop resumed: {args.name}')
+    registry = LoopRegistry(instance_id)
+    entry = registry.get(args.name)
+    scheduler_kind = entry.scheduling.scheduler_kind if entry else None
+    payload = {
+        'ok': True,
+        'instance_id': instance_id,
+        'name': args.name,
+        'paused': paused,
+        'scheduler_kind': scheduler_kind,
+    }
+    summary = f'Loop resumed: {args.name}'
+    if scheduler_kind == 'cron-create':
+        summary += (
+            f' · re-issue via /loop or run `empirica loop fire {args.name}`'
+        )
+    return _emit(args, payload, summary)
 
 
 def handle_loop_set_interval_command(args) -> int:
@@ -227,6 +294,8 @@ def handle_loop_heartbeat_command(args) -> int:
             status=args.status,
             result=getattr(args, 'result', None),
             message=getattr(args, 'message', None),
+            next_scheduled_job_id=getattr(args, 'next_scheduled_job_id', None),
+            scheduler_kind=getattr(args, 'scheduler_kind', None),
         )
     except ValueError as e:
         return _emit(args, {'ok': False, 'error': str(e)}, f'error: {e}')
@@ -243,6 +312,89 @@ def handle_loop_heartbeat_command(args) -> int:
     if entry.backoff.policy == 'exponential':
         from empirica.core.cockpit.loop_registry import format_duration
         summary += f' · streak={entry.backoff.empty_streak} next≥{format_duration(entry.backoff.current_interval_seconds())}'
+    if entry.scheduling.next_scheduled_job_id:
+        summary += f' · next_job={entry.scheduling.next_scheduled_job_id}'
+    return _emit(args, payload, summary)
+
+
+def handle_loop_schedule_next_command(args) -> int:
+    """Compute the next-fire timestamp + cron expression for a self-scheduling loop.
+
+    Per PROPOSAL_LOOP_SELF_SCHEDULING — body owns the schedule. After
+    each fire (and after pause check passes), the body calls this to
+    learn when to install the next one-shot.
+    """
+    instance_id = _require_instance_id(args)
+    registry = LoopRegistry(instance_id)
+    plan = registry.schedule_next(args.name)
+    if plan is None:
+        return _emit(
+            args,
+            {'ok': False, 'error': f'loop {args.name!r} not registered'},
+            f'error: loop {args.name!r} not registered',
+        )
+    payload = {
+        'ok': True,
+        'instance_id': instance_id,
+        'name': args.name,
+        **plan.to_dict(),
+    }
+    summary = (
+        f'next fire: {plan.fire_at.isoformat()} '
+        f'({plan.cron_one_shot}) — {plan.reason}'
+    )
+    return _emit(args, payload, summary)
+
+
+def handle_loop_fire_command(args) -> int:
+    """Manual fire — bootstrap after resume, test the body, or bypass backoff.
+
+    For CronCreate-mode loops this can't actually invoke the loop body
+    (the empirica CLI doesn't have CronCreate access). Instead it
+    reports the cron expression the body would install AND the prompt
+    template the user should re-issue via /loop. For loops with no
+    cron template captured, just emits the schedule plan so the caller
+    knows what to install.
+    """
+    instance_id = _require_instance_id(args)
+    registry = LoopRegistry(instance_id)
+    entry = registry.get(args.name)
+    if entry is None:
+        return _emit(
+            args,
+            {'ok': False, 'error': f'loop {args.name!r} not registered'},
+            f'error: loop {args.name!r} not registered',
+        )
+    plan = registry.schedule_next(args.name)
+    payload: dict[str, Any] = {
+        'ok': True,
+        'instance_id': instance_id,
+        'name': args.name,
+        'scheduler_kind': entry.scheduling.scheduler_kind,
+        'paused': is_loop_paused(instance_id, args.name),
+    }
+    if plan is not None:
+        payload.update(plan.to_dict())
+    scheduler_kind = entry.scheduling.scheduler_kind or 'unknown'
+    if scheduler_kind == 'cron-create':
+        payload['hint'] = (
+            f"empirica CLI can't call CronCreate directly. Re-issue via "
+            f"/loop or run: CronCreate(cron='{plan.cron_one_shot}', "
+            f"recurring=false, prompt='<loop body template>')"
+            if plan
+            else 'no schedule plan — register loop first'
+        )
+        summary = (
+            f'fire requested for {args.name} — install '
+            f"`{plan.cron_one_shot}`" if plan else f'fire requested for {args.name}'
+        )
+    else:
+        summary = (
+            f'fire requested for {args.name} ({scheduler_kind}) — '
+            f"`{plan.cron_one_shot}` at {plan.fire_at.isoformat()}"
+            if plan
+            else f'fire requested for {args.name} ({scheduler_kind})'
+        )
     return _emit(args, payload, summary)
 
 
@@ -591,6 +743,8 @@ _LOOP_DISPATCH = {
     'heartbeat': handle_loop_heartbeat_command,
     'should-fire': handle_loop_should_fire_command,
     'poke': handle_loop_poke_command,
+    'schedule-next': handle_loop_schedule_next_command,
+    'fire': handle_loop_fire_command,
     'list': handle_loop_list_command,
     'status': handle_loop_status_command,
 }

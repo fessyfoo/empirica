@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Loop self-scheduling — body owns the schedule)
+- **`empirica loop schedule-next NAME`** — new verb. Computes the
+  next-fire timestamp from current backoff state and returns
+  `{next_fire_at, interval_seconds, current_streak, reason,
+  cron_one_shot}`. The `cron_one_shot` is a 5-field UTC cron expression
+  pinned to that exact wall-clock minute (DOW wildcarded). The body
+  uses this to install the next one-shot scheduler job after each fire.
+  Streak 0 → base interval. Empty streak → base × 2^N capped at
+  `--max-interval` (default 4h). `found`/`fail` snap back to base.
+- **`empirica loop fire NAME`** — new verb. Manually trigger one fire
+  of the loop body. Useful for bootstrap after `loop resume` on Claude
+  Code (where the empirica CLI can't call CronCreate directly), for
+  testing, and for bypassing backoff without using `poke`. For
+  `cron-create` scheduler kind, surfaces the cron expression + a hint
+  to re-issue via `/loop` or run the printed `CronCreate(...)` call.
+- **`empirica loop heartbeat --next-scheduled-job-id JOB_ID
+  --scheduler-kind cron-create|systemd-user|...`** — new flags.
+  Records the scheduler's opaque job id so `pause` can cancel the
+  future fire, and which scheduler installed it so cancellation logic
+  can route to the right backend.
+- **`paused` heartbeat result** — fourth value alongside
+  `found`/`empty`/`fail`. When the body short-circuits on the pause
+  check, it heartbeats with `result=paused` and the streak math
+  freezes (no advance, no reset). Pause is a no-state transition.
+- **Registry adds `scheduling` block** with `scheduler_kind`,
+  `next_scheduled_job_id`, `next_fire_at`. Legacy entries without
+  this field load cleanly with a default empty SchedulingState.
+- **`empirica loop pause`** now clears `next_scheduled_job_id` from
+  the registry and surfaces the cancellation hint
+  (e.g. CronCreate is doc-limited because the empirica CLI can't call
+  `CronDelete` — the body's start-of-fire pause check is the backstop;
+  loop dies cleanly after at most one more silent fire). `empirica
+  loop resume` surfaces a re-bootstrap hint pointing at `loop fire`.
+- **Loop-cron skill template** rewritten for self-scheduling: register
+  with `--interval` as base cadence, body installs each next fire via
+  `schedule-next` + scheduler-specific call, heartbeat returns the
+  scheduler-issued `--next-scheduled-job-id`. Pause means the
+  scheduler is silent — no token bleed.
+- **`COCKPIT.md`** gains a "Loop self-scheduling" section pointing at
+  the skill + spec.
+
+Spec: `OutreachShared/empirica-final-docs/PROPOSAL_LOOP_SELF_SCHEDULING.md`.
+Corrects two real gaps in `PROPOSAL_LOOP_BACKOFF.md` — the previous
+spec advanced an internal threshold but the cron tick stayed fixed, so
+the prompt still arrived every base interval; pause filtered fires but
+the scheduler kept firing. Self-scheduling is the only mode (no
+recurring fallback — nothing in production to be backwards-compatible
+with). 14 new tests covering plan math, paused-freeze, persistence
+round-trip, backoff cap.
+
 ### Added (Notify dispatcher — pluggable notification primitive)
 - **`empirica notify` CLI subcommand group** with four verbs: `emit`,
   `config`, `backends`, `test`. Single dispatch primitive every loop

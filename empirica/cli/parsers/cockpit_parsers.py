@@ -170,9 +170,18 @@ def _add_loop_group(subparsers):
     heartbeat.add_argument('--status', choices=VALID_STATUS, default='ok',
                             help='Run status (default: ok)')
     heartbeat.add_argument('--result', choices=VALID_RESULT,
-                            help='Backoff signal: found (new work), empty (no work), '
-                                 'fail (errored). Defaults from --status if omitted.')
+                            help='Signal: found (new work), empty (no work), '
+                                 'fail (errored), paused (body short-circuited). '
+                                 'Defaults from --status if omitted.')
     heartbeat.add_argument('--message', help='Optional summary message for this fire')
+    heartbeat.add_argument('--next-scheduled-job-id',
+                            help='Opaque scheduler job id for the next fire — '
+                                 'pause uses it to cancel future fires '
+                                 '(PROPOSAL_LOOP_SELF_SCHEDULING)')
+    heartbeat.add_argument('--scheduler-kind',
+                            choices=('cron-create', 'systemd-user', 'system-cron',
+                                     'at-queue', 'unknown'),
+                            help='Which scheduler installed the next fire')
     _add_instance(heartbeat)
     _add_output(heartbeat)
 
@@ -187,6 +196,25 @@ def _add_loop_group(subparsers):
     poke.add_argument('name', help='Loop name')
     _add_instance(poke)
     _add_output(poke)
+
+    # PROPOSAL_LOOP_SELF_SCHEDULING — body owns the schedule.
+    schedule_next = loop_subs.add_parser(
+        'schedule-next',
+        help='Compute the next-fire timestamp + cron expression. '
+             'Body uses this to install the next one-shot fire.',
+    )
+    schedule_next.add_argument('name', help='Loop name')
+    _add_instance(schedule_next)
+    _add_output(schedule_next)
+
+    fire = loop_subs.add_parser(
+        'fire',
+        help='Manually trigger one fire of the loop body. Bootstraps '
+             'after resume on Claude Code (CronCreate-mode only emits a hint).',
+    )
+    fire.add_argument('name', help='Loop name')
+    _add_instance(fire)
+    _add_output(fire)
 
     list_p = loop_subs.add_parser('list', help='List all loops registered for an instance')
     _add_instance(list_p)

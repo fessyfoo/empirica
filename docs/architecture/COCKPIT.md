@@ -230,3 +230,22 @@ the dispatcher resolves which backend to use from
 `~/.empirica/notify.yaml` (or built-in defaults). Loops never need to
 know about ntfy specifically; backends can be swapped without touching
 call sites. See [`NOTIFY.md`](NOTIFY.md) for the full spec.
+
+## Loop self-scheduling
+
+Loops are self-scheduling: the body owns the schedule, the scheduler
+is dumb. Each fire heartbeats its result (`found` / `empty` / `fail` /
+`paused`), calls `empirica loop schedule-next` to compute the next-fire
+timestamp from backoff state, and installs a one-shot scheduler job at
+that timestamp. The returned `next_scheduled_job_id` flows back via
+heartbeat so `empirica loop pause` can cancel it.
+
+Pause means the scheduler is silent — no more fires, no token bleed.
+The body's pause check at the start of each fire is the backstop:
+`paused` → exit without scheduling next, loop dies cleanly. Resume
+re-bootstraps via `empirica loop fire` (or by re-issuing through the
+loop-cron skill). Backoff stretches the actual fire interval — empty
+streaks compound, found/fail snap back to base.
+
+Spec: `OutreachShared/empirica-final-docs/PROPOSAL_LOOP_SELF_SCHEDULING.md`.
+Skill template: `loop-cron`.

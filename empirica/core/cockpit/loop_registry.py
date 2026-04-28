@@ -17,7 +17,7 @@ import os
 import re
 import tempfile
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -26,7 +26,13 @@ VALID_NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$')
 VALID_KIND = ('cron', 'interval', 'monitor')
 VALID_STATUS = ('ok', 'fail')
 VALID_BACKOFF = ('none', 'exponential')
-VALID_RESULT = ('found', 'empty', 'fail')
+# 'paused' added per PROPOSAL_LOOP_SELF_SCHEDULING — when the body
+# short-circuits on the pause check it heartbeats with result=paused
+# so the streak math doesn't treat the pause-skip as an empty fire.
+VALID_RESULT = ('found', 'empty', 'fail', 'paused')
+VALID_SCHEDULER_KIND = (
+    'cron-create', 'systemd-user', 'system-cron', 'at-queue', 'unknown',
+)
 
 # Default backoff envelope when caller passes --backoff exponential without
 # explicit floor/ceiling. 15m base × 2^N capped at 4h matches the proposal.
@@ -186,6 +192,96 @@ def _safe_int(value: Any) -> int | None:
         return None
 
 
+def _humanize_seconds(seconds: int) -> str:
+    """Compact duration string for human-readable reasons."""
+    if seconds < 60:
+        return f'{seconds}s'
+    if seconds < 3600:
+        return f'{seconds // 60}m'
+    if seconds < 86400:
+        rem = seconds % 3600
+        if rem == 0:
+            return f'{seconds // 3600}h'
+        return f'{seconds // 3600}h{rem // 60}m'
+    return f'{seconds // 86400}d'
+
+
+def cron_pin_one_shot(when: datetime) -> str:
+    """5-field cron expression pinned to a single wall-clock minute (UTC).
+
+    Format: 'M H D M *' (day-of-week wildcarded). For one-shot
+    scheduling — the body re-installs each fire, so day-of-week
+    matching is irrelevant. Caller is expected to pass `recurring=false`
+    when handing this to a CronCreate-style scheduler.
+    """
+    return f'{when.minute} {when.hour} {when.day} {when.month} *'
+
+
+@dataclass
+class SchedulePlan:
+    """Output of `schedule_next`: when to fire next + why.
+
+    `cron_one_shot` is convenience for callers that hand cron strings
+    directly to CronCreate / `at`. `interval_seconds` is canonical for
+    callers that have their own scheduler API.
+    """
+    fire_at: datetime
+    interval_seconds: int
+    current_streak: int
+    reason: str
+
+    @property
+    def cron_one_shot(self) -> str:
+        return cron_pin_one_shot(self.fire_at)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            'next_fire_at': self.fire_at.isoformat(),
+            'interval_seconds': self.interval_seconds,
+            'current_streak': self.current_streak,
+            'reason': self.reason,
+            'cron_one_shot': self.cron_one_shot,
+        }
+
+
+@dataclass
+class SchedulingState:
+    """Self-scheduling bookkeeping (PROPOSAL_LOOP_SELF_SCHEDULING.md).
+
+    Self-scheduling is the only mode — there's no recurring fallback.
+    The body owns the schedule: each fire computes the next fire's
+    timestamp from backoff state and installs a one-shot scheduler job
+    pinned to that wall-clock time. `next_scheduled_job_id` is the
+    opaque identifier the scheduler returned; pause uses it to cancel
+    the future fire.
+
+    Fields are nullable because:
+      - scheduler_kind: known after registration / first fire
+      - next_scheduled_job_id: known after the body installs the next fire
+      - next_fire_at: known after schedule-next computes it
+    """
+    scheduler_kind: str | None = None
+    next_scheduled_job_id: str | None = None
+    next_fire_at: str | None = None  # ISO-8601 UTC
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            'scheduler_kind': self.scheduler_kind,
+            'next_scheduled_job_id': self.next_scheduled_job_id,
+            'next_fire_at': self.next_fire_at,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any] | None) -> SchedulingState:
+        if not data:
+            return cls()
+        return cls(
+            scheduler_kind=data.get('scheduler_kind'),
+            next_scheduled_job_id=data.get('next_scheduled_job_id'),
+            next_fire_at=data.get('next_fire_at'),
+        )
+
+
 @dataclass
 class LoopEntry:
     name: str
@@ -197,8 +293,9 @@ class LoopEntry:
     last_run: str | None = None
     last_status: str | None = None  # 'ok' | 'fail'
     last_message: str | None = None
-    last_result: str | None = None  # 'found' | 'empty' | 'fail' (PROPOSAL_LOOP_BACKOFF)
+    last_result: str | None = None  # 'found' | 'empty' | 'fail' | 'paused'
     backoff: BackoffState = field(default_factory=BackoffState)
+    scheduling: SchedulingState = field(default_factory=SchedulingState)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -212,6 +309,7 @@ class LoopEntry:
             'last_message': self.last_message,
             'last_result': self.last_result,
             'backoff': self.backoff.to_dict(),
+            'scheduling': self.scheduling.to_dict(),
         }
 
     @classmethod
@@ -228,6 +326,7 @@ class LoopEntry:
             last_message=data.get('last_message'),
             last_result=data.get('last_result'),
             backoff=BackoffState.from_dict(data.get('backoff')),
+            scheduling=SchedulingState.from_dict(data.get('scheduling')),
         )
 
 
@@ -401,19 +500,27 @@ class LoopRegistry:
         status: str = 'ok',
         message: str | None = None,
         result: str | None = None,
+        next_scheduled_job_id: str | None = None,
+        scheduler_kind: str | None = None,
     ) -> LoopEntry:
         """Record a fire — updates last_run/last_status/last_message and,
         when backoff policy is exponential, the streak + next_fire_threshold.
 
-        `result` is the backoff signal (PROPOSAL_LOOP_BACKOFF.md):
-          'found' → new work happened — reset streak, threshold = now + base
-          'empty' → fire ran cleanly, nothing to do — advance streak
-          'fail'  → errored — reset streak, threshold = now + base
-                    (failures are retried at base, not delayed)
+        `result` (PROPOSAL_LOOP_SELF_SCHEDULING):
+          'found'  → new work happened — reset streak, threshold = now + base
+          'empty'  → fire ran cleanly, nothing to do — advance streak
+          'fail'   → errored — reset streak, threshold = now + base
+                     (failures retry at base, don't compound delay)
+          'paused' → body short-circuited on pause check — no streak math
+                     (the loop is silent; backoff state freezes until resume)
 
         If `result` is None, it's inferred from `status`:
           status='ok'   → result='empty' (conservative)
           status='fail' → result='fail'
+
+        `next_scheduled_job_id` records the opaque scheduler job id for
+        the next fire (so pause can cancel it). `scheduler_kind` records
+        which scheduler installed it ('cron-create', 'systemd-user', ...).
 
         If the loop isn't registered yet, auto-registers as a monitor loop.
         """
@@ -422,6 +529,11 @@ class LoopRegistry:
             raise ValueError(f"Invalid status '{status}' — must be one of {VALID_STATUS}")
         if result is not None and result not in VALID_RESULT:
             raise ValueError(f"Invalid result '{result}' — must be one of {VALID_RESULT}")
+        if scheduler_kind is not None and scheduler_kind not in VALID_SCHEDULER_KIND:
+            raise ValueError(
+                f"Invalid scheduler_kind '{scheduler_kind}' — must be one of "
+                f"{VALID_SCHEDULER_KIND}"
+            )
 
         if result is None:
             result = 'fail' if status == 'fail' else 'empty'
@@ -438,8 +550,14 @@ class LoopRegistry:
         entry.last_message = message
         entry.last_result = result
 
-        # Backoff math (no-op when policy=none).
-        if entry.backoff.policy == 'exponential' and entry.backoff.base_interval_seconds:
+        # Backoff math (no-op when policy=none, and when result=='paused':
+        # pause is a no-state transition — backoff freezes mid-stretch and
+        # resumes at the same streak when the body fires again).
+        if (
+            entry.backoff.policy == 'exponential'
+            and entry.backoff.base_interval_seconds
+            and result != 'paused'
+        ):
             if result == 'empty':
                 entry.backoff.empty_streak += 1
             else:  # 'found' or 'fail' → reset
@@ -448,6 +566,16 @@ class LoopRegistry:
             threshold = now.timestamp() + interval_s
             entry.backoff.next_fire_threshold = (
                 datetime.fromtimestamp(threshold, tz=UTC).isoformat()
+            )
+
+        # Scheduling bookkeeping — only mutate when the caller provided
+        # values; otherwise preserve whatever was already there.
+        if scheduler_kind is not None:
+            entry.scheduling.scheduler_kind = scheduler_kind
+        if next_scheduled_job_id is not None:
+            # Empty string means "clear" (e.g. when pause cancels the next fire).
+            entry.scheduling.next_scheduled_job_id = (
+                next_scheduled_job_id or None
             )
 
         data['loops'][name] = entry.to_dict()
@@ -502,6 +630,64 @@ class LoopRegistry:
         data['loops'][name] = entry.to_dict()
         self._write(data)
         return entry
+
+    def schedule_next(self, name: str) -> SchedulePlan | None:
+        """Compute the next-fire timestamp for a self-scheduling loop.
+
+        Uses the entry's current backoff state — `empty_streak` from the
+        most recent heartbeat, `policy='exponential'` to stretch the
+        interval, base+max as floor/ceiling. When backoff is `none`, the
+        interval is the base (or 15m default).
+
+        Returns None when the loop isn't registered. Otherwise returns a
+        SchedulePlan with fire_at + interval_seconds + cron_one_shot
+        (5-field UTC pinned to that exact timestamp).
+
+        The plan is also stamped onto entry.scheduling.next_fire_at so
+        the registry reflects the body's installed schedule.
+        """
+        _validate_name(name)
+        data = self._read()
+        if name not in data['loops']:
+            return None
+
+        entry = LoopEntry.from_dict(name, data['loops'][name])
+        now = datetime.now(tz=UTC)
+
+        base_s = (
+            entry.backoff.base_interval_seconds
+            or parse_duration(entry.interval)
+            or DEFAULT_BASE_INTERVAL_S
+        )
+        if entry.backoff.policy == 'exponential':
+            interval_s = entry.backoff.current_interval_seconds() or base_s
+            streak = entry.backoff.empty_streak
+            if streak == 0:
+                reason = f'streak 0 (snap-back), interval {_humanize_seconds(interval_s)}'
+            else:
+                reason = (
+                    f'empty-streak-{streak}, '
+                    f'base {_humanize_seconds(base_s)} * 2^{streak} = '
+                    f'{_humanize_seconds(interval_s)}'
+                )
+        else:
+            interval_s = base_s
+            reason = f'no backoff, interval {_humanize_seconds(interval_s)}'
+
+        fire_at = now + timedelta(seconds=interval_s)
+        plan = SchedulePlan(
+            fire_at=fire_at,
+            interval_seconds=interval_s,
+            current_streak=entry.backoff.empty_streak,
+            reason=reason,
+        )
+
+        # Stamp on registry — body still owns the install, but the
+        # registry's view of "what we plan to fire next" needs to match.
+        entry.scheduling.next_fire_at = fire_at.isoformat()
+        data['loops'][name] = entry.to_dict()
+        self._write(data)
+        return plan
 
     def to_dict(self) -> dict[str, Any]:
         return self._read()
