@@ -417,9 +417,16 @@ The Sentinel gate enforces the epistemic transaction workflow:
 
 **Pause Sentinel:**
 ```bash
-touch ~/.empirica/sentinel_paused   # Pause
-rm ~/.empirica/sentinel_paused      # Unpause
+empirica sentinel pause                  # this instance (per-instance file)
+empirica sentinel pause --instance <ID>  # specific instance
+empirica sentinel pause --global         # global fallback (all instances)
+
+empirica sentinel resume                 # mirror verb for the same scope
 ```
+
+The TUI's `p` keybinding pauses the selected instance. Direct file
+writes (`touch ~/.empirica/sentinel_paused`) still work as a global
+escape hatch but bypass the per-instance scope the TUI/CLI use.
 
 **Configuration:**
 

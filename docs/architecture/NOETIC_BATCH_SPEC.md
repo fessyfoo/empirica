@@ -268,8 +268,8 @@ New top-level field in PREFLIGHT response, **conditional on** `work_type in (cod
     "tool": "mcp__empirica__noetic_batch",
     "cli": "empirica noetic-batch -",
     "schema": { ... full schema ... },
-    "hint": "Batch your investigation. One tool call replaces N round-trips. Sentinel sees one noetic intent, sub-ms gating.",
-    "skip_if": "Single one-shot lookup (just use Read/Grep directly)."
+    "hint": "Use ONLY when batching ≥3 investigation operations together — the value is one merged result for your conversation, fewer round-trips. Individual Read/Grep/Glob are noetic anywhere (any phase) — use them freely. noetic-batch is NOT a Sentinel bypass; calling it once for a single read is misuse.",
+    "skip_if": "Fewer than 3 investigation operations. Use Read/Grep/Glob/investigate directly — they're already noetic and don't need batching."
   },
   "patterns": { ... }
 }

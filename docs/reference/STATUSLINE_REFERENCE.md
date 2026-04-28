@@ -137,8 +137,8 @@ When there's no normal session to display, the statusline shows one of these:
 
 | Display | Meaning |
 |---------|---------|
-| `[empirica] OFF-RECORD` | Sentinel paused (`~/.empirica/sentinel_paused` exists). Measurements not being taken. |
-| `[empirica] OFF-RECORD (Nm ago)` | Same, with time since pause |
+| `[empirica] OFF-RECORD` | Sentinel paused. Reads per-instance file `~/.empirica/sentinel_paused_{instance_id}` first (written by TUI's `P sent` button or `empirica sentinel pause --instance ID`); falls back to global `~/.empirica/sentinel_paused`. Measurements not being taken. |
+| `[empirica] OFF-RECORD (Nm)` | Same, with time since pause (mtime-based) |
 | `[no project]` | No `.empirica/project.yaml` found — not in an Empirica project |
 | `[project:inactive]` | In a project, but no active session (`empirica session-create` hasn't run) |
 
@@ -204,8 +204,15 @@ Confidence is a weighted global score across 4 vectors. Phase composite averages
 **"I see `OFF-RECORD` — how do I turn the sentinel back on?"**
 
 ```bash
-rm ~/.empirica/sentinel_paused
+empirica sentinel resume                  # this instance
+empirica sentinel resume --instance <ID>  # specific instance
+empirica sentinel resume --global         # clear global flag
 ```
+
+Or from the cockpit TUI: select the instance, press `p`. The statusline
+checks the per-instance file (`~/.empirica/sentinel_paused_{instance_id}`)
+first, then the global file (`~/.empirica/sentinel_paused`); the verbs
+above remove the right one.
 
 **"Can I customize the glyphs?"**
 Not via config currently — emoji and colors are hard-coded in `statusline_empirica.py`. Patches welcome.

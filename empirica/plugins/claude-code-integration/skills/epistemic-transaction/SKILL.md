@@ -307,11 +307,14 @@ POSTFLIGHT and start a new transaction.
 
 ### 4b. Noetic Phase — Investigate
 
-**Prefer `noetic_batch` for multi-step investigation.** When a transaction's
-investigation involves 3+ reads/greps/globs/searches, batch them in one call
-instead of round-tripping per-step. The Sentinel sees one noetic intent
-(zero per-call gating overhead), the TUI stays clean, and you get a merged
-structured response.
+**Use `noetic_batch` ONLY when batching ≥3 investigation operations.**
+When a transaction's investigation needs reads + greps + globs + investigate
+together, bundle them in one call — the value is one merged result for your
+conversation and fewer round-trips, not a gating shortcut. Individual
+Read/Grep/Glob/investigate calls are noetic in any phase and don't need
+batching. **NOT a Sentinel bypass** — calling `noetic_batch` once for a
+single read is misuse (the executor will surface a `warning` field in
+the response).
 
 ```bash
 empirica noetic-batch - << 'EOF'
