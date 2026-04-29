@@ -236,6 +236,58 @@ def _cortex_remote_sync(result: dict) -> None:
         result["cortex_sync"] = _write_cortex_cache(sync_result, sync_project_id)
 
 
+def _heal_session_project_id_at_init(session_id: str, project_root: str | None) -> None:
+    """Validate-and-heal session.project_id at session-init boundary.
+
+    Mirrors post-compact._auto_heal_session's stage 2 — catches the
+    ghost-project_id pattern when session-create returned a session
+    bound to a stale project (cross-project --resume, ambiguous
+    folder_name match, tmux pane reuse). Cwd is reliable here because
+    session-init already os.chdir'd to project_root before this runs.
+
+    Non-fatal — logs to stderr on issue, never blocks session boot.
+    """
+    if not session_id or not project_root:
+        return
+    try:
+        import sqlite3
+        ws_db = Path.home() / '.empirica' / 'workspace' / 'workspace.db'
+        if not ws_db.exists():
+            return
+        trajectory = str(Path(project_root) / '.empirica')
+        conn = sqlite3.connect(str(ws_db))
+        try:
+            cursor = conn.execute(
+                "SELECT id FROM global_projects WHERE trajectory_path = ?",
+                (trajectory,)
+            )
+            row = cursor.fetchone()
+        finally:
+            conn.close()
+        if not row:
+            return  # path not registered — leave alone, never guess
+        expected_project_id = row[0]
+
+        from empirica.data.session_database import SessionDatabase
+        db = SessionDatabase()
+        try:
+            status = db.heal_session_project_id(
+                session_id=session_id,
+                expected_project_id=expected_project_id,
+            )
+            if status == "healed":
+                print(
+                    f"session-init: healed session {session_id[:8]} project_id "
+                    f"-> {expected_project_id[:8]} (ghost-project_id pattern)",
+                    file=sys.stderr,
+                )
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"session-init: project_id heal skipped ({type(e).__name__}: {e})",
+              file=sys.stderr)
+
+
 def create_session_and_bootstrap(ai_id: str, project_id: str | None = None) -> dict:
     """Create session + run bootstrap in sequence.
 
@@ -260,6 +312,10 @@ def create_session_and_bootstrap(ai_id: str, project_id: str | None = None) -> d
             result["error"] = error
             return result
         result["session_id"] = session_id
+
+        # Step 1b: Heal session.project_id if session-create's resolution
+        # bound to a stale project (ghost-project_id pattern). Idempotent.
+        _heal_session_project_id_at_init(session_id, os.environ.get('PWD') or os.getcwd())
 
         # Step 2: Run bootstrap
         bootstrap_data, project_context = _run_bootstrap(session_id, env)

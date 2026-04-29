@@ -411,6 +411,48 @@ class SessionRepository(BaseRepository):
 
         return True
 
+    def heal_session_project_id(
+        self,
+        session_id: str,
+        expected_project_id: str,
+    ) -> str:
+        """Validate-and-heal session.project_id against expected.
+
+        Companion to ensure_session_exists for the project_id-grain bug
+        (KNOWN_ISSUES 11.24 extended). When a session row exists but its
+        project_id is stale (cross-project --resume, prior misbinding,
+        ambiguous folder_name resolution), updates it to expected.
+
+        Caller is responsible for resolving expected_project_id from a
+        trustworthy source (workspace.db trajectory_path lookup against
+        cwd at session boundaries — never mid-tool-call).
+
+        Args:
+            session_id: Session UUID to validate.
+            expected_project_id: Project UUID the session should be bound to.
+
+        Returns:
+            "healed" — project_id was wrong, now updated.
+            "ok" — already matched expected.
+            "missing" — session row not in DB (caller should ensure_session_exists first).
+        """
+        cursor = self._execute(
+            "SELECT project_id FROM sessions WHERE session_id = ?", (session_id,)
+        )
+        row = cursor.fetchone()
+        if row is None:
+            return "missing"
+
+        current = row[0]
+        if current == expected_project_id:
+            return "ok"
+
+        self._execute(
+            "UPDATE sessions SET project_id = ? WHERE session_id = ?",
+            (expected_project_id, session_id),
+        )
+        return "healed"
+
     def get_latest_session(
         self,
         ai_id: str | None = None,

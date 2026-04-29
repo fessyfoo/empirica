@@ -280,3 +280,95 @@ class TestEnsureSessionExists:
         retrieved = session_db.sessions.get_session(session_id)
         assert retrieved is not None
         assert retrieved["session_id"] == session_id
+
+
+# ---------------------------------------------------------------------------
+# Validate-and-heal: heal_session_project_id (ghost-project_id pattern)
+# ---------------------------------------------------------------------------
+
+
+class TestHealSessionProjectId:
+    """Project_id-grain extension of 11.24's session_id heal.
+
+    Catches the case where a session row exists but its project_id is
+    stale (cross-project --resume, ambiguous folder_name match, tmux
+    pane reuse without project-switch). Caller resolves expected
+    project_id from workspace.db trajectory_path lookup at session
+    boundaries (cwd reliable).
+    """
+
+    def _seed_session_with_project_id(self, db, project_id):
+        """Insert a session row with a specific project_id directly.
+
+        create_session() doesn't persist project_id to the sessions row
+        (only to the global registry) — production callers set project_id
+        via later updates. For these heal tests we need the row to start
+        with a known project_id so we can verify the heal mutation.
+        """
+        session_id = db.create_session(ai_id="claude-code")
+        cursor = db.conn.cursor()
+        cursor.execute(
+            "UPDATE sessions SET project_id = ? WHERE session_id = ?",
+            (project_id, session_id),
+        )
+        db.conn.commit()
+        return session_id
+
+    def test_heals_when_project_id_mismatch(self, session_db):
+        # Session exists, bound to wrong project_id (ghost)
+        session_id = self._seed_session_with_project_id(session_db, "ghost-pid-xxx")
+
+        # Heal to expected
+        result = session_db.heal_session_project_id(
+            session_id=session_id,
+            expected_project_id="real-pid-yyy",
+        )
+        assert result == "healed"
+
+        # Row's project_id is now correct
+        cursor = session_db.conn.cursor()
+        cursor.execute(
+            "SELECT project_id FROM sessions WHERE session_id = ?", (session_id,)
+        )
+        assert cursor.fetchone()[0] == "real-pid-yyy"
+
+    def test_no_op_when_already_correct(self, session_db):
+        session_id = self._seed_session_with_project_id(session_db, "real-pid-yyy")
+
+        result = session_db.heal_session_project_id(
+            session_id=session_id,
+            expected_project_id="real-pid-yyy",
+        )
+        assert result == "ok"
+
+    def test_returns_missing_when_session_absent(self, session_db):
+        # Caller is responsible for ensure_session_exists first; this
+        # method must not silently insert (different concern).
+        result = session_db.heal_session_project_id(
+            session_id="never-created-uuid",
+            expected_project_id="any-pid",
+        )
+        assert result == "missing"
+
+        # Confirm no row was inserted as a side-effect
+        cursor = session_db.conn.cursor()
+        cursor.execute(
+            "SELECT COUNT(*) FROM sessions WHERE session_id = ?", ("never-created-uuid",)
+        )
+        assert cursor.fetchone()[0] == 0
+
+    def test_idempotent_after_heal(self, session_db):
+        # After a heal, calling again should be a no-op (status="ok")
+        session_id = self._seed_session_with_project_id(session_db, "ghost-pid-xxx")
+        first = session_db.heal_session_project_id(session_id, "real-pid-yyy")
+        second = session_db.heal_session_project_id(session_id, "real-pid-yyy")
+        assert first == "healed"
+        assert second == "ok"
+
+    def test_heal_then_ensure_session_exists_no_op(self, session_db):
+        # Composes correctly with the existing ensure_session_exists:
+        # after a heal, ensure_session_exists should still see the row
+        # (and return False = already-exists).
+        session_id = self._seed_session_with_project_id(session_db, "ghost-pid-xxx")
+        session_db.heal_session_project_id(session_id, "real-pid-yyy")
+        assert session_db.ensure_session_exists(session_id) is False

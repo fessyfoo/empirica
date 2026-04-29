@@ -247,13 +247,55 @@ def _enrich_dynamic_context(dynamic_context: dict, active_transaction: dict,
         dynamic_context['calibration_biases'] = calibration_text
 
 
+def _lookup_project_id_from_trajectory(project_root: Path) -> str | None:
+    """Resolve canonical project_id from workspace.db using trajectory_path.
+
+    The trajectory_path is the project's `.empirica` directory — that's
+    the unique key in workspace.db's global_projects table. Used at
+    session boundaries (post-compact, session-init) where cwd is reliable.
+
+    Returns project_id or None if the project isn't registered.
+    """
+    try:
+        import sqlite3
+        ws_db = Path.home() / '.empirica' / 'workspace' / 'workspace.db'
+        if not ws_db.exists():
+            return None
+        trajectory = str(Path(project_root) / '.empirica')
+        conn = sqlite3.connect(str(ws_db))
+        try:
+            cursor = conn.execute(
+                "SELECT id FROM global_projects WHERE trajectory_path = ?",
+                (trajectory,)
+            )
+            row = cursor.fetchone()
+            return row[0] if row else None
+        finally:
+            conn.close()
+    except Exception:
+        return None
+
+
 def _auto_heal_session(tx_session_id: str, ai_id: str, project_id: str,
                        instance_id: str, project_root: Path) -> None:
-    """Auto-heal missing session in project DB for cross-project resume. Non-fatal."""
+    """Auto-heal missing session + stale project_id in project DB.
+
+    Two-stage heal at session boundaries (post-compact, session-init):
+      1. Session-row existence (KNOWN_ISSUES 11.24 — cross-project resume)
+      2. Session-row project_id correctness (extends 11.24 to project_id grain)
+
+    Stage 2 catches the ghost-project_id pattern: session was originally
+    created with a wrong/stale project_id (cross-project --resume,
+    ambiguous folder_name match, tmux pane reuse without project-switch),
+    and that wrong id rides forever even when file-context recovers.
+
+    Non-fatal — every step logs to stderr and continues on error.
+    """
     try:
         from empirica.data.session_database import SessionDatabase
         from empirica.utils.session_resolver import _validate_session_in_db
 
+        # Stage 1: ensure session row exists in project-local DB
         if not _validate_session_in_db(tx_session_id, project_path=str(project_root)):
             db = SessionDatabase()
             healed = db.ensure_session_exists(
@@ -264,6 +306,32 @@ def _auto_heal_session(tx_session_id: str, ai_id: str, project_id: str,
             if healed:
                 print(f"post-compact: auto-healed missing session {tx_session_id[:8]} in project DB",
                       file=sys.stderr)
+
+        # Stage 2: validate session.project_id against workspace.db canonical
+        # cwd is reliable at session boundaries — workspace.db lookup grounds
+        # the heal in registered project trajectory_path, never folder_name.
+        expected_project_id = _lookup_project_id_from_trajectory(project_root)
+        if expected_project_id:
+            db = SessionDatabase()
+            try:
+                status = db.heal_session_project_id(
+                    session_id=tx_session_id,
+                    expected_project_id=expected_project_id,
+                )
+                if status == "healed":
+                    print(
+                        f"post-compact: healed session {tx_session_id[:8]} project_id "
+                        f"-> {expected_project_id[:8]} (ghost-project_id pattern)",
+                        file=sys.stderr,
+                    )
+            finally:
+                db.close()
+        else:
+            print(
+                f"post-compact: skipped project_id heal — {project_root}/.empirica "
+                "not registered in workspace.db (no trustworthy expected_project_id)",
+                file=sys.stderr,
+            )
     except Exception as e:
         print(f"post-compact: auto-heal skipped ({type(e).__name__}: {e})", file=sys.stderr)
 
@@ -329,6 +397,13 @@ def _handle_complete_session(pre_vectors: dict, dynamic_context: dict,
 
     if session_bootstrap.get('session_id'):
         empirica_session = session_bootstrap['session_id']
+
+    # Defense-in-depth: validate the freshly-created session's project_id
+    # against workspace.db canonical. Fresh sessions usually get the right
+    # binding from session-create's resolution chain, but if folder_name
+    # ambiguity or stale TTY context misfired, this catches it before any
+    # work attaches to the wrong project.
+    _auto_heal_session(empirica_session, ai_id, project_id, instance_id, project_root)
 
     _write_active_work_for_new_conversation(
         claude_session_id=claude_session_id, project_path=str(project_root),

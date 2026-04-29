@@ -350,6 +350,20 @@ class SessionDatabase:
             instance_id=instance_id,
         )
 
+    def heal_session_project_id(
+        self,
+        session_id: str,
+        expected_project_id: str,
+    ) -> str:
+        """Validate-and-heal session.project_id against expected (delegates to repo).
+
+        Returns "healed" | "ok" | "missing".
+        """
+        return self.sessions.heal_session_project_id(
+            session_id=session_id,
+            expected_project_id=expected_project_id,
+        )
+
     def create_cascade(self, session_id: str, task: str, context: dict[str, Any],
                       goal_id: str | None = None, goal: dict[str, Any] | None = None) -> str:
         """Create cascade record (delegates to CascadeRepository)"""
