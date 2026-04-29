@@ -3449,8 +3449,77 @@ def _postflight_format_human_output(result, session_id, vectors, reasoning,
     _postflight_print_project_context(session_id)
 
 
+def _validate_postflight_preconditions(session_id: str) -> tuple[bool, str | None]:
+    """Pre-mutation validation for POSTFLIGHT.
+
+    Checks session row exists and resolves to a valid project context.
+    Runs BEFORE any state mutation (transaction close, reflex write) so
+    a precondition failure leaves the loop open and the user can fix
+    context with project-switch.
+
+    Returns (ok, error_msg). On success, error_msg is None.
+    """
+    try:
+        from empirica.data.session_database import SessionDatabase
+        db = SessionDatabase()
+        try:
+            cursor = db.conn.cursor()
+            cursor.execute(
+                "SELECT project_id FROM sessions WHERE session_id = ?",
+                (session_id,),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                return False, f"session {session_id[:8]} not found in project DB"
+            project_id = row[0]
+            if not project_id:
+                return False, (
+                    f"session {session_id[:8]} has no project_id — run "
+                    "'empirica project-switch <project>' before POSTFLIGHT"
+                )
+            return True, None
+        finally:
+            db.close()
+    except Exception as e:
+        # Validation failure shouldn't itself block POSTFLIGHT — fail open.
+        # The downstream stages will still gracefully handle their errors
+        # via the soft-warn wrappers below.
+        return True, f"precondition check skipped ({type(e).__name__}: {e})"
+
+
+def _soft_run(stage_name: str, warnings: list, fn, *args, **kwargs):
+    """Run a downstream POSTFLIGHT stage; collect failures as warnings.
+
+    Stages 5-7 (bus, beliefs, storage, compliance, cortex sync) are
+    informational — they enrich the result but their failures must not
+    erase the reflex that already landed in stages 3-4. Pre-fix, an
+    exception in any of them surfaced as exit-code-1 with persisted=false
+    even though the loop had actually closed (ghost-success bug).
+
+    Post-fix: catch, log, accumulate into warnings[]. Caller decides what
+    to do with the list (typically: include in result for AI visibility).
+    """
+    try:
+        return fn(*args, **kwargs)
+    except Exception as e:
+        warnings.append({
+            "stage": stage_name,
+            "error_type": type(e).__name__,
+            "error": str(e),
+        })
+        logger.warning(f"POSTFLIGHT {stage_name} soft-failed: {type(e).__name__}: {e}")
+        return None
+
+
 def handle_postflight_submit_command(args):
-    """Handle postflight-submit command - AI-first with config file support"""
+    """Handle postflight-submit command - AI-first with config file support.
+
+    Pipeline restructure (#95 Issue 3):
+      Stage 0: Pre-validation (no state mutation)
+      Stages 1-4: Hard mutation (close transaction + write reflex)
+      Stages 5-7: Soft mutation (downstream pipeline; failures collected as
+                  warnings, never erase the reflex from stages 3-4)
+    """
     try:
         from empirica.core.canonical.git_enhanced_reflex_logger import GitEnhancedReflexLogger
 
@@ -3460,6 +3529,28 @@ def handle_postflight_submit_command(args):
         vectors = parsed["vectors"]
         reasoning = parsed["reasoning"]
         output_format = parsed["output_format"]
+
+        # Stage 0: Pre-validation — fail BEFORE any state mutation
+        precondition_ok, precondition_error = _validate_postflight_preconditions(session_id)
+        if not precondition_ok:
+            result = {
+                "ok": False, "session_id": session_id,
+                "message": f"POSTFLIGHT pre-validation failed: {precondition_error}",
+                "persisted": False, "error": precondition_error,
+                "loop_state": "open",  # unchanged — user can fix and retry
+            }
+            if output_format == 'json':
+                print(json.dumps(result, indent=2))
+            return None
+
+        # warnings: collects soft-failures from stages 5-7
+        warnings: list[dict] = []
+        if precondition_error:  # validator skipped (not a fail) — log it
+            warnings.append({
+                "stage": "pre-validation",
+                "error_type": "skipped",
+                "error": precondition_error,
+            })
 
         try:
             logger_instance = GitEnhancedReflexLogger(session_id=session_id, enable_git_notes=True)
@@ -3475,6 +3566,7 @@ def handle_postflight_submit_command(args):
                 logger_instance, vectors, parsed["preflight_session_id"]
             )
 
+            # ─── HARD MUTATION (stages 3-4) ───
             # Stage 3: Close transaction
             tx_info = _close_postflight_transaction(session_id)
             resolved_project_path = tx_info["resolved_project_path"]
@@ -3498,26 +3590,34 @@ def handle_postflight_submit_command(args):
                 }
             )
 
+            # ─── SOFT MUTATION (stages 5-7) — failures become warnings ───
             # Stage 5: Bus + Sentinel
-            _postflight_publish_bus_event(
+            _soft_run("bus_publish", warnings,
+                _postflight_publish_bus_event,
                 session_id, tx_info["transaction_id"], vectors, deltas,
-                postflight_confidence, internal_consistency
+                postflight_confidence, internal_consistency,
             )
-            sentinel_decision = _invoke_sentinel_hook("POSTFLIGHT", session_id, {
-                "vectors": vectors, "reasoning": reasoning,
-                "postflight_confidence": postflight_confidence,
-                "internal_consistency": internal_consistency,
-                "deltas": deltas, "trajectory_issues": trajectory_issues,
-                "checkpoint_id": checkpoint_id
-            })
+            sentinel_decision = _soft_run("sentinel_hook", warnings,
+                _invoke_sentinel_hook, "POSTFLIGHT", session_id, {
+                    "vectors": vectors, "reasoning": reasoning,
+                    "postflight_confidence": postflight_confidence,
+                    "internal_consistency": internal_consistency,
+                    "deltas": deltas, "trajectory_issues": trajectory_issues,
+                    "checkpoint_id": checkpoint_id,
+                },
+            )
 
             # Stage 6: Beliefs + Grounded verification + Storage pipeline
-            _run_postflight_beliefs_and_exports(session_id, preflight_vectors, vectors)
-            grounded_verification = _run_grounded_verification(
+            _soft_run("beliefs_export", warnings,
+                _run_postflight_beliefs_and_exports, session_id, preflight_vectors, vectors,
+            )
+            grounded_verification = _soft_run("grounded_verification", warnings,
+                _run_grounded_verification,
                 session_id, vectors, tx_info["phase_tool_counts"],
                 tx_info["work_context"], tx_info["work_type"], tx_info["transaction_id"],
             )
-            _run_postflight_storage_pipeline(
+            _soft_run("storage_pipeline", warnings,
+                _run_postflight_storage_pipeline,
                 session_id=session_id, vectors=vectors, deltas=deltas,
                 reasoning=reasoning, grounded_verification=grounded_verification,
                 postflight_confidence=postflight_confidence,
@@ -3525,9 +3625,15 @@ def handle_postflight_submit_command(args):
             )
 
             # Stage 7: Compliance + Result
-            compliance_result, compliance_error = _run_postflight_compliance(
-                session_id, tx_info["transaction_id"], tx_info["work_type"], resolved_project_path
+            compliance_outcome = _soft_run("compliance_check", warnings,
+                _run_postflight_compliance,
+                session_id, tx_info["transaction_id"], tx_info["work_type"], resolved_project_path,
             )
+            if compliance_outcome:
+                compliance_result, compliance_error = compliance_outcome
+            else:
+                compliance_result, compliance_error = None, None
+
             result = _build_postflight_result(
                 session_id=session_id, postflight_confidence=postflight_confidence,
                 internal_consistency=internal_consistency, deltas=deltas,
@@ -3540,8 +3646,13 @@ def handle_postflight_submit_command(args):
             )
             if retrospective:
                 result["retrospective"] = retrospective
+            if warnings:
+                # Soft-failures: visible to AI without erasing the closed loop
+                result["warnings"] = warnings
 
-            _run_postflight_cortex_sync(session_id, reasoning, resolved_project_path)
+            _soft_run("cortex_sync", warnings,
+                _run_postflight_cortex_sync, session_id, reasoning, resolved_project_path,
+            )
 
         except Exception as e:
             logger.error(f"Failed to save postflight assessment: {e}")
