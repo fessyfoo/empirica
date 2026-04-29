@@ -75,6 +75,7 @@ from .trajectory_parsers import add_trajectory_parsers
 from .user_interface_parsers import add_user_interface_parsers
 from .utility_parsers import add_utility_parsers
 from .vision_parsers import add_vision_parsers
+from .voice_parsers import add_voice_parsers
 
 __all__ = [
     'add_action_parsers',
@@ -112,5 +113,6 @@ __all__ = [
     'add_user_interface_parsers',
     'add_utility_parsers',
     'add_vision_parsers',
+    'add_voice_parsers',
     'format_help_text',
 ]

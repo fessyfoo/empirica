@@ -217,6 +217,12 @@ from .training_commands import (
 
 # handle_goal_analysis_command removed - was in noetic_praxic_commands (deprecated)
 from .vision_commands import handle_vision_analyze, handle_vision_log
+from .voice_commands import (
+    handle_voice_apply_command,
+    handle_voice_group_command,
+    handle_voice_list_command,
+    handle_voice_show_command,
+)
 from .workflow_commands import (
     handle_check_command,
     handle_check_submit_command,
@@ -419,6 +425,12 @@ __all__ = [
     # Vision commands
     'handle_vision_analyze',
     'handle_vision_log',
+
+    # Voice profile commands
+    'handle_voice_apply_command',
+    'handle_voice_group_command',
+    'handle_voice_list_command',
+    'handle_voice_show_command',
     'handle_workflow_patterns_command',
     'handle_workspace_init_command',
     'handle_workspace_list_command',
