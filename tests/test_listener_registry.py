@@ -209,6 +209,33 @@ class TestUnregister:
         reg.unregister('foo')
         assert not active.exists()
 
+    def test_clears_pending_install_and_uninstall(self, empirica_dir, monkeypatch):
+        """Regression: orphan-install gap. If pending install/uninstall
+        files exist when unregister fires, they must be cleaned — otherwise
+        the next prompt re-arms a listener that's no longer registered."""
+        from empirica.core.cockpit import (
+            listener_install_request as inst,
+        )
+        from empirica.core.cockpit import (
+            listener_uninstall_request as uninst,
+        )
+        monkeypatch.setattr(inst, 'EMPIRICA_DIR', empirica_dir)
+        monkeypatch.setattr(uninst, 'EMPIRICA_DIR', empirica_dir)
+
+        reg = ListenerRegistry('tmux_test')
+        reg.register(name='foo', topic='ntfy:a')
+
+        install_path = inst.write_pending('tmux_test', 'foo', topic='ntfy:a')
+        uninstall_path = uninst.write_pending(
+            'tmux_test', 'foo', monitor_task_id='tk',
+        )
+        assert install_path.exists()
+        assert uninstall_path.exists()
+
+        reg.unregister('foo')
+        assert not install_path.exists(), 'install pending must be cleaned'
+        assert not uninstall_path.exists(), 'uninstall pending must be cleaned'
+
 
 # ─── pause/resume ──────────────────────────────────────────────────────────
 

@@ -287,8 +287,16 @@ class ListenerRegistry:
 
     def unregister(self, name: str) -> bool:
         """Remove a listener from the registry. Returns True if removed,
-        False if absent. Also clears the pause sidecar and the active
-        runtime file so resurrection of the same name starts clean."""
+        False if absent. Also clears the pause sidecar, the active
+        runtime file, and any pending install/uninstall request files
+        so resurrection of the same name starts clean.
+
+        Cleaning the pending files closes the orphan-arming gap: if
+        unregister runs while a `listener_install_pending_*.json` is
+        still queued, the next prompt would otherwise arm a listener
+        that no longer exists in the registry → zombie curl + Monitor
+        + orphan `listener_active_*.json`.
+        """
         _validate_name(name)
         data = self._read()
         if name not in data['listeners']:
@@ -296,13 +304,29 @@ class ListenerRegistry:
         del data['listeners'][name]
         self._write(data)
         set_listener_paused(self.instance_id, name, False)
-        # Clear runtime metadata if any leaked through after a crash.
-        active = listener_active_path(self.instance_id, name)
-        try:
-            active.unlink()
-        except FileNotFoundError:
-            pass
+        # Clear all sidecar / pending / runtime files. Each unlink is
+        # best-effort — missing files are fine, anything else is logged
+        # by the caller via their normal error path.
+        for path in self._sidecar_paths(name):
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
         return True
+
+    def _sidecar_paths(self, name: str) -> list[Path]:
+        """All per-listener sidecar files that should be cleaned by
+        unregister. Imports happen lazily to avoid circular imports
+        with the install/uninstall request modules."""
+        from empirica.core.cockpit import (
+            listener_install_request,
+            listener_uninstall_request,
+        )
+        return [
+            listener_active_path(self.instance_id, name),
+            listener_install_request.pending_path(self.instance_id, name),
+            listener_uninstall_request.pending_path(self.instance_id, name),
+        ]
 
     def record_wake(
         self,

@@ -153,10 +153,23 @@ def handle_sentinel_status_command_cockpit(args) -> int:
 
 # ─── empirica loop ──────────────────────────────────────────────────────────
 
+
+class InstanceIdRequiredError(ValueError):
+    """Raised when an `empirica loop`/`listener` verb requires an instance_id
+    but none was resolvable (no --instance flag, no current-process detection).
+
+    Inherits from ValueError (not BaseException like SystemExit) so callers
+    using `except Exception` — including the TUI and background loops —
+    catch it cleanly without crashing the host process. Same hazard pattern
+    that motivated the resolve_project_id → ProjectNotFoundError migration
+    (1.8.16).
+    """
+
+
 def _require_instance_id(args) -> str:
     instance_id = _resolve_instance_id(args, fallback_to_current=True)
     if not instance_id:
-        raise SystemExit(
+        raise InstanceIdRequiredError(
             'error: no instance_id available. Set EMPIRICA_INSTANCE_ID '
             'or pass --instance ID explicitly.'
         )
@@ -1221,7 +1234,11 @@ def handle_loop_group_command(args) -> int:
     if handler is None:
         sys.stdout.write(f'error: unknown loop action: {action}\n')
         return 2
-    return handler(args) or 0
+    try:
+        return handler(args) or 0
+    except InstanceIdRequiredError as e:
+        sys.stdout.write(f'{e}\n')
+        return 2
 
 
 def handle_listener_group_command(args) -> int:
@@ -1229,14 +1246,18 @@ def handle_listener_group_command(args) -> int:
     if not action:
         sys.stdout.write(
             'usage: empirica listener <register|unregister|pause|resume|'
-            'record-wake|fire|list|status> [args...]\n'
+            'record-wake|fire|install-request|list|status> [args...]\n'
         )
         return 2
     handler = _LISTENER_DISPATCH.get(action)
     if handler is None:
         sys.stdout.write(f'error: unknown listener action: {action}\n')
         return 2
-    return handler(args) or 0
+    try:
+        return handler(args) or 0
+    except InstanceIdRequiredError as e:
+        sys.stdout.write(f'{e}\n')
+        return 2
 
 
 # Keep loaders happy — these names are the canonical export surface.
