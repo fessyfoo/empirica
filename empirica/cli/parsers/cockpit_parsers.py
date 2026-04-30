@@ -305,6 +305,22 @@ def _add_listener_group(subparsers):
     _add_instance(fire)
     _add_output(fire)
 
+    install = listener_subs.add_parser(
+        'install-request',
+        help='Cockpit→Claude install: register listener + queue a pending '
+             'install request the target Claude picks up via UserPromptSubmit '
+             'and arms via /inbox-listener (curl + Monitor).',
+    )
+    install.add_argument('--name', required=True, help='Listener name')
+    install.add_argument('--topic', required=True,
+                          help='Topic URL: <scheme>:<rest>. V1: ntfy:<channel>.')
+    install.add_argument('--description', help='One-line description')
+    install.add_argument('--on-wake',
+                          help='Prompt template the listener body replays on '
+                               'each wake (empty = inbox-listener default).')
+    _add_instance(install)
+    _add_output(install)
+
     list_p = listener_subs.add_parser('list',
         help='List all listeners registered for an instance')
     _add_instance(list_p)

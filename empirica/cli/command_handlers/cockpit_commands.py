@@ -35,10 +35,17 @@ from empirica.core.cockpit import (
     set_label,
     set_loop_paused,
 )
+from empirica.core.cockpit.listener_install_request import (
+    write_pending as write_listener_install_pending,
+)
 from empirica.core.cockpit.listener_registry import (
     ListenerRegistry,
     is_listener_paused,
+    listener_active_path,
     set_listener_paused,
+)
+from empirica.core.cockpit.listener_uninstall_request import (
+    write_pending as write_listener_uninstall_pending,
 )
 from empirica.core.cockpit.loop_install_request import (
     DEFAULT_SCHEDULER_KIND,
@@ -662,30 +669,73 @@ def handle_listener_unregister_command(args) -> int:
 
 
 def handle_listener_pause_command(args) -> int:
-    """Pause a listener.
+    """Pause a listener — mechanical-via-pickup-hook.
 
-    V1: writes the pause sidecar (advisory layer). The mechanical kill
-    of Monitor + curl requires the install-request analog (item 4 of
-    PROPOSAL_EVENT_LISTENER) — same pattern as loop_uninstall_request:
-    write a pending file containing the active runtime metadata
-    (Monitor task id, curl pid), surface via UserPromptSubmit hook on
-    the owning instance asking Claude to TaskStop / kill PID.
+    Writes the pause sidecar (advisory layer for body short-circuit at
+    next wake) AND, when the listener is armed (active runtime file
+    present with monitor_task_id + curl_pid), writes a pending uninstall
+    request that the owning instance's UserPromptSubmit hook surfaces
+    on next prompt asking Claude to TaskStop the Monitor and kill the
+    held curl.
 
-    For V1, the listener body's pause check at next wake is the
-    backstop (analogous to cron loop body's pause check).
+    The body's pause check at next wake is the backstop if Claude
+    doesn't run TaskStop/kill in time.
     """
     instance_id = _require_instance_id(args)
     paused = set_listener_paused(instance_id, args.name, paused=True)
+
+    uninstall_pending_path: str | None = None
+    monitor_task_id: str | None = None
+    curl_pid: int | None = None
+
+    active_path = listener_active_path(instance_id, args.name)
+    if active_path.exists():
+        try:
+            with open(active_path, encoding='utf-8') as f:
+                active_data = _json.load(f)
+            monitor_task_id = active_data.get('monitor_task_id') or None
+            raw_pid = active_data.get('curl_pid')
+            curl_pid = int(raw_pid) if raw_pid is not None else None
+        except (OSError, ValueError, _json.JSONDecodeError):
+            # Corrupt active file — pause flag is set; the body backstop
+            # still works. Skip the pending-uninstall write.
+            pass
+
+    if monitor_task_id:
+        pending = write_listener_uninstall_pending(
+            instance_id=instance_id,
+            name=args.name,
+            monitor_task_id=monitor_task_id,
+            curl_pid=curl_pid,
+            requested_by=get_instance_id(),
+            reason='manual pause',
+        )
+        uninstall_pending_path = str(pending)
+
     payload = {
         'ok': True,
         'instance_id': instance_id,
         'name': args.name,
         'paused': paused,
+        'monitor_task_id': monitor_task_id,
+        'curl_pid': curl_pid,
+        'uninstall_pending_path': uninstall_pending_path,
     }
-    summary = (
-        f'Listener paused: {args.name} '
-        '(advisory; mechanical Monitor-kill requires item 4 of PROPOSAL_EVENT_LISTENER)'
-    )
+
+    summary = f'Listener paused: {args.name}'
+    if uninstall_pending_path:
+        summary += (
+            f' · queued TaskStop request for Monitor {monitor_task_id} '
+            '(picked up via UserPromptSubmit; body pause-check is the backstop)'
+        )
+    elif active_path.exists():
+        summary += (
+            ' (active file present but missing monitor_task_id — '
+            'body pause-check is the only backstop)'
+        )
+    else:
+        summary += ' (no active runtime — listener was already disarmed)'
+
     return _emit(args, payload, summary)
 
 
@@ -810,6 +860,63 @@ def handle_listener_status_command(args) -> int:
     summary = (
         f'{entry.name}: topic={entry.topic} paused={paused} '
         f'wakes={entry.wake_count} last_wake_at={entry.last_wake_at}'
+    )
+    return _emit(args, payload, summary)
+
+
+def handle_listener_install_request_command(args) -> int:
+    """Cockpit→Claude install path for listeners. Symmetric to
+    handle_loop_install_request_command. Registers the listener in the
+    target's registry and drops a pending install request that the
+    target instance's UserPromptSubmit hook surfaces as a system-reminder.
+    The target Claude sees the reminder, runs `/inbox-listener` with
+    the embedded prompt template, arms the curl + Monitor, and writes
+    the listener_active_*.json runtime metadata.
+    """
+    target_instance = getattr(args, 'instance', None)
+    if not target_instance:
+        return _emit(
+            args,
+            {'ok': False, 'error': '--instance required (target instance to install in)'},
+            'error: --instance required',
+        )
+
+    name = args.name
+    topic = args.topic
+    description = getattr(args, 'description', '') or ''
+    on_wake = getattr(args, 'on_wake', '') or ''
+
+    # Register first so the listener is visible in the cockpit immediately
+    # — even before the target Claude arms the curl + Monitor.
+    registry = ListenerRegistry(target_instance)
+    try:
+        entry = registry.register(
+            name=name,
+            topic=topic,
+            description=description,
+            on_wake_template=on_wake,
+        )
+    except ValueError as e:
+        return _emit(args, {'ok': False, 'error': str(e)}, f'error: {e}')
+
+    pending_path_obj = write_listener_install_pending(
+        instance_id=target_instance,
+        name=name,
+        topic=topic,
+        description=description,
+        on_wake_template=on_wake,
+        requested_by=get_instance_id(),
+    )
+
+    payload = {
+        'ok': True,
+        'instance_id': target_instance,
+        'listener': {'name': entry.name, **entry.to_dict()},
+        'pending_path': str(pending_path_obj),
+    }
+    summary = (
+        f'Listener install requested: {name} (topic={topic}) → {target_instance} '
+        '· pending file written; owning Claude will pick it up via UserPromptSubmit'
     )
     return _emit(args, payload, summary)
 
@@ -1082,6 +1189,7 @@ _LISTENER_DISPATCH = {
     'resume': handle_listener_resume_command,
     'record-wake': handle_listener_record_wake_command,
     'fire': handle_listener_fire_command,
+    'install-request': handle_listener_install_request_command,
     'list': handle_listener_list_command,
     'status': handle_listener_status_command,
 }
@@ -1141,6 +1249,7 @@ __all__ = [
     'handle_instance_label_command',
     'handle_listener_fire_command',
     'handle_listener_group_command',
+    'handle_listener_install_request_command',
     'handle_listener_list_command',
     'handle_listener_pause_command',
     'handle_listener_record_wake_command',
