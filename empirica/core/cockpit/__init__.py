@@ -43,6 +43,13 @@ from empirica.core.cockpit.instance_actions import (
     set_label,
     stop_instance,
 )
+from empirica.core.cockpit.instance_state import (
+    aggregate_all,
+    aggregate_instance_state,
+    discover_dead_instances,
+    discover_instances,
+)
+from empirica.core.cockpit.liveness import LivenessResult, is_alive
 from empirica.core.cockpit.loop_install_request import (
     LoopInstallRequest,
     consume_pending,
@@ -51,20 +58,13 @@ from empirica.core.cockpit.loop_install_request import (
     render_loop_cron_prompt,
     write_pending,
 )
-from empirica.core.cockpit.loop_uninstall_request import (
-    LoopUninstallRequest,
-)
-from empirica.core.cockpit.instance_state import (
-    aggregate_all,
-    aggregate_instance_state,
-    discover_dead_instances,
-    discover_instances,
-)
-from empirica.core.cockpit.liveness import LivenessResult, is_alive
 from empirica.core.cockpit.loop_registry import (
     LoopRegistry,
     is_loop_paused,
     set_loop_paused,
+)
+from empirica.core.cockpit.loop_uninstall_request import (
+    LoopUninstallRequest,
 )
 from empirica.core.cockpit.render import render_json, render_pretty
 from empirica.core.cockpit.sentinel_pause import (
@@ -78,8 +78,8 @@ __all__ = [
     'ForgetResult',
     'KillResult',
     'LivenessResult',
-    'LoopRegistry',
     'LoopInstallRequest',
+    'LoopRegistry',
     'LoopUninstallRequest',
     'NotificationItem',
     'NotificationSummary',
@@ -110,9 +110,9 @@ __all__ = [
     'open_goals_list',
     'pause_sentinel',
     'pending_path',
-    'render_loop_cron_prompt',
     'recent_actions',
     'render_json',
+    'render_loop_cron_prompt',
     'render_pretty',
     'resume_sentinel',
     'sentinel_status',

@@ -39,10 +39,10 @@ from empirica.core.cockpit.loop_install_request import (
     DEFAULT_SCHEDULER_KIND,
     write_pending,
 )
+from empirica.core.cockpit.loop_registry import VALID_KIND, VALID_STATUS
 from empirica.core.cockpit.loop_uninstall_request import (
     write_pending as write_uninstall_pending,
 )
-from empirica.core.cockpit.loop_registry import VALID_KIND, VALID_STATUS
 from empirica.core.cockpit.notify_dispatcher_view import build_notify_dispatcher_block
 from empirica.utils.session_resolver import get_instance_id
 
@@ -430,7 +430,7 @@ def handle_loop_install_request_command(args) -> int:
     try:
         from empirica.utils.session_resolver import get_instance_id
         requested_by = get_instance_id()
-    except Exception:  # noqa: BLE001
+    except Exception:
         requested_by = None
 
     pending = write_pending(

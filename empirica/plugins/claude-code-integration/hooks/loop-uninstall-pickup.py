@@ -66,7 +66,7 @@ more silent fire. CronDelete makes that one extra fire go away too.
 def main() -> int:
     try:
         instance_id = InstanceResolver.instance_id()
-    except Exception:  # noqa: BLE001
+    except Exception:
         instance_id = None
     if not instance_id:
         print(json.dumps({}))
@@ -74,7 +74,7 @@ def main() -> int:
 
     try:
         requests = consume_pending(instance_id)
-    except Exception:  # noqa: BLE001
+    except Exception:
         requests = []
 
     if not requests:
