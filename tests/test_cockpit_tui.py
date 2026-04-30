@@ -30,7 +30,9 @@ def cockpit_env(tmp_path, monkeypatch):
         enrichment,
         instance_actions,
         instance_state,
+        listener_install_request,
         listener_registry,
+        loop_install_request,
         loop_registry,
         loop_uninstall_request,
         sentinel_pause,
@@ -42,8 +44,10 @@ def cockpit_env(tmp_path, monkeypatch):
     monkeypatch.setattr(instance_actions, 'EMPIRICA_DIR', fake_home)
     monkeypatch.setattr(instance_actions, 'TTY_SESSIONS_DIR', fake_home / 'tty_sessions')
     monkeypatch.setattr(loop_registry, 'EMPIRICA_DIR', fake_home)
+    monkeypatch.setattr(loop_install_request, 'EMPIRICA_DIR', fake_home)
     monkeypatch.setattr(loop_uninstall_request, 'EMPIRICA_DIR', fake_home)
     monkeypatch.setattr(listener_registry, 'EMPIRICA_DIR', fake_home)
+    monkeypatch.setattr(listener_install_request, 'EMPIRICA_DIR', fake_home)
     monkeypatch.setattr(enrichment, 'EMPIRICA_DIR', fake_home)
     monkeypatch.setattr(
         enrichment, 'ENP_PENDING_PATH', fake_home / 'enp' / 'pending.json',
@@ -605,3 +609,114 @@ async def test_listeners_surface_in_aggregate(cockpit_env):
     summary = payload['summary']
     assert summary['listeners_registered'] >= 2
     assert summary['listeners_paused'] >= 1
+
+
+# ─── Phase 2: install-on-click from project.yaml cockpit block ─────────────
+
+
+def _write_project_yaml(project: Path, cockpit: dict) -> None:
+    import yaml
+    (project / '.empirica' / 'project.yaml').write_text(
+        yaml.safe_dump({'cockpit': cockpit})
+    )
+
+
+@pytest.mark.asyncio
+async def test_l_click_empty_registry_installs_from_project_yaml(cockpit_env):
+    """Phase 2: when registry is empty, L click should read cockpit.loops
+    from project.yaml and queue install-request for each entry."""
+    home, project = cockpit_env
+    _bind_instance(home, project, 'tmux_test')
+    _write_project_yaml(project, {
+        'loops': [
+            {
+                'name': 'auto-poll', 'kind': 'cron',
+                'cron': '*/15 * * * *', 'description': 'auto-installed',
+                'base_interval': '15m', 'max_interval': '4h',
+            },
+        ],
+    })
+
+    from empirica.cli.tui import CockpitApp
+    from empirica.core.cockpit.loop_registry import LoopRegistry
+
+    app = CockpitApp(include_dead=True)
+    async with app.run_test(headless=True, size=(40, 24)) as pilot:
+        await pilot.pause(); await pilot.pause()
+        await pilot.press('l')
+        await pilot.pause(); await pilot.pause()
+
+    # Loop should now be in the registry (install-request registers).
+    reg = LoopRegistry('tmux_test')
+    entry = reg.get('auto-poll')
+    assert entry is not None, 'L on empty registry should have installed auto-poll'
+    assert entry.kind == 'cron'
+
+    # Pending install request file should also exist for owning Claude pickup.
+    pending = list(home.glob('loop_install_pending_tmux_test_*.json'))
+    assert len(pending) == 1
+
+
+@pytest.mark.asyncio
+async def test_l_click_empty_registry_no_yaml_falls_back_to_hint(cockpit_env):
+    """When project.yaml has no cockpit.loops block, L click should
+    fall back to a CLI hint message (no crash, no install)."""
+    home, project = cockpit_env
+    _bind_instance(home, project, 'tmux_test')
+    _write_project_yaml(project, {})  # empty cockpit block
+
+    from textual.widgets import Static
+
+    from empirica.cli.tui import CockpitApp
+
+    app = CockpitApp(include_dead=True)
+    async with app.run_test(headless=True, size=(40, 24)) as pilot:
+        await pilot.pause(); await pilot.pause()
+        await pilot.press('l')
+        await pilot.pause()
+        notif = app.query_one('#notif', Static)
+        from rich.console import Console
+        c = Console(width=120, file=open('/dev/null', 'w'))
+        with c.capture() as cap:
+            c.print(notif.render())
+        text = cap.get()
+        # Should mention the missing config or the install-request CLI
+        assert 'cockpit.loops' in text or 'install-request' in text
+
+    # No loop should have been registered
+    pending = list(home.glob('loop_install_pending_*.json'))
+    assert pending == []
+
+
+@pytest.mark.asyncio
+async def test_e_click_empty_registry_installs_listener_from_project_yaml(cockpit_env):
+    """Same as the loop test, but for listeners + cockpit.listeners block."""
+    home, project = cockpit_env
+    _bind_instance(home, project, 'tmux_test')
+    _write_project_yaml(project, {
+        'listeners': [
+            {
+                'name': 'auto-inbox',
+                'topic': 'ntfy:auto-channel',
+                'description': 'auto-installed listener',
+                'on_wake': 'Process new event',
+            },
+        ],
+    })
+
+    from empirica.cli.tui import CockpitApp
+    from empirica.core.cockpit.listener_registry import ListenerRegistry
+
+    app = CockpitApp(include_dead=True)
+    async with app.run_test(headless=True, size=(40, 24)) as pilot:
+        await pilot.pause(); await pilot.pause()
+        await pilot.press('e')
+        await pilot.pause(); await pilot.pause()
+
+    reg = ListenerRegistry('tmux_test')
+    entry = reg.get('auto-inbox')
+    assert entry is not None
+    assert entry.topic == 'ntfy:auto-channel'
+
+    pending = list(home.glob('listener_install_pending_tmux_test_*.json'))
+    assert len(pending) == 1

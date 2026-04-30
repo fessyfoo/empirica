@@ -44,8 +44,10 @@ from textual.widgets import (
 )
 
 from empirica.cli.command_handlers.cockpit_commands import (
+    handle_listener_install_request_command,
     handle_listener_pause_command,
     handle_listener_resume_command,
+    handle_loop_install_request_command,
     handle_loop_pause_command,
     handle_loop_resume_command,
 )
@@ -61,6 +63,10 @@ from empirica.core.cockpit import (
     resume_sentinel,
     statusline_summary,
     stop_instance,
+)
+from empirica.core.cockpit.project_cockpit_config import (
+    project_listeners,
+    project_loops,
 )
 
 REFRESH_SECONDS = 2.0
@@ -435,10 +441,22 @@ class CockpitApp(App):
             return
         loops = inst.get('loops') or {}
         if not loops:
-            self._log_status(
-                f'{inst["instance_id"]}: no loops — '
-                'use `empirica loop install-request --instance ID --name N --interval ...`'
-            )
+            # No loops registered — first click registers + installs from
+            # the project's .empirica/project.yaml cockpit.loops block.
+            installed = self._install_loops_from_project(inst)
+            if installed:
+                self._log_status(
+                    f'{inst["instance_id"]}: requested install of {installed} '
+                    f'loop(s) from project.yaml — owning Claude will pick up '
+                    'via UserPromptSubmit'
+                )
+                self.refresh_payload()
+            else:
+                self._log_status(
+                    f'{inst["instance_id"]}: no loops registered + no '
+                    'cockpit.loops in project.yaml — add a loops: block or '
+                    'use `empirica loop install-request --instance ID ...`'
+                )
             return
         any_unpaused = any(not v.get('paused') for v in loops.values())
         target_paused = bool(any_unpaused)
@@ -471,10 +489,22 @@ class CockpitApp(App):
             return
         listeners = inst.get('listeners') or {}
         if not listeners:
-            self._log_status(
-                f'{inst["instance_id"]}: no listeners — '
-                'use `empirica listener install-request --instance ID --name N --topic ntfy:...`'
-            )
+            # No listeners registered — first click registers + installs from
+            # the project's .empirica/project.yaml cockpit.listeners block.
+            installed = self._install_listeners_from_project(inst)
+            if installed:
+                self._log_status(
+                    f'{inst["instance_id"]}: requested install of {installed} '
+                    f'listener(s) from project.yaml — owning Claude will arm '
+                    'via UserPromptSubmit'
+                )
+                self.refresh_payload()
+            else:
+                self._log_status(
+                    f'{inst["instance_id"]}: no listeners registered + no '
+                    'cockpit.listeners in project.yaml — add a listeners: '
+                    'block or use `empirica listener install-request ...`'
+                )
             return
         any_unpaused = any(not v.get('paused') for v in listeners.values())
         target_paused = bool(any_unpaused)
@@ -547,6 +577,60 @@ class CockpitApp(App):
             notif.update(f'• {message}')
         except Exception:
             pass
+
+    def _install_loops_from_project(self, inst: dict[str, Any]) -> int:
+        """Install loops from the project's cockpit.loops config. Returns
+        the count installed. Zero means no config found or all entries
+        rejected — caller falls back to a CLI hint."""
+        configs = project_loops(inst.get('project_path'))
+        if not configs:
+            return 0
+        installed = 0
+        for cfg in configs:
+            args = Namespace(
+                instance=inst['instance_id'],
+                name=cfg['name'],
+                kind=cfg.get('kind', 'cron'),
+                cron=cfg.get('cron'),
+                interval=cfg.get('interval'),
+                description=cfg.get('description', ''),
+                base_interval=cfg.get('base_interval'),
+                max_interval=cfg.get('max_interval'),
+                output='json',
+            )
+            try:
+                handle_loop_install_request_command(args)
+                installed += 1
+            except Exception as e:
+                self._log_status(
+                    f'{inst["instance_id"]} loop {cfg.get("name", "?")}: {e}'
+                )
+        return installed
+
+    def _install_listeners_from_project(self, inst: dict[str, Any]) -> int:
+        """Install listeners from the project's cockpit.listeners config.
+        Returns the count installed."""
+        configs = project_listeners(inst.get('project_path'))
+        if not configs:
+            return 0
+        installed = 0
+        for cfg in configs:
+            args = Namespace(
+                instance=inst['instance_id'],
+                name=cfg['name'],
+                topic=cfg['topic'],
+                description=cfg.get('description', ''),
+                on_wake=cfg.get('on_wake', ''),
+                output='json',
+            )
+            try:
+                handle_listener_install_request_command(args)
+                installed += 1
+            except Exception as e:
+                self._log_status(
+                    f'{inst["instance_id"]} listener {cfg.get("name", "?")}: {e}'
+                )
+        return installed
 
 
 def _wrap_item(marker: str, text: str, width: int = _WRAP_WIDTH) -> str:
