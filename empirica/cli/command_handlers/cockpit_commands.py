@@ -421,8 +421,19 @@ def handle_loop_install_request_command(args) -> int:
     name = args.name
     interval = args.interval
     description = getattr(args, 'description', '') or ''
-    base_interval = getattr(args, 'base_interval', None) or interval
+    # Fallback chain: explicit --base-interval > --interval > '15m' default.
+    # Same fallback applies to interval itself when absent: project.yaml
+    # entries with `kind: cron` + `cron: "..."` legitimately omit interval
+    # (the cron expression is the schedule), but the loop-cron prompt
+    # template substitutes interval into backoff config — a None there
+    # writes the literal string 'None' into the prompt and produces a
+    # malformed `--interval "None"` flag in the body's register call.
+    base_interval = getattr(args, 'base_interval', None) or interval or '15m'
     max_interval = getattr(args, 'max_interval', None) or '4h'
+    # If interval wasn't supplied (cron-only loop), use the resolved
+    # base_interval so the rendered prompt template is well-formed.
+    if not interval:
+        interval = base_interval
 
     # Register in the target's registry first so the loop is visible in the
     # cockpit immediately — even before the target Claude installs CronCreate.
