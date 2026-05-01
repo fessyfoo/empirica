@@ -29,7 +29,6 @@ from pathlib import Path
 from typing import Any
 
 from empirica.core.cockpit.compliance_view import read_compliance_summary
-from empirica.core.cockpit.services_view import read_services_summary
 from empirica.core.cockpit.enrichment import (
     is_asking,
     notification_summary,
@@ -46,6 +45,7 @@ from empirica.core.cockpit.notify_dispatcher_view import (
     build_notify_dispatcher_block,
 )
 from empirica.core.cockpit.sentinel_pause import sentinel_status
+from empirica.core.cockpit.services_view import read_services_summary
 
 EMPIRICA_DIR = Path.home() / '.empirica'
 

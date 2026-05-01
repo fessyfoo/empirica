@@ -8,6 +8,7 @@ right-detail pane, single statusline + recent strip at the bottom.
 
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
 
@@ -408,7 +409,7 @@ async def test_statusline_format_includes_conf_and_goals(cockpit_env):
         await pilot.pause()
         await pilot.pause()
         sl = app.query_one('#statusline', Static)
-        c = Console(width=40, file=open('/dev/null', 'w'))
+        c = Console(width=40, file=io.StringIO())
         with c.capture() as cap:
             c.print(sl.render())
         text = cap.get().strip()
@@ -471,7 +472,7 @@ async def test_open_goals_widget_shows_goals(cockpit_env):
         await pilot.pause()
         await pilot.pause()
         goals_w = app.query_one('#goals', Static)
-        c = Console(width=40, file=open('/dev/null', 'w'))
+        c = Console(width=40, file=io.StringIO())
         with c.capture() as cap:
             c.print(goals_w.render())
         text = cap.get().strip()
@@ -591,7 +592,7 @@ async def test_e_button_no_listeners_message(cockpit_env):
         # _log_status writes to the #notif widget
         notif = app.query_one('#notif', Static)
         from rich.console import Console
-        c = Console(width=120, file=open('/dev/null', 'w'))
+        c = Console(width=120, file=io.StringIO())
         with c.capture() as cap:
             c.print(notif.render())
         text = cap.get()
@@ -699,7 +700,7 @@ async def test_l_click_empty_registry_no_yaml_falls_back_to_hint(cockpit_env):
         await pilot.pause()
         notif = app.query_one('#notif', Static)
         from rich.console import Console
-        c = Console(width=120, file=open('/dev/null', 'w'))
+        c = Console(width=120, file=io.StringIO())
         with c.capture() as cap:
             c.print(notif.render())
         text = cap.get()
@@ -817,7 +818,7 @@ async def test_compliance_widget_shows_passing_collapsed(cockpit_env, monkeypatc
         await pilot.pause()
         widget = app.query_one('#compliance', Static)
         from rich.console import Console
-        c = Console(width=120, file=open('/dev/null', 'w'))
+        c = Console(width=120, file=io.StringIO())
         with c.capture() as cap:
             c.print(widget.render())
         text = cap.get()
@@ -861,7 +862,7 @@ async def test_compliance_widget_shows_failures_expanded_by_default(
         await pilot.pause()
         widget = app.query_one('#compliance', Static)
         from rich.console import Console
-        c = Console(width=120, file=open('/dev/null', 'w'))
+        c = Console(width=120, file=io.StringIO())
         with c.capture() as cap:
             c.print(widget.render())
         text = cap.get()
@@ -889,7 +890,7 @@ async def test_compliance_widget_no_data_message(cockpit_env):
         await pilot.pause()
         widget = app.query_one('#compliance', Static)
         from rich.console import Console
-        c = Console(width=120, file=open('/dev/null', 'w'))
+        c = Console(width=120, file=io.StringIO())
         with c.capture() as cap:
             c.print(widget.render())
         text = cap.get()

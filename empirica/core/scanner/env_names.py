@@ -46,7 +46,7 @@ def collect_env_var_names(read_surface, env: dict[str, str] | None = None
 
     import os as _os
     source = env if env is not None else dict(_os.environ)
-    names = sorted(name for name in source.keys() if _is_interesting(name))
+    names = sorted(name for name in source if _is_interesting(name))
     total = len(source)
     coverage = {
         'total_env_vars': total,

@@ -159,12 +159,6 @@ from .notify_commands import (
     handle_notify_group_command,
     handle_notify_test_command,
 )
-from .visibility_commands import (
-    handle_visibility_group_command,
-    handle_visibility_list_command,
-    handle_visibility_show_command,
-)
-from .scan_commands import handle_scan_command
 from .onboard import handle_onboard_command
 from .performance_commands import handle_benchmark_command, handle_performance_command
 from .profile_commands import (
@@ -189,6 +183,7 @@ from .project_search import (
 )
 from .project_update import handle_project_update_command
 from .release_commands import handle_release_command
+from .scan_commands import handle_scan_command
 from .security_audit_commands import handle_security_audit_command
 from .sentinel_commands import (
     handle_sentinel_check_command,
@@ -221,6 +216,11 @@ from .sync_commands import (
 )
 from .training_commands import (
     handle_training_export_command,
+)
+from .visibility_commands import (
+    handle_visibility_group_command,
+    handle_visibility_list_command,
+    handle_visibility_show_command,
 )
 
 # handle_goal_analysis_command removed - was in noetic_praxic_commands (deprecated)
@@ -366,12 +366,6 @@ __all__ = [
     'handle_notify_emit_command',
     'handle_notify_group_command',
     'handle_notify_test_command',
-    # Visibility tier commands (PROPOSAL_VISIBILITY_TIERS.md)
-    'handle_visibility_group_command',
-    'handle_visibility_list_command',
-    'handle_visibility_show_command',
-    # Scanner — Phase 1 (PROPOSAL_AI_SERVICE_SCANNER.md)
-    'handle_scan_command',
     # Onboarding commands
     'handle_onboard_command',
     'handle_performance_command',
@@ -398,6 +392,8 @@ __all__ = [
     'handle_release_command',
     'handle_resolve_artifacts_command',
     'handle_save_command',
+    # Scanner — Phase 1 (PROPOSAL_AI_SERVICE_SCANNER.md)
+    'handle_scan_command',
     'handle_security_audit_command',
     'handle_sentinel_check_command',
     'handle_sentinel_load_profile_command',
@@ -436,6 +432,10 @@ __all__ = [
     'handle_unknown_list_command',
     'handle_unknown_log_command',
     'handle_unknown_resolve_command',
+    # Visibility tier commands (PROPOSAL_VISIBILITY_TIERS.md)
+    'handle_visibility_group_command',
+    'handle_visibility_list_command',
+    'handle_visibility_show_command',
     # Vision commands
     'handle_vision_analyze',
     'handle_vision_log',

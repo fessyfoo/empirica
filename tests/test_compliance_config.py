@@ -18,7 +18,6 @@ from empirica.cli.command_handlers.compliance_report_commands import (
     _run_extra_check,
 )
 
-
 # ── _load_compliance_config ──────────────────────────────────────────────
 
 

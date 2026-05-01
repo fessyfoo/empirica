@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import textwrap
 from argparse import Namespace
-from typing import Any
+from typing import Any, ClassVar
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -114,7 +114,7 @@ class CockpitApp(App):
     #services { height: auto; min-height: 1; max-height: 8; padding: 0 1; }
     """
 
-    BINDINGS = [
+    BINDINGS: ClassVar[list[Binding]] = [
         Binding('q', 'quit', 'Quit'),
         Binding('r', 'refresh_now', 'Refresh'),
         Binding('p', 'toggle_sentinel', 'Sent.'),

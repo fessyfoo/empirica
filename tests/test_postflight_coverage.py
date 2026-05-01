@@ -17,7 +17,6 @@ import pytest
 
 from empirica.cli.validation import PostflightInput
 
-
 # ── Validation ──────────────────────────────────────────────────────────
 
 
@@ -67,7 +66,9 @@ class TestPostflightInputCoverage:
         assert result.coverage['nested']['b'] == [2, 3]
 
     def test_coverage_must_be_dict_when_present(self):
-        with pytest.raises(Exception):  # pydantic.ValidationError
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
             PostflightInput.model_validate({
                 'session_id': 's1',
                 'vectors': {'know': 0.5},
@@ -82,13 +83,14 @@ class TestPostflightParserCoverage:
     """Verify the parser surfaces coverage from JSON config to the dict."""
 
     def test_parsed_tuple_contains_coverage(self):
-        from empirica.cli.command_handlers.workflow_commands import (
-            _postflight_parse_config_or_legacy,
-        )
         import argparse
         import io
         import json
         import sys
+
+        from empirica.cli.command_handlers.workflow_commands import (
+            _postflight_parse_config_or_legacy,
+        )
 
         config_text = json.dumps({
             'session_id': 'parser-test-session',
@@ -107,8 +109,8 @@ class TestPostflightParserCoverage:
                 reasoning=None,
                 output='json',
             )
-            (session_id, vectors, reasoning, grounded_vectors,
-             grounded_rationale, coverage, output_format) = (
+            (session_id, vectors, _reasoning, _grounded_vectors,
+             _grounded_rationale, coverage, output_format) = (
                 _postflight_parse_config_or_legacy(args)
             )
         finally:

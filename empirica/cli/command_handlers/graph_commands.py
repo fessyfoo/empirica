@@ -543,7 +543,7 @@ def handle_log_artifacts_command(args):
         return 1
 
 
-def handle_resolve_artifacts_command(args):
+def handle_resolve_artifacts_command(args):  # noqa: C901 — batch dispatcher fan-out
     """Handle resolve-artifacts command: batch resolution of open artifacts."""
     if getattr(args, 'schema', False):
         return _print_schema_and_exit(RESOLVE_ARTIFACTS_SCHEMA, 'resolve-artifacts')
@@ -756,7 +756,7 @@ def _delete_single_artifact(cursor, item: dict, project_id: str | None, dry_run:
     return {"type": artifact_type, "id": full_id, "action": "deleted"}
 
 
-def handle_delete_artifacts_command(args):
+def handle_delete_artifacts_command(args):  # noqa: C901 — batch dispatcher fan-out
     """Handle delete-artifacts command: batch deletion of stale/non-pertinent artifacts."""
     if getattr(args, 'schema', False):
         return _print_schema_and_exit(DELETE_ARTIFACTS_SCHEMA, 'delete-artifacts')

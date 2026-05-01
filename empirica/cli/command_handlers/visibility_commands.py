@@ -66,14 +66,14 @@ def _table_has_visibility_column(cursor, table: str) -> bool:
 
 def _count_by_tier(cursor, table: str, project_id: str | None) -> dict[str, int]:
     """Return {tier: count} for a table, scoped to project_id when present."""
-    counts = {tier: 0 for tier in VISIBILITY_TIERS}
+    counts = dict.fromkeys(VISIBILITY_TIERS, 0)
     if not _table_has_visibility_column(cursor, table):
         return counts
 
     where = ""
     params: tuple = ()
     if project_id:
-        cursor.execute(f"SELECT 1 FROM pragma_table_info(?) WHERE name = 'project_id'", (table,))
+        cursor.execute("SELECT 1 FROM pragma_table_info(?) WHERE name = 'project_id'", (table,))
         if cursor.fetchone():
             where = " WHERE project_id = ?"
             params = (project_id,)
@@ -94,7 +94,7 @@ def _recent_for_tier(cursor, table: str, content_col: str, tier: str,
     if not _table_has_visibility_column(cursor, table):
         return []
 
-    cursor.execute(f"SELECT 1 FROM pragma_table_info(?) WHERE name = 'project_id'", (table,))
+    cursor.execute("SELECT 1 FROM pragma_table_info(?) WHERE name = 'project_id'", (table,))
     has_project = cursor.fetchone() is not None
 
     where = "WHERE visibility = ?"
@@ -111,7 +111,7 @@ def _recent_for_tier(cursor, table: str, content_col: str, tier: str,
     return [dict(row) for row in cursor.fetchall()]
 
 
-def handle_visibility_list_command(args) -> int:
+def handle_visibility_list_command(args) -> int:  # noqa: C901 — list+filter+output dispatcher
     """`empirica visibility list` — counts and recent items by tier."""
     db = SessionDatabase()
     if not db.conn:
@@ -126,7 +126,7 @@ def handle_visibility_list_command(args) -> int:
     output_format = getattr(args, 'output', 'human')
 
     by_type: dict[str, dict[str, int]] = {}
-    totals = {tier: 0 for tier in VISIBILITY_TIERS}
+    totals = dict.fromkeys(VISIBILITY_TIERS, 0)
 
     for atype, (table, _content_col) in _ARTIFACT_TABLES.items():
         if type_filter and atype != type_filter:

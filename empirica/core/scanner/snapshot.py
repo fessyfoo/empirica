@@ -61,7 +61,7 @@ class Snapshot:
         return list(env.get('var_names_only', []))
 
 
-def _safe_collect(snap: 'Snapshot', name: str, fn,
+def _safe_collect(snap: Snapshot, name: str, fn,
                   default_payload, default_coverage):
     """Run ``fn`` and return ``(payload, coverage)``.
 
