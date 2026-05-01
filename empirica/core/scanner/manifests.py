@@ -77,8 +77,8 @@ def _detect_env_files(start: Path | None = None) -> list[str]:
     return sorted(found)
 
 
-def collect_manifests(read_surface) -> dict[str, Any]:
-    """Return filesystem-tier rows + MCP server registry."""
+def collect_manifests(read_surface) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Return ``(payload, coverage)`` for filesystem rows + MCP registry."""
     output: dict[str, Any] = {}
 
     if 'plugin_manifest_paths' in read_surface.filesystem:
@@ -97,4 +97,11 @@ def collect_manifests(read_surface) -> dict[str, Any]:
         # MCP wire-protocol cooperation. Defer to Phase 2.
         output['mcp_active_connections'] = []
 
-    return output
+    coverage = {
+        'plugin_manifests_found': len(output.get('plugin_manifest_paths', [])),
+        'env_files_found': len(output.get('env_files_present', [])),
+        'mcp_registered_servers': len(output.get('mcp_registered_servers', [])),
+        'mcp_active_connections_implemented': False,  # Phase 2
+        'model_weights_walk_implemented': False,      # Phase 2
+    }
+    return output, coverage

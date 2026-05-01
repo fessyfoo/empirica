@@ -164,6 +164,7 @@ from .visibility_commands import (
     handle_visibility_list_command,
     handle_visibility_show_command,
 )
+from .scan_commands import handle_scan_command
 from .onboard import handle_onboard_command
 from .performance_commands import handle_benchmark_command, handle_performance_command
 from .profile_commands import (
@@ -369,6 +370,8 @@ __all__ = [
     'handle_visibility_group_command',
     'handle_visibility_list_command',
     'handle_visibility_show_command',
+    # Scanner — Phase 1 (PROPOSAL_AI_SERVICE_SCANNER.md)
+    'handle_scan_command',
     # Onboarding commands
     'handle_onboard_command',
     'handle_performance_command',

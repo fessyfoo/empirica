@@ -84,13 +84,37 @@ def _scan_launchd_agents() -> list[dict[str, Any]]:
     return rows
 
 
-def collect_scheduled(read_surface) -> dict[str, Any]:
-    """Return scheduled-task rows for whichever surfaces the read-surface allows."""
+def collect_scheduled(read_surface) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Return ``(payload, coverage)`` for scheduled-task rows."""
     output: dict[str, Any] = {}
+    sources_checked = 0
+    sources_yielding = 0
+
     if 'cron_entries' in read_surface.scheduled:
-        output['cron_entries'] = _read_crontab()
+        sources_checked += 1
+        rows = _read_crontab()
+        output['cron_entries'] = rows
+        if rows:
+            sources_yielding += 1
     if 'systemd_user_units' in read_surface.scheduled:
-        output['systemd_user_units'] = _scan_systemd_user_units()
+        sources_checked += 1
+        rows = _scan_systemd_user_units()
+        output['systemd_user_units'] = rows
+        if rows:
+            sources_yielding += 1
     if 'launchd_agents' in read_surface.scheduled:
-        output['launchd_agents'] = _scan_launchd_agents()
-    return output
+        sources_checked += 1
+        rows = _scan_launchd_agents()
+        output['launchd_agents'] = rows
+        if rows:
+            sources_yielding += 1
+
+    total_entries = sum(
+        len(output.get(k, [])) for k in ('cron_entries', 'systemd_user_units', 'launchd_agents')
+    )
+    coverage: dict[str, Any] = {
+        'sources_checked': sources_checked,
+        'sources_yielding': sources_yielding,
+        'total_entries': total_entries,
+    }
+    return output, coverage

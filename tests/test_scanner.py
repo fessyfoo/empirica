@@ -109,20 +109,29 @@ class TestProcessCollector:
             scheduled=frozenset(),
             mcp=frozenset(),
         )
-        rows = collect_processes(surface)
-        # If psutil is unavailable the collector returns []; either way the
-        # invariant must hold for whatever rows do come back.
+        rows, _coverage = collect_processes(surface)
+        # If psutil is unavailable the collector returns ([], coverage); either
+        # way the invariant must hold for whatever rows do come back.
         for row in rows:
             assert set(row.keys()) <= surface.process
 
     def test_scanner_self_row_present(self):
-        rows = collect_processes(DEFAULT_READ_SURFACE)
+        rows, _coverage = collect_processes(DEFAULT_READ_SURFACE)
         if not rows:
             # psutil unavailable in this env — degrade gracefully
             return
         self_rows = [r for r in rows if r.get('is_scanner_self')]
         assert len(self_rows) == 1
         assert self_rows[0]['pid'] == os.getpid()
+
+    def test_coverage_meta_shape(self):
+        rows, coverage = collect_processes(DEFAULT_READ_SURFACE)
+        # When psutil is present, attempted should be > 0 and ratio should be set
+        if rows:
+            assert coverage['attempted'] > 0
+            assert 'succeeded' in coverage
+            assert 'ratio' in coverage
+            assert 0.0 <= coverage['ratio'] <= 1.0
 
     def test_universe_includes_documented_fields(self):
         # The universe should permit every field the proposal lists
@@ -142,15 +151,18 @@ class TestEnvNameCollector:
             'ANTHROPIC_API_KEY': 'sk-ant-secret',
             'HOME': '/home/test',
         }
-        result = collect_env_var_names(DEFAULT_READ_SURFACE, env=fake_env)
-        names = result['var_names_only']
+        payload, coverage = collect_env_var_names(DEFAULT_READ_SURFACE, env=fake_env)
+        names = payload['var_names_only']
         assert 'OPENAI_API_KEY' in names
         assert 'ANTHROPIC_API_KEY' in names
         assert 'PATH' not in names  # not interesting
         # The value must never appear anywhere in the result
-        joined = repr(result)
+        joined = repr((payload, coverage))
         assert 'sk-this-must-never-be-emitted' not in joined
         assert 'sk-ant-secret' not in joined
+        # Coverage shape
+        assert coverage['total_env_vars'] == 4
+        assert coverage['interesting_matches'] == 2
 
     def test_empty_when_surface_disallows(self):
         surface = ReadSurface(
@@ -161,8 +173,8 @@ class TestEnvNameCollector:
             scheduled=frozenset(),
             mcp=frozenset(),
         )
-        result = collect_env_var_names(surface, env={'OPENAI_API_KEY': 'x'})
-        assert result == {'var_names_only': []}
+        payload, _coverage = collect_env_var_names(surface, env={'OPENAI_API_KEY': 'x'})
+        assert payload == {'var_names_only': []}
 
 
 # ── Snapshot orchestrator ─────────────────────────────────────────────────
@@ -197,3 +209,134 @@ class TestSnapshotOrchestrator:
         snap = collect_snapshot(DEFAULT_READ_SURFACE)
         assert any('processes' in err for err in snap.errors)
         assert snap.snapshot['processes'] == []
+
+    def test_snapshot_has_coverage_block(self):
+        snap = collect_snapshot(DEFAULT_READ_SURFACE)
+        cov = snap.snapshot.get('coverage')
+        assert isinstance(cov, dict)
+        for key in ('processes', 'network', 'scheduled', 'process_env',
+                    'filesystem', 'relevant_globs'):
+            assert key in cov
+
+    def test_relevant_globs_coverage_counts_matches(self, tmp_path):
+        # Plant a known set of files
+        (tmp_path / 'a.py').write_text('# a')
+        (tmp_path / 'b.py').write_text('# b')
+        (tmp_path / 'docs').mkdir()
+        (tmp_path / 'docs' / 'one.md').write_text('# one')
+
+        surface = ReadSurface(
+            process=frozenset(),
+            network=frozenset(),
+            filesystem=frozenset(),
+            process_env=frozenset(),
+            scheduled=frozenset(),
+            mcp=frozenset(),
+            relevant_globs_for_coverage={
+                'code': ['*.py'],
+                'docs': ['docs/*.md'],
+            },
+        )
+        snap = collect_snapshot(surface, project_root=tmp_path)
+        globs_cov = snap.snapshot['coverage']['relevant_globs']
+        assert globs_cov['code']['total_matches'] == 2
+        assert globs_cov['docs']['total_matches'] == 1
+
+
+# ── Markdown report renderer ─────────────────────────────────────────────
+
+
+class TestMarkdownReport:
+    def test_renders_coverage_section_first(self):
+        from empirica.core.scanner.report import render_markdown
+
+        snap = collect_snapshot(DEFAULT_READ_SURFACE)
+        md = render_markdown(snap)
+        # Coverage must appear before any per-collector section
+        assert '## Coverage' in md
+        cov_idx = md.index('## Coverage')
+        for section in ('## Processes', '## Network', '## Scheduled tasks'):
+            if section in md:
+                assert md.index(section) > cov_idx
+
+    def test_scanner_self_visible_in_markdown(self):
+        from empirica.core.scanner.report import render_markdown
+
+        snap = collect_snapshot(DEFAULT_READ_SURFACE)
+        md = render_markdown(snap)
+        if not snap.processes:
+            return  # psutil missing
+        # The 🔍 marker for self-row must appear in the table
+        assert '🔍' in md or 'is_scanner_self' in md
+
+    def test_phase1_footer(self):
+        from empirica.core.scanner.report import render_markdown
+
+        snap = collect_snapshot(DEFAULT_READ_SURFACE)
+        md = render_markdown(snap)
+        assert 'Phase 1 deterministic snapshot' in md
+
+
+# ── CLI handler end-to-end ───────────────────────────────────────────────
+
+
+class TestScanCli:
+    def test_handler_returns_zero_and_emits_json(self, capsys):
+        from empirica.cli.command_handlers.scan_commands import handle_scan_command
+
+        class _Args:
+            output = 'json'
+            save = False
+            project_id = None
+
+        rc = handle_scan_command(_Args())
+        assert rc == 0
+
+        captured = capsys.readouterr()
+        import json as _json
+        envelope = _json.loads(captured.out)
+        assert envelope['ok'] is True
+        snap = envelope['snapshot']
+        assert snap['scan_id']
+        # Coverage block lives inside snapshot.snapshot.coverage
+        assert 'coverage' in snap['snapshot']
+
+    def test_handler_emits_markdown(self, capsys):
+        from empirica.cli.command_handlers.scan_commands import handle_scan_command
+
+        class _Args:
+            output = 'markdown'
+            save = False
+            project_id = None
+
+        rc = handle_scan_command(_Args())
+        captured = capsys.readouterr()
+        assert rc == 0
+        assert captured.out.startswith('# empirica scan')
+        assert '## Coverage' in captured.out
+
+    def test_save_writes_json_files(self, capsys, tmp_path, monkeypatch):
+        from empirica.cli.command_handlers import scan_commands
+
+        # Redirect ~/.empirica to tmp_path
+        monkeypatch.setattr(
+            scan_commands,
+            '_empirica_home',
+            lambda: tmp_path,
+        )
+
+        class _Args:
+            output = 'json'
+            save = True
+            project_id = 'test-project'
+
+        rc = scan_commands.handle_scan_command(_Args())
+        assert rc == 0
+
+        captured = capsys.readouterr()
+        import json as _json
+        envelope = _json.loads(captured.out)
+        scan_path = envelope['saved']['scan_path']
+        assert scan_path.startswith(str(tmp_path))
+        assert (tmp_path / 'last_scan_test-project.json').exists()
+        assert (tmp_path / 'scan_history_test-project.jsonl').exists()

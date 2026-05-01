@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Visibility tiers Phase 0 (PROPOSAL_VISIBILITY_TIERS.md)
+
+- **`visibility` field on every artifact** — new TEXT column on
+  `project_findings`, `project_unknowns`, `project_dead_ends`,
+  `mistakes_made`, `assumptions`, `decisions`, and `goals`, with three
+  tiers (`public` / `shared` / `local`) and `shared` as the safe-default
+  on existing rows. Migration 039 lands the column idempotently via
+  `add_column_if_missing`. Phase 0 is metadata-only — Phase 1 will
+  add git-crypt encryption for the `shared` tier.
+- **`--visibility` CLI flag** on `finding-log`, `deadend-log`,
+  `mistake-log`, `assumption-log`, `decision-log`, plus per-node
+  `visibility` in the `log-artifacts` batch. Validation lives in
+  `empirica/data/visibility.py` with a safe-invariant normalizer
+  (unknown/None tier → `shared`, never silently `public`).
+- **`empirica visibility list`** — totals + per-type breakdown +
+  recent items per tier across all artifact tables.
+- **`empirica visibility show <prefix>`** — single-artifact tier
+  lookup by UUID prefix across all 7 tables.
+
+### Added — AI service scanner Phase 1 (PROPOSAL_AI_SERVICE_SCANNER.md / SERVICES_SCANNER.md)
+
+- **`empirica scan` CLI verb** — one-shot deterministic inventory of
+  AI-touching services running on the dev machine. Markdown by default,
+  JSON on `--output json`, optional `--save` persists to
+  `~/.empirica/scans/<scan_id>.json` with a `last_scan_<project_id>.json`
+  cockpit hook and an append-only `scan_history_<project_id>.jsonl`
+  audit trail. Read-only by design — no `kill`/`stop` verbs.
+- **Scanner module** at `empirica/core/scanner/` — six collectors
+  (processes via `psutil.process_iter`, network via `psutil.net_connections`,
+  scheduled tasks via `crontab`/`~/.config/systemd/user`/`~/Library/LaunchAgents`,
+  env-var **names only** via substring match against AI/secret patterns,
+  plugin manifests via `~/.claude/plugins/**/plugin.json`, MCP servers
+  via `~/.claude/mcp.json`) plus a snapshot orchestrator that captures
+  collector errors instead of propagating them and tags the scanner's
+  own process with `is_scanner_self: true`.
+- **Read-surface YAML** under `cockpit.scanner.read_surface` in
+  `.empirica/project.yaml` — declares per-collector field allow-lists.
+  Universe-intersected so a typo can never widen the surface; sensible
+  defaults applied when the block is absent.
+- **Coverage block in every snapshot** — per-collector
+  `attempted/succeeded/ratio` for scanner integrity coverage, plus
+  `relevant_globs_for_coverage` file-match counts as the substrate for
+  the Phase 2 agent self-coverage metric (the trust-grounding "what
+  fraction of the relevant material did the AI actually inspect?"
+  signal).
+- **Bundled security corpus** — five stub markdown files at
+  `empirica/data/security-corpus/` (OWASP LLM Top 10, OWASP Agentic
+  Top 10, NIST AI RMF, MITRE ATLAS, Google SAIF) carrying canonical
+  URLs and stable section IDs. Phase 1 ships the structure; Phase 2
+  populates content via the auditor agent and Phase 3 refresh loop.
+- **psutil promoted to a required dep** (was previously optional with
+  `try: import psutil` fallbacks in two callers — the scanner makes
+  it load-bearing).
+
 ### Added — Event-listener subsystem (PROPOSAL_EVENT_LISTENER.md, items 1–4 shipped)
 
 - **`empirica listener` CLI + registry** — sister concept to

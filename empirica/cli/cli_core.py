@@ -225,6 +225,7 @@ from .parsers import (
     add_session_parsers,
     add_skill_parsers,
     add_trajectory_parsers,
+    add_scan_parsers,
     add_user_interface_parsers,
     add_utility_parsers,
     add_visibility_parsers,
@@ -302,6 +303,7 @@ def create_argument_parser():
     add_notify_parsers(subparsers)
     add_voice_parsers(subparsers)
     add_visibility_parsers(subparsers)
+    add_scan_parsers(subparsers)
 
     # Built-in help command (handled in main(), not via handler)
     subparsers.add_parser('help', help='Show all commands by category')
@@ -514,6 +516,9 @@ def main(args=None):
 
             # Visibility tiers (proposal: PROPOSAL_VISIBILITY_TIERS.md, Phase 0)
             'visibility': handle_visibility_group_command,
+
+            # AI service scanner (proposal: PROPOSAL_AI_SERVICE_SCANNER.md, Phase 1)
+            'scan': handle_scan_command,
 
             # Checkpoint commands
             'checkpoint-create': handle_checkpoint_create_command,

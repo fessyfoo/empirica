@@ -64,33 +64,55 @@ def _row_for_proc(proc, scanner_pid: int, now: float) -> dict[str, Any] | None:
     }
 
 
-def collect_processes(read_surface) -> list[dict[str, Any]]:
+def collect_processes(read_surface) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Iterate the live process table and emit filtered rows.
 
-    Returns an empty list when ``psutil`` is unavailable or the iteration
-    fails wholesale; partial failures (single processes inaccessible) are
-    silently skipped per the safety contract — the snapshot is best-effort.
+    Returns ``(rows, coverage)``. Coverage tracks how many entries were
+    attempted vs successfully captured, with skip reasons broken out so the
+    Phase 2 judgment layer (and humans reading the report) can see how
+    complete the snapshot really is.
+
+    On wholesale failure (no psutil, iter raises) returns ``([], {...})`` with
+    coverage marked accordingly so the snapshot is truthful about what it saw.
     """
+    coverage: dict[str, Any] = {
+        'attempted': 0,
+        'succeeded': 0,
+        'skipped': 0,
+        'skip_reasons': {},
+    }
+
     try:
         import psutil
     except ImportError:
         logger.warning("psutil not available; process collector returning []")
-        return []
+        coverage['skip_reasons']['psutil_missing'] = 1
+        return [], coverage
 
     scanner_pid = os.getpid()
     now = time.time()
     rows: list[dict[str, Any]] = []
 
     try:
-        proc_iter = psutil.process_iter([])
+        proc_iter = list(psutil.process_iter([]))
     except Exception as exc:
         logger.warning(f"process_iter failed: {exc}")
-        return []
+        coverage['skip_reasons']['process_iter_failed'] = str(exc)
+        return [], coverage
 
     for proc in proc_iter:
+        coverage['attempted'] += 1
         row = _row_for_proc(proc, scanner_pid, now)
         if row is None:
+            coverage['skipped'] += 1
+            coverage['skip_reasons']['inaccessible'] = \
+                coverage['skip_reasons'].get('inaccessible', 0) + 1
             continue
         rows.append(read_surface.filter_dict('process', row))
+        coverage['succeeded'] += 1
 
-    return rows
+    coverage['ratio'] = (
+        coverage['succeeded'] / coverage['attempted']
+        if coverage['attempted'] else 1.0
+    )
+    return rows, coverage

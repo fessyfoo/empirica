@@ -8,6 +8,8 @@ patterns so the scanner can flag *which credentials are reachable*, not
 
 from __future__ import annotations
 
+from typing import Any
+
 # Conservative pattern set — favors recall over precision so "interesting"
 # env var names show up. Substring match (case-insensitive). The judgment
 # layer (Phase 2) will refine.
@@ -30,16 +32,25 @@ def _is_interesting(name: str) -> bool:
     return any(fragment in upper for fragment in _INTERESTING_FRAGMENTS)
 
 
-def collect_env_var_names(read_surface, env: dict[str, str] | None = None) -> dict[str, list[str]]:
-    """Return ``{'var_names_only': [...]}`` when the read-surface permits.
+def collect_env_var_names(read_surface, env: dict[str, str] | None = None
+                          ) -> tuple[dict[str, list[str]], dict[str, Any]]:
+    """Return ``(payload, coverage)``.
 
-    Note the awkward singleton key: it's the only legal emission for
-    ``process_env`` and explicitly signals "no values were read."
+    Payload preserves the singleton ``{'var_names_only': [...]}`` shape (the
+    only legal emission for ``process_env``). Coverage shows the ratio of
+    interesting names to total env vars so a near-zero hit rate is visible
+    even when the list itself is empty.
     """
     if 'var_names_only' not in read_surface.process_env:
-        return {'var_names_only': []}
+        return {'var_names_only': []}, {'attempted': 0, 'succeeded': 0, 'ratio': 1.0}
 
     import os as _os
     source = env if env is not None else dict(_os.environ)
     names = sorted(name for name in source.keys() if _is_interesting(name))
-    return {'var_names_only': names}
+    total = len(source)
+    coverage = {
+        'total_env_vars': total,
+        'interesting_matches': len(names),
+        'ratio': len(names) / total if total else 0.0,
+    }
+    return {'var_names_only': names}, coverage

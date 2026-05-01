@@ -67,6 +67,7 @@ from .persona_parsers import add_persona_parsers
 from .profile_parsers import add_profile_parsers
 from .query_parsers import add_query_parsers
 from .release_parsers import add_release_parsers
+from .scan_parsers import add_scan_parsers
 from .sentinel_parsers import add_sentinel_parsers
 from .serve_parsers import add_serve_parsers
 from .session_parsers import add_session_parsers
@@ -106,6 +107,7 @@ __all__ = [
     'add_query_parsers',
     'add_release_parsers',
     'add_resolve_parser',
+    'add_scan_parsers',
     'add_sentinel_parsers',
     'add_serve_parsers',
     'add_session_parsers',
