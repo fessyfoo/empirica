@@ -919,13 +919,85 @@ async def test_c_key_toggles_compliance_expansion(cockpit_env, monkeypatch):
     async with app.run_test(headless=True, size=(60, 30)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        # Default for passing = collapsed
+        inst = app._selected_instance()
+        assert inst is not None
+
+        # Default for passing = collapsed (head only, no detail line)
         assert app.compliance_expanded is False
+        rendered_default = app._format_compliance(inst)
+        assert 'all 11 checks passing' not in rendered_default
+
         await pilot.press('c')
         await pilot.pause()
-        # `c` only toggles the passing case (failures are always shown);
-        # the user_overridden flag was retired in the UX correction.
         assert app.compliance_expanded is True
+        # After toggle: detail line appears
+        rendered_after = app._format_compliance(inst)
+        assert 'all 11 checks passing' in rendered_after
+
+
+@pytest.mark.asyncio
+async def test_c_key_toggles_compliance_in_failure_state(cockpit_env, monkeypatch):
+    """Pressing `c` must visibly change the panel even when failures are present.
+
+    Regression test for the UX bug David reported: in failure state the
+    previous implementation made `c` a no-op (failures were forced
+    expanded, the toggle did nothing). The fix preserves failure
+    visibility via the head line (glyph + 'failing: …') while letting
+    the toggle hide / show the per-check breakdown.
+    """
+    home, project = cockpit_env
+    _bind_instance(home, project, 'tmux_test')
+    _write_project_id(project, 'test-project')
+
+    from empirica.core.cockpit import compliance_view
+    monkeypatch.setattr(compliance_view, 'EMPIRICA_DIR', home)
+    compliance_view.write_last_compliance('test-project', {
+        'overall': {
+            'status': 'fail', 'score': 0.6,
+            'checks_passed': 6, 'checks_total': 10,
+        },
+        'checks': [
+            {'check': 'lint', 'passed': False},
+            {'check': 'complexity', 'passed': False},
+        ],
+    })
+
+    from empirica.cli.tui import CockpitApp
+
+    app = CockpitApp(include_dead=True)
+    async with app.run_test(headless=True, size=(80, 30)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        inst = app._selected_instance()
+        assert inst is not None
+
+        # Default for failures = expanded detail
+        assert app.compliance_expanded is False
+        rendered_default = app._format_compliance(inst)
+        # Failure visibility — head always shows the failing names
+        assert 'failing: lint, complexity' in rendered_default
+        # Detail rows visible in default-expanded state
+        detail_count_before = rendered_default.count('  ✗')
+        assert detail_count_before >= 2  # one per failing check
+
+        # Press `c` — should flip to compact (head only, but failures
+        # still in head). Toggle is NOT a no-op.
+        await pilot.press('c')
+        await pilot.pause()
+        assert app.compliance_expanded is True
+        rendered_compact = app._format_compliance(inst)
+        # Failures still visible in head
+        assert 'failing: lint, complexity' in rendered_compact
+        # But the per-check rows are gone
+        detail_count_after = rendered_compact.count('  ✗')
+        assert detail_count_after < detail_count_before
+
+        # Press `c` again — back to expanded
+        await pilot.press('c')
+        await pilot.pause()
+        assert app.compliance_expanded is False
+        rendered_again = app._format_compliance(inst)
+        assert rendered_again.count('  ✗') == detail_count_before
 
 
 @pytest.mark.asyncio

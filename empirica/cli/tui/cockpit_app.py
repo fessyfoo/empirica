@@ -466,23 +466,28 @@ class CockpitApp(App):
         if failed:
             head += f' · failing: {", ".join(failed)}'
 
-        # Failures are ALWAYS shown expanded — `c` cannot hide them.
-        # The toggle only affects the clean / passing case so the operator
-        # can drill in when curious without surrendering visibility on
-        # things that need attention.
+        # Failure visibility is preserved by the head line — the glyph + the
+        # comma-separated `failing: …` list both stay in the one-line summary.
+        # `c` toggles the per-check detail breakdown, which is the *additional*
+        # information beyond the head. Failures default-expand the detail
+        # (operator sees per-row context immediately); pass default-collapses
+        # it. `compliance_expanded` represents "user has toggled from default."
         if failed:
-            lines = [head, '']
+            show_detail = not self.compliance_expanded
+        else:
+            show_detail = self.compliance_expanded
+
+        if not show_detail:
+            return head
+
+        lines = [head, '']
+        if failed:
             for label in failed:
                 lines.append(_wrap_item('  ✗', f'{label}'))
-            lines.append('  (failures always shown — `c` toggles passing checks only)')
-            return '\n'.join(lines)
-
-        # Passing case: collapsed by default, `c` expands.
-        if not self.compliance_expanded:
-            return head
-        lines = [head, '']
-        lines.append(_wrap_item('  ✓', f'all {passed} checks passing'))
-        lines.append('  (press `c` to collapse)')
+            lines.append('  (press `c` to collapse — failures stay in header)')
+        else:
+            lines.append(_wrap_item('  ✓', f'all {passed} checks passing'))
+            lines.append('  (press `c` to collapse)')
         return '\n'.join(lines)
 
     @staticmethod
@@ -538,32 +543,31 @@ class CockpitApp(App):
         if errors:
             head += f' · {errors} collector errors'
 
-        # Errors (collector failures) are ALWAYS shown expanded — `i`
-        # cannot hide them. Mirrors compliance's "failures always shown"
-        # rule. Stale/clean states honor the toggle.
+        # Mirrors compliance: error visibility is preserved by the head line
+        # (glyph + `· N collector errors`), and `i` toggles the per-category
+        # detail breakdown. Errors default-expand the detail; clean/stale
+        # default-collapse it. `services_expanded` means "user toggled."
         if errors > 0:
-            lines = [head, '']
-            lines.append(_wrap_item('  ✗', f'{errors} collector error(s) during scan'))
-            lines.append(_wrap_item('  ·', f'MCP servers: {s.get("mcp_servers_count", 0)}'))
-            lines.append(_wrap_item('  ·', f'Plugin manifests: {s.get("plugin_manifests_count", 0)}'))
-            lines.append(_wrap_item('  ·', f'Cron entries: {s.get("cron_entries_count", 0)}'))
-            lines.append(_wrap_item('  ·', f'Interesting env-var names: {s.get("env_var_names_count", 0)}'))
-            host = s.get('host') or '?'
-            lines.append(_wrap_item('  ·', f'Host: {host}'))
-            lines.append('  (errors always shown — `i` toggles non-error breakdown only)')
-            return '\n'.join(lines)
+            show_detail = not self.services_expanded
+        else:
+            show_detail = self.services_expanded
 
-        if not self.services_expanded:
+        if not show_detail:
             return head
 
         lines = [head, '']
+        if errors > 0:
+            lines.append(_wrap_item('  ✗', f'{errors} collector error(s) during scan'))
         lines.append(_wrap_item('  ·', f'MCP servers: {s.get("mcp_servers_count", 0)}'))
         lines.append(_wrap_item('  ·', f'Plugin manifests: {s.get("plugin_manifests_count", 0)}'))
         lines.append(_wrap_item('  ·', f'Cron entries: {s.get("cron_entries_count", 0)}'))
         lines.append(_wrap_item('  ·', f'Interesting env-var names: {s.get("env_var_names_count", 0)}'))
         host = s.get('host') or '?'
         lines.append(_wrap_item('  ·', f'Host: {host}'))
-        lines.append('  (press `i` to collapse)')
+        if errors > 0:
+            lines.append('  (press `i` to collapse — error count stays in header)')
+        else:
+            lines.append('  (press `i` to collapse)')
         return '\n'.join(lines)
 
     def _render_dispatcher(self) -> None:

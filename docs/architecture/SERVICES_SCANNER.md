@@ -318,10 +318,14 @@ Stop and `c` is bound to Compliance, so `i` was the next sensible
 mnemonic. Pressing `i` flips the panel between collapsed (one-line
 summary) and expanded (per-category breakdown).
 
-**Failures are always shown.** Collector errors render expanded
-unconditionally; the toggle only affects the clean / stale case. This
-mirrors the compliance panel's UX rule — the operator can drill into
-quiet states with a key, but cannot use a key to hide a problem.
+**Failures are always shown via the head line.** The glyph + the
+errors-count summary stay visible in the one-line head regardless of
+toggle state — operators never lose sight of a problem. `i` toggles
+the *additional* detail breakdown (per-category counts), which
+default-expands when errors are present and default-collapses when
+clean. The toggle is always a real toggle (mirrors compliance's `c`),
+but it never hides the existence of an error — the head line carries
+that signal in either state.
 
 ### Glyphs
 
