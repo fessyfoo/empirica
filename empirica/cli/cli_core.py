@@ -227,6 +227,7 @@ from .parsers import (
     add_trajectory_parsers,
     add_user_interface_parsers,
     add_utility_parsers,
+    add_visibility_parsers,
     add_vision_parsers,
     add_voice_parsers,
 )
@@ -300,6 +301,7 @@ def create_argument_parser():
     add_cockpit_parsers(subparsers)
     add_notify_parsers(subparsers)
     add_voice_parsers(subparsers)
+    add_visibility_parsers(subparsers)
 
     # Built-in help command (handled in main(), not via handler)
     subparsers.add_parser('help', help='Show all commands by category')
@@ -509,6 +511,9 @@ def main(args=None):
 
             # Voice profiles (prosodic patterns for outreach drafting)
             'voice': handle_voice_group_command,
+
+            # Visibility tiers (proposal: PROPOSAL_VISIBILITY_TIERS.md, Phase 0)
+            'visibility': handle_visibility_group_command,
 
             # Checkpoint commands
             'checkpoint-create': handle_checkpoint_create_command,

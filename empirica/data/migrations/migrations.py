@@ -1263,6 +1263,7 @@ ALL_MIGRATIONS: list[tuple[str, str, Callable]] = [
     ("036_provenance_graph", "Add provenance graph columns: source_refs on findings, evidence_refs on decisions, resolution_finding_id on unknowns", lambda cursor: migration_036_provenance_graph(cursor)),
     ("037_composable_lessons", "Evolve lessons into composable epistemic patterns with abstraction levels, sharing, EKG connections, triggers, output renderers", lambda cursor: migration_037_composable_lessons(cursor)),
     ("038_goal_lifecycle_simplify", "Simplify goal lifecycle: convert stale/blocked to in_progress, support planned status", lambda cursor: migration_038_goal_lifecycle_simplify(cursor)),
+    ("039_artifact_visibility", "Add visibility tier (public/shared/local, default shared) to artifact tables for Phase 0 visibility primitive (PROPOSAL_VISIBILITY_TIERS.md)", lambda cursor: migration_039_artifact_visibility(cursor)),
 ]
 
 
@@ -1411,3 +1412,41 @@ def migration_038_goal_lifecycle_simplify(cursor: sqlite3.Cursor):
     if rows:
         logger.info(f"  Converted {rows} stale/blocked goals to in_progress")
     logger.info("✅ Migration 038 complete: Goal lifecycle simplified")
+
+
+def migration_039_artifact_visibility(cursor: sqlite3.Cursor):
+    """Add visibility tier field to all artifact tables (Phase 0 visibility primitive).
+
+    Visibility tiers:
+      - 'public':  publicly shareable (generic technical content, public-RFC citations)
+      - 'shared':  team-private, co-versioned (default — safest invariant)
+      - 'local':   machine-local, never shared (raw secrets, session state)
+
+    Tables affected (post-027 set; session_* mirrors were dropped in migration 027):
+      - project_findings, project_unknowns, project_dead_ends
+      - mistakes_made, assumptions, decisions, goals
+
+    Phase 0 is metadata-only — no encryption. Validation of the enum happens at
+    the CLI/repository layer in Python (the helper does not support CHECK
+    constraints in ALTER TABLE ADD COLUMN). Default 'shared' on all existing rows.
+
+    See docs/architecture/PROPOSAL_VISIBILITY_TIERS.md.
+    """
+    artifact_tables = [
+        'project_findings',
+        'project_unknowns',
+        'project_dead_ends',
+        'mistakes_made',
+        'assumptions',
+        'decisions',
+        'goals',
+    ]
+    for table in artifact_tables:
+        add_column_if_missing(cursor, table, "visibility", "TEXT", "'shared'")
+        cursor.execute(
+            f"CREATE INDEX IF NOT EXISTS idx_{table}_visibility ON {table}(visibility)"
+        )
+
+    logger.info(
+        f"✅ Migration 039 complete: visibility column added to {len(artifact_tables)} artifact tables"
+    )

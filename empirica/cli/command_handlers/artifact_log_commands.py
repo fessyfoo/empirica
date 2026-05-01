@@ -52,7 +52,8 @@ def _extract_scalar_fields(config_data, args):
     goal_id = (config_data or {}).get('goal_id') or getattr(args, 'goal_id', None)
     subtask_id = (config_data or {}).get('subtask_id') or getattr(args, 'subtask_id', None)
     impact = (config_data or {}).get('impact') or getattr(args, 'impact', None)
-    return output_format, session_id, project_id, goal_id, subtask_id, impact
+    visibility = (config_data or {}).get('visibility') or getattr(args, 'visibility', None)
+    return output_format, session_id, project_id, goal_id, subtask_id, impact, visibility
 
 
 def _resolve_session_for_artifact(session_id, project_id):
@@ -205,7 +206,7 @@ def _resolve_artifact_context(config_data, args, required_fields=None) -> dict[s
     entity_type, entity_id, via, ai_id, subject, output_format, db.
     Caller is responsible for closing db.
     """
-    output_format, session_id, project_id, goal_id, subtask_id, impact = _extract_scalar_fields(config_data, args)
+    output_format, session_id, project_id, goal_id, subtask_id, impact, visibility = _extract_scalar_fields(config_data, args)
     entity_type, entity_id, via = _extract_entity_params(config_data, args)
     session_id, is_cross_project = _resolve_session_for_artifact(session_id, project_id)
     _validate_artifact_required_fields(config_data, args, session_id, required_fields)
@@ -232,6 +233,7 @@ def _resolve_artifact_context(config_data, args, required_fields=None) -> dict[s
         'ai_id': ai_id,
         'db': db,
         'is_cross_project': is_cross_project,
+        'visibility': visibility,
     }
 
 
@@ -601,6 +603,7 @@ def handle_finding_log_command(args):
             entity_type=ctx['entity_type'],
             entity_id=ctx['entity_id'],
             source_ids=source_ids,
+            visibility=ctx['visibility'],
         )
 
         # Entity cross-link
@@ -709,7 +712,8 @@ def handle_unknown_log_command(args):
             impact=ctx['impact'],
             transaction_id=ctx['transaction_id'],
             entity_type=ctx['entity_type'],
-            entity_id=ctx['entity_id']
+            entity_id=ctx['entity_id'],
+            visibility=ctx['visibility'],
         )
 
         # Entity cross-link
@@ -1019,7 +1023,8 @@ def handle_deadend_log_command(args):
             impact=ctx['impact'],
             transaction_id=ctx['transaction_id'],
             entity_type=ctx['entity_type'],
-            entity_id=ctx['entity_id']
+            entity_id=ctx['entity_id'],
+            visibility=ctx['visibility'],
         )
 
         # Entity cross-link
@@ -1148,6 +1153,7 @@ def handle_assumption_log_command(args):
             transaction_id=ctx['transaction_id'],
             entity_type=ctx['entity_type'],
             entity_id=ctx['entity_id'],
+            visibility=ctx['visibility'],
         )
 
         # GIT NOTES: Store in git notes for sync
@@ -1274,6 +1280,7 @@ def handle_decision_log_command(args):
             entity_type=ctx['entity_type'],
             entity_id=ctx['entity_id'],
             evidence_refs=evidence_refs,
+            visibility=ctx['visibility'],
         )
 
         # GIT NOTES
@@ -1747,6 +1754,7 @@ def handle_mistake_log_command(args):
         entity_type = getattr(args, 'entity_type', None)
         entity_id = getattr(args, 'entity_id', None)
         via = getattr(args, 'via', None)
+        visibility = getattr(args, 'visibility', None)
 
         if not session_id:
             session_id = R.session_id()
@@ -1773,6 +1781,7 @@ def handle_mistake_log_command(args):
             cost_estimate=cost_estimate, root_cause_vector=root_cause_vector,
             prevention=prevention, goal_id=goal_id, project_id=project_id,
             transaction_id=transaction_id, entity_type=entity_type, entity_id=entity_id,
+            visibility=visibility,
         )
 
         if entity_type and entity_type != 'project' and entity_id:

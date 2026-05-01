@@ -159,6 +159,11 @@ from .notify_commands import (
     handle_notify_group_command,
     handle_notify_test_command,
 )
+from .visibility_commands import (
+    handle_visibility_group_command,
+    handle_visibility_list_command,
+    handle_visibility_show_command,
+)
 from .onboard import handle_onboard_command
 from .performance_commands import handle_benchmark_command, handle_performance_command
 from .profile_commands import (
@@ -360,6 +365,10 @@ __all__ = [
     'handle_notify_emit_command',
     'handle_notify_group_command',
     'handle_notify_test_command',
+    # Visibility tier commands (PROPOSAL_VISIBILITY_TIERS.md)
+    'handle_visibility_group_command',
+    'handle_visibility_list_command',
+    'handle_visibility_show_command',
     # Onboarding commands
     'handle_onboard_command',
     'handle_performance_command',

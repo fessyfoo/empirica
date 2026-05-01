@@ -193,6 +193,7 @@ def add_checkpoint_parsers(subparsers):
     mistake_log_parser.add_argument('--goal-id', help='Optional goal identifier this mistake relates to')
     mistake_log_parser.add_argument('--scope', choices=['session', 'project', 'both'], help='Scope: session (ephemeral), project (persistent), or both (dual-log). Auto-inferred if omitted.')
     _add_entity_flags(mistake_log_parser)
+    mistake_log_parser.add_argument('--visibility', choices=['public', 'shared', 'local'], help='Visibility tier (default: shared). public=world-shareable, shared=team-private, local=machine-only.')
     mistake_log_parser.add_argument('--output', choices=['human', 'json'], default='human', help='Output format')
     mistake_log_parser.add_argument('--verbose', action='store_true', help='Show detailed operation info')
 
@@ -486,6 +487,7 @@ def add_checkpoint_parsers(subparsers):
     finding_log_parser.add_argument('--scope', choices=['session', 'project', 'both'], help='Scope: session (ephemeral), project (persistent), or both (dual-log). Auto-inferred if omitted.')
     finding_log_parser.add_argument('--source', action='append', dest='source_ids', help='Source ID (from source-add). Repeatable for multiple sources.')
     _add_entity_flags(finding_log_parser)
+    finding_log_parser.add_argument('--visibility', choices=['public', 'shared', 'local'], help='Visibility tier (default: shared). public=world-shareable, shared=team-private, local=machine-only.')
     finding_log_parser.add_argument('--output', choices=['human', 'json'], default='human', help='Output format')
     finding_log_parser.add_argument('--verbose', action='store_true', help='Show detailed operation info')
 
@@ -552,6 +554,7 @@ def add_checkpoint_parsers(subparsers):
     deadend_log_parser.add_argument('--scope', choices=['session', 'project', 'both'], help='Scope: session (ephemeral), project (persistent), or both (dual-log). Auto-inferred if omitted.')
     deadend_log_parser.add_argument('--source', action='append', dest='source_ids', help='Source ID (from source-add). Repeatable for multiple sources.')
     _add_entity_flags(deadend_log_parser)
+    deadend_log_parser.add_argument('--visibility', choices=['public', 'shared', 'local'], help='Visibility tier (default: shared). public=world-shareable, shared=team-private, local=machine-only.')
     deadend_log_parser.add_argument('--output', choices=['human', 'json'], default='human', help='Output format')
     deadend_log_parser.add_argument('--verbose', action='store_true', help='Show detailed operation info')
 
@@ -568,6 +571,7 @@ def add_checkpoint_parsers(subparsers):
     assumption_log_parser.add_argument('--domain', help='Domain scope (e.g., security, architecture)')
     assumption_log_parser.add_argument('--goal-id', help='Optional goal UUID')
     _add_entity_flags(assumption_log_parser)
+    assumption_log_parser.add_argument('--visibility', choices=['public', 'shared', 'local'], help='Visibility tier (default: shared). public=world-shareable, shared=team-private, local=machine-only.')
     assumption_log_parser.add_argument('--output', choices=['human', 'json'], default='human', help='Output format')
 
     # Decision log command
@@ -587,6 +591,7 @@ def add_checkpoint_parsers(subparsers):
     decision_log_parser.add_argument('--goal-id', help='Optional goal UUID')
     decision_log_parser.add_argument('--evidence', action='append', dest='evidence_refs', help='Finding ID as evidence for this decision. Repeatable for multiple findings.')
     _add_entity_flags(decision_log_parser)
+    decision_log_parser.add_argument('--visibility', choices=['public', 'shared', 'local'], help='Visibility tier (default: shared). public=world-shareable, shared=team-private, local=machine-only.')
     decision_log_parser.add_argument('--output', choices=['human', 'json'], default='human', help='Output format')
 
     # Reference doc add command

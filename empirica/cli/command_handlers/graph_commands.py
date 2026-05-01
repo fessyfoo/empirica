@@ -45,6 +45,7 @@ LOG_ARTIFACTS_SCHEMA = {
                 "finding | unknown | choice | etc.": "<type-specific required fields>",
                 "impact": "<float 0-1, optional>",
                 "subject": "<optional>",
+                "visibility": "<public | shared | local — optional, default 'shared'>",
             },
         },
     ],
@@ -231,6 +232,7 @@ def _create_node(db, node: dict, context: dict) -> str | None:
     project_id = context['project_id']
     goal_id = data.get('goal_id') or context.get('goal_id')
     transaction_id = context.get('transaction_id')
+    visibility = data.get('visibility')
 
     try:
         if ntype == 'finding':
@@ -239,6 +241,7 @@ def _create_node(db, node: dict, context: dict) -> str | None:
                 finding=data['finding'], impact=data.get('impact', 0.5),
                 goal_id=goal_id, subject=data.get('subject'),
                 transaction_id=transaction_id,
+                visibility=visibility,
             )
         elif ntype == 'unknown':
             return db.log_unknown(
@@ -246,6 +249,7 @@ def _create_node(db, node: dict, context: dict) -> str | None:
                 unknown=data['unknown'],
                 goal_id=goal_id, subject=data.get('subject'),
                 transaction_id=transaction_id,
+                visibility=visibility,
             )
         elif ntype == 'dead_end':
             return db.log_dead_end(
@@ -254,15 +258,19 @@ def _create_node(db, node: dict, context: dict) -> str | None:
                 impact=data.get('impact', 0.5),
                 goal_id=goal_id, subject=data.get('subject'),
                 transaction_id=transaction_id,
+                visibility=visibility,
             )
         elif ntype == 'mistake':
-            return db.log_session_mistake(
+            return db.log_mistake(
                 session_id=session_id,
                 mistake=data['mistake'], why_wrong=data['why_wrong'],
                 cost_estimate=data.get('cost_estimate'),
                 root_cause_vector=data.get('root_cause_vector'),
                 prevention=data.get('prevention'),
                 goal_id=goal_id,
+                project_id=project_id,
+                transaction_id=transaction_id,
+                visibility=visibility,
             )
         elif ntype == 'assumption':
             return db.log_assumption(
@@ -272,6 +280,7 @@ def _create_node(db, node: dict, context: dict) -> str | None:
                 domain=data.get('domain'),
                 goal_id=goal_id,
                 transaction_id=transaction_id,
+                visibility=visibility,
             )
         elif ntype == 'decision':
             return db.log_decision(
@@ -282,6 +291,7 @@ def _create_node(db, node: dict, context: dict) -> str | None:
                 confidence=data.get('confidence', 0.7),
                 goal_id=goal_id,
                 transaction_id=transaction_id,
+                visibility=visibility,
             )
         elif ntype == 'source':
             return db.add_reference_doc(
