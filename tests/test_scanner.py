@@ -328,6 +328,7 @@ class TestScanCli:
         class _Args:
             output = 'json'
             save = True
+            explain = False
             project_id = 'test-project'
 
         rc = scan_commands.handle_scan_command(_Args())
@@ -340,3 +341,85 @@ class TestScanCli:
         assert scan_path.startswith(str(tmp_path))
         assert (tmp_path / 'last_scan_test-project.json').exists()
         assert (tmp_path / 'scan_history_test-project.jsonl').exists()
+
+
+class TestScanExplain:
+    """Phase 2 T1 — `empirica scan --explain` hand-off to services-auditor."""
+
+    def test_explain_markdown_emits_handoff(self, capsys, tmp_path, monkeypatch):
+        from empirica.cli.command_handlers import scan_commands
+
+        monkeypatch.setattr(scan_commands, '_empirica_home', lambda: tmp_path)
+
+        class _Args:
+            output = 'markdown'
+            save = False           # --explain implies --save internally
+            explain = True
+            project_id = 'test-project'
+
+        rc = scan_commands.handle_scan_command(_Args())
+        captured = capsys.readouterr()
+        assert rc == 0
+        # Hand-off references the auditor skill explicitly
+        assert 'services-auditor' in captured.out
+        assert 'snapshot ready' in captured.out.lower()
+        # Snapshot was force-saved
+        assert (tmp_path / 'last_scan_test-project.json').exists()
+
+    def test_explain_json_envelope(self, capsys, tmp_path, monkeypatch):
+        from empirica.cli.command_handlers import scan_commands
+
+        monkeypatch.setattr(scan_commands, '_empirica_home', lambda: tmp_path)
+
+        class _Args:
+            output = 'json'
+            save = False
+            explain = True
+            project_id = 'test-project'
+
+        rc = scan_commands.handle_scan_command(_Args())
+        captured = capsys.readouterr()
+        assert rc == 0
+
+        import json as _json
+        env = _json.loads(captured.out)
+        assert env['ok'] is True
+        assert env['mode'] == 'explain'
+        assert env['next_step']['skill'] == 'services-auditor'
+        assert env['next_step']['snapshot_path']
+        # The full snapshot is on disk, not in the envelope (kept lean)
+        assert 'snapshot' not in env  # only summary keys
+
+    def test_explain_implies_save(self, capsys, tmp_path, monkeypatch):
+        """--explain auto-forces --save so the auditor has a file to read."""
+        from empirica.cli.command_handlers import scan_commands
+
+        monkeypatch.setattr(scan_commands, '_empirica_home', lambda: tmp_path)
+
+        class _Args:
+            output = 'json'
+            save = False  # caller did not request save
+            explain = True
+            project_id = 'test-project'
+
+        scan_commands.handle_scan_command(_Args())
+        # Scan was persisted regardless
+        assert (tmp_path / 'last_scan_test-project.json').exists()
+
+
+class TestServicesAuditorSkill:
+    """The skill must be discoverable by the plugin loader."""
+
+    def test_skill_file_exists_with_frontmatter(self):
+        from pathlib import Path
+
+        skill = Path('empirica/plugins/claude-code-integration/skills'
+                     '/services-auditor/SKILL.md')
+        assert skill.exists(), f"missing: {skill}"
+        text = skill.read_text(encoding='utf-8')
+        # YAML frontmatter contract
+        assert text.startswith('---\n')
+        assert 'name: services-auditor' in text
+        # The two load-bearing things every reader must see in the skill
+        assert 'two-tier' in text.lower() or 'tier 1' in text.lower()
+        assert 'citation' in text.lower()

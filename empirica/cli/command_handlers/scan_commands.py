@@ -79,10 +79,53 @@ def _resolve_project_id(args) -> str | None:
     return None
 
 
+def _render_explain_hand_off(snapshot_dict: dict, saved_paths: dict[str, str],
+                             project_id: str | None) -> str:
+    """Render the human-readable hand-off when ``--explain`` is requested.
+
+    The hand-off points the AI at the ``/services-auditor`` skill and
+    surfaces the saved snapshot path so the auditor knows where to read.
+    No judgment happens here — judgment is the skill's job, executed by
+    whatever AI session reads this output.
+    """
+    cov = snapshot_dict.get('snapshot', {}).get('coverage', {})
+    last_path = saved_paths.get('last_scan_path') or saved_paths.get('scan_path', '?')
+
+    lines = [
+        "🔍 Scanner snapshot ready for AI judgment (Phase 2).",
+        "",
+        f"   scan_id: {snapshot_dict.get('scan_id')}",
+        f"   saved to: {last_path}",
+        f"   processes captured: {cov.get('processes', {}).get('succeeded', '?')} "
+        f"of {cov.get('processes', {}).get('attempted', '?')} "
+        f"({cov.get('processes', {}).get('ratio', 0) * 100:.1f}%)",
+        f"   listening ports: {len(snapshot_dict.get('snapshot', {}).get('network', {}).get('listening_ports') or [])}",
+        f"   project_id: {project_id or '(unresolved)'}",
+        "",
+        "Next: invoke `/services-auditor` to read the snapshot, judge each",
+        "AI-touching entry against the bundled security corpus, and emit",
+        "findings/assumptions/unknowns with confidence + cited corpus sections.",
+        "Citation coverage and process coverage are tracked explicitly in the",
+        "auditor's POSTFLIGHT summary.",
+        "",
+        "If the AI doesn't load the skill automatically, the skill lives at:",
+        "  empirica/plugins/claude-code-integration/skills/services-auditor/SKILL.md",
+    ]
+    return '\n'.join(lines) + '\n'
+
+
 def handle_scan_command(args) -> int:
-    """`empirica scan` — emit a deterministic inventory snapshot."""
+    """`empirica scan` — emit a deterministic inventory snapshot.
+
+    With ``--explain``, the snapshot is auto-saved and a system-reminder
+    is emitted pointing the AI at the ``services-auditor`` skill.
+    """
     output_format = getattr(args, 'output', 'markdown')
     save = getattr(args, 'save', False)
+    explain = getattr(args, 'explain', False)
+    # --explain implies --save: the auditor needs the file on disk
+    if explain:
+        save = True
     project_id = _resolve_project_id(args)
 
     try:
@@ -103,6 +146,29 @@ def handle_scan_command(args) -> int:
         except OSError as exc:
             logger.warning(f"scan persistence failed: {exc}")
             saved_paths = {'error': str(exc)}
+
+    if explain:
+        # The hand-off output is the same in both formats — it's a directive
+        # for the AI session, not the snapshot itself. The snapshot lives
+        # on disk at saved_paths.
+        if output_format == 'json':
+            envelope = {
+                'ok': True,
+                'mode': 'explain',
+                'project_id': project_id,
+                'scan_id': snapshot_dict.get('scan_id'),
+                'saved': saved_paths,
+                'next_step': {
+                    'skill': 'services-auditor',
+                    'snapshot_path': saved_paths.get('last_scan_path')
+                        or saved_paths.get('scan_path'),
+                },
+                'message': 'Invoke /services-auditor to perform AI judgment.',
+            }
+            print(json.dumps(envelope, indent=2, default=str))
+        else:
+            print(_render_explain_hand_off(snapshot_dict, saved_paths, project_id))
+        return 0
 
     if output_format == 'json':
         envelope = {

@@ -25,5 +25,9 @@ cockpit.scanner.read_surface (defaults applied if absent).
     scan_root.add_argument('--save', action='store_true',
                            help='Persist the JSON snapshot to ~/.empirica/scans/<scan_id>.json '
                                 'and update last_scan_<project_id>.json for cockpit consumption')
+    scan_root.add_argument('--explain', action='store_true',
+                           help='Hand the snapshot to the services-auditor skill for AI judgment '
+                                '(Phase 2). Auto-saves the snapshot and prints a system-reminder '
+                                'pointing the AI at /services-auditor with the snapshot path.')
     scan_root.add_argument('--project-id',
                            help='Project UUID (overrides automatic resolution)')

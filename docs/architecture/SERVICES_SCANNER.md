@@ -1,10 +1,12 @@
-# AI Service Scanner — Phase 1 (Deterministic Inventory)
+# AI Service Scanner — Phase 1 (Deterministic Inventory) + Phase 2 T1 (Auditor Hand-off)
 
-**Status:** Phase 1 shipped (this document graduates `PROPOSAL_AI_SERVICE_SCANNER.md`).
+**Status:** Phase 1 shipped + Phase 2 T1 shipped (this document graduates `PROPOSAL_AI_SERVICE_SCANNER.md`).
 **Phases:**
-- **1 (this doc):** deterministic data collection, read-surface YAML, Markdown report, bundled corpus stubs
-- **2 (next):** AI judgment via the `services-auditor` persona — uses the bundled corpus and emits findings with confidence + cited sections
-- **3:** biweekly loop + ntfy + history/diff verbs + corpus-refresh
+- **1 (shipped):** deterministic data collection, read-surface YAML, Markdown report, bundled corpus stubs
+- **2 T1 (shipped):** `services-auditor` skill + `empirica scan --explain` hand-off
+- **2 T2 (next):** cockpit `#services` panel + ntfy hook for high-confidence findings
+- **2 T3:** POSTFLIGHT coverage block (paper section 4.1)
+- **3:** biweekly loop + history/diff verbs + corpus-refresh
 - **4:** RAG over corpus, dynamic CVE feed, fleet view
 
 ---
@@ -188,6 +190,89 @@ Phase 3 monthly corpus-refresh loop.
 - [x] `docs/architecture/SERVICES_SCANNER.md` written (this file)
 - [x] CHANGELOG entry under `[Unreleased]`
 
-Phase 1 does not yet wire the `services-auditor` persona, ntfy alerts,
-the cockpit `#services` panel, the biweekly loop, or `--explain`. Those
-are Phase 2 / Phase 3.
+Phase 1 does not yet wire the cockpit `#services` panel, ntfy alerts, or
+the biweekly loop. Those are Phase 2 T2+ / Phase 3.
+
+---
+
+## Phase 2 T1 — Auditor hand-off (shipped)
+
+The deterministic Phase 1 snapshot is the ground truth; **judgment**
+happens in a separate empirica transaction run by an AI session
+(typically Claude Code) following the `services-auditor` skill.
+
+### `empirica scan --explain`
+
+```bash
+empirica scan --explain
+```
+
+Auto-saves the snapshot (forces `--save`), then emits a hand-off
+pointing the AI at the auditor skill:
+
+```
+🔍 Scanner snapshot ready for AI judgment (Phase 2).
+
+   scan_id: 823d2f2f-...
+   saved to: /home/.../.empirica/last_scan_empirica.json
+   processes captured: 496 of 496 (100.0%)
+   listening ports: 15
+   project_id: empirica
+
+Next: invoke `/services-auditor` to read the snapshot, judge each
+AI-touching entry against the bundled security corpus, and emit
+findings/assumptions/unknowns with confidence + cited corpus sections.
+Citation coverage and process coverage are tracked explicitly in the
+auditor's POSTFLIGHT summary.
+```
+
+`--output json` returns the same hand-off as a structured envelope so
+loops and other automation can dispatch the auditor programmatically.
+
+### `services-auditor` skill
+
+Location: `empirica/plugins/claude-code-integration/skills/services-auditor/SKILL.md`.
+
+Walks the AI through:
+
+1. **PREFLIGHT** with `work_type=audit`, `domain=default`, `criticality=medium`.
+2. **Read inputs** — the saved snapshot + the bundled corpus (or the
+   user-customizable copy at `~/.empirica/security-corpus/` if present).
+3. **Two-tier judgment:**
+   - *Tier 1* — cheap AI-touching pre-filter (cmdline / env-var / port /
+     MCP-registry signals) drops ~hundreds of processes to ~10–30.
+   - *Tier 2* — full taxonomy per AI-touching process: confidence ladder
+     gates emission as `finding` / `assumption` / `unknown`.
+4. **Citation discipline (load-bearing)** — every finding and
+   assumption MUST cite at least one corpus section ID. Uncited
+   findings downgrade to `unknown` regardless of model confidence.
+5. **Coverage tracking** — process coverage, citation coverage, and
+   listener coverage surfaced explicitly in the POSTFLIGHT summary.
+   This is the agent self-coverage metric the paper defines.
+6. **POSTFLIGHT** with grounded vectors that reflect what was inspected.
+
+### Confidence × citation ladder
+
+| Confidence | Citation present? | Artifact type | Behavior |
+|---|---|---|---|
+| ≥ 0.95 | yes | `finding-log` | high-trust |
+| 0.6 – 0.95 | yes | `assumption-log` | medium-trust |
+| < 0.6 | _any_ | `unknown-log` | needs human review |
+| _any_ | **no** | `unknown-log` | uncited downgrades |
+
+### Where coverage lives now
+
+Per-finding citation coverage rides in the artifact's `data` JSON
+column (no schema change). The auditor's POSTFLIGHT summary aggregates
+across the transaction. Phase 2 T3 will land a top-level POSTFLIGHT
+`coverage` block (paper section 4.1) that generalizes beyond the
+scanner — every empirica transaction gets an inspected/relevant
+ratio across files, artifacts, and citations.
+
+### Acceptance criteria — Phase 2 T1
+
+- [x] `services-auditor` SKILL.md drafted with two-tier judgment + citation discipline + coverage tracking
+- [x] `empirica scan --explain` flag wired (parser + handler), auto-saves snapshot, emits hand-off
+- [x] Hand-off works in both Markdown (human) and JSON (programmatic) output formats
+- [x] Tests cover: `--explain` exit code + Markdown hand-off content + JSON envelope shape
+- [x] CHANGELOG entry under `[Unreleased]`

@@ -26,6 +26,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`empirica visibility show <prefix>`** — single-artifact tier
   lookup by UUID prefix across all 7 tables.
 
+### Added — AI service scanner Phase 2 T1 (auditor hand-off)
+
+- **`services-auditor` skill** at
+  `empirica/plugins/claude-code-integration/skills/services-auditor/SKILL.md`
+  walks the AI through PREFLIGHT (`work_type=audit`), reading the
+  saved scanner snapshot + the bundled security corpus, two-tier
+  judgment (cheap AI-touching pre-filter then full taxonomy with
+  corpus citation), and the confidence×citation ladder
+  (≥0.95 + cited → finding, 0.6–0.95 + cited → assumption, <0.6 OR
+  uncited → unknown). Citation discipline is load-bearing: every
+  finding/assumption MUST cite a corpus section ID, and uncited
+  artifacts downgrade to `unknown` regardless of model confidence.
+- **`empirica scan --explain`** auto-saves the snapshot and emits a
+  hand-off pointing the AI at the auditor skill (works in both
+  Markdown and JSON output formats so loops and other automation can
+  dispatch the auditor programmatically).
+- **Coverage tracking surfaced in the auditor's POSTFLIGHT summary** —
+  process coverage (judged / AI-touching), citation coverage (sections
+  cited / available), listener coverage (judged / total). This is the
+  agent self-coverage metric the paper defines, surfaced at audit time;
+  Phase 2 T3 will land a generalized POSTFLIGHT `coverage` block per
+  paper section 4.1.
+
 ### Added — AI service scanner Phase 1 (PROPOSAL_AI_SERVICE_SCANNER.md / SERVICES_SCANNER.md)
 
 - **`empirica scan` CLI verb** — one-shot deterministic inventory of
