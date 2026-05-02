@@ -14,11 +14,12 @@ in the color tag methods, pass an instance to the formatters.
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from empirica.core.statusline.calculators import (
     calculate_phase_composite,
     determine_work_phase,
 )
-
 
 # Color palette: reset, bold, green, yellow, red, blue, cyan, gray,
 # white, bright_green, bright_cyan. Subclasses map these to their
@@ -39,7 +40,7 @@ class Backend:
 class AnsiBackend(Backend):
     """Emit raw ANSI escape sequences for terminal output."""
 
-    _ANSI = {
+    _ANSI: ClassVar[dict[str, str]] = {
         "reset": "\033[0m",
         "bold": "\033[1m",
         "green": "\033[32m",
@@ -67,7 +68,7 @@ class RichBackend(Backend):
     Rich's `bright_black` for terminal parity.
     """
 
-    _RICH = {
+    _RICH: ClassVar[dict[str, str]] = {
         "green": "green",
         "yellow": "yellow",
         "red": "red",

@@ -19,7 +19,6 @@ from empirica.core.statusline import (
 )
 from empirica.core.statusline.renderers import render_default_line
 
-
 # ─── Calculators ────────────────────────────────────────────────────
 
 

@@ -35,15 +35,12 @@ from empirica.core.statusline.renderers import (
 )
 
 __all__ = [
-    # calculators
+    "AnsiBackend",
+    "Backend",
+    "RichBackend",
     "calculate_confidence",
     "calculate_phase_composite",
     "determine_work_phase",
-    # backends
-    "Backend",
-    "AnsiBackend",
-    "RichBackend",
-    # renderers
     "format_confidence",
     "format_deltas",
     "format_open_counts",
