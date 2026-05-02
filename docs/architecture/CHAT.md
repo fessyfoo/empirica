@@ -377,20 +377,47 @@ Same discipline as cockpit — write a separate proposal first.
 Sized for incremental shipping. Each phase ends with a working binary
 + tests + commit.
 
-| Phase | Deliverable | LOC est. |
-|---|---|---|
-| **0** | Spec (this doc) + `empirica chat --help` skeleton subcommand | ~50 |
-| **1** | Conversation rendering: ChatSession state + jsonl persistence + UserTurn/AgentTurn widgets + Input widget + manual feed via CLI flag (`--feed sample.jsonl`) | ~400 |
-| **2** | App-server WebSocket client + bidirectional flow (user input → agent loop → agent text rendered) | ~250 |
-| **3** | Translator event tap subscriber + stream reconciliation (request_id ↔ turn_id) | ~200 |
-| **4** | Artifact cards (Finding, Decision, Unknown first; rest follow) + actions (CLI subprocess) | ~300 |
-| **5** | Knowledge graph side panel + Qdrant lookups | ~150 |
-| **6** | Statusline integration + autonomy mode badge + bindings | ~150 |
-| **7** | Replay mode (open old session jsonl) + tests | ~150 |
+### Done — v0 (substantively complete)
 
-Total ~1650 LOC. Phase 1 is buildable standalone (no app-server
-dependency) — useful for reviewing the conversation render UX before
-wiring the rest.
+| Phase | Status | Deliverable | LOC | Commit (empirica/develop) | Goal |
+|---|---|---|---|---|---|
+| **0** | ✅ | Spec (this doc) + `empirica chat --help` skeleton subcommand | ~50 | `7fb414b53` | — |
+| **1** | ✅ | Conversation rendering: ChatSession state + jsonl persistence + UserTurn/AgentTurn widgets + Input widget + `--feed sample.jsonl` | ~400 | `d50254bfb` | `436e6244` |
+| **2a** | ✅ | Direct translator dispatch (HTTP+SSE — Responses-format → translator → upstream provider) | ~250 | `77d7ef164` | `436e6244` |
+| **4** | ✅ | Artifact cards (Finding/Decision/Unknown) + per-type action buttons + slash commands | ~440 | `0f6604456` | `436e6244` |
+| **6** | ✅ | Statusline integration (live vectors + open counts + 4 render modes via /statusline) | ~180 | `7e8920352` | `436e6244` |
+| **T40** | ✅ | Multi-provider selector (`/providers /provider /models /model`) + direct chat-completions client (no-translator path) | ~520 | `1cae6324c` | `436e6244` |
+
+### Pending — v1 backlog
+
+| Phase | Deliverable | LOC est. | Goal |
+|---|---|---|---|
+| **2b** | App-server WebSocket client (full agent loop via codex-app-server JSON-RPC) | ~250 | `436e6244` |
+| **3** | Translator event tap subscriber + stream reconciliation (request_id ↔ turn_id) | ~200 | `436e6244` |
+| **4b** | Wire artifact-card buttons → real CLI invocations (resolve unknown, confirm finding, pin) | ~100 | `436e6244` |
+| **5** | Knowledge graph side panel + Qdrant lookups | ~150 | `436e6244` |
+| **7** | Replay mode (open old session jsonl) + tests | ~150 | `436e6244` |
+
+### Forward scope (T42 capture)
+
+These goals were opened during T42 (2026-05-02) when David flagged
+forward scope while we were mid-build. Each is its own goal so the
+work doesn't lose specificity when picked up later.
+
+| Phase | Theme | LOC est. | Goal |
+|---|---|---|---|
+| **8** | System prompt + epistemic discipline integration (adapt CC's empirica-system-prompt.md pattern for chat — make AI epistemically aware *without* forcing CC's transaction discipline; chat is conversational, not praxic-gated) | ~200 | `b910b609` |
+| **9** | Token tracking + per-model context window awareness — token bar UI (`||||||| 47%`), per-provider tokenizer, auto-compact suggest at 80/90% | ~300 | `544a6000` |
+| **10** | Pre/post compact lifecycle hooks — chat session state save/recover via `~/.empirica/chat_breadcrumbs/{session_id}.yaml`, mirrors CC's plugin compact hooks | ~200 | `ed7bdef6` |
+| **11** | Batch artifact operations (`/batch`, `/resolve-batch`, `/delete-batch`) wrapping empirica's existing `log_artifacts -` / `resolve_artifacts -` / `delete_artifacts -` CLI batch endpoints | ~150 | `fa433410` |
+| **12** | Arrow-key model selector — modal-list overlay (up/down cycles available models on active provider, Enter switches) | ~80 | `30fb4a25` |
+
+Total v0 shipped: ~1840 LOC across 6 phases. Pending v1 backlog:
+~850 LOC across 5 phases. Forward scope: ~930 LOC across 5 phases.
+Phase numbers are not strictly ordered — pick by leverage.
+
+Phase 1 is buildable standalone (no app-server dependency) — useful
+for reviewing the conversation render UX before wiring the rest.
 
 ---
 
