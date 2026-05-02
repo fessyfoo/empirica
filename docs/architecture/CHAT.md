@@ -393,6 +393,7 @@ Sized for incremental shipping. Each phase ends with a working binary
 | **13** | ✅ | Phase indicator badge in statusline. Surfaces work phase under David's conversational-layer surface principle: 🔍 INVESTIGATE (noetic, cyan) / ▶ ACT (praxic, bright_green). NOT the full PRE/CHK/POST transaction lifecycle (that's substrate). Badge omits cleanly when no active transaction. Reads phase from `.empirica/active_transaction*.json` via existing `_read_transaction_state` helper. New `format_work_phase_badge` renderer in shared statusline module — both backends. Wired into default/learning/full modes (basic stays confidence-only). 5 new tests over both backends. | ~90 | `3b9d72608` | `3d82a10a` |
 | **14** | ✅ | Intuition vs search transparency badge per agent turn. 💡 intuition (yellow) = model training data (default); 🔎 search (cyan) = external retrieval (tool calls, file reads, web fetch, KG lookups). New `format_source_badge` renderer following Phase 13 pattern. `Turn.metadata['source']` carries the value; `AgentTurn._format_body` prepends the badge; `_stream_agent_response` defaults new turns to 'intuition'; `_update_agent_turn` re-renders via AgentTurn so badge persists across streaming deltas. Phase 2b will flip to 'search' on tool-call observation. 5 new tests. | ~85 | `6fdf4c8b6` | `9c11964c` |
 | **15** | ✅ | Natural-language workflow narration v0 (pure translation layer). `empirica/core/chat/narration.py` translates raw empirica + translator events into terse one-liners suitable for muted SystemTurns. 14 empirica event kinds (preflight/check/postflight + 8 artifact_log + skill/agent/plan) and 4 translator kinds (started/completed/errored/stream). `_EMPIRICA_NARRATORS` dispatch table + per-kind narrator functions; `_n_artifact` factory dedupes the 8 artifact body-extraction shapes. `narrate()` dispatcher routes by event source/shape. 36 golden-snapshot tests pin verbiage. Phase 15b follow-up wires the live tail/dedup/threading into ChatApp. | ~300 | `b9ea80c35` | `3d7303af` |
+| **12** | ✅ | Arrow-key model selector modal (Ctrl+M). Textual ModalScreen with OptionList (up/down/Enter built-in). Loads instantly, fetches /v1/models in worker, populates list. Currently-active model marked ▶. Dismiss callback applies registry.set_active_model + refreshes subtitle. Reuses list_models + set_active_model — no duplication. 9 unit tests for construction + render paths + dismiss handling. | ~270 | `09e909471` | `30fb4a25` |
 
 ### Pending — v1 backlog
 
@@ -415,10 +416,9 @@ work doesn't lose specificity when picked up later.
 | **9** | Token tracking + per-model context window awareness — token bar UI (`\|\|\|\|\|\|\| 47%`), per-provider tokenizer, auto-compact suggest at 80/90% | ~300 | `544a6000` |
 | **10** | Pre/post compact lifecycle hooks — chat session state save/recover via `~/.empirica/chat_breadcrumbs/{session_id}.yaml`, mirrors CC's plugin compact hooks | ~200 | `ed7bdef6` |
 | **11** | Batch artifact operations (`/batch`, `/resolve-batch`, `/delete-batch`) wrapping empirica's existing `log_artifacts -` / `resolve_artifacts -` / `delete_artifacts -` CLI batch endpoints | ~150 | `fa433410` |
-| **12** | Arrow-key model selector — modal-list overlay (up/down cycles available models on active provider, Enter switches) | ~80 | `30fb4a25` |
 
-Total v0 shipped: ~3605 LOC across 12 phases. Pending v1 backlog:
-~850 LOC across 5 phases. Forward scope: ~730 LOC across 4 phases.
+Total v0 shipped: ~3875 LOC across 13 phases. Pending v1 backlog:
+~850 LOC across 5 phases. Forward scope: ~650 LOC across 3 phases.
 Phase numbers are not strictly ordered — pick by leverage.
 
 ### Conversational-layer surface principle (T43 + T44 framing)
