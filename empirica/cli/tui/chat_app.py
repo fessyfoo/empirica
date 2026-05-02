@@ -157,6 +157,26 @@ class ChatApp(App):
         elif self.session_id_to_resume:
             self._session = ChatSession.load(self.session_id_to_resume)
             self._convo().render_existing(self._session.turns)
+            # Phase 10 post-compact recovery: if a breadcrumb exists for
+            # this session, surface it as a system note so the AI has
+            # provider/model/mode/recent-turn context immediately.
+            try:
+                from empirica.core.chat.compact import (
+                    format_recovery_message,
+                    load_breadcrumb,
+                )
+                bc = load_breadcrumb(self.session_id_to_resume)
+                if bc is not None:
+                    recovery_msg = format_recovery_message(bc)
+                    recovery_turn = Turn.new(
+                        TurnKind.SYSTEM,
+                        recovery_msg,
+                        metadata={"compact_recovery": True},
+                    )
+                    self._session.append(recovery_turn)
+                    self._convo().append_turn(recovery_turn)
+            except Exception:  # noqa: S110 — compact recovery is best-effort
+                pass
         else:
             self._session = ChatSession.create()
 
@@ -390,6 +410,44 @@ class ChatApp(App):
         self.run_worker(
             lambda: self._plan_action(),
             thread=True, exclusive=False, group="empirica-meta",
+        )
+
+    def _slash_compact(self, _rest: str) -> None:
+        """/compact — save chat breadcrumb (Phase 10 pre-compact hook).
+
+        On post-compact reload, ChatApp.on_mount restores the
+        breadcrumb as a SystemTurn 0 'recovery message' so the AI has
+        provider/model/mode/recent-turns context.
+        """
+        from empirica.core.chat.compact import save_breadcrumb
+        assert self._session is not None  # noqa: S101 — type narrowing
+        provider = self.registry.active()
+        # Capture the last 8 user/agent turns as the recovery context tail
+        recent: list[dict[str, object]] = []
+        for t in self._session.turns[-12:]:
+            if t.kind in (TurnKind.USER, TurnKind.AGENT_TEXT):
+                recent.append({"kind": t.kind.value, "text": t.text})
+        try:
+            sp = self.query_one(StatuslinePanel)
+            statusline_mode = sp.current_mode()
+        except Exception:
+            statusline_mode = "default"
+        try:
+            path = save_breadcrumb(
+                session_id=self._session.session_id,
+                provider_name=provider.name if provider else None,
+                model=self.registry.active_model,
+                autonomy_mode=self.autonomy_mode,
+                statusline_mode=statusline_mode,
+                recent_turns=recent,
+            )
+        except Exception as e:
+            self._emit_system(f"/compact: breadcrumb save failed: {type(e).__name__}: {e}")
+            return
+        self._emit_system(
+            f"/compact: breadcrumb saved → {path.name} "
+            f"({len(recent)} recent turns captured). "
+            f"On next session resume, you'll get a recovery system message."
         )
 
     def _slash_autonomy(self, rest: str) -> None:
@@ -861,6 +919,7 @@ ChatApp.SLASH_HANDLERS = {
     "model": ChatApp._slash_model,
     "plan": ChatApp._slash_plan,
     "autonomy": ChatApp._slash_autonomy,
+    "compact": ChatApp._slash_compact,
     "providers": ChatApp._slash_providers,
     "provider": ChatApp._slash_provider,
     "models": ChatApp._slash_models,

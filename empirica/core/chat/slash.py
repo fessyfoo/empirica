@@ -34,6 +34,7 @@ SLASH_TABLE: tuple[SlashCmd, ...] = (
     SlashCmd("model", "set active model on the current provider", user_facing=True, takes_arg=True, arg_label="NAME"),
     SlashCmd("plan", "show open goals + recent transactions for this project", user_facing=True),
     SlashCmd("autonomy", "switch autonomy mode (assistant | copilot | autonomous)", user_facing=True, takes_arg=True, arg_label="MODE"),
+    SlashCmd("compact", "save a chat breadcrumb (pre-compact lifecycle hook)", user_facing=True),
 
     # ─── Dev/QA (only via /help debug) ──────────────────────────────
     SlashCmd("providers", "list configured providers", user_facing=False),
