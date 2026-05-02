@@ -16,6 +16,7 @@ from empirica.core.statusline import (
     format_phase_state,
     format_progress_bar,
     format_vector_colored,
+    format_work_phase_badge,
 )
 from empirica.core.statusline.renderers import render_default_line
 
@@ -243,6 +244,30 @@ class TestFormatDeltas:
 
 
 # ─── Composite line builder ─────────────────────────────────────────
+
+
+class TestFormatWorkPhaseBadge:
+    def test_noetic_returns_investigate_badge(self, backend):
+        s = format_work_phase_badge("noetic", backend=backend)
+        assert "INVESTIGATE" in s
+        assert "🔍" in s
+
+    def test_praxic_returns_act_badge(self, backend):
+        s = format_work_phase_badge("praxic", backend=backend)
+        assert "ACT" in s
+        assert "▶" in s
+
+    @pytest.mark.parametrize("phase", [None, "", "closed", "no-transaction", "unknown"])
+    def test_non_active_phases_return_empty(self, phase, backend):
+        assert format_work_phase_badge(phase, backend=backend) == ""
+
+    def test_noetic_uses_cyan_in_ansi(self):
+        s = format_work_phase_badge("noetic", backend=AnsiBackend())
+        assert "\033[36m" in s  # cyan ANSI code
+
+    def test_praxic_uses_bright_green_in_ansi(self):
+        s = format_work_phase_badge("praxic", backend=AnsiBackend())
+        assert "\033[92m" in s  # bright_green ANSI code
 
 
 class TestRenderDefaultLine:

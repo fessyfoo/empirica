@@ -32,6 +32,7 @@ from empirica.core.statusline.renderers import (
     format_phase_state,
     format_progress_bar,
     format_vector_colored,
+    format_work_phase_badge,
 )
 
 __all__ = [
@@ -47,4 +48,5 @@ __all__ = [
     "format_phase_state",
     "format_progress_bar",
     "format_vector_colored",
+    "format_work_phase_badge",
 ]

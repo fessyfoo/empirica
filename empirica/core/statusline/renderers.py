@@ -209,6 +209,23 @@ def format_vector_colored(label: str, value: float, *, backend: Backend) -> str:
     return backend.wrap(f"{label}:{pct}%", _color_by_value(value))
 
 
+def format_work_phase_badge(work_phase: str | None, *, backend: Backend) -> str:
+    """`🔍 INVESTIGATE` (noetic) or `▶ ACT` (praxic) — Phase 13 badge.
+
+    The conversational-layer surface principle: users see WORK PHASE
+    (am I learning vs am I shipping), not transaction lifecycle
+    (PREFLIGHT/CHECK/POSTFLIGHT). The latter is substrate.
+
+    Returns empty string when work_phase isn't one of the surfaceable
+    values — caller can omit the section cleanly.
+    """
+    if work_phase == "noetic":
+        return f"🔍 {backend.wrap('INVESTIGATE', 'cyan')}"
+    if work_phase == "praxic":
+        return f"▶ {backend.wrap('ACT', 'bright_green')}"
+    return ""
+
+
 def format_deltas(deltas: dict | None, *, backend: Backend) -> str:
     """Single-symbol summary of net vector deltas.
 

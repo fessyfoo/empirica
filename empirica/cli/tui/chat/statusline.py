@@ -29,6 +29,7 @@ from empirica.core.statusline import (
     format_confidence,
     format_open_counts,
     format_vector_colored,
+    format_work_phase_badge,
 )
 from empirica.core.statusline.renderers import render_default_line
 
@@ -36,6 +37,27 @@ from empirica.core.statusline.renderers import render_default_line
 RENDER_MODES = ("basic", "default", "learning", "full")
 
 _BACKEND = RichBackend()
+
+
+def _read_work_phase(project_path: str | None, instance_id: str | None) -> str | None:
+    """Read the active transaction's work phase ('noetic' | 'praxic' | None).
+
+    Wraps `empirica.core.cockpit.instance_state._read_transaction_state`
+    so chat doesn't crack open project state files itself. Returns
+    None when there's no active transaction or anything goes wrong —
+    StatuslinePanel handles the badge omission gracefully.
+    """
+    if not project_path or not instance_id:
+        return None
+    try:
+        from empirica.core.cockpit.instance_state import _read_transaction_state
+        state = _read_transaction_state(project_path, instance_id)
+    except Exception:  # noqa: BLE001 — never block statusline on this
+        return None
+    phase = state.get("phase") if isinstance(state, dict) else None
+    if phase in ("noetic", "praxic"):
+        return phase
+    return None
 
 # Vector → display label mappings. Two-letter labels avoid the
 # context/clarity/completion collision that single-letter abbrevs hit.
@@ -132,10 +154,16 @@ class StatuslinePanel(Static):
         except Exception as e:  # noqa: BLE001
             return f"[dim]statusline error: {type(e).__name__}[/dim]"
 
-        return self._format_summary(summary)
+        work_phase = _read_work_phase(project_path, instance_id)
+        return self._format_summary(summary, work_phase=work_phase)
 
-    def _format_summary(self, summary) -> str:
-        """Render based on _mode using the shared statusline package."""
+    def _format_summary(self, summary, *, work_phase: str | None = None) -> str:
+        """Render based on _mode using the shared statusline package.
+
+        `work_phase` ('noetic' | 'praxic' | None) is the Phase 13
+        signal — when present, render_default_line / learning / full
+        prepend the 🔍 INVESTIGATE / ▶ ACT badge.
+        """
         if not getattr(summary, "found", False):
             return "[dim]· no active transaction · use /preflight to start tracking[/dim]"
 
@@ -160,29 +188,39 @@ class StatuslinePanel(Static):
         if conf is None:
             conf = calculate_confidence(vectors)
 
+        badge = format_work_phase_badge(work_phase, backend=_BACKEND)
+
         if self._mode == "basic":
+            # Basic = confidence only (badge would dominate the 1 line)
             return format_confidence(conf, backend=_BACKEND)
 
         if self._mode == "default":
-            return render_default_line(
+            line = render_default_line(
                 vectors=vectors,
                 open_counts=open_counts,
                 backend=_BACKEND,
             )
+            return f"{badge} │ {line}" if badge else line
 
         if self._mode == "learning":
-            parts = [format_open_counts(open_counts, backend=_BACKEND)]
+            parts: list[str] = []
+            if badge:
+                parts.append(badge)
+            parts.append(format_open_counts(open_counts, backend=_BACKEND))
             for k, lbl in _LEARNING_LABELS:
                 v = vectors.get(k)
                 if v is not None:
                     parts.append(format_vector_colored(lbl, v, backend=_BACKEND))
             return " │ ".join(parts)
 
-        # full mode — confidence + counts + all key vectors + extras
-        parts = [
+        # full mode — badge + confidence + counts + all key vectors + extras
+        parts = []
+        if badge:
+            parts.append(badge)
+        parts.extend([
             format_confidence(conf, backend=_BACKEND),
             format_open_counts(open_counts, backend=_BACKEND),
-        ]
+        ])
         for k, lbl in _FULL_LABELS:
             v = vectors.get(k)
             if v is not None:
