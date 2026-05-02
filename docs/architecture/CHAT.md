@@ -387,6 +387,7 @@ Sized for incremental shipping. Each phase ends with a working binary
 | **4** | ✅ | Artifact cards (Finding/Decision/Unknown) + per-type action buttons + slash commands | ~440 | `0f6604456` | `436e6244` |
 | **6** | ✅ | Statusline integration (live vectors + open counts + 4 render modes via /statusline) | ~180 | `7e8920352` | `436e6244` |
 | **T40** | ✅ | Multi-provider selector (`/providers /provider /models /model`) + direct chat-completions client (no-translator path) | ~520 | `1cae6324c` | `436e6244` |
+| **8** | ✅ | System prompt + epistemic discipline integration. `render_system_prompt(provider, model, autonomy_mode)` adapts CC's empirica-system-prompt.md pattern for chat (conversational, NOT praxic-gated). Three autonomy modes (assistant/copilot/autonomous) with distinct behavior blocks. Wired as turn 0 in `ChatApp.on_mount`; `--autonomy` + `--no-system-prompt` CLI flags; `--system` text preserved as user appendix. SYSTEM turns excluded from LLM history (line 205-209 filter) so turn 0 shows visually without polluting context. 19/19 pytest pass. | ~340 | `639f22934` | `b910b609` |
 
 ### Pending — v1 backlog
 
@@ -407,7 +408,6 @@ work doesn't lose specificity when picked up later.
 | Phase | Theme | LOC est. | Goal |
 |---|---|---|---|
 | **6b** | **Full CC statusline extraction** (minus context-window — handled by Phase 9 per-model). Extract `~/.claude/plugins/local/empirica/scripts/statusline_empirica.py` (225 LOC) into shared `empirica.core.statusline`, swap into chat (and optionally cockpit). Upgrade Phase 6 v0's basic 4-mode renderer to full CC fidelity (vector emojis, calibration trajectory ↗/↘, brier-score awareness) | ~250 | `9c7e6abd` |
-| **8** | System prompt + epistemic discipline integration (adapt CC's empirica-system-prompt.md pattern for chat — make AI epistemically aware *under the hood* WITHOUT forcing CC's transaction discipline; chat is conversational, not praxic-gated). Statusline reflects when discipline kicks in (e.g., AI's CHECK decision) but the AI doesn't have to PREFLIGHT/POSTFLIGHT every turn | ~200 | `b910b609` |
 | **9** | Token tracking + per-model context window awareness — token bar UI (`\|\|\|\|\|\|\| 47%`), per-provider tokenizer, auto-compact suggest at 80/90% | ~300 | `544a6000` |
 | **10** | Pre/post compact lifecycle hooks — chat session state save/recover via `~/.empirica/chat_breadcrumbs/{session_id}.yaml`, mirrors CC's plugin compact hooks | ~200 | `ed7bdef6` |
 | **11** | Batch artifact operations (`/batch`, `/resolve-batch`, `/delete-batch`) wrapping empirica's existing `log_artifacts -` / `resolve_artifacts -` / `delete_artifacts -` CLI batch endpoints | ~150 | `fa433410` |
@@ -417,8 +417,8 @@ work doesn't lose specificity when picked up later.
 | **15** | **Natural-language workflow narration** — translate Sentinel-enforced empirica events (PREFLIGHT/CHECK/POSTFLIGHT, transactions, plans, artifact logs, skill invocations, agent launches) into terse one-liners surfaced as system turns or inline annotations. NO raw JSON or raw tool-call output. Per-event verbiage: "thinking through…", "ready to act on…", "logged: <finding>", "plan transitioned: …", "invoking <skill>", "launching <agent>". The principle: surface meaningful work, hide machinery | ~250 | `3d7303af` |
 | **16** | **Slash command surface refinement** — per David's directive, real users use natural language. Keep ONLY: `/model` `/help` `/plan` (NEW — show plan + transaction list) `/autonomy` (NEW — switch conversational/multi-agentic/autonomous). Hide dev-internal `/providers /provider /models /statusline` behind `/help debug`. Demote `/finding /decision /unknown` — Phase 4 v0 demos, useful for QA but not real-user UX (AI emits artifact creation as natural side effects driven by Phase 8 system prompt) | ~150 | `0c36aef5` |
 
-Total v0 shipped: ~1840 LOC across 6 phases. Pending v1 backlog:
-~850 LOC across 5 phases. Forward scope: ~1830 LOC across 10 phases.
+Total v0 shipped: ~2180 LOC across 7 phases. Pending v1 backlog:
+~850 LOC across 5 phases. Forward scope: ~1630 LOC across 9 phases.
 Phase numbers are not strictly ordered — pick by leverage.
 
 ### Conversational-layer surface principle (T43 + T44 framing)
