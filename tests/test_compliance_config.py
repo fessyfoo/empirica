@@ -152,3 +152,75 @@ def test_run_extra_check_attaches_description(tmp_path):
         tmp_path,
     )
     assert result["description"] == "Cortex prod /health"
+
+
+# ── docpistemic integration ────────────────────────────────────────────
+
+
+from unittest.mock import patch
+
+from empirica.cli.command_handlers.compliance_report_commands import (
+    _docpistemic_available,
+    _parse_docpistemic_result,
+)
+
+
+def _docpistemic_payload(coverage: float = 92.3, documented: int = 24, total: int = 26) -> str:
+    import json as _json
+    return _json.dumps({
+        "project": "test",
+        "epistemic": {
+            "overall_coverage": coverage,
+            "total_features": total,
+            "documented_features": documented,
+        },
+        "categories": [
+            {"name": "Core Modules", "total": 20, "documented": 20, "coverage": 100.0},
+        ],
+        "discovery": {},
+    })
+
+
+def test_parse_docpistemic_pass_above_70():
+    raw = {
+        "stdout": _docpistemic_payload(coverage=85.0, documented=17, total=20),
+        "duration_seconds": 0.5,
+        "passed": True,
+    }
+    out = _parse_docpistemic_result(raw)
+    assert out["check"] == "tech_docs"
+    assert out["tool"] == "docpistemic"
+    assert out["passed"] is True
+    assert out["coverage_percent"] == 85.0
+    assert out["documented"] == 17
+    assert out["total"] == 20
+    assert out["status"] == "pass"
+
+
+def test_parse_docpistemic_fail_below_70():
+    raw = {"stdout": _docpistemic_payload(coverage=42.0), "duration_seconds": 0.3, "passed": True}
+    out = _parse_docpistemic_result(raw)
+    assert out["passed"] is False
+    assert out["status"] == "fail"
+
+
+def test_parse_docpistemic_invalid_json_returns_unavailable():
+    raw = {"stdout": "not json", "duration_seconds": 0.1, "passed": True}
+    out = _parse_docpistemic_result(raw)
+    assert out["passed"] is None
+    assert out["status"] == "unavailable"
+
+
+def test_parse_docpistemic_propagates_runner_error():
+    raw = {"error": "tool not installed"}
+    out = _parse_docpistemic_result(raw)
+    assert out["status"] == "unavailable"
+    assert out["error"] == "tool not installed"
+
+
+def test_docpistemic_available_returns_bool():
+    # Don't depend on actual install — just verify the contract.
+    with patch("shutil.which", return_value="/usr/local/bin/docpistemic"):
+        assert _docpistemic_available() is True
+    with patch("shutil.which", return_value=None):
+        assert _docpistemic_available() is False

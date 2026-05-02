@@ -735,6 +735,48 @@ def _parse_docs_result(raw: dict[str, Any]) -> dict[str, Any]:
         return {"check": "tech_docs", "passed": None, "status": "unavailable", "duration_seconds": raw.get("duration_seconds", 0)}
 
 
+def _parse_docpistemic_result(raw: dict[str, Any]) -> dict[str, Any]:
+    """Parse docpistemic CLI JSON output.
+
+    Docpistemic is a framework-agnostic docs assessment tool — handles
+    src-layout, server projects, multi-framework codebases that empirica's
+    own CLI/Core-Modules-only metric mishandles. Output schema:
+        {project, epistemic: {overall_coverage, total_features,
+         documented_features, ...}, categories: [...], discovery: {...}}
+
+    See: https://pypi.org/project/docpistemic/
+    """
+    if raw.get("error"):
+        return {"check": "tech_docs", "passed": None, "status": "unavailable", "error": raw["error"]}
+
+    try:
+        import json as _json
+        data = _json.loads(raw.get("stdout") or "{}")
+        epistemic = data.get("epistemic", {})
+        coverage = epistemic.get("overall_coverage", 0)
+        documented = epistemic.get("documented_features", 0)
+        total = epistemic.get("total_features", 0)
+        passed = coverage >= 70
+        return {
+            "check": "tech_docs",
+            "tool": "docpistemic",
+            "passed": passed,
+            "coverage_percent": round(coverage, 1),
+            "documented": documented,
+            "total": total,
+            "status": "pass" if passed else "fail",
+            "duration_seconds": raw["duration_seconds"],
+        }
+    except Exception:
+        return {"check": "tech_docs", "passed": None, "status": "unavailable", "duration_seconds": raw.get("duration_seconds", 0)}
+
+
+def _docpistemic_available() -> bool:
+    """True if the `docpistemic` CLI is on PATH."""
+    import shutil
+    return shutil.which("docpistemic") is not None
+
+
 def _build_repo_hygiene_check(project_root: Path, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
     """Check repository hygiene — files, structure, version consistency.
 
@@ -948,9 +990,22 @@ def run_compliance_report(
         )
         results.append(_parse_semgrep_result(semgrep_raw))
 
-    # Technical documentation (runs docs-assess)
-    docs_raw = _run_check("docs-assess", ["empirica", "docs-assess", "--output", "json"], timeout=60)
-    results.append(_parse_docs_result(docs_raw))
+    # Technical documentation — prefer docpistemic (framework-agnostic) if
+    # installed; fall back to empirica's CLI/Core-Modules-only docs-assess.
+    # Docpistemic handles server projects, src-layout, and non-CLI codebases
+    # that empirica's metric mishandles (returns 0/0).
+    if _docpistemic_available():
+        docs_raw = _run_check(
+            "docpistemic",
+            ["docpistemic", "assess", str(project_root), "--output", "json"],
+            timeout=60,
+        )
+        results.append(_parse_docpistemic_result(docs_raw))
+    else:
+        docs_raw = _run_check(
+            "docs-assess", ["empirica", "docs-assess", "--output", "json"], timeout=60,
+        )
+        results.append(_parse_docs_result(docs_raw))
 
     # Release chain (git + network checks)
     results.append(_build_release_chain_check(project_root))
