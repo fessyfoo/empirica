@@ -167,7 +167,7 @@ class ChatApp(App):
             sp = self.query_one(StatuslinePanel)
             sp.refresh_now()
             self.set_interval(self.STATUSLINE_REFRESH_SECONDS, sp.refresh_now)
-        except Exception:  # noqa: BLE001 — pre-mount or test context
+        except Exception:  # noqa: S110 — best-effort statusline tick (pre-mount or test context)
             pass
 
         # Optional: replay a sample feed (no app-server dep — useful for
@@ -262,7 +262,7 @@ class ChatApp(App):
             err = Turn.new(TurnKind.SYSTEM, f"{provider.name} error: {e}")
             self._session.append(err)
             self.call_from_thread(self._convo().append_turn, err)
-        except Exception as e:  # noqa: BLE001 — surface any failure to chat
+        except Exception as e:
             err = Turn.new(TurnKind.SYSTEM, f"agent stream error: {type(e).__name__}: {e}")
             self._session.append(err)
             self.call_from_thread(self._convo().append_turn, err)
@@ -314,7 +314,7 @@ class ChatApp(App):
         """Main-thread: update an existing agent turn widget's body in place."""
         try:
             widget = self.query_one(f"#turn-{turn_id[:8]}")
-        except Exception:  # noqa: BLE001 — widget may have been removed
+        except Exception:
             return
         # Re-render via Static.update with the agent-style label
         widget.update(f"[b]agent:[/b] {text}")  # type: ignore[attr-defined]
@@ -388,7 +388,7 @@ class ChatApp(App):
         if cmd == "statusline":
             try:
                 sp = self.query_one(StatuslinePanel)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 self._emit_system("/statusline: panel not mounted")
                 return
             if rest:
@@ -468,7 +468,7 @@ class ChatApp(App):
         # call_from_thread. Textual's threading model makes both safe enough.
         try:
             self._convo().append_turn(turn)
-        except Exception:  # noqa: BLE001 — thread context unclear
+        except Exception:
             self.call_from_thread(self._convo().append_turn, turn)
 
     def _refresh_subtitle(self) -> None:
@@ -476,7 +476,7 @@ class ChatApp(App):
         try:
             badge = MODE_BADGES.get(self.autonomy_mode, self.autonomy_mode)
             self.sub_title = f"{badge}  ·  {self.registry.display_status()}"
-        except Exception:  # noqa: BLE001 — pre-mount or test context
+        except Exception:  # noqa: S110 — best-effort subtitle refresh (pre-mount or test context)
             pass
 
     def _install_system_prompt(self) -> None:
@@ -513,7 +513,7 @@ class ChatApp(App):
         try:
             api_key = resolve_api_key(provider.api_key_env)
             models = list_models(provider.base_url, api_key=api_key)
-        except Exception as e:  # noqa: BLE001 — surface to chat
+        except Exception as e:
             self.call_from_thread(
                 self._emit_system,
                 f"/models: error fetching from {provider.name}: {type(e).__name__}: {e}",
