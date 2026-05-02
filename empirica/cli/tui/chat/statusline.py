@@ -2,27 +2,56 @@
 
 Per CHAT.md spec: condensed 1-line panel below the Header showing
 phase + key vectors + open goals/unknowns counts. /statusline command
-cycles modes (basic | default | learning | full) lifting the renderer
-modes from CC plugin's statusline_empirica.py.
+cycles modes (basic | default | learning | full) at the same fidelity
+the CC plugin's statusline_empirica.py exposes.
 
-Reuses existing empirica primitives — no duplication:
+Phase 6b: rendering routed through `empirica.core.statusline` (the
+shared module shared with the CC plugin). Same color tiers, same
+emoji palette, same delta semantics. Backend is RichBackend so
+Textual/Rich markup interprets the styling correctly.
+
+Data path (unchanged from Phase 6):
   - empirica.utils.session_resolver.get_instance_id  (current instance)
   - empirica.core.cockpit.enrichment.statusline_summary  (live vectors)
-  - empirica.core.signaling.format_vectors_compact      (rendering)
 
-Refreshes on a 2s tick to match cockpit_app's REFRESH_SECONDS.
-
-When no live transaction state is available (e.g., chat launched
-without prior empirica activity in the project), renders a muted
-placeholder rather than going blank.
+Refreshes on a 2s tick to match cockpit_app's REFRESH_SECONDS. When no
+live transaction state is available (e.g., chat launched without prior
+empirica activity in the project), renders a muted placeholder.
 """
 
 from __future__ import annotations
 
 from textual.widgets import Static
 
+from empirica.core.statusline import (
+    RichBackend,
+    calculate_confidence,
+    format_confidence,
+    format_open_counts,
+    format_vector_colored,
+)
+from empirica.core.statusline.renderers import render_default_line
+
 # Order matters — cycling /statusline goes through these in sequence.
 RENDER_MODES = ("basic", "default", "learning", "full")
+
+_BACKEND = RichBackend()
+
+# Vector → display label mappings. Two-letter labels avoid the
+# context/clarity/completion collision that single-letter abbrevs hit.
+_LEARNING_LABELS: tuple[tuple[str, str], ...] = (
+    ("know", "K"),
+    ("uncertainty", "U"),
+    ("context", "Cx"),
+    ("clarity", "Cl"),
+)
+_FULL_LABELS: tuple[tuple[str, str], ...] = (
+    ("know", "K"),
+    ("uncertainty", "U"),
+    ("context", "Cx"),
+    ("clarity", "Cl"),
+    ("completion", "Cm"),
+)
 
 
 class StatuslinePanel(Static):
@@ -106,45 +135,58 @@ class StatuslinePanel(Static):
         return self._format_summary(summary)
 
     def _format_summary(self, summary) -> str:
-        """Render based on _mode."""
+        """Render based on _mode using the shared statusline package."""
         if not getattr(summary, "found", False):
-            # No live state — render minimal placeholder
             return "[dim]· no active transaction · use /preflight to start tracking[/dim]"
 
-        if self._mode == "basic":
-            conf = summary.confidence
-            return f"conf {conf:.0%}" if conf is not None else "·"
-
-        # Build a vectors dict for format_vectors_compact
-        from empirica.core.signaling import format_vectors_compact
-        vectors_dict: dict[str, float] = {}
-        for k in ("know", "uncertainty", "context", "clarity", "completion"):
+        # Marshal summary fields into the dict shapes the shared
+        # renderers expect (same shapes the CC plugin uses).
+        vectors: dict[str, float] = {}
+        for k in (
+            "know", "uncertainty", "context", "clarity",
+            "coherence", "signal", "density",
+            "state", "change", "completion", "impact",
+        ):
             v = getattr(summary, k, None)
             if v is not None:
-                vectors_dict[k] = v
+                vectors[k] = v
+        open_counts = {
+            "open_goals": getattr(summary, "open_goals", None) or 0,
+            "open_unknowns": getattr(summary, "open_unknowns", None) or 0,
+            "goal_linked_unknowns": getattr(summary, "goal_linked_unknowns", None) or 0,
+        }
+        # Use confidence from summary if present, else compute from vectors
+        conf = getattr(summary, "confidence", None)
+        if conf is None:
+            conf = calculate_confidence(vectors)
+
+        if self._mode == "basic":
+            return format_confidence(conf, backend=_BACKEND)
 
         if self._mode == "default":
-            keys = ["know", "uncertainty", "context"]
-            v_part = format_vectors_compact(vectors_dict, keys=keys, use_percentage=True)
-            counts = ""
-            if summary.open_goals is not None:
-                counts = f"  ·  goals {summary.open_goals}"
-            return f"{v_part}{counts}"
+            return render_default_line(
+                vectors=vectors,
+                open_counts=open_counts,
+                backend=_BACKEND,
+            )
 
         if self._mode == "learning":
-            keys = ["know", "uncertainty", "context", "clarity"]
-            v_part = format_vectors_compact(vectors_dict, keys=keys, use_percentage=True)
-            return f"{v_part}"
+            parts = [format_open_counts(open_counts, backend=_BACKEND)]
+            for k, lbl in _LEARNING_LABELS:
+                v = vectors.get(k)
+                if v is not None:
+                    parts.append(format_vector_colored(lbl, v, backend=_BACKEND))
+            return " │ ".join(parts)
 
-        # full mode
-        keys = ["know", "uncertainty", "context", "clarity", "completion"]
-        v_part = format_vectors_compact(vectors_dict, keys=keys, use_percentage=True)
-        extras = []
-        if summary.open_goals is not None:
-            extras.append(f"goals {summary.open_goals}")
-        if summary.artifact_count is not None:
-            extras.append(f"artifacts {summary.artifact_count}")
-        if summary.confidence is not None:
-            extras.append(f"conf {summary.confidence:.0%}")
-        suffix = "  ·  " + "  ·  ".join(extras) if extras else ""
-        return f"{v_part}{suffix}"
+        # full mode — confidence + counts + all key vectors + extras
+        parts = [
+            format_confidence(conf, backend=_BACKEND),
+            format_open_counts(open_counts, backend=_BACKEND),
+        ]
+        for k, lbl in _FULL_LABELS:
+            v = vectors.get(k)
+            if v is not None:
+                parts.append(format_vector_colored(lbl, v, backend=_BACKEND))
+        if getattr(summary, "artifact_count", None) is not None:
+            parts.append(f"artifacts {summary.artifact_count}")
+        return " │ ".join(parts)
