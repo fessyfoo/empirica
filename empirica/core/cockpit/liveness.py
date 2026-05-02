@@ -231,9 +231,17 @@ def is_alive(
         )
 
     # Signal 3 — recent activity. Last-resort fallback when neither
-    # tmux nor a captured PID can be consulted (e.g., fresh session
-    # before session-init has captured PIDs).
-    if last_activity_seconds is not None and last_activity_seconds < RECENT_ACTIVITY_S:
+    # tmux nor a captured PID can be consulted (e.g., fresh non-tmux
+    # session, or tmux server unreachable). SKIP when tmux gave a
+    # definitive negative — a stale instance file getting touched by a
+    # housekeeping sweep doesn't revive a tmux pane whose foreground
+    # is bash, and the recent-activity glow shouldn't override that.
+    pane_negative = pane_state in ('bash', 'absent')
+    if (
+        not pane_negative
+        and last_activity_seconds is not None
+        and last_activity_seconds < RECENT_ACTIVITY_S
+    ):
         return LivenessResult(
             alive=True,
             reason=f'recent activity ({int(last_activity_seconds)}s ago)',

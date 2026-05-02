@@ -208,6 +208,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Recent-activity liveness fallback no longer overrides a definitive
+  tmux negative** — `is_alive` previously fell through to "if file
+  mtime is < 1h, treat as alive" even when tmux had already reported
+  the pane as bash-foreground or gone. A housekeeping sweep touching a
+  stale `active_transaction_*.json` was enough to keep a dead instance
+  glowing in the cockpit (the tmux_3 ghost). The fallback is now gated
+  on `pane_state not in ('bash', 'absent')`, so fresh non-tmux sessions
+  and tmux-unqueryable cases still benefit, while definitive tmux
+  negatives stay definitive.
 - **Cockpit state symbol now reflects liveness, not just transaction
   phase** — alive Claude instances between transactions used to render
   as ⊘ closed (visually reads as 'dead') because `_derive_state_symbol`

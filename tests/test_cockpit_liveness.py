@@ -154,6 +154,40 @@ def test_tmux_bash_no_captured_pid_no_activity_is_dead(fake_home, monkeypatch):
     assert 'no captured PID survived' in result.reason
 
 
+def test_tmux_bash_with_recent_activity_is_dead(fake_home, monkeypatch):
+    """Tmux says pane has bash (definitive negative). A stale instance
+    file getting touched by housekeeping (bus sweep, cross-instance
+    state read, etc.) must NOT revive it via the recent-activity
+    fallback. This was the tmux_3 ghost David spotted post-#98."""
+    monkeypatch.setattr(lv, '_all_tmux_panes', lambda: {'3'})
+    result = lv.is_alive('tmux_3', live_panes=set(), last_activity_seconds=15.0)
+    assert result.alive is False, (
+        f"recent activity must not revive a tmux pane that has bash as "
+        f"foreground (was: {result.reason})"
+    )
+    assert 'no captured PID survived' in result.reason
+
+
+def test_tmux_absent_with_recent_activity_is_dead(fake_home, monkeypatch):
+    """Same protection when the pane is gone entirely. Stale file
+    touches don't conjure a pane back into existence."""
+    monkeypatch.setattr(lv, '_all_tmux_panes', lambda: set())
+    result = lv.is_alive('tmux_99', live_panes=set(), last_activity_seconds=15.0)
+    assert result.alive is False
+    assert 'does not exist' in result.reason
+
+
+def test_tmux_unqueryable_recent_activity_still_grants_life(fake_home, monkeypatch):
+    """If tmux can't be queried at all, recent-activity fallback is
+    still the right safety net for fresh sessions — the gate only
+    kicks in on a definitive tmux negative."""
+    monkeypatch.setattr(lv, '_live_tmux_panes', lambda: None)
+    monkeypatch.setattr(lv, '_all_tmux_panes', lambda: None)
+    result = lv.is_alive('tmux_5', last_activity_seconds=15.0)
+    assert result.alive is True
+    assert 'recent activity' in result.reason
+
+
 def test_pid_capture_falls_back_to_tty_sessions(fake_home, monkeypatch):
     """instance_projects has tty_key but no pid; tty_sessions has the pid."""
     (fake_home / 'instance_projects' / 'term-pts-7.json').write_text(
