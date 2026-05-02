@@ -403,7 +403,6 @@ __all__ = [
     'handle_scan_diff_command',
     'handle_scan_history_command',
     'handle_scan_show_command',
-    'handle_services_audit_command',
     'handle_security_audit_command',
     'handle_sentinel_check_command',
     'handle_sentinel_load_profile_command',
@@ -412,6 +411,7 @@ __all__ = [
     'handle_sentinel_status_command',
     # Serve command
     'handle_serve_command',
+    'handle_services_audit_command',
     # Checkpoint commands (Phase 2)
     'handle_session_create_command',
     'handle_session_snapshot_command',

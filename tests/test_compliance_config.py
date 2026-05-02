@@ -157,9 +157,9 @@ def test_run_extra_check_attaches_description(tmp_path):
 # ── docpistemic integration ────────────────────────────────────────────
 
 
-from unittest.mock import patch
+from unittest.mock import patch  # noqa: E402 — section-local import block
 
-from empirica.cli.command_handlers.compliance_report_commands import (
+from empirica.cli.command_handlers.compliance_report_commands import (  # noqa: E402
     _docpistemic_available,
     _parse_docpistemic_result,
 )
