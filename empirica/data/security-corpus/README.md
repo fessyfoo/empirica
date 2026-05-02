@@ -16,6 +16,16 @@ cites these files when emitting findings; Phase 1 only ships them
 | `mitre-atlas.md` | MITRE ATLAS | Adversarial threat patterns against AI systems |
 | `google-saif.md` | Google SAIF | Secure AI framework principles |
 
+## Scheduled audits
+
+For unattended monitoring, register the biweekly services-audit cron
+via the `/services-audit-cron` skill — body runs `empirica services-audit`
+(scan + diff + notify on novelty) on the canonical `0 6 1,15 * *`
+cadence (1st and 15th of each month at 06:00 UTC). See the skill
+template for cadence options + heartbeat wiring.
+
+---
+
 ## Refresh policy
 
 The bundled corpus ships with **populated section bodies** — summary-

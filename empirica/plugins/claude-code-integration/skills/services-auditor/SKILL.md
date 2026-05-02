@@ -236,3 +236,14 @@ automatically. Today, the user runs it on demand.
 - **Killing processes or pushing config changes.** Read-only by
   design. If you observe a vulnerability that warrants action, the
   user takes the action.
+
+---
+
+## Sister skill: `/services-audit-cron`
+
+For unattended scheduled scans (Phase 3), invoke `/services-audit-cron`
+to register the canonical biweekly cron loop. Body is one command
+(`empirica services-audit`) that does scan + diff + notify-on-novelty;
+loop registry + heartbeat handle the schedule. Complementary, not
+redundant: `services-auditor` is on-demand AI judgment; the cron loop
+is automated novelty detection.

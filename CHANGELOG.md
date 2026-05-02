@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Scanner Phase 3 cron-loop skill (closes the loop end-to-end)
+
+- **New skill `/services-audit-cron`** — canonical biweekly cron loop
+  template that wires `empirica services-audit` into Claude Code's
+  `/loop` cron mode. Cadence `0 6 1,15 * *` (1st and 15th at 06:00 UTC),
+  body invokes `services-audit` and feeds `.result` into
+  `loop heartbeat --result` for the schedule signal. Mirrors the
+  generic `/loop-cron` template; specialised for the scanner.
+- **Cross-references** — `services-auditor` skill points at the cron
+  sister; security-corpus README documents the scheduled-audit path.
+- **What this completes:** 1.8.18 shipped `services-audit` (the body)
+  and the loop registry (the schedule); this release wires them
+  together with a documented template so operators register once and
+  forget.
+
 ## [1.8.18] — 2026-05-02
 
 ### Added — `empirica chat` (Phase 1 demo mode)
