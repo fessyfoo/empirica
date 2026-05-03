@@ -416,9 +416,10 @@ work doesn't lose specificity when picked up later.
 | Phase | Theme | LOC est. | Goal |
 |---|---|---|---|
 | **9** | Token tracking + per-model context window awareness — token bar UI (`\|\|\|\|\|\|\| 47%`), per-provider tokenizer, auto-compact suggest at 80/90% | ~300 | `544a6000` |
+| **14b** | **Source-aware Sentinel calibration (chat-side wiring)**. Feed `Turn.metadata['source']` (intuition/search) back into PREFLIGHT/CHECK as a calibration input. Tag artifact-create slash commands with source='search'; ensure event-tap subscribers (Phase 3, 15b) tag tool-call turns 'search'; pass intuition/search ratio to PREFLIGHT payload when present. Depends on empirica-core deepening (substrate-side change, prompt drafted post-T59). Came from David's discipline-deepening insight after the T59 calibration-gaming mistake — substrate path makes the AI's epistemic-source signal calibration-grade instead of chat-only data-for-the-human. | ~150 | `75c7f029` |
 
 Total v0 shipped: ~5025 LOC across 17 phases. Pending v1 backlog:
-~600 LOC across 3 phases. Forward scope: ~300 LOC across 1 phase.
+~600 LOC across 3 phases. Forward scope: ~450 LOC across 2 phases.
 Phase numbers are not strictly ordered — pick by leverage.
 
 ### Conversational-layer surface principle (T43 + T44 framing)
