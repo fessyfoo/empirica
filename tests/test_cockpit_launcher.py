@@ -323,6 +323,7 @@ def test_alacritty_available_check():
 def test_handle_groups_launch_no_alacritty(tmp_cockpit_dir, capsys, monkeypatch):
     """If alacritty isn't on PATH, the groups handler errors out cleanly
     and points the operator at the legacy tmux surface fallback."""
+    from empirica.cli.command_handlers.cockpit_launcher_commands import _handle_groups_launch
     from empirica.core.cockpit.launcher import (
         GroupSpec,
         LauncherConfig,
@@ -330,7 +331,6 @@ def test_handle_groups_launch_no_alacritty(tmp_cockpit_dir, capsys, monkeypatch)
         ProjectSpec,
     )
     from empirica.core.cockpit.launcher import tmux as launcher_tmux
-    from empirica.cli.command_handlers.cockpit_launcher_commands import _handle_groups_launch
 
     monkeypatch.setattr(launcher_tmux, 'alacritty_available', lambda: False)
     # Also patch the re-export the handler imports through
