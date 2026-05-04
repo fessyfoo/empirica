@@ -38,6 +38,7 @@ I don't know something
 ├── About another project → empirica project-search --task "query" --global
 ├── About the user → Read workflow-protocol.yaml or EWM memory
 ├── About the codebase → Read/Grep/Glob (noetic tools)
+├── About a past commit → empirica commit-context <sha> [--depth N] (artifacts noted on that commit, walks edges)
 └── Whether it exists anywhere → project-search --global + Agent(Explore)
 ```
 

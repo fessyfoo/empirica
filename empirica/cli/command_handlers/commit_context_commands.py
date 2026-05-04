@@ -270,7 +270,147 @@ def _preview(payload: dict, artifact_type: str) -> str:
     return ""
 
 
-def _format_commit_block(meta: dict, entries: list[dict], workspace: Path) -> list[str]:
+_NESTED_DATA_KEY = {
+    "findings": "finding_data",
+    "decisions": "decision_data",
+    "dead_ends": "dead_end_data",
+    "mistakes": "mistake_data",
+    "unknowns": "unknown_data",
+    "assumptions": "assumption_data",
+    "goals": "goal_data",
+    "cascades": "cascade_data",
+}
+
+
+def _build_id_lookup(index: dict[str, list[dict]]) -> dict[str, tuple[str, str]]:
+    """Flatten the commit→artifacts index into artifact_id → (type, ref)."""
+    lookup: dict[str, tuple[str, str]] = {}
+    for entries in index.values():
+        for e in entries:
+            aid = e.get("artifact_id")
+            if aid:
+                lookup[aid] = (e["type"], e["ref"])
+    return lookup
+
+
+def _resolve_unknown_type_ref(workspace: Path, artifact_id: str) -> tuple[str, str] | None:
+    """Probe each artifact namespace to find which holds this id. Last resort."""
+    for ns in ARTIFACT_NAMESPACES:
+        ref = f"refs/notes/empirica/{ns}/{artifact_id}"
+        rc, _, _ = _git(workspace, "rev-parse", "--verify", ref, timeout=2)
+        if rc == 0:
+            return ns, ref
+    return None
+
+
+def _walk_edges(payload: dict, artifact_type: str) -> list[tuple[str, str | None, str]]:
+    """Return outgoing edges from an artifact's note JSON.
+
+    Each edge: (target_id, target_type_or_None, relation_label).
+    Sources walked, in order:
+      1. payload.<type>_data.edges[] from log-artifacts graph format
+      2. payload.goal_id implicit pointer
+      3. payload.subtask_id implicit pointer
+      4. payload.<type>_data.parent_id (+ parent_type) sub-artifact hierarchy
+    """
+    edges: list[tuple[str, str | None, str]] = []
+    if not isinstance(payload, dict):
+        return edges
+    nested_key = _NESTED_DATA_KEY.get(artifact_type, "")
+    nested = payload.get(nested_key) if nested_key else None
+    if not isinstance(nested, dict):
+        nested = {}
+
+    # 1. Graph-format edges
+    raw_edges = nested.get("edges") or payload.get("edges") or []
+    if isinstance(raw_edges, list):
+        for ed in raw_edges:
+            if not isinstance(ed, dict):
+                continue
+            to_id = ed.get("to")
+            if to_id:
+                edges.append((to_id, ed.get("to_type"), ed.get("relation", "related")))
+
+    # 2-3. Implicit pointers
+    goal_id = payload.get("goal_id") or nested.get("goal_id")
+    if goal_id:
+        edges.append((goal_id, "goals", "in_goal"))
+    subtask_id = payload.get("subtask_id") or nested.get("subtask_id")
+    if subtask_id:
+        edges.append((subtask_id, "subtasks", "in_subtask"))
+
+    # 4. Sub-artifact parent
+    parent_id = nested.get("parent_id") or payload.get("parent_id")
+    parent_type = nested.get("parent_type") or payload.get("parent_type")
+    if parent_id:
+        edges.append((parent_id, parent_type, "child_of"))
+    return edges
+
+
+def _walk_artifact_tree(workspace: Path, artifact_type: str, artifact_ref: str,
+                        artifact_id: str, depth: int, max_depth: int,
+                        visited: set[str], id_lookup: dict[str, tuple[str, str]],
+                        ) -> dict | None:
+    """Recursively walk edges from an artifact, returning a tree dict.
+
+    Returns: {type, artifact_id, preview, depth, children: [tree...]} or None if cycle.
+    """
+    if artifact_id in visited:
+        return None
+    visited.add(artifact_id)
+
+    payload = _read_note_json(workspace, artifact_ref) or {}
+    node: dict[str, Any] = {
+        "type": artifact_type,
+        "artifact_id": artifact_id,
+        "depth": depth,
+        "preview": _preview(payload, artifact_type),
+        "children": [],
+    }
+    if depth >= max_depth:
+        return node
+
+    for to_id, to_type, relation in _walk_edges(payload, artifact_type):
+        # Resolve target's type+ref
+        if to_type and to_type in ARTIFACT_NAMESPACES:
+            target = (to_type, f"refs/notes/empirica/{to_type}/{to_id}")
+        else:
+            target = id_lookup.get(to_id) or _resolve_unknown_type_ref(workspace, to_id)
+        if not target:
+            # Unknown id — record stub so the edge isn't silent
+            node["children"].append({
+                "type": to_type or "unknown",
+                "artifact_id": to_id,
+                "depth": depth + 1,
+                "preview": f"[unresolved · {relation}]",
+                "children": [],
+            })
+            continue
+        target_type, target_ref = target
+        child = _walk_artifact_tree(workspace, target_type, target_ref, to_id,
+                                    depth + 1, max_depth, visited, id_lookup)
+        if child is not None:
+            child["relation"] = relation
+            node["children"].append(child)
+    return node
+
+
+def _format_tree(node: dict, indent: int = 0) -> list[str]:
+    """Render a walked tree as indented lines."""
+    lines: list[str] = []
+    pad = "    " + "  " * indent
+    aid = (node.get("artifact_id") or "")[:8]
+    rel = node.get("relation")
+    rel_str = f" ←{rel}" if rel else ""
+    lines.append(f"{pad}└─ [{node['type']}/{aid}]{rel_str}  {node.get('preview', '')}")
+    for child in node.get("children", []):
+        lines.extend(_format_tree(child, indent + 1))
+    return lines
+
+
+def _format_commit_block(meta: dict, entries: list[dict], workspace: Path,
+                          depth: int = 0,
+                          id_lookup: dict[str, tuple[str, str]] | None = None) -> list[str]:
     lines: list[str] = []
     short_sha = meta["sha"][:8]
     subject = meta.get("subject", "")
@@ -293,6 +433,15 @@ def _format_commit_block(meta: dict, entries: list[dict], workspace: Path) -> li
             preview = _preview(payload, t)
             aid = (e.get("artifact_id") or "")[:8]
             lines.append(f"    [{aid}] {created[:19]}  {preview}")
+            if depth > 0 and id_lookup is not None:
+                # Walk this artifact's edges to depth N
+                visited: set[str] = set()
+                tree = _walk_artifact_tree(workspace, t, e["ref"],
+                                            e["artifact_id"], 0, depth,
+                                            visited, id_lookup)
+                if tree and tree.get("children"):
+                    for child in tree["children"]:
+                        lines.extend(_format_tree(child, indent=0))
     return lines
 
 
@@ -317,31 +466,40 @@ def handle_commit_context_command(args: argparse.Namespace) -> dict:
         print(msg)
         return {"ok": False, "error": msg}
 
+    id_lookup = _build_id_lookup(index) if args.depth > 0 else {}
+
     matches: list[dict[str, Any]] = []
     result: dict[str, Any] = {
         "ok": True,
         "index_size_commits": len(index),
         "target_commits": len(targets),
+        "depth": args.depth,
         "matches": matches,
     }
     for sha in targets:
         entries = index.get(sha, [])
         meta = _commit_meta(workspace, sha)
+        commit_artifacts: list[dict[str, Any]] = []
+        for e in entries:
+            entry: dict[str, Any] = {
+                "type": e["type"],
+                "artifact_id": e["artifact_id"],
+            }
+            if args.full:
+                entry["ref"] = e["ref"]
+                entry["payload"] = _read_note_json(workspace, e["ref"])
+            if args.depth > 0:
+                visited: set[str] = set()
+                tree = _walk_artifact_tree(workspace, e["type"], e["ref"],
+                                            e["artifact_id"], 0, args.depth,
+                                            visited, id_lookup)
+                if tree:
+                    entry["tree"] = tree
+            commit_artifacts.append(entry)
         matches.append({
             "commit": meta,
             "artifact_count": len(entries),
-            "artifacts": [
-                {
-                    "type": e["type"],
-                    "artifact_id": e["artifact_id"],
-                    "ref": e["ref"],
-                    "payload": _read_note_json(workspace, e["ref"]) if args.full else None,
-                }
-                for e in entries
-            ] if args.full else [
-                {"type": e["type"], "artifact_id": e["artifact_id"]}
-                for e in entries
-            ],
+            "artifacts": commit_artifacts,
         })
 
     if args.output == "json":
@@ -358,7 +516,8 @@ def handle_commit_context_command(args: argparse.Namespace) -> dict:
         if not entries and args.only_with_artifacts:
             continue
         meta = _commit_meta(workspace, sha)
-        for line in _format_commit_block(meta, entries, workspace):
+        for line in _format_commit_block(meta, entries, workspace,
+                                          depth=args.depth, id_lookup=id_lookup):
             print(line)
     # Return None for human mode so cli_core doesn't dump the dict
     return None  # type: ignore[return-value]
@@ -375,6 +534,8 @@ def add_commit_context_parser(subparsers: argparse._SubParsersAction) -> None:
     p.add_argument("--since", help="Date string (e.g. 2026-04-01) — uses git log --since")
     p.add_argument("--until", help="Date string — uses git log --until")
     p.add_argument("--session", help="Empirica session_id prefix — all commits in session window")
+    p.add_argument("--depth", type=int, default=0, metavar="N",
+                   help="Walk artifact graph edges to depth N (default: 0, no walk)")
     p.add_argument("--full", action="store_true",
                    help="Include full artifact JSON payloads in output")
     p.add_argument("--only-with-artifacts", action="store_true",
