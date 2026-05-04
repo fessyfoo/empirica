@@ -111,7 +111,7 @@ class ModelSelectorModal(ModalScreen[str | None]):
                 error = f"{provider.name}: {e}"
             except Exception as e:
                 error = f"{provider.name}: {type(e).__name__}: {e}"
-        self.call_from_thread(self._render_models, models, error)
+        self.call_from_thread(self._render_models, models, error)  # type: ignore[attr-defined]
 
     def _render_models(
         self, models: list[str], error: str | None,

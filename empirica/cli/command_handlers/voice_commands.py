@@ -260,7 +260,7 @@ def handle_voice_apply_command(args) -> int:
         out.append(f"  {i}. {t}")
     out.append("")
     out.append("Suppress these anti-patterns:")
-    for a in payload['anti_patterns_suppress']:
+    for a in payload.get('anti_patterns_suppress') or []:
         out.append(f"  ✗ {a}")
     out.append("")
     out.append(payload['hint'])

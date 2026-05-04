@@ -995,7 +995,8 @@ def handle_status_command(args) -> int:
             },
         }
         # Refresh summary from the single instance.
-        loops = payload['instances'][0].get('loops', {})
+        instance: dict[str, Any] = payload['instances'][0]
+        loops: dict[str, Any] = instance.get('loops', {})
         payload['summary']['loops_registered'] = len(loops)
         payload['summary']['loops_paused'] = sum(
             1 for v in loops.values() if v.get('paused')
@@ -1021,7 +1022,8 @@ def handle_status_command(args) -> int:
                     'notify_dispatcher': build_notify_dispatcher_block(),
                 },
             }
-            loops = payload['instances'][0].get('loops', {})
+            instance: dict[str, Any] = payload['instances'][0]
+            loops: dict[str, Any] = instance.get('loops', {})
             payload['summary']['loops_registered'] = len(loops)
             payload['summary']['loops_paused'] = sum(
                 1 for v in loops.values() if v.get('paused')

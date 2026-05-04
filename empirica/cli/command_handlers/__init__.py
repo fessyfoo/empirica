@@ -288,6 +288,7 @@ __all__ = [
     'handle_cockpit_kill_command',
     'handle_cockpit_launch_command',
     'handle_cockpit_launcher_status_command',
+    'handle_cockpit_status_command',
     'handle_code_embed_command',
     'handle_commit_context_command',
     'handle_compact_analysis',
@@ -364,6 +365,8 @@ __all__ = [
     'handle_lesson_search_command',
     'handle_lesson_stats_command',
     'handle_log_artifacts_command',
+    # Loop / sentinel group dispatchers — re-exported for cli_core wildcard import
+    'handle_loop_group_command',
     'handle_mco_load_command',
     'handle_mcp_call_command',
     'handle_mcp_list_tools_command',
@@ -421,6 +424,7 @@ __all__ = [
     'handle_scan_show_command',
     'handle_security_audit_command',
     'handle_sentinel_check_command',
+    'handle_sentinel_group_command',
     'handle_sentinel_load_profile_command',
     # Sentinel orchestration commands
     'handle_sentinel_orchestrate_command',

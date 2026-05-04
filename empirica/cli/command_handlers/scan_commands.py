@@ -280,11 +280,8 @@ def handle_scan_show_command(args) -> int:
     # Markdown — reconstruct via report renderer. The renderer expects a
     # Snapshot object, but we have the dict form on disk. Rebuild a
     # minimal renderable view.
-    from empirica.core.scanner.snapshot import Snapshot  # local import — keeps cli module light
-    try:
-        snap_obj = Snapshot.from_dict(snapshot) if hasattr(Snapshot, 'from_dict') else None
-    except Exception:
-        snap_obj = None
+    # Snapshot has to_dict but no from_dict — falls through to dict-based render below.
+    snap_obj = None
     if snap_obj is not None:
         print(render_markdown(snap_obj))
     else:
