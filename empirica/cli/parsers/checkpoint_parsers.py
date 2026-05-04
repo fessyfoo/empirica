@@ -3,6 +3,25 @@
 from . import format_help_text
 
 
+def _add_edge_flags(parser, include_evidence_from: bool = False):
+    """Add --edge / --related-to (and optional --evidence-from) to a *-log parser.
+
+    Flags are repeatable. They declare outgoing edges on the artifact's note
+    JSON (<type>_data.edges) so the commit-context walker can traverse them.
+
+    --edge ID:RELATION  canonical form, e.g. --edge a1008873:supports
+    --related-to ID     convenience, defaults relation to "related"
+    --evidence-from ID  decision-log only, defaults relation to "evidence"
+    """
+    parser.add_argument('--edge', action='append', dest='edges_raw', default=[],
+        help='Declare a graph edge as ID:RELATION (e.g. abc12345:supports). Repeatable.')
+    parser.add_argument('--related-to', action='append', dest='related_to_ids', default=[],
+        help='Anchor this artifact to another (relation=related). Repeatable.')
+    if include_evidence_from:
+        parser.add_argument('--evidence-from', action='append', dest='evidence_from_ids', default=[],
+            help='Finding/source IDs that ground this decision (relation=evidence). Repeatable.')
+
+
 def _add_entity_flags(parser):
     """Add --entity-type, --entity-id, --via flags to artifact parsers.
 
@@ -193,6 +212,7 @@ def add_checkpoint_parsers(subparsers):
     mistake_log_parser.add_argument('--goal-id', help='Optional goal identifier this mistake relates to')
     mistake_log_parser.add_argument('--scope', choices=['session', 'project', 'both'], help='Scope: session (ephemeral), project (persistent), or both (dual-log). Auto-inferred if omitted.')
     _add_entity_flags(mistake_log_parser)
+    _add_edge_flags(mistake_log_parser)
     mistake_log_parser.add_argument('--visibility', choices=['public', 'shared', 'local'], help='Visibility tier (default: shared). public=world-shareable, shared=team-private, local=machine-only.')
     mistake_log_parser.add_argument('--epistemic-source', choices=['intuition', 'search', 'mixed'], help='How this artifact was arrived at: intuition (training data + loaded context, no external retrieval since goal opened), search (external retrieval this session), or mixed.')
     mistake_log_parser.add_argument('--output', choices=['human', 'json'], default='human', help='Output format')
@@ -488,6 +508,7 @@ def add_checkpoint_parsers(subparsers):
     finding_log_parser.add_argument('--scope', choices=['session', 'project', 'both'], help='Scope: session (ephemeral), project (persistent), or both (dual-log). Auto-inferred if omitted.')
     finding_log_parser.add_argument('--source', action='append', dest='source_ids', help='Source ID (from source-add). Repeatable for multiple sources.')
     _add_entity_flags(finding_log_parser)
+    _add_edge_flags(finding_log_parser)
     finding_log_parser.add_argument('--visibility', choices=['public', 'shared', 'local'], help='Visibility tier (default: shared). public=world-shareable, shared=team-private, local=machine-only.')
     finding_log_parser.add_argument('--epistemic-source', choices=['intuition', 'search', 'mixed'], help='How this artifact was arrived at: intuition (training data + loaded context, no external retrieval since goal opened), search (external retrieval this session), or mixed.')
     finding_log_parser.add_argument('--output', choices=['human', 'json'], default='human', help='Output format')
@@ -510,6 +531,7 @@ def add_checkpoint_parsers(subparsers):
     unknown_log_parser.add_argument('--scope', choices=['session', 'project', 'both'], help='Scope: session (ephemeral), project (persistent), or both (dual-log). Auto-inferred if omitted.')
     unknown_log_parser.add_argument('--source', action='append', dest='source_ids', help='Source ID (from source-add). Repeatable for multiple sources.')
     _add_entity_flags(unknown_log_parser)
+    _add_edge_flags(unknown_log_parser)
     unknown_log_parser.add_argument('--visibility', choices=['public', 'shared', 'local'], help='Visibility tier (default: shared). public=world-shareable, shared=team-private, local=machine-only.')
     unknown_log_parser.add_argument('--epistemic-source', choices=['intuition', 'search', 'mixed'], help='How this artifact was arrived at: intuition (training data + loaded context, no external retrieval since goal opened), search (external retrieval this session), or mixed.')
     unknown_log_parser.add_argument('--output', choices=['human', 'json'], default='human', help='Output format')
@@ -558,6 +580,7 @@ def add_checkpoint_parsers(subparsers):
     deadend_log_parser.add_argument('--scope', choices=['session', 'project', 'both'], help='Scope: session (ephemeral), project (persistent), or both (dual-log). Auto-inferred if omitted.')
     deadend_log_parser.add_argument('--source', action='append', dest='source_ids', help='Source ID (from source-add). Repeatable for multiple sources.')
     _add_entity_flags(deadend_log_parser)
+    _add_edge_flags(deadend_log_parser)
     deadend_log_parser.add_argument('--visibility', choices=['public', 'shared', 'local'], help='Visibility tier (default: shared). public=world-shareable, shared=team-private, local=machine-only.')
     deadend_log_parser.add_argument('--epistemic-source', choices=['intuition', 'search', 'mixed'], help='How this artifact was arrived at: intuition (training data + loaded context, no external retrieval since goal opened), search (external retrieval this session), or mixed.')
     deadend_log_parser.add_argument('--output', choices=['human', 'json'], default='human', help='Output format')
@@ -576,6 +599,7 @@ def add_checkpoint_parsers(subparsers):
     assumption_log_parser.add_argument('--domain', help='Domain scope (e.g., security, architecture)')
     assumption_log_parser.add_argument('--goal-id', help='Optional goal UUID')
     _add_entity_flags(assumption_log_parser)
+    _add_edge_flags(assumption_log_parser)
     assumption_log_parser.add_argument('--visibility', choices=['public', 'shared', 'local'], help='Visibility tier (default: shared). public=world-shareable, shared=team-private, local=machine-only.')
     assumption_log_parser.add_argument('--epistemic-source', choices=['intuition', 'search', 'mixed'], help='How this artifact was arrived at: intuition (training data + loaded context, no external retrieval since goal opened), search (external retrieval this session), or mixed.')
     assumption_log_parser.add_argument('--output', choices=['human', 'json'], default='human', help='Output format')
@@ -597,6 +621,7 @@ def add_checkpoint_parsers(subparsers):
     decision_log_parser.add_argument('--goal-id', help='Optional goal UUID')
     decision_log_parser.add_argument('--evidence', action='append', dest='evidence_refs', help='Finding ID as evidence for this decision. Repeatable for multiple findings.')
     _add_entity_flags(decision_log_parser)
+    _add_edge_flags(decision_log_parser, include_evidence_from=True)
     decision_log_parser.add_argument('--visibility', choices=['public', 'shared', 'local'], help='Visibility tier (default: shared). public=world-shareable, shared=team-private, local=machine-only.')
     decision_log_parser.add_argument('--epistemic-source', choices=['intuition', 'search', 'mixed'], help='How this artifact was arrived at: intuition (training data + loaded context, no external retrieval since goal opened), search (external retrieval this session), or mixed.')
     decision_log_parser.add_argument('--output', choices=['human', 'json'], default='human', help='Output format')

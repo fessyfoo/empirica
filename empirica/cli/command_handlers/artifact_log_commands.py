@@ -24,6 +24,145 @@ def _is_uuid(s: str) -> bool:
     return bool(re.match(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', s, re.I))
 
 
+# ── Edge declaration (inline graph linkage) ──
+
+# Maps artifact type → (refs/notes namespace, sql table, id column, data column)
+_ARTIFACT_EDGE_TARGETS = {
+    "finding": ("findings", "project_findings", "id", "finding_data"),
+    "unknown": ("unknowns", "project_unknowns", "id", "unknown_data"),
+    "dead_end": ("dead_ends", "project_dead_ends", "id", "dead_end_data"),
+    "mistake": ("mistakes", "mistakes_made", "id", "mistake_data"),
+    "assumption": ("assumptions", "assumptions", "id", "data"),
+    "decision": ("decisions", "decisions", "id", "data"),
+}
+
+
+def _collect_edges_from_args(args, evidence_relation: str | None = None) -> list[dict]:
+    """Build [{to, relation}] from --edge / --related-to / --evidence-from.
+
+    --edge ID:RELATION canonical, --related-to ID defaults relation="related",
+    --evidence-from ID (decision-only) defaults relation=evidence_relation.
+    """
+    edges: list[dict] = []
+    for raw in (getattr(args, "edges_raw", None) or []):
+        raw = str(raw).strip()
+        if not raw:
+            continue
+        if ":" in raw:
+            to_id, rel = raw.split(":", 1)
+            edges.append({"to": to_id.strip(), "relation": rel.strip() or "related"})
+        else:
+            edges.append({"to": raw, "relation": "related"})
+    for to_id in (getattr(args, "related_to_ids", None) or []):
+        if to_id:
+            edges.append({"to": str(to_id).strip(), "relation": "related"})
+    if evidence_relation:
+        for to_id in (getattr(args, "evidence_from_ids", None) or []):
+            if to_id:
+                edges.append({"to": str(to_id).strip(), "relation": evidence_relation})
+    return edges
+
+
+def _persist_edges(artifact_type: str, artifact_id: str, edges: list[dict]) -> int:
+    """Persist edges to SQLite data column AND patch git note JSON. Non-fatal.
+
+    Returns count successfully wired. Order: SQLite first (graph_commands._store_edge),
+    then git-note patch via read-modify-write. Idempotent — re-running with the same
+    edges is a no-op since they're keyed by (artifact_id, to_id, relation) in JSON.
+    """
+    if not edges or artifact_type not in _ARTIFACT_EDGE_TARGETS:
+        return 0
+    wired = 0
+    # 1. SQLite
+    try:
+        from empirica.cli.command_handlers.graph_commands import _store_edge
+        from empirica.data.session_database import SessionDatabase
+        db = SessionDatabase()
+        try:
+            for edge in edges:
+                try:
+                    _store_edge(db, artifact_id, edge["to"], edge["relation"])
+                    wired += 1
+                except Exception as e:
+                    logger.warning(f"SQLite edge persist failed: {e}")
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning(f"_persist_edges SQLite phase failed: {e}")
+        return 0
+    # 2. Git note: read existing, merge edges into <type>_data, rewrite via `git notes add -f -m`.
+    try:
+        _patch_git_note_with_edges(artifact_type, artifact_id, edges)
+    except Exception as e:
+        logger.warning(f"_persist_edges git-note phase failed: {e}")
+    return wired
+
+
+def _patch_git_note_with_edges(artifact_type: str, artifact_id: str, edges: list[dict]) -> None:
+    """Read note for artifact, merge edges into <type>_data, write back.
+
+    Uses `git notes` plumbing rather than the per-type Git*Store classes, so this
+    is uniform across all artifact types.
+    """
+    import subprocess
+
+    from empirica.config.path_resolver import get_git_root
+
+    namespace, _table, _id_col, _data_col = _ARTIFACT_EDGE_TARGETS[artifact_type]
+    nested_key = f"{artifact_type}_data"
+    workspace = get_git_root()
+    if not workspace:
+        return
+    short_ref = f"empirica/{namespace}/{artifact_id}"
+
+    # 1. Find annotated commit
+    list_proc = subprocess.run(
+        ["git", "notes", f"--ref={short_ref}", "list"],
+        cwd=workspace, capture_output=True, text=True, timeout=5,
+    )
+    if list_proc.returncode != 0 or not list_proc.stdout.strip():
+        return  # No git note to patch (e.g., GitFindingStore failed earlier)
+    parts = list_proc.stdout.strip().split("\n")[0].split()
+    if len(parts) < 2:
+        return
+    commit_sha = parts[1]
+
+    # 2. Read note content
+    show_proc = subprocess.run(
+        ["git", "notes", f"--ref={short_ref}", "show", commit_sha],
+        cwd=workspace, capture_output=True, text=True, timeout=5,
+    )
+    if show_proc.returncode != 0:
+        return
+    try:
+        payload = json.loads(show_proc.stdout)
+    except json.JSONDecodeError:
+        return
+
+    # 3. Merge edges
+    nested = payload.get(nested_key)
+    if not isinstance(nested, dict):
+        nested = {}
+    existing_edges = nested.get("edges") or []
+    if not isinstance(existing_edges, list):
+        existing_edges = []
+    seen = {(e.get("to"), e.get("relation")) for e in existing_edges if isinstance(e, dict)}
+    for edge in edges:
+        key = (edge["to"], edge["relation"])
+        if key not in seen:
+            existing_edges.append({"to": edge["to"], "relation": edge["relation"]})
+            seen.add(key)
+    nested["edges"] = existing_edges
+    payload[nested_key] = nested
+
+    # 4. Write note back (-f overwrites)
+    new_json = json.dumps(payload, indent=2)
+    subprocess.run(
+        ["git", "notes", f"--ref={short_ref}", "add", "-f", "-m", new_json, commit_sha],
+        cwd=workspace, capture_output=True, text=True, timeout=10,
+    )
+
+
 def _parse_config_input(args):
     """Parse config from stdin, file, or None. Shared across all artifact handlers."""
     import os
@@ -643,9 +782,14 @@ def handle_finding_log_command(args):
         decayed_lessons = _decay_related_lessons(finding, subject, project_id)
         eidetic_decayed = _decay_eidetic_by_finding(project_id, finding, subject)
 
+        # Inline edges (--edge / --related-to)
+        edges_declared = _collect_edges_from_args(args)
+        edges_wired = _persist_edges("finding", finding_id, edges_declared) if edges_declared else 0
+
         result = {
             "ok": True,
             "finding_id": finding_id,
+            "edges_wired": edges_wired,
             "project_id": project_id if project_id else None,
             "session_id": session_id,
             "entity_type": entity_type or 'project',
@@ -790,9 +934,14 @@ def handle_unknown_log_command(args):
                 # Non-fatal - log but continue
                 logger.warning(f"Auto-embed failed: {embed_err}")
 
+        # Inline edges (--edge / --related-to)
+        edges_declared = _collect_edges_from_args(args)
+        edges_wired = _persist_edges("unknown", unknown_id, edges_declared) if edges_declared else 0
+
         result = {
             "ok": True,
             "unknown_id": unknown_id,
+            "edges_wired": edges_wired,
             "project_id": project_id if project_id else None,
             "session_id": session_id,
             "entity_type": ctx['entity_type'],
@@ -1099,9 +1248,14 @@ def handle_deadend_log_command(args):
             except Exception as embed_err:
                 logger.warning(f"Auto-embed failed: {embed_err}")
 
+        # Inline edges (--edge / --related-to)
+        edges_declared = _collect_edges_from_args(args)
+        edges_wired = _persist_edges("dead_end", dead_end_id, edges_declared) if edges_declared else 0
+
         result = {
             "ok": True,
             "dead_end_id": dead_end_id,
+            "edges_wired": edges_wired,
             "project_id": project_id if project_id else None,
             "session_id": session_id,
             "entity_type": ctx['entity_type'],
@@ -1212,9 +1366,14 @@ def handle_assumption_log_command(args):
                 discovered_via=ctx['via'], transaction_id=ctx['transaction_id'],
             )
 
+        # Inline edges (--edge / --related-to)
+        edges_declared = _collect_edges_from_args(args)
+        edges_wired = _persist_edges("assumption", assumption_id, edges_declared) if edges_declared else 0
+
         result = {
             "ok": True,
             "assumption_id": assumption_id,
+            "edges_wired": edges_wired,
             "project_id": ctx['project_id'],
             "entity_type": ctx['entity_type'],
             "entity_id": ctx['entity_id'],
@@ -1344,9 +1503,14 @@ def handle_decision_log_command(args):
                 discovered_via=ctx['via'], transaction_id=ctx['transaction_id'],
             )
 
+        # Inline edges (--edge / --related-to / --evidence-from)
+        edges_declared = _collect_edges_from_args(args, evidence_relation="evidence")
+        edges_wired = _persist_edges("decision", decision_id, edges_declared) if edges_declared else 0
+
         result = {
             "ok": True,
             "decision_id": decision_id,
+            "edges_wired": edges_wired,
             "project_id": ctx['project_id'],
             "entity_type": ctx['entity_type'],
             "entity_id": ctx['entity_id'],
@@ -1823,9 +1987,14 @@ def handle_mistake_log_command(args):
             prevention, cost_estimate, root_cause_vector, goal_id
         )
 
+        # Inline edges (--edge / --related-to)
+        edges_declared = _collect_edges_from_args(args)
+        edges_wired = _persist_edges("mistake", mistake_id, edges_declared) if edges_declared else 0
+
         result = {
             "ok": True, "mistake_id": mistake_id, "session_id": session_id,
             "project_id": project_id, "git_stored": git_stored, "embedded": embedded,
+            "edges_wired": edges_wired,
             "message": "Mistake logged to project scope",
         }
 

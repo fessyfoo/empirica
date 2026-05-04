@@ -581,6 +581,8 @@ def _feedback_extract_retrospective(cursor, session_id):
 
     if retro.get('breadth_note'):
         feedback["breadth_warning"] = retro['breadth_note']
+    if retro.get('edge_density_note'):
+        feedback["edge_density_warning"] = retro['edge_density_note']
     if retro.get('commit_warning'):
         feedback["commit_discipline"] = retro['commit_warning']
 
@@ -2010,6 +2012,16 @@ def _check_build_praxic_reminders(session_id, check_transaction_id):
                     "(assumption-log), what you've chosen (decision-log), and what "
                     "didn't work (deadend-log)."
                 )
+
+            # Edge-density nudge: complements breadth, fires when artifacts exist
+            # but none declare edges. Walker reach scales with edge declaration.
+            if total_artifacts >= 2 and retro.get("edges_with_artifacts") == 0:
+                reminders["edge_density_nudge"] = (
+                    f"\u26a0 {total_artifacts} artifacts in this transaction declare 0 edges. "
+                    "Anchor them in the graph: --related-to <id> for soft links, "
+                    "--edge ID:RELATION for typed (supports/contradicts/derives/...). "
+                    "Without edges, artifacts are unreachable from the commit-context walker."
+                )
     except Exception as e:
         logger.debug(f"Calibration nudge computation failed (non-fatal): {e}")
 
@@ -2657,6 +2669,40 @@ def _retro_count_artifacts(cursor, session_id, transaction_id):
     return artifact_counts
 
 
+def _retro_count_edges(cursor, session_id: str, transaction_id: str | None) -> int:
+    """Count artifacts in this transaction that have at least one declared edge.
+
+    Edges live in <type>_data.edges (or just data.edges for assumptions/decisions).
+    Counts rows whose data column has json_array_length(edges) > 0.
+    """
+    by_table = [
+        ("project_findings", "finding_data"),
+        ("project_unknowns", "unknown_data"),
+        ("project_dead_ends", "dead_end_data"),
+        ("mistakes_made", "mistake_data"),
+        ("assumptions", "data"),
+        ("decisions", "data"),
+    ]
+    total = 0
+    for table, data_col in by_table:
+        try:
+            sql = (
+                f"SELECT COUNT(*) FROM {table} "
+                f"WHERE session_id = ? "
+                f"AND COALESCE(json_array_length(json_extract({data_col}, '$.edges')), 0) > 0"
+            )
+            params: tuple = (session_id,)
+            if transaction_id:
+                sql += " AND transaction_id = ?"
+                params = (session_id, transaction_id)
+            cursor.execute(sql, params)
+            total += cursor.fetchone()[0]
+        except Exception:
+            # Column may not exist on older rows / table; ignore silently.
+            pass
+    return total
+
+
 def _build_retrospective(session_id: str, transaction_id: str | None) -> dict:
     """Build retrospective feedback: artifact breadth, commit discipline, completion hints.
 
@@ -2682,6 +2728,22 @@ def _build_retrospective(session_id: str, transaction_id: str | None) -> dict:
                 "Unlogged artifact types are ungrounded prediction domains — "
                 "were there assumptions, decisions, dead-ends, or mistakes worth capturing?"
             )
+
+        # Edge density nudge — surfaces when artifacts exist but no edges declared.
+        total_artifacts = sum(artifact_counts.values())
+        if total_artifacts >= 2:
+            try:
+                edges_count = _retro_count_edges(cursor, session_id, transaction_id)
+                retro["edges_with_artifacts"] = edges_count
+                if edges_count == 0:
+                    retro["edge_density_note"] = (
+                        f"{total_artifacts} artifacts logged with 0 declared edges. "
+                        "Anchor them in the graph: --related-to <id> on any *-log command, "
+                        "or --edge ID:RELATION for typed links. Unlinked artifacts are "
+                        "invisible to the commit-context walker."
+                    )
+            except Exception:
+                pass
 
         try:
             _gr = _sp.run(["git", "status", "--porcelain"], capture_output=True, text=True, timeout=5)
