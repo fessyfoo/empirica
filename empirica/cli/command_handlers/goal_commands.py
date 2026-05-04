@@ -1105,10 +1105,15 @@ def handle_goals_list_command(args):
             base_query += " AND s.ai_id = ?"
             params.append(ai_id)
 
-        # Filter by completion status — --status takes precedence over --completed
+        # Filter by completion status. is_completed BOOLEAN is the canonical
+        # source of truth (status text has historical drift). --status takes
+        # precedence over --completed.
         if status_filter and status_filter != 'all':
             if status_filter == 'completed':
-                base_query += " AND (g.is_completed = 1 OR g.status = 'completed')"
+                base_query += " AND g.is_completed = 1"
+            elif status_filter == 'drift':
+                # Diagnostic: rows where status/is_completed disagree.
+                base_query += " AND ((g.status = 'completed' AND g.is_completed = 0) OR (g.status IN ('in_progress','planned') AND g.is_completed = 1))"
             else:
                 # planned or in_progress
                 base_query += " AND g.status = ? AND g.is_completed = 0"
@@ -1116,15 +1121,31 @@ def handle_goals_list_command(args):
         elif status_filter == 'all':
             pass  # no filter
         elif show_completed:
-            base_query += " AND (g.is_completed = 1 OR g.status = 'completed')"
+            base_query += " AND g.is_completed = 1"
         else:
-            base_query += " AND (g.is_completed = 0 AND g.status != 'completed')"
+            # Default: open = canonical is_completed=0 (includes status drift
+            # so the count matches statusline). Drift surfaced separately below.
+            base_query += " AND g.is_completed = 0"
 
         base_query += " ORDER BY g.created_timestamp DESC LIMIT ?"
         params.append(limit)
 
         cursor.execute(base_query, params)
         rows = cursor.fetchall()
+
+        # Drift detection (project-scoped, only when looking at open goals).
+        drift_count = 0
+        if project_id and not show_completed and status_filter not in ('completed', 'drift', 'all'):
+            try:
+                cursor.execute(
+                    "SELECT COUNT(*) FROM goals WHERE project_id = ? "
+                    "AND ((status = 'completed' AND is_completed = 0) "
+                    "OR (status IN ('in_progress','planned') AND is_completed = 1))",
+                    (project_id,),
+                )
+                drift_count = cursor.fetchone()[0]
+            except Exception:
+                drift_count = 0
 
         # Build results
         # Row: 0=id, 1=objective, 2=status, 3=is_completed, 4=created, 5=session_id, 6=ai_id, 7=total, 8=completed
@@ -1169,6 +1190,12 @@ def handle_goals_list_command(args):
             },
             "timestamp": time.time()
         }
+        if drift_count:
+            result["drift_count"] = drift_count
+            result["drift_hint"] = (
+                f"{drift_count} goal(s) have status/is_completed mismatch — "
+                "run `empirica goals-list --status drift` to inspect."
+            )
 
         if output_format == 'json':
             # Return result - CLI core will print as JSON
