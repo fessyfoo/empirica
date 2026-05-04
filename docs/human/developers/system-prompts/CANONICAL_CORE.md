@@ -461,6 +461,10 @@ Empirica is **cognitive infrastructure**, not just a CLI. In practice:
 - Error made -> mistake-log (with prevention)
 - Unverified belief -> assumption-log
 - Choice point -> decision-log
+- Discovery linked to a goal/parent -> *-log --related-to <id> (or --edge ID:RELATION for typed)
+- Decision grounded by a finding -> decision-log --evidence-from <finding_id>
+- External material cited (URL, doc, paper) -> source-add then *-log --source <id>
+- Want to see what was thought at a past commit -> empirica commit-context <sha> [--depth N]
 - Low confidence -> stay NOETIC
 - Ready to act -> CHECK gate, PRAXIC
 

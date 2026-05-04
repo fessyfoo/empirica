@@ -7,6 +7,131 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Graph + temporal layer for the artifact store
+
+The session that's been logging into `refs/notes/empirica/*` for months now
+has primary-key access by commit. Three composable pieces:
+
+- **`empirica commit-context <sha>`** (new CLI). Aggregates artifacts
+  noted on a commit (or `--range rev1..rev2`, `--since DATE`,
+  `--session ID`) and outputs them grouped by type with per-artifact
+  `created_at` previews. Cached commit→artifact index at
+  `.empirica/cache/commit_artifact_index.json` invalidates on
+  `refs/notes/empirica/` mtime change. Per-commit JSON via
+  `--output json`. Tier 1 in the Sentinel allowlist (read-only).
+- **`--depth N` recursive walker.** Walks edges from each artifact's
+  note JSON to render the epistemic neighbourhood at a commit. Edge
+  sources, in order: graph-format `<type>_data.edges[]` from
+  `log-artifacts`, `goal_id`, `subtask_id`,
+  `<type>_data.parent_id` + `parent_type`. Cycle detection via visited
+  set. Tree output with relation labels (`└─ [type/short_id] ←relation
+  preview`) in human mode; full nested JSON in `--output json`.
+- **Inline edge declaration on individual `*-log` commands.** All six
+  artifact log commands (finding/unknown/dead-end/mistake/assumption/
+  decision) gain `--edge ID:RELATION` (canonical, repeatable) and
+  `--related-to ID` (convenience, defaults relation `related`).
+  `decision-log` additionally accepts `--evidence-from ID` for
+  evidence-relation links. Edges persist to both SQLite data column
+  (via `_store_edge` plumbing from `log-artifacts`) and the
+  artifact's git note (read-modify-write via `git notes` plumbing —
+  uniform across types). Walker traverses them automatically.
+
+### Added — Post-compact temporal trail
+
+`post-compact.py` now injects a one-line trail into all three prompt
+generators (new-session, transaction-continue, check-gate) pointing
+at `commit-context`. After a compaction, AIs see e.g.
+`Temporal trail: 4,343 artifact git notes anchored to commits.
+Query: empirica commit-context <sha> | --since <date>`. Closes the
+discoverability gap that previously required git-notes archaeology
+to surface.
+
+### Added — Sources discipline + edge-density behavioural nudges
+
+Mirrors the existing artifact-breadth nudge. Both fire when a
+transaction has ≥2 artifacts but zero declarations on the watched
+dimension:
+
+- **`edge_density_nudge`** — POSTFLIGHT retrospective +
+  CHECK-proceed reminders surface `edge_density_note` /
+  `edge_density_nudge` when `_retro_count_edges` returns zero. Walker
+  reach scales with adoption.
+- **`sources_discipline_nudge`** — same shape, counts artifacts
+  with non-empty `source_refs`. Project adoption today is 2/3,131
+  (~0.06%) — this nudge is the behavioural lever to lift it.
+  POSTFLIGHT feedback exposes both as `edge_density_warning` /
+  `sources_discipline_warning`.
+
+### Added — Source-aware Sentinel substrate (v0, visibility-only)
+
+Optional `--epistemic-source {intuition|search|mixed}` flag on every
+`*-log` command (and `data.epistemic_source` in `log-artifacts`
+payloads) tags how the artifact was arrived at. POSTFLIGHT
+`calibration_reflection` surfaces a per-transaction
+`epistemic_provenance` block with intuition/search/mixed counts +
+ratio. Migration 040 adds the `epistemic_source` column to all
+artifact tables. **v0 is visibility-only — no routing rule yet.**
+The v1 routing-rule design lives in
+`docs/architecture/PROPOSAL_SOURCE_AWARE_SENTINEL_v1.md`, deferred
+until calibration history accumulates.
+
+### Added — Cockpit groups mode (3-window layouts)
+
+Per `docs/specs/PROPOSAL_COCKPIT_LAUNCHER.md` follow-up. The launcher
+now supports `groups:` config — N alacritty windows, each running its
+own tmux session with multiple panes. Config includes `surface:`,
+`alacritty_args:`, `launch:` per pane. Augment-adopt: re-launching
+adds missing panes without disturbing live processes. Dedup: skips
+alacritty spawn when a tmux client is already attached. SIGHUP
+isolation via alacritty `start_new_session=True`.
+
+The shipped `_builtin_default()` is generic (single status window +
+auto-detected projects). User-defined layouts live in
+`~/.empirica/cockpit/config.yaml` — not bundled with the package.
+
+### Added — `goals-list --status` filter + drift detection
+
+- **`--status {planned|in_progress|completed|all|drift}`** flag
+  filters by lifecycle stage. Takes precedence over `--completed`.
+- **`drift` mode** surfaces rows where the `status` text and
+  `is_completed` BOOLEAN disagree (a class of historical data drift
+  that was silently excluded by the old default filter).
+- **Default open count** now uses `is_completed = 0` as the canonical
+  predicate (was `is_completed = 0 AND status != 'completed'` which
+  silently dropped drift rows). Matches the statusline.
+- **`drift_count` + `drift_hint`** appear in result metadata when
+  drift exists, pointing at `--status drift`.
+- **Bug fix:** `_handle_goals_list_command_helper` resolved
+  `project_id` from session/context but didn't return it — caller's
+  variable stayed `None` and the SQL filter never applied. Helper
+  now returns the resolved id; caller assigns it back. Commands
+  without explicit `--project-id` now correctly project-scope.
+
+### Fixed — Python 3.10 compat (`datetime.UTC` → `timezone.utc`)
+
+20 files across `core/`, `core/cockpit/`, `core/identity/`,
+`core/persona/`, `core/notify/`, `metrics/` used
+`from datetime import UTC` — a Python 3.11+ feature, while
+`pyproject.toml` declares `requires-python = ">=3.10"`. Mechanical
+sweep replaces with `from datetime import datetime, timezone` and
+`tz=timezone.utc` (runtime-equivalent, 3.10-compatible).
+
+### Fixed — Sentinel allowlist + signature cleanup
+
+- `empirica compact-analysis` and `empirica commit-context` added
+  to Tier 1 (read-only). Both were misclassified as praxic and
+  required a CHECK gate.
+- `launch_cockpit()` dropped unused `attach` parameter (no caller
+  passed it).
+- `annotate_loops_with_last_notify()` dropped unused
+  `instance_label` parameter (caller updated).
+- `sentinel-gate.py` removed redundant `if True:` wrapper.
+
+### Internal — empirica-constitution skill
+
+Added "About a past commit → `empirica commit-context <sha>
+[--depth N]`" branch to the "I don't know something" decision tree.
+
 ## [1.8.19] — 2026-05-03
 
 ### Changed — `textual` is now an optional `[tui]` extra (headless mode)
