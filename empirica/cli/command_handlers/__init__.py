@@ -55,6 +55,7 @@ from .cockpit_launcher_commands import (
 from .code_embed import (
     handle_code_embed_command,
 )
+from .commit_context_commands import handle_commit_context_command
 from .compact_analysis import handle_compact_analysis
 from .compliance_report_commands import (
     handle_compliance_report_command,
@@ -288,6 +289,7 @@ __all__ = [
     'handle_cockpit_launch_command',
     'handle_cockpit_launcher_status_command',
     'handle_code_embed_command',
+    'handle_commit_context_command',
     'handle_compact_analysis',
     'handle_compliance_report_command',
     # Config commands

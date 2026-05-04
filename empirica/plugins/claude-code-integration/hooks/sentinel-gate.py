@@ -430,6 +430,8 @@ EMPIRICA_TIER1_PREFIXES = (
     'empirica issue-list',
     'empirica docs-assess',  # Documentation assessment - read-only investigation tool
     'empirica calibration-report',  # Calibration analysis - read-only
+    'empirica compact-analysis',  # Compact event analysis - read-only
+    'empirica commit-context',  # Per-commit artifact aggregator - read-only
     'empirica lesson-list', 'empirica lesson-search', 'empirica lesson-recommend',
     'empirica lesson-stats',  # Lesson queries - read-only
     'empirica sentinel-status', 'empirica sentinel-check',  # Sentinel queries - read-only

@@ -32,6 +32,39 @@ except ImportError:
     EPISTEMIC_SUMMARIZER_AVAILABLE = False
 
 
+def _temporal_trail_section(project_path: str | Path | None) -> str:
+    """Build a one-line trail pointing at the commit-context CLI.
+
+    Counts artifact notes under refs/notes/empirica/<type>/ for the
+    first-class types only. Skips silently on any failure.
+    """
+    try:
+        cwd = Path(project_path) if project_path else Path.cwd()
+        if not (cwd / ".git").exists():
+            return ""
+        types = ("findings", "decisions", "dead_ends", "mistakes",
+                 "unknowns", "assumptions", "goals", "cascades")
+        total = 0
+        for t in types:
+            r = subprocess.run(
+                ["git", "for-each-ref", "--format=%(refname)",
+                 f"refs/notes/empirica/{t}/"],
+                cwd=cwd, capture_output=True, text=True, timeout=5,
+            )
+            if r.returncode == 0:
+                total += sum(1 for line in r.stdout.split("\n") if line.strip())
+        if total == 0:
+            return ""
+        return (
+            f"\n**Temporal trail:** {total:,} artifact git notes anchored to commits. "
+            f"Query: `empirica commit-context <sha>` or "
+            f"`empirica commit-context --range HEAD~10..HEAD` or "
+            f"`empirica commit-context --since <date>`.\n"
+        )
+    except Exception:
+        return ""
+
+
 def _write_active_transaction_for_new_conversation(
     active_transaction: dict,
     project_path: str,
@@ -919,6 +952,7 @@ def _generate_new_session_prompt(pre_vectors: dict, dynamic_context: dict, old_s
 
     calibration = dynamic_context.get('calibration_biases', '')
     calibration_section = f"\n{calibration}\n" if calibration else ""
+    temporal_trail = _temporal_trail_section(dynamic_context.get('project_path'))
 
     # If hook already created session and ran bootstrap, use that
     if new_session_id:
@@ -934,7 +968,7 @@ Your context was just compacted. The previous session ({old_session_id[:8]}...) 
 **✅ Project context loaded via bootstrap**
 
 **Pre-compact vectors (NOW INVALID):** know={pre_know}, uncertainty={pre_unc}
-{last_task_section}
+{last_task_section}{temporal_trail}
 {epistemic_focus}{calibration_section}
 
 ### Memory Context (Auto-Retrieved):
@@ -972,7 +1006,7 @@ Your context was just compacted. The previous session ({old_session_id[:8]}...) 
 (had POSTFLIGHT), so you need a NEW session with fresh PREFLIGHT baseline.
 
 **Pre-compact vectors (NOW INVALID):** know={pre_know}, uncertainty={pre_unc}
-{last_task_section}
+{last_task_section}{temporal_trail}
 {epistemic_focus}{calibration_section}
 
 ### Step 1: Create New Session
@@ -1146,6 +1180,7 @@ def _generate_transaction_continue_prompt(pre_vectors: dict, dynamic_context: di
 
     calibration = dynamic_context.get('calibration_biases', '')
     calibration_section = f"\n{calibration}\n" if calibration else ""
+    temporal_trail = _temporal_trail_section(dynamic_context.get('project_path'))
 
     return f"""## TRANSACTION CONTINUES
 
@@ -1155,7 +1190,7 @@ No new PREFLIGHT or CHECK needed - just continue where you left off.
 **⚡ ACTIVE TRANSACTION:**
    Transaction: {tx_id}... | Session: {tx_session}... | Project: {tx_project}
    Pre-compact vectors: know={pre_know}, uncertainty={pre_unc}
-{last_task_section}
+{last_task_section}{temporal_trail}
 ## EPISTEMIC FOCUS
 
 {epistemic_focus}
@@ -1232,6 +1267,7 @@ def _generate_check_prompt(pre_vectors: dict, pre_reasoning: str, dynamic_contex
 
     calibration = dynamic_context.get('calibration_biases', '')
     calibration_section = f"\n{calibration}\n" if calibration else ""
+    temporal_trail = _temporal_trail_section(dynamic_context.get('project_path'))
 
     prompt = f"""
 ## POST-COMPACT CHECK GATE
@@ -1240,7 +1276,7 @@ Your context was just compacted. Your previous vectors (know={pre_know}, uncerta
 are NO LONGER VALID - they reflected knowledge you had in full context.
 
 **You now have only a summary. Run CHECK to validate readiness before proceeding.**
-{tx_context}{last_task_section}
+{tx_context}{last_task_section}{temporal_trail}
 {epistemic_focus}{calibration_section}
 
 ### Step 1: Load Context (Recommended)

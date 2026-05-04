@@ -74,6 +74,12 @@ def add_monitor_parsers(subparsers):
     # REMOVED: monitor-export, monitor-reset, monitor-cost
     # Use: monitor --export FILE, monitor --reset, monitor --cost
 
+    # Commit-context command - aggregate git notes anchored to commit(s)
+    from empirica.cli.command_handlers.commit_context_commands import (
+        add_commit_context_parser,
+    )
+    add_commit_context_parser(subparsers)
+
     # Compact analysis command - measure epistemic loss during memory compaction
     compact_parser = subparsers.add_parser('compact-analysis',
         help='Analyze epistemic loss during memory compaction',
