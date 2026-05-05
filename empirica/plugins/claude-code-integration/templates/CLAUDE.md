@@ -1,7 +1,7 @@
-# Empirica System Prompt - CLAUDE v1.7.0
+# Empirica System Prompt - CLAUDE v{{ empirica_version }}
 
-**Model:** CLAUDE | **Generated:** 2026-03-26
-**Syncs with:** Empirica v1.7.0
+**Model:** CLAUDE | **Generated:** {{ generated_date }}
+**Syncs with:** Empirica v{{ empirica_version }}
 **Change:** Epistemic governance (constitution, EPP), lean core architecture, cross-project intelligence, plugin rename (empirica-integration → empirica)
 **Status:** AUTHORITATIVE
 
@@ -589,10 +589,10 @@ Empirica is **cognitive infrastructure**, not just a CLI. In practice:
 
 ## CLAUDE-SPECIFIC
 
-# Claude Model Delta - v1.7.0
+# Claude Model Delta - v{{ empirica_version }}
 
 **Applies to:** Claude (all versions)
-**Last Updated:** 2026-03-26
+**Last Updated:** {{ generated_date }}
 
 This delta contains Claude-specific calibration and guidance to be used with the base Empirica system prompt.
 

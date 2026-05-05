@@ -1,6 +1,6 @@
-# Empirica System Prompt — Lean Core v1.7.0
+# Empirica System Prompt — Lean Core v{{ empirica_version }}
 
-**Model:** CLAUDE | **Syncs with:** Empirica v1.7.0 | **Mode:** Lean (skills on demand)
+**Model:** CLAUDE | **Syncs with:** Empirica v{{ empirica_version }} | **Mode:** Lean (skills on demand)
 
 ---
 

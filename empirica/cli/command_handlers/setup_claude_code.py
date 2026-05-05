@@ -30,6 +30,42 @@ PLUGIN_NAME = "empirica"
 PLUGIN_VERSION = "1.8.20"
 
 
+def _resolve_empirica_version() -> str:
+    """Return the installed empirica version, or 'unknown' on miss.
+
+    Used to render `{{ empirica_version }}` placeholders in templates so the
+    written system prompt always reflects what's actually installed (rather
+    than whatever was hardcoded in the template at template-author time).
+    """
+    try:
+        from empirica import __version__
+        return str(__version__).strip() or "unknown"
+    except Exception:
+        try:
+            from importlib.metadata import version
+            return version("empirica")
+        except Exception:
+            return "unknown"
+
+
+def _render_versioned_template(src: Path, dst: Path) -> None:
+    """Write `src` to `dst` with template placeholders substituted.
+
+    Placeholders:
+      {{ empirica_version }}  → installed empirica version (e.g. "1.9.0")
+      {{ generated_date }}    → today's UTC date (e.g. "2026-05-05")
+
+    Closes Philipp's #100 — without this, the template's hardcoded version
+    string drifts every release.
+    """
+    text = src.read_text(encoding="utf-8")
+    version = _resolve_empirica_version()
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    text = text.replace("{{ empirica_version }}", version)
+    text = text.replace("{{ generated_date }}", today)
+    dst.write_text(text, encoding="utf-8")
+
+
 def _find_python() -> str:
     """Find a suitable Python >= 3.10, mimicking install.sh logic"""
     min_major, min_minor = 3, 10
@@ -482,8 +518,11 @@ def _install_claude_md(plugin_dir, claude_dir, use_full, output_format):
     include_line = "@~/.claude/empirica-system-prompt.md"
 
     if claude_md_src.exists():
-        # Always write Empirica prompt to separate file (safe to overwrite)
-        shutil.copy2(claude_md_src, empirica_prompt_dst)
+        # Always write Empirica prompt to separate file (safe to overwrite).
+        # Render the {{ empirica_version }} + {{ generated_date }} placeholders
+        # at write-time so the prompt always reflects the installed package
+        # version (closes Philipp's #100 — hardcoded version drifts every release).
+        _render_versioned_template(claude_md_src, empirica_prompt_dst)
         if output_format != 'json':
             print(f"   ✓ Empirica prompt ({prompt_label}) written to ~/.claude/empirica-system-prompt.md")
 
