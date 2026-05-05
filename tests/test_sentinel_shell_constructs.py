@@ -241,3 +241,55 @@ class TestRegression:
 
     def test_dangerous_command_still_unsafe(self, gate):
         assert not gate._is_segment_safe('rm -rf /')
+
+
+# ─── _has_dangerous_redirects: quote-aware check ───────────────────────────
+
+
+class TestQuoteAwareRedirects:
+    """Regression: redirect detection must ignore `>` / `<` inside quotes.
+
+    Pre-fix, a command like `gh api foo | python3 -c "if x > 3: ..."` was
+    blocked because the `>` inside the quoted python code was treated as a
+    shell file-redirect. Post-fix, _has_dangerous_redirects uses
+    quote-aware splitting to distinguish quoted data from real redirects.
+    """
+
+    def test_gt_inside_double_quotes_not_a_redirect(self, gate):
+        cmd = 'python3 -c "print(1 > 0)"'
+        assert not gate._has_dangerous_redirects(cmd)
+
+    def test_gt_inside_single_quotes_not_a_redirect(self, gate):
+        cmd = "cat foo.json | jq '.value > 5'"
+        assert not gate._has_dangerous_redirects(cmd)
+
+    def test_gh_api_pipe_to_python_with_gt_in_code(self, gate):
+        """The exact failing pattern: gh api ... | python3 -c "...> 3000..."."""
+        cmd = (
+            'gh api repos/foo/comments --paginate 2>&1 | python3 -c "'
+            "data = json.loads(sys.stdin.read())\n"
+            "print('truncated' if len(body) > 3000 else body)"
+            '"'
+        )
+        assert gate.is_safe_bash_command({'command': cmd})
+
+    def test_real_gt_redirect_still_blocked(self, gate):
+        assert gate._has_dangerous_redirects('cat foo > /etc/passwd')
+        assert gate._has_dangerous_redirects('echo hi > out.txt')
+
+    def test_real_lt_input_redirect_still_blocked(self, gate):
+        assert gate._has_dangerous_redirects('cat input < /tmp/file')
+
+    def test_append_redirect_still_blocked(self, gate):
+        assert gate._has_dangerous_redirects('cmd >> append.log')
+
+    def test_heredoc_input_still_safe(self, gate):
+        # << EOF style heredocs are safe (input from stdin literal)
+        cmd = "empirica preflight-submit - << 'EOF'\n{}\nEOF"
+        assert not gate._has_dangerous_redirects(cmd)
+
+    def test_stderr_redirect_still_safe(self, gate):
+        cmd = 'gh api foo 2>&1'
+        assert not gate._has_dangerous_redirects(cmd)
+        cmd = 'gh api foo 2>/dev/null'
+        assert not gate._has_dangerous_redirects(cmd)

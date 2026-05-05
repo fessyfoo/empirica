@@ -1233,11 +1233,16 @@ def _has_dangerous_operators(command: str) -> bool:
 
 
 def _has_dangerous_redirects(command: str) -> bool:
-    """Check for file redirection (dangerous) vs stderr suppression (safe)."""
+    """Check for file redirection (dangerous) vs stderr suppression (safe).
+
+    Quote-aware: a `>` or `<` inside a quoted argument (e.g. python3 -c
+    "if len(body) > 3000:" or jq '.x > 5') is data, not a redirect. Only
+    redirects appearing OUTSIDE quoted regions are flagged.
+    """
     cmd_clean = SAFE_REDIRECT_PATTERN.sub('', command)
-    if '>' in cmd_clean or '>>' in cmd_clean:
+    if _contains_outside_quotes(cmd_clean, '>>') or _contains_outside_quotes(cmd_clean, '>'):
         return True
-    return '<' in cmd_clean and '<<' not in command
+    return _contains_outside_quotes(cmd_clean, '<') and '<<' not in command
 
 
 def _maybe_nudge_remote_ops(cmd: str) -> None:
