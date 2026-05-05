@@ -287,3 +287,146 @@ def test_write_manifest_creates_parent_dirs(tmp_path):
     assert target.exists()
     loaded = yaml.safe_load(target.read_text(encoding="utf-8"))
     assert loaded == {"projects": []}
+
+
+# ---------------------------------------------------------------------------
+# projects-bulk-register (Cortex-dependent)
+# ---------------------------------------------------------------------------
+
+
+from types import SimpleNamespace  # noqa: E402
+
+from empirica.cli.command_handlers.projects_commands import (  # noqa: E402
+    _format_register_summary,
+    _register_one_project,
+    _resolve_cortex_config,
+)
+
+
+def test_resolve_cortex_config_prefers_args_over_env(monkeypatch):
+    monkeypatch.setenv("CORTEX_REMOTE_URL", "https://env.example.com")
+    monkeypatch.setenv("CORTEX_API_KEY", "env-key")
+    args = SimpleNamespace(cortex_url="https://flag.example.com", api_key="flag-key")
+    url, key = _resolve_cortex_config(args)
+    assert url == "https://flag.example.com"
+    assert key == "flag-key"
+
+
+def test_resolve_cortex_config_strips_trailing_slash(monkeypatch):
+    monkeypatch.setenv("CORTEX_REMOTE_URL", "https://cortex.example.com/")
+    monkeypatch.setenv("CORTEX_API_KEY", "key")
+    args = SimpleNamespace(cortex_url=None, api_key=None)
+    url, _ = _resolve_cortex_config(args)
+    assert url == "https://cortex.example.com"
+
+
+def test_resolve_cortex_config_returns_none_when_unset(monkeypatch):
+    monkeypatch.delenv("CORTEX_REMOTE_URL", raising=False)
+    monkeypatch.delenv("CORTEX_URL", raising=False)
+    monkeypatch.delenv("CORTEX_API_KEY", raising=False)
+    args = SimpleNamespace(cortex_url=None, api_key=None)
+    url, key = _resolve_cortex_config(args)
+    assert url is None
+    assert key is None
+
+
+def test_register_one_project_success_201():
+    """201 Created → outcome=registered, no fallback to admin path."""
+    project = {"name": "alpha", "repo_url": "https://github.com/x/alpha"}
+    with patch(
+        "empirica.cli.command_handlers.projects_commands._post_project",
+        return_value=(201, {"project_id": "uuid-alpha"}),
+    ) as m:
+        result = _register_one_project(project, "https://cortex", "key", 10.0)
+    assert result["outcome"] == "registered"
+    assert result["status"] == 201
+    # Only the public path was tried
+    assert m.call_count == 1
+
+
+def test_register_one_project_409_skips_silently():
+    project = {"name": "alpha"}
+    with patch(
+        "empirica.cli.command_handlers.projects_commands._post_project",
+        return_value=(409, {"error": "already exists"}),
+    ):
+        result = _register_one_project(project, "https://cortex", "key", 10.0)
+    assert result["outcome"] == "skipped"
+    assert result["reason"] == "already_exists"
+
+
+def test_register_one_project_404_falls_back_to_admin():
+    """404 on /v1/projects/register → retry on /v1/admin/projects."""
+    project = {"name": "alpha"}
+    responses = iter([(404, None), (201, {"project_id": "uuid-alpha"})])
+
+    def fake_post(*_args, **_kwargs):
+        return next(responses)
+
+    with patch(
+        "empirica.cli.command_handlers.projects_commands._post_project",
+        side_effect=fake_post,
+    ) as m:
+        result = _register_one_project(project, "https://cortex", "key", 10.0)
+    assert result["outcome"] == "registered"
+    assert m.call_count == 2  # both paths tried
+
+
+def test_register_one_project_500_fails_without_fallback():
+    project = {"name": "alpha"}
+    with patch(
+        "empirica.cli.command_handlers.projects_commands._post_project",
+        return_value=(500, {"error": "internal"}),
+    ) as m:
+        result = _register_one_project(project, "https://cortex", "key", 10.0)
+    assert result["outcome"] == "failed"
+    assert result["status"] == 500
+    # 500 doesn't trigger fallback — only 404/405 do
+    assert m.call_count == 1
+
+
+def test_register_one_project_network_error_returns_failed():
+    """urllib raises URLError → caught and returned as failed result."""
+    import urllib.error
+    project = {"name": "alpha"}
+    with patch(
+        "empirica.cli.command_handlers.projects_commands._post_project",
+        side_effect=urllib.error.URLError("connection refused"),
+    ):
+        result = _register_one_project(project, "https://cortex", "key", 10.0)
+    assert result["outcome"] == "failed"
+    assert "network" in result["reason"]
+    assert "URLError" in result["reason"]
+
+
+def test_format_register_summary_human_includes_failure_details():
+    results = [
+        {"name": "a", "outcome": "registered", "status": 201},
+        {"name": "b", "outcome": "skipped", "status": 409, "reason": "already_exists"},
+        {"name": "c", "outcome": "failed", "status": 500, "reason": "http 500"},
+    ]
+    out = _format_register_summary(results, "human", dry_run=False, cortex_url="https://x")
+    assert "Registered 1" in out
+    assert "skipped 1" in out
+    assert "failed 1" in out
+    assert "c: http 500" in out
+
+
+def test_format_register_summary_dry_run_message():
+    results = [{"name": "a", "outcome": "registered", "status": 0, "reason": "dry-run"}]
+    out = _format_register_summary(results, "human", dry_run=True, cortex_url=None)
+    assert "DRY-RUN" in out
+    assert "would register 1" in out
+
+
+def test_format_register_summary_json_shape():
+    results = [
+        {"name": "a", "outcome": "registered", "status": 201},
+        {"name": "b", "outcome": "failed", "status": 500, "reason": "http 500"},
+    ]
+    out = _format_register_summary(results, "json", dry_run=False, cortex_url="https://x")
+    parsed = yaml.safe_load(out)  # JSON is valid YAML
+    assert parsed["ok"] is False  # failures present
+    assert parsed["summary"]["registered"] == 1
+    assert parsed["summary"]["failed"] == 1
+    assert parsed["cortex_url"] == "https://x"

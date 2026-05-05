@@ -586,6 +586,7 @@ def main(args=None):
             'doc-check': handle_doc_check_command,
             'projects-discover': handle_projects_discover_command,
             'projects-list': handle_projects_list_command,
+            'projects-bulk-register': handle_projects_bulk_register_command,
 
             # Finding/unknown/deadend/assumption/decision logging
             'finding-log': handle_finding_log_command,

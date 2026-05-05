@@ -13,9 +13,12 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -318,3 +321,208 @@ def handle_projects_list_command(args) -> None:
             sys.stdout.write("\n")
     except Exception as e:
         handle_cli_error(e, "projects-list")
+
+
+# ── Cortex bulk-register ────────────────────────────────────────────────
+
+
+CORTEX_REGISTER_PATH = "/v1/projects/register"
+CORTEX_ADMIN_PATH = "/v1/admin/projects"
+
+
+def _resolve_cortex_config(args) -> tuple[str | None, str | None]:
+    """Return (cortex_url, api_key) from args or env."""
+    url = (
+        getattr(args, "cortex_url", None)
+        or os.environ.get("CORTEX_REMOTE_URL")
+        or os.environ.get("CORTEX_URL")
+    )
+    key = getattr(args, "api_key", None) or os.environ.get("CORTEX_API_KEY")
+    return (url.rstrip("/") if url else None, key or None)
+
+
+def _post_project(
+    cortex_url: str,
+    path: str,
+    payload: dict[str, Any],
+    api_key: str,
+    timeout: float,
+) -> tuple[int, dict[str, Any] | None]:
+    """POST one project payload to Cortex. Returns (status_code, response_body|None).
+
+    Network errors raise. HTTP error responses are caught and returned as
+    (status_code, body) so the caller can branch on 409/404/etc.
+    """
+    body = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        f"{cortex_url}{path}",
+        data=body,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode("utf-8")
+            try:
+                return resp.status, (json.loads(raw) if raw else None)
+            except json.JSONDecodeError:
+                return resp.status, None
+    except urllib.error.HTTPError as e:
+        try:
+            err_body = e.read().decode("utf-8")
+            return e.code, json.loads(err_body) if err_body else None
+        except (OSError, json.JSONDecodeError):
+            return e.code, None
+
+
+def _register_one_project(
+    project: dict[str, Any],
+    cortex_url: str,
+    api_key: str,
+    timeout: float,
+) -> dict[str, Any]:
+    """Try to register a single project. Returns a per-project result dict.
+
+    Result shape: {name, outcome: registered|skipped|failed, status, reason?}
+    """
+    payload = {"name": project["name"]}
+    if project.get("repo_url"):
+        payload["repo_url"] = project["repo_url"]
+    if project.get("name"):
+        payload["display_name"] = project["name"]
+
+    # Try the public register path first; fall back to admin on 404/405
+    for path in (CORTEX_REGISTER_PATH, CORTEX_ADMIN_PATH):
+        try:
+            status, _body = _post_project(cortex_url, path, payload, api_key, timeout)
+        except (urllib.error.URLError, OSError, TimeoutError) as e:
+            return {
+                "name": project["name"],
+                "outcome": "failed",
+                "status": 0,
+                "reason": f"network: {type(e).__name__}: {e}",
+            }
+
+        if status in (200, 201):
+            return {"name": project["name"], "outcome": "registered", "status": status}
+        if status == 409:
+            return {"name": project["name"], "outcome": "skipped", "status": 409,
+                    "reason": "already_exists"}
+        if status in (404, 405) and path == CORTEX_REGISTER_PATH:
+            continue  # try admin path
+        return {
+            "name": project["name"],
+            "outcome": "failed",
+            "status": status,
+            "reason": f"http {status}",
+        }
+
+    return {"name": project["name"], "outcome": "failed", "status": 0,
+            "reason": "exhausted endpoints"}
+
+
+def _format_register_summary(
+    results: list[dict[str, Any]],
+    output_format: str,
+    *,
+    dry_run: bool,
+    cortex_url: str | None,
+) -> str:
+    counts = {"registered": 0, "skipped": 0, "failed": 0}
+    for r in results:
+        counts[r["outcome"]] = counts.get(r["outcome"], 0) + 1
+
+    if output_format == "json":
+        return json.dumps({
+            "ok": counts["failed"] == 0,
+            "dry_run": dry_run,
+            "cortex_url": cortex_url,
+            "summary": counts,
+            "results": results,
+        }, indent=2) + "\n"
+
+    lines: list[str] = []
+    if dry_run:
+        lines.append(f"DRY-RUN: would register {len(results)} projects on Cortex")
+    else:
+        lines.append(
+            f"Registered {counts['registered']}, "
+            f"skipped {counts['skipped']} (already exist), "
+            f"failed {counts['failed']}"
+        )
+    if counts["failed"]:
+        lines.append("")
+        lines.append("Failures:")
+        for r in results:
+            if r["outcome"] == "failed":
+                lines.append(f"  {r['name']}: {r.get('reason', '?')} (status={r.get('status')})")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def handle_projects_bulk_register_command(args) -> None:
+    """Handle projects-bulk-register. Cortex-dependent."""
+    try:
+        # Load or build manifest
+        manifest_arg = getattr(args, "manifest_path", None)
+        target = Path(manifest_arg).expanduser() if manifest_arg else DEFAULT_MANIFEST_PATH
+        manifest = load_manifest(target)
+        if manifest is None:
+            print(
+                f"⚠ No manifest at {target} — running projects-discover now.",
+                file=sys.stderr,
+            )
+            manifest = discover_projects(roots=[Path.home()])
+
+        projects = manifest.get("projects", [])
+        if not projects:
+            print("⚠ No projects to register.", file=sys.stderr)
+            return
+
+        # Dry-run: short-circuit before resolving Cortex config
+        dry_run = bool(getattr(args, "dry_run", False))
+        if dry_run:
+            output_format = getattr(args, "output", "human")
+            results = [{"name": p["name"], "outcome": "registered", "status": 0,
+                        "reason": "dry-run"} for p in projects]
+            sys.stdout.write(_format_register_summary(
+                results, output_format, dry_run=True, cortex_url=None,
+            ))
+            return
+
+        # Resolve Cortex config
+        cortex_url, api_key = _resolve_cortex_config(args)
+        if not cortex_url or not api_key:
+            missing = []
+            if not cortex_url:
+                missing.append("CORTEX_REMOTE_URL or --cortex-url")
+            if not api_key:
+                missing.append("CORTEX_API_KEY or --api-key")
+            print(
+                "⚠ Cortex configuration missing: " + ", ".join(missing) + "\n"
+                "  This command is Cortex-dependent. Set the env vars or pass "
+                "the flags explicitly.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+
+        timeout = float(getattr(args, "timeout", 10.0))
+        output_format = getattr(args, "output", "human")
+
+        if output_format == "human":
+            print(
+                f"📡 Registering {len(projects)} projects on Cortex at {cortex_url}",
+                file=sys.stderr,
+            )
+
+        results = [
+            _register_one_project(p, cortex_url, api_key, timeout) for p in projects
+        ]
+        sys.stdout.write(_format_register_summary(
+            results, output_format, dry_run=False, cortex_url=cortex_url,
+        ))
+    except Exception as e:
+        handle_cli_error(e, "projects-bulk-register")

@@ -83,3 +83,58 @@ def add_projects_parsers(subparsers) -> None:
         action="store_true",
         help="Force a fresh discover scan even if cache exists.",
     )
+
+    # ── projects-bulk-register ─────────────────────────────────────────
+    register = subparsers.add_parser(
+        "projects-bulk-register",
+        help="[CORTEX] Register all discovered projects on the Cortex backend.",
+        description=(
+            "Register every discovered Empirica project on the Cortex backend "
+            "in one shot.\n\n"
+            "⚠ This command is Cortex-dependent. It POSTs to Cortex's "
+            "/v1/projects/register endpoint, so it requires:\n"
+            "  • CORTEX_REMOTE_URL env var (or --cortex-url) pointing at a "
+            "reachable Cortex instance\n"
+            "  • CORTEX_API_KEY env var (or --api-key) for authentication\n\n"
+            "Idempotent — projects already on Cortex (matched by name) are "
+            "skipped. Failures on individual projects are logged and the loop "
+            "continues to the rest. No partial-rollback. Use --dry-run to "
+            "preview without making any HTTP calls."
+        ),
+    )
+    register.add_argument(
+        "--from",
+        dest="manifest_path",
+        default=None,
+        help=(
+            "Manifest YAML to read (default: ~/.empirica/discovered_projects.yaml). "
+            "Falls back to running projects-discover live if absent."
+        ),
+    )
+    register.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be registered without making HTTP calls.",
+    )
+    register.add_argument(
+        "--cortex-url",
+        default=None,
+        help="Override Cortex base URL (default: $CORTEX_REMOTE_URL).",
+    )
+    register.add_argument(
+        "--api-key",
+        default=None,
+        help="Override Cortex API key (default: $CORTEX_API_KEY).",
+    )
+    register.add_argument(
+        "--timeout",
+        type=float,
+        default=10.0,
+        help="Per-request timeout in seconds (default: 10).",
+    )
+    register.add_argument(
+        "--output",
+        choices=["human", "json"],
+        default="human",
+        help="Output format for the summary (default: human).",
+    )
