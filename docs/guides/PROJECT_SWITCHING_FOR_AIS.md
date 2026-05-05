@@ -1,326 +1,208 @@
-# Project Switching for AI Agents - Critical UX Guide
+# Project Context for AI Agents — Authoritative Guide
 
-**Date:** 2025-12-23 (Updated: 2026-01-06)  
-**Status:** IMPLEMENTED - project-switch command now available  
-**Problem:** AIs don't have clear signals when they've switched projects (SOLVED)
-
----
-
-## The Problem
-
-When an AI agent:
-1. Navigates to a new directory (`cd ../other-project`)
-2. Creates a new project (`empirica project-init`)
-3. Receives user instruction to "work on project X"
-
-**The AI has NO CLEAR SIGNAL that context has switched.**
-
-This causes:
-- ❌ Writing findings/unknowns to wrong project
-- ❌ Creating sessions linked to wrong project_id
-- ❌ Bootstrap showing wrong context
-- ❌ Confusion about which project is "active"
+**Audience:** AI agents working with Empirica across multiple projects.
+**Status:** Reflects current behaviour as of 1.8.x. Replaces the earlier
+proposal-shaped document.
 
 ---
 
-## How Project Linking Works (Current Implementation)
+## TL;DR
 
-### Session Creation (Automatic Linking)
-
-When `empirica session-create` runs:
-
-```python
-# 1. Session created in local .empirica/sessions/sessions.db
-session_id = db.create_session(ai_id="myai")
-
-# 2. Auto-detect project from git remote URL
-git_url = subprocess.run(['git', 'remote', 'get-url', 'origin']).stdout
-
-# 3. Find project in projects table by matching repo URL
-cursor.execute("SELECT id FROM projects WHERE repos LIKE ?", (f'%{git_url}%',))
-project_id = cursor.fetchone()['id']
-
-# 4. Link session to project
-cursor.execute("UPDATE sessions SET project_id = ? WHERE session_id = ?", 
-               (project_id, session_id))
-```
-
-**Critical detail:** This looks up project in the **local database** (`.empirica/sessions/sessions.db`) where the command is run.
-
-### Project Bootstrap (Context Loading)
-
-When `empirica project-bootstrap --project-id <ID>` runs:
-
-```python
-# 1. Opens local database
-db = SessionDatabase()  # Uses .empirica/sessions/sessions.db in CWD
-
-# 2. Loads project context
-project = db.projects.get_by_id(project_id)
-sessions = db.get_sessions_for_project(project_id)
-findings = db.get_project_findings(project_id)
-```
-
-**Key insight:** Everything is **project-local** and **directory-scoped**.
+- Empirica state is **directory-scoped**. Each git repo with a `.empirica/`
+  directory is its own isolated project.
+- Each tmux pane / terminal is its own **instance**. State doesn't leak between
+  panes even when they share a working directory.
+- The session row in SQLite is the **canonical project_id**. `project.yaml`
+  is the human-readable inventory; the DB is the source of truth.
+- When you change directories, your project context changes. Use
+  `empirica project-switch <name>` to make it explicit and verifiable.
 
 ---
 
-## Current State: What Works
+## How Project Context Resolves
 
-✅ **Project Init** creates `.empirica/project.yaml` with `project_id`  
-✅ **Session Create** auto-links to project via git remote URL  
-✅ **Database** is project-local (`.empirica/sessions/sessions.db`)  
-✅ **Findings/unknowns** are stored with `project_id`  
+### Three coordinates
+
+Every Empirica command resolves three things to know where to read/write:
+
+| Coordinate | Source | Why |
+|---|---|---|
+| `instance_id` | `$TMUX_PANE` (or `EMPIRICA_INSTANCE_ID` override) | Pane isolation — separate transactions per terminal |
+| `claude_session_id` | Claude Code hook env | Multi-instance correlation across compaction |
+| `project_id` | `.empirica/sessions/sessions.db` (sessions row) | Where artifacts get written |
+
+The `project_id` is set when `session-create` runs. It does NOT change just
+because you `cd` to another directory — the session is anchored where it was
+created. This is intentional: it prevents accidental cross-project writes.
+
+### Resolution priority for project_id
+
+`session-create` and friends resolve `project_id` in this order:
+
+1. **Explicit `--project-id`** flag (highest priority)
+2. **Active session row** in the local `sessions.db` if one is open
+3. **Match by `git remote get-url origin`** against the `projects` table
+4. **`.empirica/project.yaml`'s `project_id`** field (fresh-project fallback)
+
+If all four fail, `session-create` registers a new project from the current
+directory's git remote.
+
+### Database scoping
+
+Each project has its own SQLite database. Layout:
+
+```
+~/.empirica/                          # Global config
+    config.yaml                       # User-level settings
+    instance_projects/                # Per-pane active project
+        tmux_0.json
+        tmux_1.json
+
+/path/to/project-a/.empirica/         # Project A
+    project.yaml                      # Inventory (project_id, name, repos)
+    sessions/sessions.db              # All Project A artifacts
+    active_transaction_tmux_0.json    # Per-pane transaction state
+
+/path/to/project-b/.empirica/         # Project B (fully separate)
+    project.yaml
+    sessions/sessions.db
+```
+
+When you run `empirica finding-log`, the CLI walks up from `cwd` to find the
+nearest `.empirica/sessions/sessions.db` and writes there. Different working
+directories = different databases = different projects.
 
 ---
 
-## Current State: What's Missing
+## Switching Projects
 
-❌ **No "you are here" banner** when AI switches directories  
-❌ **No validation** that current project matches expected project  
-❌ **No warning** when writing to different project than discussed  
-❌ **No clear workflow** for "I'm switching to project X now"  
-
----
-
-## Solution: Clear Project Context Signals
-
-### 1. Add Project Context to All Command Outputs
-
-**Every command should show:**
-```
-📁 Current Project: empirica-web (258aa934...)
-📍 Location: /home/user/empirica-web
-```
-
-**Implementation:**
-```python
-def _print_project_context():
-    """Print current project context (call at start of every command)"""
-    try:
-        git_root = get_git_root()
-        if not git_root:
-            print("⚠️  Not in a git repository - no project context")
-            return
-        
-        project_yaml = git_root / '.empirica' / 'project.yaml'
-        if not project_yaml.exists():
-            print(f"⚠️  No .empirica/project.yaml found - run 'empirica project-init'")
-            return
-        
-        with open(project_yaml) as f:
-            config = yaml.safe_load(f)
-            project_name = config.get('name', 'Unknown')
-            project_id = config.get('project_id', 'Unknown')
-        
-        print(f"📁 Project: {project_name} ({project_id[:8]}...)")
-        print(f"📍 Location: {git_root}")
-        print()
-    except Exception as e:
-        logger.debug(f"Could not load project context: {e}")
-```
-
-### 2. Enhance Bootstrap to Show "You Are Here"
+### The explicit way
 
 ```bash
-$ cd ../empirica-web && empirica project-bootstrap --project-id empirica-web
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎯 PROJECT CONTEXT SWITCH DETECTED
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📁 Current Project: Empirica Web
-🆔 Project ID: 258aa934-a34b-4773-b1bb-96f429de6761
-📍 Repository: https://github.com/Nubaeon/empirica-web.git
-📊 Local Database: .empirica/sessions/sessions.db
-
-⚠️  IMPORTANT: All commands now write to THIS project's database.
-   Findings, sessions, goals → stored in empirica-web context.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📋 Project Context: empirica-web
-   Total sessions: 65
-   ...
+cd /path/to/other-project
+empirica project-switch <name-or-id>
 ```
 
-### 3. Add `empirica project-switch` Command
+`project-switch` does three things:
 
-**For explicit switching:**
+1. Validates that the named project exists (in this repo's DB)
+2. Updates the per-pane `instance_projects/<instance>.json` so subsequent
+   commands resolve to this project
+3. Prints a confirmation banner with the project's recent activity:
+   `[XX sessions, YY findings, last activity ZZ ago]`
+
+This is the **canonical workflow** when a user says "work on project X" or
+when you change directories mid-conversation.
+
+### The implicit way
+
+If you forget to `project-switch`, things still mostly work — but with caveats:
+
+- `session-create` will auto-link to whatever project the current `cwd`
+  resolves to (via git remote, then `project.yaml`)
+- `finding-log` and friends will also resolve via `cwd` walk-up
+- BUT: if a transaction was opened against project A and you `cd` to project
+  B's directory mid-transaction, the transaction state file is still scoped
+  to project A. You'll get drift.
+
+**Rule:** `project-switch` before opening a transaction in a different project.
+
+### Cross-project writes (no switch needed)
+
+To log to another project without switching:
+
 ```bash
-$ empirica project-switch empirica-web
-
-✅ Switched to project: Empirica Web
-📍 Location: /home/user/empirica-web
-🆔 Project ID: 258aa934...
-
-📊 Quick Status:
-   • 65 sessions recorded
-   • 91 findings logged
-   • 2 open BEADS issues
-   • Last activity: 2 hours ago
-
-💡 Next steps:
-   • empirica session-create --ai-id myai
-   • empirica project-bootstrap --project-id empirica-web
+empirica finding-log --project-id <project-name-or-id> --finding "..."
 ```
 
-### 4. Session Creation Warning
-
-**When creating session in new location:**
-```bash
-$ cd ../new-project
-$ empirica session-create --ai-id myai
-
-⚠️  PROJECT CONTEXT CHANGE DETECTED
-
-Previous project: empirica-web (258aa934...)
-Current location: /home/user/new-project
-
-❓ This session will be linked to: new-project
-   Is this correct? [y/N]:
-```
+Available on all `*-log` commands and `goals-create`. Useful for
+note-while-you-work patterns: see something relevant to project B while
+working in project A, log it without leaving the transaction.
 
 ---
 
-## Workflow for AI Agents
+## Verifying You're in the Right Place
 
-### When User Says "Work on project X"
+### Quick check
 
-**Step 1: Navigate to project**
 ```bash
-cd ../project-x  # or wherever it is
+empirica project-status
 ```
 
-**Step 2: Verify project context**
-```bash
-empirica project-bootstrap --project-id project-x
-```
-This will show:
-- ✅ "You are here" banner
-- ✅ Project name and ID
-- ✅ Recent findings/unknowns
-- ✅ Available skills
+Shows the resolved project, recent activity, and active transaction (if any).
 
-**Step 3: Create session (auto-links to current project)**
-```bash
-empirica session-create --ai-id myai
-```
+### Suspicion-prompted check
 
-**Step 4: Work with confidence**
-Now all `finding-log`, `unknown-log`, `goals-create`, etc. write to **this project's database**.
+If you're unsure whether your context matches what the user just asked for:
+
+1. **Run `empirica project-status`** before logging anything substantive
+2. **Compare project name to the user's stated intent** — match? Continue.
+   Mismatch? `project-switch` or ask for clarification.
+
+### Don't trust conversation memory alone
+
+If the conversation has spanned compaction or multiple `cd`s, your beliefs
+about which project is active can drift. The session row in SQLite is the
+authoritative answer; verify before writing.
 
 ---
 
-## Implementation Checklist
+## Multi-Pane Workflow
 
-- [x] Add `_print_project_context()` utility function (via project-switch banner)
-- [ ] Call it at start of all command handlers (partial - in project-switch)
-- [x] Enhance bootstrap output with "you are here" banner (integrated in project-switch)
-- [x] Add project-switch command (IMPLEMENTED v1.3.0)
-- [ ] Add session-create project change warning (future enhancement)
-- [ ] Document in system prompt (in progress)
-- [x] Test with empirica-web (tested and working)
+Two panes can work on different projects simultaneously without interference:
+
+```
+┌──────────────────────┬──────────────────────┐
+│  Pane 0 (tmux_0)     │  Pane 1 (tmux_1)     │
+│  cd ~/project-a      │  cd ~/project-b      │
+│  project-switch a    │  project-switch b    │
+│                      │                      │
+│  Independent:        │  Independent:        │
+│  • transactions      │  • transactions      │
+│  • goals             │  • goals             │
+│  • PREFLIGHT/CHECK   │  • PREFLIGHT/CHECK   │
+└──────────────────────┴──────────────────────┘
+```
+
+See [TMUX_MULTI_PANE_GUIDE.md](./TMUX_MULTI_PANE_GUIDE.md) for the full
+isolation architecture (pane detection, namespaced state files,
+cockpit overview).
+
+---
+
+## Common Failure Modes
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `finding-log` writes to "wrong" project | `cd`'d without `project-switch` | `project-switch` then re-log |
+| `project-bootstrap` shows zero history | Wrong project resolved | Check `project-status`, switch explicitly |
+| Two panes interfering | `EMPIRICA_INSTANCE_ID` set globally | Unset (only set per-terminal in non-tmux) |
+| Transaction won't close | Transaction file under different instance | Use the same pane that opened it, or `postflight-submit -` |
+| Session links to wrong project | `git remote origin` matched a stale project row | `project-switch <correct>` then re-create session |
 
 ---
 
 ## For System Prompts
 
-**Add this guidance:**
+Minimum guidance for AI agents:
 
-> **🚨 CRITICAL: Project Context Awareness**
->
-> When you switch directories or the user says "work on project X":
->
-> 1. **ALWAYS run bootstrap first:**
->    ```bash
->    empirica project-bootstrap --project-id <project>
->    ```
->
-> 2. **Verify the "📁 Current Project" banner matches expectations**
->
-> 3. **If mismatch detected:**
->    - Stop immediately
->    - Alert user: "I'm in directory X but expected project Y"
->    - Ask for clarification
->
-> 4. **All subsequent commands write to the current project's database**
->    - Findings → current project
->    - Sessions → current project
->    - Goals → current project
->
-> **DO NOT assume project context from conversation history alone.**  
-> **ALWAYS verify with bootstrap.**
+```
+PROJECT CONTEXT VERIFICATION
+
+When the user says "work on project X" or you change directories:
+  1. Run `empirica project-status` to verify resolved context
+  2. If mismatch, run `empirica project-switch <name>` explicitly
+  3. All subsequent *-log commands write to that project's DB
+
+The session row in SQLite is canonical. project.yaml is informational.
+Never assume project context from conversation history alone.
+```
 
 ---
 
-## Edge Cases
+## Cross-References
 
-### Case 1: User has multiple repos for same project
-
-**Current:** `session-create` matches by git URL → finds first match  
-**Solution:** Use `project.yaml` as source of truth, not just git URL
-
-### Case 2: AI switches directories mid-session
-
-**Current:** No signal, continues writing to old project  
-**Solution:** Each command checks `CWD` and warns if changed
-
-### Case 3: Workspace-init creates multiple projects
-
-**Current:** Creates `.empirica-project/PROJECT_CONFIG.yaml` in each repo  
-**Solution:** Each repo becomes its own isolated project context
-
----
-
-## Technical Details
-
-### Database Scoping
-
-```
-~/.empirica/                     # Global config/credentials
-    config.yaml                  # Global settings
-    credentials.yaml             # API keys
-
-/path/to/project-a/.empirica/    # Project A data
-    config.yaml                  # Project settings
-    project.yaml                 # Project metadata (has project_id)
-    sessions/
-        sessions.db              # All project A data
-
-/path/to/project-b/.empirica/    # Project B data
-    config.yaml                  # Project settings
-    project.yaml                 # Project metadata (has project_id)
-    sessions/
-        sessions.db              # All project B data (separate!)
-```
-
-**Key insight:** Each project has its own `sessions.db`. The `project_id` in `project.yaml` links to a record in that local DB's `projects` table.
-
-### How get_session_db_path() Works
-
-```python
-def get_session_db_path():
-    """Returns path to local sessions.db in CWD or parent"""
-    # 1. Check CWD for .empirica/sessions/sessions.db
-    # 2. Walk up parent dirs until .git found
-    # 3. Return .empirica/sessions/sessions.db in that git root
-    # 4. If none found, return ~/.empirica/session_data.db (fallback)
-```
-
-**This means:** Database is **directory-scoped**, not **project-scoped** from global state.
-
----
-
-## Summary for AI Agents
-
-🎯 **Golden Rule:** When you change directories, you change project context.
-
-✅ **Always verify context with bootstrap**  
-✅ **Trust the "📁 Current Project" banner**  
-✅ **All data writes go to CWD's .empirica/sessions/sessions.db**  
-✅ **Session auto-links to project via git remote URL**  
-
-❌ **Don't assume project from conversation**  
-❌ **Don't write to old project after switching dirs**  
-❌ **Don't skip bootstrap when starting work**
+- [TMUX_MULTI_PANE_GUIDE.md](./TMUX_MULTI_PANE_GUIDE.md) — Pane-level isolation
+- [SESSION_GOAL_WORKFLOW.md](../human/end-users/SESSION_GOAL_WORKFLOW.md) — Session and goal lifecycle
+- [WORKSPACE_DATABASE_SCHEMA.md](../reference/WORKSPACE_DATABASE_SCHEMA.md) — DB layout
+- [workspace_management.md](../reference/api/workspace_management.md) — CLI surface
