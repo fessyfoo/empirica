@@ -165,6 +165,37 @@ def test_dispatch_unmatched_method_returns_skipped(isolated_registry):
     assert "No evaluator registered" in result.summary
 
 
+def test_dispatch_registered_but_none_apply_distinguishable_from_unregistered(
+    isolated_registry,
+):
+    """When evaluators are registered but all applies() return False, the
+    summary should NOT say 'No evaluator registered' — that's misleading.
+    Should instead name the registered evaluators and explain the skip.
+    """
+
+    class NeverApplies:
+        validation_method = "x"
+
+        def applies(self, _ctx: CriterionContext) -> bool:
+            return False
+
+        def evaluate(self, ctx: CriterionContext) -> CriterionResult:  # pragma: no cover
+            return CriterionResult(
+                criterion_id=ctx.criterion.id, goal_id=ctx.goal.id,
+                validation_method="x", passed=True,
+            )
+
+    register(NeverApplies())  # type: ignore[arg-type]
+
+    goal = _make_goal(total_subtasks=1, completed=0)
+    crit = _make_criterion(method="x")
+    result = dispatch(_make_ctx(goal, crit))
+    assert result.skipped is True
+    assert "No evaluator registered" not in result.summary
+    assert "did not apply" in result.summary
+    assert "NeverApplies" in result.summary
+
+
 def test_dispatch_first_applicable_wins(isolated_registry):
     """Registry returns first evaluator whose applies() returns True."""
     calls: list[str] = []

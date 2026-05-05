@@ -31,9 +31,12 @@ def dispatch(ctx: CriterionContext) -> CriterionResult:
     """Find first applicable evaluator for the criterion's validation_method.
 
     Returns a skipped result if no evaluator applies — never raises.
+    Distinguishes between "no evaluator registered" and "registered but
+    none applied" so the summary is diagnosable instead of misleading.
     """
     method = ctx.criterion.validation_method
-    for evaluator in _EVALUATORS.get(method, []):
+    candidates = _EVALUATORS.get(method, [])
+    for evaluator in candidates:
         try:
             if evaluator.applies(ctx):
                 return evaluator.evaluate(ctx)
@@ -52,13 +55,23 @@ def dispatch(ctx: CriterionContext) -> CriterionResult:
                 skipped=True,
                 summary=f"Evaluator {type(evaluator).__name__} raised: {type(e).__name__}",
             )
+
+    if not candidates:
+        summary = f"No evaluator registered for validation_method={method!r}"
+    else:
+        names = ", ".join(type(e).__name__ for e in candidates)
+        summary = (
+            f"Registered evaluator(s) for {method!r} did not apply ({names}) "
+            f"— required input absent (e.g. metric not in evidence bundle)"
+        )
+
     return CriterionResult(
         criterion_id=ctx.criterion.id,
         goal_id=ctx.goal.id,
         validation_method=method,
         passed=True,
         skipped=True,
-        summary=f"No evaluator registered for validation_method={method!r}",
+        summary=summary,
     )
 
 
