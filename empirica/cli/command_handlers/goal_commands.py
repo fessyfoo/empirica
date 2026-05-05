@@ -15,6 +15,7 @@ These commands provide JSON output for MCP v2 server integration.
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import time
@@ -26,6 +27,79 @@ from ..cli_utils import handle_cli_error, parse_json_safely
 logger = logging.getLogger(__name__)
 
 
+_CRITERION_RE = re.compile(
+    r"^\s*(?P<method>[a-z_]+)"
+    r"\s*:\s*(?P<metric>[A-Za-z0-9_\-./]+)"
+    r"\s*@\s*(?P<op>>=|<=)"
+    r"\s*(?P<threshold>-?\d+(?:\.\d+)?)\s*$"
+)
+
+
+def _parse_criterion_entry(entry):
+    """Build a SuccessCriterion from a CLI entry.
+
+    Supports three input forms:
+
+    1. Bare string ("All subtasks complete") → completion criterion with
+       no threshold. Backward-compatible default for users who don't care
+       about the typed syntax.
+
+    2. Typed expression "method:metric@op:threshold" — e.g.
+         "quality_gate:prose_stylometry_adherence@<=0.25"
+         "completion:subtask_ratio@>=0.9"
+       Parsed into SuccessCriterion(validation_method=method,
+       description=metric, threshold=threshold). The op is informational —
+       the evaluator's direction inference handles comparison semantics.
+
+    3. dict {description, validation_method, threshold, is_required} —
+       passed through directly. Used by programmatic callers.
+
+    Falls back to bare-string completion criterion on any parse failure.
+    """
+    import uuid as _uuid
+
+    from empirica.core.goals.types import SuccessCriterion
+
+    if isinstance(entry, dict):
+        return SuccessCriterion(
+            id=entry.get("id") or str(_uuid.uuid4()),
+            description=str(entry.get("description", "")),
+            validation_method=entry.get("validation_method", "completion"),
+            threshold=entry.get("threshold"),
+            is_required=entry.get("is_required", True),
+            is_met=entry.get("is_met", False),
+        )
+
+    raw = str(entry)
+    m = _CRITERION_RE.match(raw)
+    if not m:
+        return SuccessCriterion(
+            id=str(_uuid.uuid4()),
+            description=raw,
+            validation_method="completion",
+            is_required=True,
+            is_met=False,
+        )
+
+    try:
+        threshold = float(m.group("threshold"))
+    except ValueError:
+        return SuccessCriterion(
+            id=str(_uuid.uuid4()),
+            description=raw,
+            validation_method="completion",
+            is_required=True,
+            is_met=False,
+        )
+
+    return SuccessCriterion(
+        id=str(_uuid.uuid4()),
+        description=m.group("metric"),
+        validation_method=m.group("method"),
+        threshold=threshold,
+        is_required=True,
+        is_met=False,
+    )
 
 
 def _check_for_similar_goals_helper(cursor, db, objective, session_id, similar, threshold):
@@ -341,10 +415,8 @@ def _build_and_save_goal(objective, success_criteria_list, scope_breadth, scope_
     Returns:
         (goal, goal_repo, success_criteria_objects, scope, success, target_project_id)
     """
-    import uuid
-
     from empirica.core.goals.repository import GoalRepository
-    from empirica.core.goals.types import Goal, ScopeVector, SuccessCriterion
+    from empirica.core.goals.types import Goal, ScopeVector
 
     scope = ScopeVector(
         breadth=scope_breadth,
@@ -368,16 +440,16 @@ def _build_and_save_goal(objective, success_criteria_list, scope_breadth, scope_
             cross_db.close()
     goal_repo = GoalRepository(db_path=goal_repo_db_path)
 
-    # Create SuccessCriterion objects
+    # Create SuccessCriterion objects.
+    # Each entry can be either:
+    #   1. A bare string (e.g. "All subtasks complete") → completion criterion
+    #   2. A typed expression "method:metric@op:threshold" e.g.
+    #      "quality_gate:prose_stylometry_adherence@<=0.25"
+    #      "completion:subtask_ratio@>=1.0"
+    #   3. A pre-built dict {description, validation_method, threshold, ...}
     success_criteria_objects = []
-    for criteria in success_criteria_list:
-        success_criteria_objects.append(SuccessCriterion(
-            id=str(uuid.uuid4()),
-            description=str(criteria),
-            validation_method="completion",
-            is_required=True,
-            is_met=False
-        ))
+    for entry in success_criteria_list:
+        success_criteria_objects.append(_parse_criterion_entry(entry))
 
     # Create Goal object
     goal = Goal.create(

@@ -352,6 +352,61 @@ class GoalRepository:
                 pairs.append((goal, sc))
         return pairs
 
+    def add_success_criterion(
+        self,
+        goal_id: str,
+        validation_method: str,
+        description: str,
+        threshold: float | None = None,
+        is_required: bool = True,
+    ) -> str | None:
+        """Add a SuccessCriterion to an existing goal. Returns the new criterion ID.
+
+        Inserts into the normalized success_criteria table AND syncs the
+        parent goal's goal_data JSON so reads from either path see the
+        new criterion. Returns None if the goal doesn't exist.
+        """
+        import uuid
+
+        from .types import SuccessCriterion
+
+        goal = self.get_goal(goal_id)
+        if goal is None:
+            logger.error(f"Cannot add criterion — goal not found: {goal_id}")
+            return None
+
+        crit_id = str(uuid.uuid4())
+        try:
+            self.db.conn.execute("""
+                INSERT INTO success_criteria
+                (id, goal_id, description, validation_method, threshold, is_required, is_met)
+                VALUES (?, ?, ?, ?, ?, ?, 0)
+            """, (crit_id, goal.id, description, validation_method, threshold, is_required))
+
+            new_sc = SuccessCriterion(
+                id=crit_id,
+                description=description,
+                validation_method=validation_method,
+                threshold=threshold,
+                is_required=is_required,
+                is_met=False,
+            )
+            goal.success_criteria.append(new_sc)
+            self.db.conn.execute(
+                "UPDATE goals SET goal_data = ? WHERE id = ?",
+                (json.dumps(goal.to_dict()), goal.id),
+            )
+
+            self.db.conn.commit()
+            return crit_id
+        except Exception as e:
+            logger.error(f"Error adding success_criterion to goal {goal_id}: {e}")
+            try:
+                self.db.conn.rollback()
+            except Exception as rb_err:
+                logger.debug(f"Rollback also failed: {rb_err}")
+            return None
+
     def update_is_met(self, criterion_id: str, is_met: bool) -> bool:
         """Update is_met on a SuccessCriterion. Best-effort, no raise.
 
