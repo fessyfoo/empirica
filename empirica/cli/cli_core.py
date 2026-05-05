@@ -220,6 +220,7 @@ from .parsers import (
     add_performance_parsers,
     add_persona_parsers,
     add_profile_parsers,
+    add_projects_parsers,
     add_query_parsers,
     add_release_parsers,
     add_resolve_parser,
@@ -314,6 +315,7 @@ def create_argument_parser():
     subparsers.add_parser('help', help='Show all commands by category')
     add_memory_parsers(subparsers)
     add_profile_parsers(subparsers)
+    add_projects_parsers(subparsers)
     add_serve_parsers(subparsers)
 
     return parser
@@ -582,6 +584,8 @@ def main(args=None):
             'project-embed': handle_project_embed_command,
             'code-embed': handle_code_embed_command,
             'doc-check': handle_doc_check_command,
+            'projects-discover': handle_projects_discover_command,
+            'projects-list': handle_projects_list_command,
 
             # Finding/unknown/deadend/assumption/decision logging
             'finding-log': handle_finding_log_command,

@@ -192,6 +192,10 @@ from .project_search import (
     handle_project_search_command,
 )
 from .project_update import handle_project_update_command
+from .projects_commands import (
+    handle_projects_discover_command,
+    handle_projects_list_command,
+)
 from .release_commands import handle_release_command
 from .scan_commands import (
     handle_scan_command,
@@ -412,6 +416,8 @@ __all__ = [
     'handle_project_search_command',
     'handle_project_switch_command',
     'handle_project_update_command',
+    'handle_projects_discover_command',
+    'handle_projects_list_command',
     'handle_rebuild_command',
     'handle_refdoc_add_command',
     'handle_release_command',

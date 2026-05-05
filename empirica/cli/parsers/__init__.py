@@ -67,6 +67,7 @@ from .onboarding_parsers import add_onboarding_parsers
 from .performance_parsers import add_performance_parsers
 from .persona_parsers import add_persona_parsers
 from .profile_parsers import add_profile_parsers
+from .projects_parsers import add_projects_parsers
 from .query_parsers import add_query_parsers
 from .release_parsers import add_release_parsers
 from .scan_parsers import add_scan_parsers
@@ -108,6 +109,7 @@ __all__ = [
     'add_performance_parsers',
     'add_persona_parsers',
     'add_profile_parsers',
+    'add_projects_parsers',
     'add_query_parsers',
     'add_release_parsers',
     'add_resolve_parser',

@@ -1,0 +1,85 @@
+"""CLI parsers for the bulk-project verbs (v0.5).
+
+projects-discover  — walk the filesystem looking for .empirica/ directories
+projects-list      — list discovered projects (cached or fresh-scanned)
+projects-bulk-register — register all discovered projects on Cortex (T2)
+
+See docs/specs/PROPOSAL_BULK_PROJECT_LINK.md (mirrored from
+empirica-extension/docs/v0.5-BULK-PROJECT-LINK.md) for the design rationale.
+"""
+
+from __future__ import annotations
+
+
+def add_projects_parsers(subparsers) -> None:
+    """Register the bulk-project verbs on the top-level subparsers."""
+
+    # ── projects-discover ──────────────────────────────────────────────
+    discover = subparsers.add_parser(
+        "projects-discover",
+        help="Walk filesystem for .empirica/ directories and emit a manifest.",
+        description=(
+            "Find all local Empirica projects by walking from one or more roots. "
+            "Outputs a manifest (yaml/json) describing each discovered project's "
+            "path, name, and git remote URL. Used by projects-bulk-register to "
+            "import many projects to Cortex in one shot."
+        ),
+    )
+    discover.add_argument(
+        "--root",
+        action="append",
+        dest="roots",
+        help="Root directory to walk (default: $HOME). Repeatable.",
+    )
+    discover.add_argument(
+        "--max-depth",
+        type=int,
+        default=5,
+        help="Maximum walk depth from each root (default: 5).",
+    )
+    discover.add_argument(
+        "--include-hidden",
+        action="store_true",
+        help="Walk hidden directories (default: skip).",
+    )
+    discover.add_argument(
+        "--output",
+        choices=["yaml", "json"],
+        default="yaml",
+        help="Output format (default: yaml).",
+    )
+    discover.add_argument(
+        "--manifest",
+        default=None,
+        help=(
+            "Write manifest to this path (default: ~/.empirica/discovered_projects.yaml). "
+            "Use '-' to write to stdout only."
+        ),
+    )
+
+    # ── projects-list ──────────────────────────────────────────────────
+    listing = subparsers.add_parser(
+        "projects-list",
+        help="List discovered local Empirica projects.",
+        description=(
+            "Read the cached discovery manifest and print it. Falls back to a "
+            "fresh discover scan if no cache exists. Same shape as projects-discover "
+            "for parity with extension consumers."
+        ),
+    )
+    listing.add_argument(
+        "--output",
+        choices=["yaml", "json", "table"],
+        default="table",
+        help="Output format (default: table).",
+    )
+    listing.add_argument(
+        "--manifest",
+        default=None,
+        help="Read manifest from this path (default: ~/.empirica/discovered_projects.yaml).",
+    )
+    listing.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Force a fresh discover scan even if cache exists.",
+    )
