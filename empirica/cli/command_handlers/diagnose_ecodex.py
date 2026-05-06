@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -95,6 +96,65 @@ def check_ecodex_plugin_installed() -> CheckResult:
             "version": cache_dir.name,
             "plugin_key": manifest_data.get("name", _ECODEX_PLUGIN_KEY),
         },
+    )
+
+
+def check_ecodex_plugin_hooks_feature_enabled() -> CheckResult:
+    """Verify codex's plugin_hooks feature gate is on.
+
+    Codex's `Feature::PluginHooks` is `Stage::UnderDevelopment` with
+    `default_enabled: false`. Without `[features] plugin_hooks = true`
+    in ~/.codex/config.toml, the entire plugin hook engine is disabled
+    — empirica's PreToolUse / UserPromptSubmit / SessionStart / Stop
+    hooks all silently no-op and the discipline pipeline goes dark
+    in ecodex sessions.
+
+    Tx-AC regression detector: this was the subtle root-cause behind
+    "the proportionality block isn't reaching the agent" 2026-05-06.
+    Symptom is invisible — no error, just no hook output in
+    codex-tui.log. Easy to miss; cheap to verify here.
+    """
+    config_path = Path.home() / ".codex" / "config.toml"
+    if not config_path.is_file():
+        return CheckResult(
+            name="ecodex plugin_hooks feature enabled",
+            status=SKIP,
+            detail="~/.codex/config.toml missing",
+            hint="See `ecodex plugin enabled in config` check",
+        )
+    text = config_path.read_text()
+    # Lightweight match: under [features] block, look for plugin_hooks = true.
+    in_features = False
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.startswith("[features]"):
+            in_features = True
+            continue
+        if line.startswith("[") and not line.startswith("[features]"):
+            in_features = False
+            continue
+        if in_features and re.match(r"plugin_hooks\s*=\s*true", line):
+            return CheckResult(
+                name="ecodex plugin_hooks feature enabled",
+                status=PASS,
+                detail="[features] plugin_hooks = true in config",
+            )
+    return CheckResult(
+        name="ecodex plugin_hooks feature enabled",
+        status=FAIL,
+        detail=(
+            "[features] plugin_hooks not set true — codex's plugin hook engine "
+            "is OFF by default (Stage::UnderDevelopment). Empirica's "
+            "PreToolUse/UserPromptSubmit/SessionStart/Stop hooks won't fire. "
+            "Sentinel gate, context injection, session bind all dark."
+        ),
+        hint=(
+            "Add to ~/.codex/config.toml:\n\n"
+            "[features]\n"
+            "plugin_hooks = true\n"
+            "plugins = true\n\n"
+            "Then restart ecodex."
+        ),
     )
 
 
@@ -702,6 +762,9 @@ def run_all_checks_ecodex(*, fast: bool = False) -> list[CheckResult]:
     # Plugin install state
     results.append(check_ecodex_plugin_installed())
     results.append(check_ecodex_plugin_enabled_in_config())
+    # Feature gate — without this on, the plugin's hooks ALL silently no-op.
+    # Subtle failure mode (no error, just dark integration); doctor catches it.
+    results.append(check_ecodex_plugin_hooks_feature_enabled())
     # Statusline (the path most likely to break invisibly)
     results.append(check_ecodex_statusline_runtime_stdin())
     results.append(check_ecodex_statusline_script_runs())
