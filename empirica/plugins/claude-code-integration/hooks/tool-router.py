@@ -174,6 +174,121 @@ def build_semantic_pushback_check(prompt: str) -> str | None:
 # ============================================================================
 
 
+# ============================================================================
+# Investigation Depth Proportionality (Tx-AB)
+# ============================================================================
+#
+# Symptom this block addresses: agent runs 30+ file reads on a question where
+# the user already supplied the hypothesis ("might need to create a session",
+# "I think it's the X path", "probably the config"). Reading 30 files looks
+# diligent but burns context and delays the actual hypothesis-test. The
+# proportional response is one targeted probe.
+#
+# Diagnosis case 2026-05-06: Kimi/Sonnet/Opus all show this pattern in
+# ecodex; default-mode bias from upstream training treats every prompt as
+# deep-research even when the user's framing is "quick check, I think X".
+#
+# Trigger detection is regex-based on hypothesis markers + scope-shaping
+# verbs. The block doesn't disable investigation — it asks the agent to
+# size the probe to the hypothesis BEFORE branching wider.
+
+INVESTIGATION_PROPORTIONALITY_BLOCK = """<investigation-proportionality>
+The user's prompt contains a hypothesis marker or proportional-scope cue
+(e.g. "I think...", "maybe...", "might need...", "check on...", "verify",
+"quick look").
+
+Before broader investigation:
+
+1. NAME the hypothesis the user supplied or implied (one sentence).
+2. RUN the smallest disconfirming probe — usually a single bash/grep/read
+   that would PROVE the hypothesis wrong if wrong, or confirm a key
+   prediction if right.
+3. ONLY IF the probe disconfirms or surfaces a new question → expand
+   investigation. Reading >5 files before testing the user's hypothesis
+   is a red flag for over-investigation.
+
+This is NOT a ban on thorough work — it's a gate on UPFRONT scope. After
+the probe, you may still need depth. The discipline is "test first,
+expand on evidence", not "skim and assume".
+
+Anti-patterns:
+- Reading the entire subsystem to verify a one-line config change
+- Running grep across the codebase before checking if the answer is in
+  the user's own message
+- Building a mental model of code you haven't touched yet, when one
+  command would tell you which path to look at
+</investigation-proportionality>"""
+
+
+# Hypothesis markers — phrases that signal the user has a working theory.
+# Detection is regex-based + lower-cased + word-boundary anchored to avoid
+# false positives like "thinking about" or "check this code". We catch the
+# common framings that came up in real usage 2026-05-06.
+PROPORTIONALITY_HYPOTHESIS_PATTERNS = [
+    r"\bi think\b",
+    r"\bi suspect\b",
+    r"\bi believe\b",
+    r"\bmaybe\b",
+    r"\bmight (be|need|have|require)\b",
+    r"\bprobably\b",
+    r"\blikely\b",
+    r"\bI'?d guess\b",
+    r"\bmy hunch\b",
+    r"\bsuspect (it'?s|the)\b",
+    r"\bcould be\b",
+]
+
+# Proportional-scope phrasing — "test the hypothesis with a small probe"
+# rather than "do a full audit". Same regex shape as above.
+PROPORTIONALITY_SCOPE_PATTERNS = [
+    r"\bquick (check|look|test|peek|sanity)\b",
+    r"\bjust (check|verify|confirm|look)\b",
+    r"\bsanity check\b",
+    r"\bsmoke test\b",
+    r"\bcheck on (this|that|the)\b",
+    r"\bjust to (verify|confirm)\b",
+    r"\bcan you (check|verify|confirm)\b",
+]
+
+# Min length filters trivial inputs ("ok", "yes", "continue") but stays low
+# enough that genuine probe prompts ("sanity check please", "quick check"
+# alone) still match. EPP threshold is 20 because pushback semantics need
+# longer context; proportionality cues are usually shorter.
+PROPORTIONALITY_MIN_LENGTH = 12
+
+
+def build_investigation_proportionality_check(prompt: str) -> str | None:
+    """Return the proportionality block for prompts containing hypothesis or
+    quick-scope markers, None otherwise.
+
+    Detection is intentionally regex + word-boundary on a small curated list,
+    NOT semantic. Goal: catch the obvious cases without false-positiving on
+    every prompt. The block itself acknowledges nuance ("This is NOT a ban on
+    thorough work") so a false positive only adds 10 lines of context — same
+    cost-of-being-wrong as the existing EPP semantic-pushback block.
+    """
+    import re as _re
+
+    if len(prompt) < PROPORTIONALITY_MIN_LENGTH:
+        return None
+    if prompt.startswith("/"):
+        return None
+    lowered = prompt.lower()
+    has_marker = any(
+        _re.search(pat, lowered) for pat in PROPORTIONALITY_HYPOTHESIS_PATTERNS
+    ) or any(
+        _re.search(pat, lowered) for pat in PROPORTIONALITY_SCOPE_PATTERNS
+    )
+    if not has_marker:
+        return None
+    return INVESTIGATION_PROPORTIONALITY_BLOCK
+
+
+# ============================================================================
+# End Investigation Depth Proportionality block
+# ============================================================================
+
+
 # Patterns that indicate genuine epistemic humility (NOT hedging)
 # These should NOT trigger AAP
 GENUINE_HUMILITY_PATTERNS = [
@@ -530,17 +645,30 @@ def main():
     # AAP hedge detection
     aap_context = _build_aap_context(prompt)
 
+    # Investigation depth proportionality (Tx-AB) — fires on hypothesis
+    # markers and proportional-scope phrasing ("I think", "maybe", "quick
+    # check", etc.). Counters the over-investigation pattern where agents
+    # read 30+ files on a question the user already framed with a working
+    # theory. Cheap detection (regex + word-boundary) so misses are
+    # graceful. Block acknowledges nuance internally so false positives
+    # cost ~10 lines of context, no behavior break.
+    proportionality_check = build_investigation_proportionality_check(prompt)
+
     # EPP semantic pushback check — always-on for substantive prompts.
     # Injected LAST in context_parts to exploit attention recency bias.
     # Phase 0 (2026-04-07) verified effect across Opus/Sonnet/Haiku.
     semantic_check = build_semantic_pushback_check(prompt)
 
-    # Combine contexts
+    # Combine contexts. Order matters: routing first (high-level mode),
+    # then aap (hedge correction), then proportionality (scope sizing),
+    # then EPP (pushback handling) LAST for attention-recency.
     context_parts = []
     if advice:
         context_parts.append(f"<epistemic-routing>\n{advice}\n</epistemic-routing>")
     if aap_context:
         context_parts.append(aap_context)
+    if proportionality_check:
+        context_parts.append(proportionality_check)
     if semantic_check:
         # Placed LAST — highest attention weight in the injected context window
         context_parts.append(semantic_check)

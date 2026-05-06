@@ -554,6 +554,66 @@ def check_ecodex_cargo_check() -> CheckResult:
 # ---------------------------------------------------------------------------
 
 
+def check_empirica_proportionality_block_wired() -> CheckResult:
+    """Verify the investigation-depth-proportionality block is wired into
+    the empirica plugin's UserPromptSubmit hook (tool-router.py).
+
+    Tx-AB regression detector: a future tool-router.py refactor that drops
+    the build_investigation_proportionality_check call (or the block
+    constant) silently disables the over-investigation guard.
+    """
+    candidates = [
+        Path("/home/yogapad/empirical-ai/empirica/empirica/plugins/claude-code-integration/hooks/tool-router.py"),
+        # Bundled-into-ecodex copy
+        Path.home()
+        / ".codex"
+        / "plugins"
+        / "cache"
+        / "nubaeon"
+        / "empirica"
+        / "0.1.0"
+        / "hooks_scripts"
+        / "hooks"
+        / "tool-router.py",
+    ]
+    router_file: Path | None = None
+    for c in candidates:
+        if c.is_file():
+            router_file = c
+            break
+    if router_file is None:
+        return CheckResult(
+            name="empirica proportionality block wired",
+            status=SKIP,
+            detail="tool-router.py not found in either source or bundled location",
+        )
+    text = router_file.read_text()
+    if "build_investigation_proportionality_check" not in text:
+        return CheckResult(
+            name="empirica proportionality block wired",
+            status=FAIL,
+            detail=f"build_investigation_proportionality_check not referenced in {router_file}",
+            hint=(
+                "Tx-AB fix: tool-router.py main() must call "
+                "build_investigation_proportionality_check(prompt) and append "
+                "its non-None return to context_parts before the EPP "
+                "semantic-check block"
+            ),
+        )
+    if "INVESTIGATION_PROPORTIONALITY_BLOCK" not in text:
+        return CheckResult(
+            name="empirica proportionality block wired",
+            status=FAIL,
+            detail="INVESTIGATION_PROPORTIONALITY_BLOCK constant missing — block was removed?",
+            hint="Re-add the block constant to tool-router.py; see Tx-AB commit",
+        )
+    return CheckResult(
+        name="empirica proportionality block wired",
+        status=PASS,
+        detail=f"Both block constant and builder function referenced in {router_file.name}",
+    )
+
+
 def check_ecodex_instance_isolation_key() -> CheckResult:
     """Verify the ecodex Rust source propagates EMPIRICA_INSTANCE_ID.
 
@@ -648,6 +708,9 @@ def run_all_checks_ecodex(*, fast: bool = False) -> list[CheckResult]:
     # Instance isolation — the layer that makes multi-instance work in any
     # terminal context (Tx-Z propagates codex thread_id as EMPIRICA_INSTANCE_ID)
     results.append(check_ecodex_instance_isolation_key())
+    # Behavioral discipline — ensures Tx-AB proportionality block is in the
+    # UserPromptSubmit hook so agents over-investigation gets countered.
+    results.append(check_empirica_proportionality_block_wired())
     # Translator (Anthropic-protocol providers depend on this)
     results.append(check_ecodex_translator_listening())
     results.append(check_ecodex_translator_healthz())
