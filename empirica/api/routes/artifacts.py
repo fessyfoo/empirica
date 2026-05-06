@@ -592,3 +592,258 @@ async def list_goals(
         return {"goals": rows, "project_id": project_id}
     finally:
         db.close()
+
+
+# ── Single-artifact CRUD (T3) ────────────────────────────────────────
+
+
+# (artifact_type, table, id_col) — the polymorphic lookup map. Mirrors
+# graph_commands._ARTIFACT_TABLES but adds source for completeness.
+_TYPE_TABLE_MAP: list[tuple[str, str, str]] = [
+    ("finding", "project_findings", "id"),
+    ("unknown", "project_unknowns", "id"),
+    ("dead_end", "project_dead_ends", "id"),
+    ("mistake", "mistakes_made", "id"),
+    ("assumption", "assumptions", "id"),
+    ("decision", "decisions", "id"),
+    ("source", "epistemic_sources", "id"),
+    ("goal", "goals", "id"),
+]
+
+
+def _resolve_artifact_by_id(db, artifact_id: str) -> tuple[str, str, str] | None:
+    """Polymorphic lookup: find which table contains `artifact_id`.
+
+    Returns (artifact_type, table, id_col) or None if not found in any table.
+    """
+    cursor = db.conn.cursor()
+    for artifact_type, table, id_col in _TYPE_TABLE_MAP:
+        try:
+            cursor.execute(f"SELECT 1 FROM {table} WHERE {id_col} = ? LIMIT 1", (artifact_id,))
+            if cursor.fetchone():
+                return (artifact_type, table, id_col)
+        except Exception as e:
+            logger.debug(f"_resolve_artifact_by_id: lookup on {table} failed: {e}")
+    return None
+
+
+def _list_one_by_type(db, artifact_type: str, artifact_id: str) -> dict | None:
+    """Return the single-row dict for an artifact, using the per-type list helpers."""
+    project = get_cached_daemon_project() or {}
+    project_id = project.get("project_id")
+    if not project_id:
+        return None
+    if artifact_type == "finding":
+        rows = _list_findings(db, project_id, limit=1000)
+    elif artifact_type == "unknown":
+        rows = _list_unknowns(db, project_id, "all", limit=1000)
+    elif artifact_type == "dead_end":
+        rows = _list_dead_ends(db, project_id, limit=1000)
+    elif artifact_type == "mistake":
+        rows = _list_mistakes(db, project_id, limit=1000)
+    elif artifact_type == "assumption":
+        rows = _list_assumptions(db, project_id, confidence_min=0.0, limit=1000)
+    elif artifact_type == "decision":
+        rows = _list_decisions(db, project_id, limit=1000)
+    elif artifact_type == "source":
+        rows = _list_sources(db, project_id, limit=1000)
+    elif artifact_type == "goal":
+        rows = _list_goals(db, project_id, "all", limit=1000)
+    else:
+        return None
+    for row in rows:
+        if row.get("id") == artifact_id:
+            return row
+    return None
+
+
+@router.get("/artifacts/{artifact_id}")
+async def get_artifact(artifact_id: str):
+    """Fetch one artifact + all its edges (full neighborhood).
+
+    Type is inferred polymorphically by scanning artifact tables.
+    Returns 404 if the id doesn't exist in any table.
+    """
+    project = get_cached_daemon_project()
+    if not project:
+        raise HTTPException(status_code=503, detail="Daemon not bound to a project")
+    db = _open_db()
+    try:
+        resolved = _resolve_artifact_by_id(db, artifact_id)
+        if not resolved:
+            raise HTTPException(status_code=404, detail=f"Artifact {artifact_id} not found")
+        artifact_type, _table, _id_col = resolved
+        row = _list_one_by_type(db, artifact_type, artifact_id)
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Artifact {artifact_id} not in active project")
+        rows = _attach_related_to(db, [row])
+        return {"artifact": rows[0]}
+    finally:
+        db.close()
+
+
+@router.patch("/artifacts/{artifact_id}/resolve")
+async def resolve_artifact(artifact_id: str, body: dict):
+    """Mark an artifact as resolved.
+
+    Per-type semantics (matches `empirica resolve-artifacts` CLI):
+    - unknown:    is_resolved = 1, resolved_by, resolved_timestamp
+    - assumption: status = 'verified'
+    - goal:       is_completed = 1, status = 'completed', completed_timestamp
+
+    For other types (finding/decision/dead_end/mistake/source) — 422 (no resolve semantics).
+    """
+    import time
+
+    resolved_by = body.get("resolved_by", "")
+    project = get_cached_daemon_project()
+    if not project:
+        raise HTTPException(status_code=503, detail="Daemon not bound to a project")
+
+    db = _open_db()
+    try:
+        resolved = _resolve_artifact_by_id(db, artifact_id)
+        if not resolved:
+            raise HTTPException(status_code=404, detail=f"Artifact {artifact_id} not found")
+        artifact_type, _table, _id_col = resolved
+        cursor = db.conn.cursor()
+        now = time.time()
+
+        if artifact_type == "unknown":
+            cursor.execute(
+                "UPDATE project_unknowns SET is_resolved = 1, resolved_by = ?, "
+                "resolved_timestamp = ? WHERE id = ?",
+                (resolved_by, now, artifact_id),
+            )
+        elif artifact_type == "assumption":
+            cursor.execute(
+                "UPDATE assumptions SET status = 'verified', resolved_timestamp = ? WHERE id = ?",
+                (now, artifact_id),
+            )
+        elif artifact_type == "goal":
+            cursor.execute(
+                "UPDATE goals SET is_completed = 1, status = 'completed', "
+                "completed_timestamp = ? WHERE id = ?",
+                (now, artifact_id),
+            )
+        else:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Artifact type '{artifact_type}' has no resolve semantics",
+            )
+
+        db.conn.commit()
+        return {"ok": True, "type": artifact_type, "id": artifact_id, "action": "resolved"}
+    finally:
+        db.close()
+
+
+# Whitelisted PATCH fields per artifact type. Anything outside this map is
+# silently dropped — defensive, prevents accidental schema mutation from the API.
+_PATCH_WHITELIST: dict[str, set[str]] = {
+    "finding": {"impact", "subject", "epistemic_source"},
+    "unknown": {"impact", "subject", "epistemic_source"},
+    "dead_end": {"impact", "subject", "epistemic_source"},
+    "mistake": {"prevention", "epistemic_source"},
+    "assumption": {"confidence", "status", "epistemic_source"},
+    "decision": {"outcome", "regret_score", "epistemic_source"},
+    "source": {"confidence", "description"},
+    "goal": {"objective", "status"},
+}
+
+
+@router.patch("/artifacts/{artifact_id}")
+async def patch_artifact(artifact_id: str, body: dict):
+    """Partial update on an artifact. Only whitelisted fields per type.
+
+    Body shape: {"<field>": <value>, ...}. Unknown fields are silently dropped.
+    Returns 200 with {ok, type, id, updated_fields} or 404 / 422 / 503.
+    """
+    project = get_cached_daemon_project()
+    if not project:
+        raise HTTPException(status_code=503, detail="Daemon not bound to a project")
+
+    db = _open_db()
+    try:
+        resolved = _resolve_artifact_by_id(db, artifact_id)
+        if not resolved:
+            raise HTTPException(status_code=404, detail=f"Artifact {artifact_id} not found")
+        artifact_type, table, id_col = resolved
+
+        whitelist = _PATCH_WHITELIST.get(artifact_type, set())
+        updates = {k: v for k, v in body.items() if k in whitelist}
+        if not updates:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"No whitelisted fields in body. Allowed for {artifact_type}: "
+                    f"{sorted(whitelist)}"
+                ),
+            )
+
+        set_clause = ", ".join(f"{k} = ?" for k in updates)
+        params = list(updates.values()) + [artifact_id]
+        cursor = db.conn.cursor()
+        cursor.execute(f"UPDATE {table} SET {set_clause} WHERE {id_col} = ?", params)
+        db.conn.commit()
+
+        return {
+            "ok": True,
+            "type": artifact_type,
+            "id": artifact_id,
+            "updated_fields": sorted(updates.keys()),
+        }
+    finally:
+        db.close()
+
+
+@router.delete("/artifacts/{artifact_id}")
+async def delete_artifact(artifact_id: str):
+    """Delete an artifact across all three storage layers.
+
+    sqlite (row + dangling edges) + Qdrant (vector point) + git notes
+    (refs/notes/empirica/{type}/{id}). Closes the documented delete-git-notes
+    gap from `empirica delete-artifacts` CLI.
+    """
+    project = get_cached_daemon_project()
+    if not project:
+        raise HTTPException(status_code=503, detail="Daemon not bound to a project")
+    project_id = project.get("project_id")
+    project_path = project.get("project_path")
+
+    db = _open_db()
+    try:
+        resolved = _resolve_artifact_by_id(db, artifact_id)
+        if not resolved:
+            raise HTTPException(status_code=404, detail=f"Artifact {artifact_id} not found")
+        artifact_type, _table, _id_col = resolved
+
+        # Reuse the existing _delete_single_artifact (now extended with git-notes cleanup).
+        from empirica.cli.command_handlers.graph_commands import _delete_single_artifact
+
+        cursor = db.conn.cursor()
+        result = _delete_single_artifact(
+            cursor,
+            {"type": artifact_type, "id": artifact_id},
+            project_id=project_id,
+            dry_run=False,
+            project_path=project_path,
+        )
+        db.conn.commit()
+
+        if result is None or result.get("error"):
+            raise HTTPException(
+                status_code=500,
+                detail=result.get("error", "delete failed") if result else "delete failed",
+            )
+
+        return {
+            "ok": True,
+            "type": result["type"],
+            "id": result["id"],
+            "action": result["action"],
+            "edges_removed": result.get("edges_removed", 0),
+            "git_notes_cleaned": result.get("git_notes_cleaned", False),
+        }
+    finally:
+        db.close()

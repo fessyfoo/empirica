@@ -809,8 +809,64 @@ def _read_deletion_input(args) -> dict | None:
     return data
 
 
-def _delete_single_artifact(cursor, item: dict, project_id: str | None, dry_run: bool) -> dict | None:
-    """Delete a single artifact. Returns result dict or None on error."""
+def _delete_artifact_git_notes(
+    artifact_type: str, artifact_id: str, project_path: str | None = None
+) -> bool:
+    """Remove the artifact's git note ref at refs/notes/empirica/{type}/{id}.
+
+    Closes the documented delete-git-notes gap: previously only sqlite + Qdrant
+    were cleaned on artifact delete, leaving stale notes that re-surfaced in
+    cross-session searches and `commit-context` output.
+
+    project_path: optional project root to run git inside. Falls back to CWD.
+    Returns True on success, False on any failure (non-fatal).
+    """
+    import subprocess
+    ref = f"refs/notes/empirica/{artifact_type}/{artifact_id}"
+    try:
+        # `git update-ref -d <ref>` removes the ref atomically. Idempotent —
+        # exits 0 even if the ref doesn't exist (subject to git version).
+        result = subprocess.run(
+            ["git", "update-ref", "-d", ref],
+            cwd=project_path or None,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        return result.returncode == 0
+    except (subprocess.SubprocessError, FileNotFoundError) as e:
+        logger.debug(f"_delete_artifact_git_notes: failed for {ref}: {e}")
+        return False
+
+
+def _delete_artifact_edges(cursor, artifact_id: str) -> int:
+    """Remove all edges (incoming and outgoing) for an artifact from artifact_edges.
+
+    Cascade-on-delete: when an artifact is deleted, dangling edges that reference
+    it become invalid. Clean them up at the same point (DELETE handler).
+    Returns the number of edge rows removed.
+    """
+    try:
+        cursor.execute(
+            "DELETE FROM artifact_edges WHERE from_id = ? OR to_id = ?",
+            (artifact_id, artifact_id),
+        )
+        return cursor.rowcount
+    except Exception as e:
+        logger.debug(f"_delete_artifact_edges: failed for {artifact_id}: {e}")
+        return 0
+
+
+def _delete_single_artifact(cursor, item: dict, project_id: str | None, dry_run: bool,
+                             project_path: str | None = None) -> dict | None:
+    """Delete a single artifact across all three storage layers.
+
+    sqlite (artifact row) + sqlite (artifact_edges cascade) + Qdrant (vector point)
+    + git notes (breadcrumb ref). Returns result dict or None on error.
+
+    project_path is used to scope git-notes cleanup; falls back to CWD if None.
+    """
     artifact_type = item.get('type')
     artifact_id = item.get('id')
 
@@ -832,11 +888,23 @@ def _delete_single_artifact(cursor, item: dict, project_id: str | None, dry_run:
     if dry_run:
         return {"type": artifact_type, "id": full_id, "action": "would_delete"}
 
+    # Layer 1: sqlite — artifact row
     cursor.execute(f"DELETE FROM {table} WHERE {id_col} = ?", (full_id,))
+    # Layer 1b: sqlite — cascade-clean dangling edges in artifact_edges
+    edges_removed = _delete_artifact_edges(cursor, full_id)
+    # Layer 2: Qdrant — vector point
     if project_id:
         _delete_from_qdrant(full_id, project_id)
+    # Layer 3: git notes — breadcrumb ref (closes the documented gap)
+    git_notes_cleaned = _delete_artifact_git_notes(artifact_type, full_id, project_path)
 
-    return {"type": artifact_type, "id": full_id, "action": "deleted"}
+    return {
+        "type": artifact_type,
+        "id": full_id,
+        "action": "deleted",
+        "edges_removed": edges_removed,
+        "git_notes_cleaned": git_notes_cleaned,
+    }
 
 
 def handle_delete_artifacts_command(args):  # noqa: C901 — batch dispatcher fan-out
@@ -878,8 +946,18 @@ def handle_delete_artifacts_command(args):  # noqa: C901 — batch dispatcher fa
             except Exception:
                 pass
 
+        # Resolve project_path for git-notes cleanup (CWD by default — CLI
+        # is run from the project root)
+        project_path = None
+        try:
+            from empirica.utils.session_resolver import InstanceResolver as R
+            project_path = R.project_path()
+        except Exception:
+            pass
+
         for item in items:
-            result_item = _delete_single_artifact(cursor, item, project_id, dry_run)
+            result_item = _delete_single_artifact(cursor, item, project_id, dry_run,
+                                                    project_path=project_path)
             if not result_item:
                 continue
             if 'error' in result_item:
