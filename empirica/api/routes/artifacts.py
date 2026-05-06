@@ -594,7 +594,7 @@ async def list_goals(
         db.close()
 
 
-# ── Single-artifact CRUD (T3) ────────────────────────────────────────
+# ── Polymorphic ID lookup (shared by T3 single CRUD + T4 graph) ──────
 
 
 # (artifact_type, table, id_col) — the polymorphic lookup map. Mirrors
@@ -625,6 +625,155 @@ def _resolve_artifact_by_id(db, artifact_id: str) -> tuple[str, str, str] | None
         except Exception as e:
             logger.debug(f"_resolve_artifact_by_id: lookup on {table} failed: {e}")
     return None
+
+
+# ── Graph endpoint (T4) — defined BEFORE /artifacts/{id} so FastAPI ──
+# ── matches the static "/graph" path before the dynamic capture. ─────
+
+
+def _walk_graph(  # noqa: C901 — graph walker has multiple branches but reads linearly
+    db, seed_id: str | None, session_id: str | None,
+    depth: int, max_nodes: int, type_filter: set[str] | None,
+) -> tuple[list[dict], list[dict]]:
+    """BFS over artifact_edges (bidirectional). Returns (nodes, edges)."""
+    cursor = db.conn.cursor()
+
+    seeds: set[str] = set()
+    if seed_id:
+        seeds.add(seed_id)
+    elif session_id:
+        for _type, table, id_col in _TYPE_TABLE_MAP:
+            try:
+                cursor.execute(f"SELECT {id_col} FROM {table} WHERE session_id = ? LIMIT ?",
+                               (session_id, max_nodes))
+                for row in cursor.fetchall():
+                    seeds.add(row[0])
+                    if len(seeds) >= max_nodes:
+                        break
+            except Exception:
+                continue
+            if len(seeds) >= max_nodes:
+                break
+    else:
+        project = get_cached_daemon_project() or {}
+        project_id = project.get("project_id")
+        if project_id:
+            for _type, table, id_col in _TYPE_TABLE_MAP:
+                try:
+                    cursor.execute(
+                        f"SELECT {id_col} FROM {table} WHERE project_id = ? "
+                        f"ORDER BY created_timestamp DESC LIMIT ?",
+                        (project_id, max_nodes),
+                    )
+                    for row in cursor.fetchall():
+                        seeds.add(row[0])
+                        if len(seeds) >= max_nodes:
+                            break
+                except Exception:
+                    continue
+                if len(seeds) >= max_nodes:
+                    break
+
+    if not seeds:
+        return ([], [])
+
+    visited: set[str] = set(seeds)
+    edges_collected: set[tuple[str, str, str]] = set()
+    frontier = set(seeds)
+    for _ in range(depth):
+        if not frontier or len(visited) >= max_nodes:
+            break
+        ph = ",".join("?" * len(frontier))
+        cursor.execute(
+            f"SELECT from_id, to_id, relation FROM artifact_edges WHERE from_id IN ({ph})",
+            list(frontier),
+        )
+        new_frontier: set[str] = set()
+        for from_id, to_id, relation in cursor.fetchall():
+            edges_collected.add((from_id, to_id, relation))
+            if to_id not in visited and len(visited) < max_nodes:
+                visited.add(to_id)
+                new_frontier.add(to_id)
+        cursor.execute(
+            f"SELECT from_id, to_id, relation FROM artifact_edges WHERE to_id IN ({ph})",
+            list(frontier),
+        )
+        for from_id, to_id, relation in cursor.fetchall():
+            edges_collected.add((from_id, to_id, relation))
+            if from_id not in visited and len(visited) < max_nodes:
+                visited.add(from_id)
+                new_frontier.add(from_id)
+        frontier = new_frontier
+
+    nodes_out: list[dict] = []
+    title_col_for: dict[str, str] = {
+        "finding": "finding", "unknown": "unknown",
+        "dead_end": "approach", "mistake": "mistake",
+        "assumption": "assumption", "decision": "choice",
+        "source": "title", "goal": "objective",
+    }
+    for artifact_id in visited:
+        for artifact_type, table, id_col in _TYPE_TABLE_MAP:
+            if type_filter and artifact_type not in type_filter:
+                continue
+            try:
+                title_col = title_col_for[artifact_type]
+                cursor.execute(
+                    f"SELECT {title_col} FROM {table} WHERE {id_col} = ? LIMIT 1",
+                    (artifact_id,),
+                )
+                row = cursor.fetchone()
+                if row:
+                    title = (row[0] or "")[:100] if row[0] else ""
+                    nodes_out.append({"id": artifact_id, "type": artifact_type, "title": title})
+                    break
+            except Exception:
+                continue
+
+    node_ids_kept = {n["id"] for n in nodes_out}
+    edges_out = [
+        {"from": f, "to": t, "relation": r}
+        for (f, t, r) in edges_collected
+        if f in node_ids_kept and t in node_ids_kept
+    ]
+    return (nodes_out, edges_out)
+
+
+@router.get("/artifacts/graph")
+async def get_artifact_graph(
+    seed_id: str | None = Query(None),
+    session_id: str | None = Query(None),
+    depth: int = Query(2, ge=0, le=10),
+    types: str | None = Query(None),
+    max_nodes: int = Query(500, ge=1, le=2000),
+):
+    """Connected component as nodes + edges.
+
+    seed_id: BFS from one artifact (depth N).
+    session_id: graph of artifacts created in that session.
+    Neither: project-wide graph (capped at max_nodes, default 500).
+    types: comma-separated type filter (finding,decision,...).
+    """
+    project = get_cached_daemon_project()
+    if not project:
+        raise HTTPException(status_code=503, detail="Daemon not bound to a project")
+    project_id = project.get("project_id")
+    if not project_id:
+        return {"nodes": [], "edges": [], "project_id": None}
+
+    type_filter: set[str] | None = None
+    if types:
+        type_filter = {t.strip() for t in types.split(",") if t.strip()}
+
+    db = _open_db()
+    try:
+        nodes, edges = _walk_graph(db, seed_id, session_id, depth, max_nodes, type_filter)
+        return {"nodes": nodes, "edges": edges, "project_id": project_id}
+    finally:
+        db.close()
+
+
+# ── Single-artifact CRUD (T3) — registered AFTER /artifacts/graph ────
 
 
 def _list_one_by_type(db, artifact_type: str, artifact_id: str) -> dict | None:
@@ -792,6 +941,147 @@ async def patch_artifact(artifact_id: str, body: dict):
             "type": artifact_type,
             "id": artifact_id,
             "updated_fields": sorted(updates.keys()),
+        }
+    finally:
+        db.close()
+
+
+# ── Batch endpoints (T4) ─────────────────────────────────────────────
+
+
+@router.post("/artifacts/log")
+async def post_artifacts_log(body: dict):
+    """Batch log a graph (nodes + edges). Proxies to log_artifacts_graph().
+
+    Body shape matches `empirica log-artifacts` CLI: {nodes: [...], edges: [...]}.
+    """
+    project = get_cached_daemon_project()
+    if not project:
+        raise HTTPException(status_code=503, detail="Daemon not bound to a project")
+
+    from empirica.cli.command_handlers.graph_commands import log_artifacts_graph
+    result = log_artifacts_graph(
+        body,
+        project_id=project.get("project_id"),
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error", "log failed"))
+    return result
+
+
+@router.post("/artifacts/resolve")
+async def post_artifacts_resolve(body: dict):
+    """Batch resolve. Body: {ids: [...], resolved_by?: "..."} or {items: [{id, type}, ...]}."""
+    import time
+
+    project = get_cached_daemon_project()
+    if not project:
+        raise HTTPException(status_code=503, detail="Daemon not bound to a project")
+
+    ids = body.get("ids") or [item.get("id") for item in body.get("items", []) if item.get("id")]
+    if not ids:
+        raise HTTPException(status_code=422, detail="Body must include 'ids' or 'items'")
+    resolved_by = body.get("resolved_by", "")
+
+    db = _open_db()
+    try:
+        cursor = db.conn.cursor()
+        now = time.time()
+        results: list[dict] = []
+        for art_id in ids:
+            resolved = _resolve_artifact_by_id(db, art_id)
+            if not resolved:
+                results.append({"id": art_id, "outcome": "not_found"})
+                continue
+            artifact_type, _table, _id_col = resolved
+            if artifact_type == "unknown":
+                cursor.execute(
+                    "UPDATE project_unknowns SET is_resolved = 1, resolved_by = ?, "
+                    "resolved_timestamp = ? WHERE id = ?",
+                    (resolved_by, now, art_id),
+                )
+                results.append({"id": art_id, "type": artifact_type, "outcome": "resolved"})
+            elif artifact_type == "assumption":
+                cursor.execute(
+                    "UPDATE assumptions SET status = 'verified', resolved_timestamp = ? WHERE id = ?",
+                    (now, art_id),
+                )
+                results.append({"id": art_id, "type": artifact_type, "outcome": "resolved"})
+            elif artifact_type == "goal":
+                cursor.execute(
+                    "UPDATE goals SET is_completed = 1, status = 'completed', "
+                    "completed_timestamp = ? WHERE id = ?",
+                    (now, art_id),
+                )
+                results.append({"id": art_id, "type": artifact_type, "outcome": "resolved"})
+            else:
+                results.append({
+                    "id": art_id, "type": artifact_type, "outcome": "skipped",
+                    "reason": "no resolve semantics",
+                })
+        db.conn.commit()
+        return {
+            "ok": True,
+            "resolved": sum(1 for r in results if r["outcome"] == "resolved"),
+            "skipped": sum(1 for r in results if r["outcome"] == "skipped"),
+            "not_found": sum(1 for r in results if r["outcome"] == "not_found"),
+            "results": results,
+        }
+    finally:
+        db.close()
+
+
+@router.post("/artifacts/delete")
+async def post_artifacts_delete(body: dict):
+    """Batch delete. Body: {ids: [...]} or {items: [{id, type}, ...]}.
+
+    Each delete fans out to all three storage layers via _delete_single_artifact.
+    """
+    project = get_cached_daemon_project()
+    if not project:
+        raise HTTPException(status_code=503, detail="Daemon not bound to a project")
+    project_id = project.get("project_id")
+    project_path = project.get("project_path")
+
+    raw_items = body.get("items")
+    if raw_items is None and body.get("ids"):
+        raw_items = [{"id": art_id} for art_id in body["ids"]]
+    if not raw_items:
+        raise HTTPException(status_code=422, detail="Body must include 'ids' or 'items'")
+
+    db = _open_db()
+    try:
+        from empirica.cli.command_handlers.graph_commands import _delete_single_artifact
+        cursor = db.conn.cursor()
+        results: list[dict] = []
+        for raw in raw_items:
+            art_id = raw.get("id")
+            if not art_id:
+                results.append({"outcome": "missing_id"})
+                continue
+            # Polymorphic resolve if type not provided
+            if not raw.get("type"):
+                resolved = _resolve_artifact_by_id(db, art_id)
+                if not resolved:
+                    results.append({"id": art_id, "outcome": "not_found"})
+                    continue
+                raw = {**raw, "type": resolved[0]}
+            result = _delete_single_artifact(
+                cursor, raw, project_id=project_id, dry_run=False, project_path=project_path,
+            )
+            if result is None:
+                results.append({"id": art_id, "outcome": "skipped"})
+            elif result.get("error"):
+                results.append({"id": art_id, "outcome": "failed", "reason": result["error"]})
+            else:
+                results.append({**result, "outcome": "deleted"})
+        db.conn.commit()
+        return {
+            "ok": True,
+            "deleted": sum(1 for r in results if r.get("outcome") == "deleted"),
+            "not_found": sum(1 for r in results if r.get("outcome") == "not_found"),
+            "failed": sum(1 for r in results if r.get("outcome") == "failed"),
+            "results": results,
         }
     finally:
         db.close()
