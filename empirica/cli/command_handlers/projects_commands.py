@@ -323,6 +323,40 @@ def handle_projects_list_command(args) -> None:
         handle_cli_error(e, "projects-list")
 
 
+# ── Filter projects ─────────────────────────────────────────────────────
+
+
+def filter_projects(
+    projects: list[dict[str, Any]],
+    *,
+    includes: list[str] | None = None,
+    excludes: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Filter manifest projects by include/exclude regex patterns.
+
+    Each pattern is matched (re.search) against project['name'] OR project['path'].
+    Multi-include = OR (kept if any pattern matches). If no includes given, all
+    projects pass the include stage. Multi-exclude = OR (dropped if any pattern
+    matches). Excludes apply after includes.
+    """
+    inc_patterns = [re.compile(p) for p in (includes or [])]
+    exc_patterns = [re.compile(p) for p in (excludes or [])]
+
+    def _matches_any(project: dict[str, Any], patterns: list[re.Pattern[str]]) -> bool:
+        name = project.get("name") or ""
+        path = project.get("path") or ""
+        return any(p.search(name) or p.search(path) for p in patterns)
+
+    out: list[dict[str, Any]] = []
+    for project in projects:
+        if inc_patterns and not _matches_any(project, inc_patterns):
+            continue
+        if exc_patterns and _matches_any(project, exc_patterns):
+            continue
+        out.append(project)
+    return out
+
+
 # ── Cortex bulk-register ────────────────────────────────────────────────
 
 
@@ -481,6 +515,25 @@ def handle_projects_bulk_register_command(args) -> None:
         if not projects:
             print("⚠ No projects to register.", file=sys.stderr)
             return
+
+        # Apply --include/--exclude filters (if any)
+        includes = getattr(args, "includes", None) or []
+        excludes = getattr(args, "excludes", None) or []
+        if includes or excludes:
+            try:
+                filtered = filter_projects(projects, includes=includes, excludes=excludes)
+            except re.error as e:
+                print(f"⚠ Invalid filter regex: {e}", file=sys.stderr)
+                sys.exit(2)
+            if len(filtered) != len(projects):
+                print(
+                    f"📋 Filter: {len(projects)} → {len(filtered)} projects after include/exclude",
+                    file=sys.stderr,
+                )
+            projects = filtered
+            if not projects:
+                print("⚠ No projects match the include/exclude filters.", file=sys.stderr)
+                return
 
         # Dry-run: short-circuit before resolving Cortex config
         dry_run = bool(getattr(args, "dry_run", False))

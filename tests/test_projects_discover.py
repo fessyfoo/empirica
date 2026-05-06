@@ -20,6 +20,7 @@ from empirica.cli.command_handlers.projects_commands import (
     _normalize_remote_url,
     _walk_for_empirica,
     discover_projects,
+    filter_projects,
     load_manifest,
     write_manifest,
 )
@@ -430,3 +431,91 @@ def test_format_register_summary_json_shape():
     assert parsed["summary"]["registered"] == 1
     assert parsed["summary"]["failed"] == 1
     assert parsed["cortex_url"] == "https://x"
+
+
+# ---------------------------------------------------------------------------
+# filter_projects (v0.6 follow-on, surfaced by Cortex)
+# ---------------------------------------------------------------------------
+
+
+_SAMPLE_PROJECTS = [
+    {"name": "empirica", "path": "/home/u/work/empirica"},
+    {"name": "empirica-extension", "path": "/home/u/work/empirica-extension"},
+    {"name": "cortex", "path": "/home/u/work/cortex"},
+    {"name": "side-quest", "path": "/home/u/scratch/side-quest"},
+    {"name": "old-project", "path": "/home/u/archive/old-project"},
+]
+
+
+def test_filter_projects_no_filters_returns_all():
+    out = filter_projects(_SAMPLE_PROJECTS, includes=None, excludes=None)
+    assert len(out) == len(_SAMPLE_PROJECTS)
+
+
+def test_filter_include_single_pattern_keeps_matches():
+    out = filter_projects(_SAMPLE_PROJECTS, includes=["^empirica"])
+    names = {p["name"] for p in out}
+    assert names == {"empirica", "empirica-extension"}
+
+
+def test_filter_include_matches_against_path_too():
+    """Pattern matching scratch directory should match by path even when name doesn't."""
+    out = filter_projects(_SAMPLE_PROJECTS, includes=["scratch"])
+    assert [p["name"] for p in out] == ["side-quest"]
+
+
+def test_filter_multiple_includes_are_or():
+    """Multi --include = OR. Project kept if ANY pattern matches."""
+    out = filter_projects(_SAMPLE_PROJECTS, includes=["cortex", "side"])
+    names = {p["name"] for p in out}
+    assert names == {"cortex", "side-quest"}
+
+
+def test_filter_exclude_drops_matches():
+    out = filter_projects(_SAMPLE_PROJECTS, excludes=["archive"])
+    names = {p["name"] for p in out}
+    assert "old-project" not in names
+    assert len(out) == 4
+
+
+def test_filter_multiple_excludes_are_or():
+    """Multi --exclude = OR. Project dropped if ANY pattern matches."""
+    out = filter_projects(_SAMPLE_PROJECTS, excludes=["archive", "scratch"])
+    names = {p["name"] for p in out}
+    assert names == {"empirica", "empirica-extension", "cortex"}
+
+
+def test_filter_exclude_runs_after_include():
+    """Order matters: include narrows first, exclude trims further."""
+    out = filter_projects(
+        _SAMPLE_PROJECTS, includes=["^empirica"], excludes=["extension"]
+    )
+    assert [p["name"] for p in out] == ["empirica"]
+
+
+def test_filter_include_no_matches_returns_empty():
+    out = filter_projects(_SAMPLE_PROJECTS, includes=["nonexistent"])
+    assert out == []
+
+
+def test_filter_handles_missing_name_or_path_fields():
+    """Defensive: project entries with missing fields shouldn't crash."""
+    projects = [
+        {"name": "a", "path": "/x/a"},
+        {"path": "/x/b"},  # name missing
+        {"name": "c"},  # path missing
+        {},  # both missing
+    ]
+    out = filter_projects(projects, includes=["a"])
+    # 'a' matches name 'a' AND path '/x/a' (substring match)
+    assert any(p.get("name") == "a" for p in out)
+
+
+def test_filter_invalid_regex_raises_re_error():
+    """Caller (handler) catches re.error and prints friendly message."""
+    import re as _re
+    try:
+        filter_projects(_SAMPLE_PROJECTS, includes=["[unclosed"])
+    except _re.error:
+        return  # expected
+    raise AssertionError("filter_projects should have raised re.error for invalid regex")

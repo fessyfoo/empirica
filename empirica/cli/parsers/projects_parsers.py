@@ -112,6 +112,28 @@ def add_projects_parsers(subparsers) -> None:
         ),
     )
     register.add_argument(
+        "--include",
+        action="append",
+        dest="includes",
+        default=None,
+        help=(
+            "Regex matched against project name OR path. Repeatable — multi "
+            "--include is OR (project kept if ANY pattern matches). If no "
+            "--include is given, all projects pass the include stage."
+        ),
+    )
+    register.add_argument(
+        "--exclude",
+        action="append",
+        dest="excludes",
+        default=None,
+        help=(
+            "Regex matched against project name OR path. Repeatable — multi "
+            "--exclude is OR (project dropped if ANY pattern matches). Applied "
+            "after --include."
+        ),
+    )
+    register.add_argument(
         "--dry-run",
         action="store_true",
         help="Show what would be registered without making HTTP calls.",
