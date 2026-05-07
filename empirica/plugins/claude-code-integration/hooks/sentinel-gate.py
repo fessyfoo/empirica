@@ -2806,9 +2806,29 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as e:
-        # Fail-open: if sentinel crashes, allow the action but warn
-        # This prevents transient errors (DB lock, import race) from blocking work
+        # Crash recovery: the outermost catch handles transient errors (DB
+        # lock, import race, path resolution bug) so a sentinel crash doesn't
+        # strand every tool invocation. Default behavior is fail-OPEN — allow
+        # the action but emit SENTINEL_CRASH on stderr so failures are
+        # visible without blocking work.
+        #
+        # Tx-AJ: opt-in fail-CLOSED mode for hardened deployments.
+        # Set EMPIRICA_SENTINEL_FAIL_CLOSED=1 (or "true"/"yes") to flip the
+        # default — sentinel crashes will then DENY the action with a reason,
+        # producing a hard error the user can investigate. Suitable for
+        # production agentic frameworks where a silent fail-open is a worse
+        # failure mode than a noisy block. Default unchanged for dev.
+        import os as _os
         import sys as _sys
         _sys.stderr.write(f"SENTINEL_CRASH: {type(e).__name__}: {e}\n")
+        fail_closed = _os.environ.get("EMPIRICA_SENTINEL_FAIL_CLOSED", "").strip().lower() in {"1", "true", "yes"}
+        if fail_closed:
+            respond(
+                "deny",
+                f"Sentinel internal error (fail-closed mode): {type(e).__name__}: {e}. "
+                "Investigate via SENTINEL_CRASH stderr; unset "
+                "EMPIRICA_SENTINEL_FAIL_CLOSED to revert to fail-open default.",
+            )
+            _sys.exit(2)
         respond("allow", f"Sentinel error (fail-open): {type(e).__name__}: {e}")
         _sys.exit(0)
