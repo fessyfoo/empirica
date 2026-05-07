@@ -67,6 +67,22 @@ TOOL_REGISTRY: dict[str, dict] = {
         "required": [],
         "desc": "Load project context (findings, goals, unknowns, calibration)",
     },
+    "bootstrap_context": {
+        "cli": "bootstrap-context",
+        "params": {
+            "project_path": "--project-path",
+            "session_id": "--session-id",
+            "similarity_threshold": "--similarity-threshold",
+        },
+        "required": [],
+        "desc": (
+            "Three-circle artifact graph bootstrap (v2 wire shape). "
+            "Returns active_state (recency-decayed) + persistent_reference "
+            "(no decay) + topic_relevant_backlog (Qdrant similarity-pulled). "
+            "Designed for Claude Desktop / Cursor / Cline at chat-start to "
+            "match what CLI hooks inject. See PROPOSAL_BOOTSTRAP_AGGREGATOR.md."
+        ),
+    },
     "session_snapshot": {
         "cli": "session-snapshot",
         "params": {},

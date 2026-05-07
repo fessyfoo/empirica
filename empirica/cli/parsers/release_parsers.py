@@ -77,6 +77,41 @@ def add_release_parsers(subparsers):
         help='Look back N days for memory items (default: 30)'
     )
 
+    # Bootstrap context — three-circle artifact graph injection
+    bootstrap_parser = subparsers.add_parser(
+        'bootstrap-context',
+        help='Emit the bootstrap context payload (schema v2) — three-circle artifact graph',
+        description=(
+            "Three-circle surfacing model: active_state (recency-decayed), "
+            "persistent_reference (no decay), topic_relevant_backlog "
+            "(similarity-pulled). Used by post-compact / session-init hooks "
+            "and the daemon GET /api/v1/bootstrap endpoint. See "
+            "docs/specs/PROPOSAL_BOOTSTRAP_AGGREGATOR.md for the design."
+        ),
+    )
+    bootstrap_parser.add_argument(
+        '--project-path',
+        default=None,
+        help='Project root (default: resolve via InstanceResolver canonical chain).',
+    )
+    bootstrap_parser.add_argument(
+        '--session-id',
+        default=None,
+        help='Active session UUID (informational; queries scope by project_id).',
+    )
+    bootstrap_parser.add_argument(
+        '--similarity-threshold',
+        type=float,
+        default=0.65,
+        help='Cosine threshold for circle 3 topic-relevance pull (default: 0.65).',
+    )
+    bootstrap_parser.add_argument(
+        '--output',
+        choices=['human', 'json'],
+        default='json',
+        help='Output format (default: json — what hooks/MCP consume).',
+    )
+
     # Docs link check — broken-link integrity for tech docs
     link_parser = subparsers.add_parser(
         'docs-link-check',

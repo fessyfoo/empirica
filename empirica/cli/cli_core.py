@@ -127,6 +127,7 @@ from .command_handlers.architecture_commands import (
     handle_assess_component_command,
     handle_assess_directory_command,
 )
+from .command_handlers.bootstrap_context_commands import handle_bootstrap_context_command
 from .command_handlers.chat_commands import handle_chat_command
 from .command_handlers.cockpit_commands import (
     handle_instance_group_command,
@@ -689,6 +690,7 @@ def main(args=None):
             'docs-assess': handle_docs_assess,
             'docs-explain': handle_docs_explain,
             'docs-link-check': handle_docs_link_check_command,
+            'bootstrap-context': handle_bootstrap_context_command,
 
             # Lesson commands (Epistemic Procedural Knowledge)
             'lesson-create': handle_lesson_create_command,

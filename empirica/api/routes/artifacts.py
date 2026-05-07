@@ -739,6 +739,40 @@ def _walk_graph(  # noqa: C901 — graph walker has multiple branches but reads 
     return (nodes_out, edges_out)
 
 
+# ── Bootstrap aggregator (v0.6 spec) ─────────────────────────────────
+
+
+@router.get("/bootstrap")
+async def get_bootstrap():
+    """Three-circle artifact graph bootstrap context.
+
+    Returns the v2 wire shape (schema_version "2") with active_state,
+    persistent_reference, and topic_relevant_backlog top-level sections.
+    See docs/specs/PROPOSAL_BOOTSTRAP_AGGREGATOR.md for the design.
+
+    503 contract identical to other per-project endpoints: returned when
+    the daemon isn't bound to a project.
+    """
+    from empirica.core.bootstrap import build_bootstrap_payload
+
+    project = get_cached_daemon_project()
+    if not project or not project.get("project_path"):
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Daemon not bound to a project. Run `empirica serve` from inside "
+                "a project tree (or set active project with `empirica project-switch`) "
+                "and restart."
+            ),
+        )
+
+    payload = build_bootstrap_payload(
+        project_path=project["project_path"],
+        project_id=project.get("project_id"),
+    )
+    return payload
+
+
 @router.get("/artifacts/graph")
 async def get_artifact_graph(
     seed_id: str | None = Query(None),
