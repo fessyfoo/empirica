@@ -6,8 +6,8 @@
     <id>empirica</id>
     <version>1.9.2</version>
     <title>Empirica - Epistemic Self-Assessment Framework</title>
-    <authors>Empirica Team</authors>
-    <owners>Empirica Team</owners>
+    <authors>David S. L. Van Assche</authors>
+    <owners>kars85</owners>
     <licenseUrl>https://github.com/nubaeon/empirica/blob/main/LICENSE</licenseUrl>
     <projectUrl>https://github.com/nubaeon/empirica</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>

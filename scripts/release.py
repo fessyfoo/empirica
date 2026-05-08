@@ -27,6 +27,12 @@ RED = "\033[91m"
 BLUE = "\033[94m"
 RESET = "\033[0m"
 
+# Chocolatey package ownership — kars85 is the chocolatey.org account that
+# owns the empirica listing. See .nuspec <owners> field; release flow asserts
+# they match before the choco push step so a manual nuspec edit doesn't
+# silently change ownership.
+CHOCOLATEY_OWNER = "kars85"
+
 
 def log(msg: str, color: str = RESET):
     print(f"{color}{msg}{RESET}")
@@ -276,6 +282,17 @@ class ReleaseManager:
         if not nuspec.exists():
             warning(f"Chocolatey nuspec not found: {nuspec}")
             return
+
+        # Guard against silent ownership drift: the chocolatey.org listing is
+        # owned by CHOCOLATEY_OWNER, and pushing from any other account fails
+        # with a 403. Verify the nuspec hasn't been edited away from that.
+        nuspec_text = nuspec.read_text(encoding="utf-8")
+        if f"<owners>{CHOCOLATEY_OWNER}</owners>" not in nuspec_text:
+            error(
+                f"Chocolatey nuspec <owners> does not match expected "
+                f"'{CHOCOLATEY_OWNER}'. Update {nuspec} or change "
+                f"CHOCOLATEY_OWNER in scripts/release.py."
+            )
 
         nupkg = choco_dir / f"empirica.{self.version}.nupkg"
 
