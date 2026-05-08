@@ -302,9 +302,7 @@ def _count_documentation(file_path: Path, *, strict: bool) -> tuple[int, int]:
             if prev.startswith("#[") and not _ATTR_DOC_RE.match(lines[cursor]):
                 cursor -= 1
                 continue
-            if _OUTER_DOC_RE.match(lines[cursor]):
-                has_doc = True
-            elif not strict and _ATTR_DOC_RE.match(lines[cursor]):
+            if _OUTER_DOC_RE.match(lines[cursor]) or (not strict and _ATTR_DOC_RE.match(lines[cursor])):
                 has_doc = True
             elif _INNER_DOC_RE.match(lines[cursor]) and m.group("kind") == "mod":
                 # //! at top of a file applies to the module.

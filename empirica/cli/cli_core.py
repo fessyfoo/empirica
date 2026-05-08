@@ -146,7 +146,6 @@ from .command_handlers.concept_graph_commands import (
     handle_concept_top,
 )
 from .command_handlers.docs_commands import handle_docs_assess, handle_docs_explain
-from .command_handlers.rust_docs_commands import handle_rust_docs_assess
 from .command_handlers.docs_link_check_commands import handle_docs_link_check_command
 from .command_handlers.mcp_commands import (
     handle_mcp_call_command,
@@ -181,6 +180,7 @@ from .command_handlers.persona_commands import (
 )
 from .command_handlers.query_commands import handle_query_command
 from .command_handlers.release_commands import handle_release_command, handle_release_ready_command
+from .command_handlers.rust_docs_commands import handle_rust_docs_assess
 from .command_handlers.sentinel_commands import (
     handle_sentinel_check_command,
     handle_sentinel_load_profile_command,

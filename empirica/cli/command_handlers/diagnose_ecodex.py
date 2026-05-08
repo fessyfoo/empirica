@@ -34,7 +34,6 @@ from empirica.cli.command_handlers.diagnose import (
     check_python_version,
 )
 
-
 _ECODEX_PLUGIN_KEY = "empirica@nubaeon"
 
 # Subset of vendored hook scripts whose drift matters most. We don't diff

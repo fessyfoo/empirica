@@ -627,7 +627,7 @@ async def list_tools() -> list[types.Tool]:
 
 
 @app.call_tool(validate_input=False)
-async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
+async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:  # noqa: C901 — flat MCP-tool router; splitting helps readability less than the linear branch table
     """Route tool calls to CLI."""
 
     if name == "get_empirica_introduction":
@@ -692,8 +692,8 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         try:
             from empirica.utils.session_resolver import get_active_project_path
             cwd = get_active_project_path()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"get_active_project_path lookup failed: {e}")
 
     # Execute — CASCADE commands get longer timeout
     timeout = CASCADE_TIMEOUT if entry.get("stdin_json") else CLI_TIMEOUT

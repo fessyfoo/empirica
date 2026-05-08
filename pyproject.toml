@@ -188,7 +188,7 @@ line-length = 120
 target-version = "py310"
 include = [
     "empirica/**/*.py",
-    "empirica/**/*.py",
+    "empirica-mcp/**/*.py",
     "tests/**/*.py",
 ]
 exclude = [

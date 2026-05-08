@@ -3,29 +3,30 @@ Quick test of epistemic components
 """
 
 import asyncio
+
 from empirica_mcp.epistemic import (
+    EpistemicModes,
     EpistemicStateMachine,
     VectorRouter,
-    EpistemicModes,
     get_personality,
-    list_personalities
+    list_personalities,
 )
 
 
 async def test_state_machine():
     print("\n=== Testing EpistemicStateMachine ===")
-    
+
     sm = EpistemicStateMachine()
     print(f"Initial state: {sm}")
-    
+
     # Assess a complex request
     vectors = sm.assess_request("Design and integrate a new authentication system")
     print(f"After complex request: know={vectors['know']:.2f}, uncertainty={vectors['uncertainty']:.2f}")
-    
+
     # Update from successful investigation
     vectors = sm.update_from_action("investigate", {"success": True})
     print(f"After investigation: know={vectors['know']:.2f}, uncertainty={vectors['uncertainty']:.2f}")
-    
+
     # Update from implementation
     vectors = sm.update_from_action("implement", {"success": True})
     print(f"After implementation: completion={vectors['completion']:.2f}, impact={vectors['impact']:.2f}")
@@ -33,11 +34,11 @@ async def test_state_machine():
 
 def test_router():
     print("\n=== Testing VectorRouter ===")
-    
+
     # Test with cautious personality
     cautious = get_personality("cautious_researcher")
     router = VectorRouter(cautious.thresholds)
-    
+
     # Low context scenario
     vectors = {
         "clarity": 0.8,
@@ -46,9 +47,9 @@ def test_router():
         "know": 0.5
     }
     decision = router.route(vectors, "Some request")
-    print(f"\nLow context routing:")
+    print("\nLow context routing:")
     print(router.explain_routing(decision))
-    
+
     # High uncertainty scenario
     vectors = {
         "clarity": 0.7,
@@ -57,9 +58,9 @@ def test_router():
         "know": 0.5
     }
     decision = router.route(vectors, "Complex task")
-    print(f"\nHigh uncertainty routing:")
+    print("\nHigh uncertainty routing:")
     print(router.explain_routing(decision))
-    
+
     # High confidence scenario
     vectors = {
         "clarity": 0.9,
@@ -68,29 +69,29 @@ def test_router():
         "know": 0.9
     }
     decision = router.route(vectors, "Simple task")
-    print(f"\nHigh confidence routing:")
+    print("\nHigh confidence routing:")
     print(router.explain_routing(decision))
 
 
 async def test_modes():
     print("\n=== Testing EpistemicModes ===")
-    
+
     modes = EpistemicModes()
-    
+
     # Test investigate mode
     result = await modes.investigate("test-session", "authentication flow")
-    print(f"\nInvestigate mode:")
+    print("\nInvestigate mode:")
     print(result["guidance"][:200])
-    
+
     # Test confident implementation
     result = await modes.confident_implementation("test-session", "add feature")
-    print(f"\nConfident implementation:")
+    print("\nConfident implementation:")
     print(result["guidance"][:200])
 
 
 def test_personalities():
     print("\n=== Testing Personalities ===")
-    
+
     personalities = list_personalities()
     for name, profile in personalities.items():
         print(f"\n{name}:")
@@ -101,12 +102,12 @@ def test_personalities():
 async def main():
     print("🧠 Epistemic MCP Components Test")
     print("=" * 60)
-    
+
     await test_state_machine()
     test_router()
     await test_modes()
     test_personalities()
-    
+
     print("\n✅ All components working!")
 
 
