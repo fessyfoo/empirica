@@ -588,6 +588,7 @@ def is_transition_command(command: str) -> bool:
 _autonomy_nudge = ""  # Module-level: set during increment, read by respond
 _goalless_nudge = ""  # Module-level: set when no goals detected, read by respond
 _reread_nudge = ""    # Module-level: set when Read tool targets already-read file
+_file_relevance_nudge = ""  # Module-level: set when artifacts reference an Edit/Write target
 _last_read_count = 0  # Module-level: how many times current file was read this tx
 
 
@@ -863,11 +864,11 @@ def _compute_nudge(count: int, avg: int) -> str:
 
 def respond(decision: str, reason: str = "") -> None:
     """Output in Claude Code's expected format. Appends nudges on allow."""
-    global _autonomy_nudge, _goalless_nudge, _reread_nudge, _remote_ops_nudge, _worktype_nudge
+    global _autonomy_nudge, _goalless_nudge, _reread_nudge, _remote_ops_nudge, _worktype_nudge, _file_relevance_nudge
     full_reason = reason
     show_nudge = False
-    if decision == "allow" and (_autonomy_nudge or _goalless_nudge or _reread_nudge or _remote_ops_nudge or _worktype_nudge):
-        nudges = " | ".join(n for n in [_autonomy_nudge, _goalless_nudge, _reread_nudge, _remote_ops_nudge, _worktype_nudge] if n)
+    if decision == "allow" and (_autonomy_nudge or _goalless_nudge or _reread_nudge or _remote_ops_nudge or _worktype_nudge or _file_relevance_nudge):
+        nudges = " | ".join(n for n in [_autonomy_nudge, _goalless_nudge, _reread_nudge, _remote_ops_nudge, _worktype_nudge, _file_relevance_nudge] if n)
         full_reason = f"{reason} | {nudges}"
         show_nudge = True
 
@@ -2390,6 +2391,49 @@ def _track_tool_usage(hook_input: dict, tool_name: str, tool_input: dict) -> Non
         _reread_nudge = f"Re-reading {_short} ({_last_read_count}x this tx). Consider using cached knowledge."
 
 
+def _set_file_relevance_nudge(tool_name: str, tool_input: dict | None,
+                                claude_session_id: str | None) -> None:
+    """For Edit/Write/MultiEdit: surface artifacts that already mention the
+    target file so the AI sees prior knowledge before overwriting.
+
+    Advisory only. Never raises. Caps at ~50ms via per-table query limits.
+    """
+    global _file_relevance_nudge
+    if tool_name not in ('Edit', 'Write', 'MultiEdit') or not tool_input:
+        return
+    fp = tool_input.get('file_path') or ''
+    if not fp:
+        return
+
+    project_root = resolve_project_root(claude_session_id=claude_session_id)
+    if not project_root:
+        return
+
+    # Ensure empirica package is importable (the main pipeline does this
+    # later, but the file-relevance setter runs early in main()).
+    try:
+        package_path = find_empirica_package()
+        if package_path and str(package_path) not in sys.path:
+            sys.path.insert(0, str(package_path))
+    except Exception:
+        return
+
+    try:
+        from empirica.core.file_relevance import (  # type: ignore[import-not-found]
+            format_relevance_nudge,
+            get_file_relevant_artifacts,
+        )
+    except ImportError:
+        return
+
+    try:
+        artifacts = get_file_relevant_artifacts(project_root, fp, limit=5)
+        _file_relevance_nudge = format_relevance_nudge(artifacts)
+    except Exception:
+        # Never let an advisory nudge break the hook
+        _file_relevance_nudge = ""
+
+
 def _check_exemptions(hook_input: dict, tool_name: str) -> tuple | None:
     """Check for praxic tool exemptions: subagent, paused, sentinel disabled.
 
@@ -2853,6 +2897,7 @@ def main():
     tool_input = hook_input.get('tool_input', {})
 
     _track_tool_usage(hook_input, tool_name, tool_input)
+    _set_file_relevance_nudge(tool_name, tool_input, hook_input.get('session_id'))
 
     # Tx-AG: investigation-proportionality budget enforcement. When
     # tool-router.py armed the budget on a hypothesis-bearing prompt,
