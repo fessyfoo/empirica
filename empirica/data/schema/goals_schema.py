@@ -11,7 +11,8 @@ SCHEMAS = [
     CREATE TABLE IF NOT EXISTS goals (
                     id TEXT PRIMARY KEY,
                     session_id TEXT NOT NULL,
-                    objective TEXT NOT NULL,
+                    objective TEXT NOT NULL,            -- Title-shaped, ~256 char cap on new creates
+                    description TEXT,                   -- Optional rich body, 8000 char cap (added migration 043)
                     scope TEXT NOT NULL,  -- JSON: {breadth, duration, coordination}
                     estimated_complexity REAL,
                     created_timestamp REAL NOT NULL,

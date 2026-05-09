@@ -32,8 +32,24 @@ def validate_objective(objective: str) -> None:
     if not objective or not objective.strip():
         raise ValidationError("Objective cannot be empty")
 
-    if len(objective) > 2000:
-        raise ValidationError("Objective too long (max 2000 characters)")
+    if len(objective) > 256:
+        raise ValidationError(
+            "Objective too long (max 256 characters — title-shaped). "
+            "Use --description for the rich body (up to 8000 characters)."
+        )
+
+
+def validate_description(description: str | None) -> None:
+    """Validate optional rich-body description.
+
+    Empty/None is allowed — the field is optional (existing pre-migration-043
+    rows have NULL description). When provided, capped at 8000 chars to keep
+    embedding payloads bounded and display surfaces tractable.
+    """
+    if description is None:
+        return
+    if len(description) > 8000:
+        raise ValidationError("Description too long (max 8000 characters)")
 
 
 def validate_success_criteria(success_criteria: list[SuccessCriterion]) -> None:

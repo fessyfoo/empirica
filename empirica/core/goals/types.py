@@ -87,9 +87,10 @@ class Goal:
     No automatic parsing - keeps it simple and heuristic-free.
     """
     id: str
-    objective: str                       # Clear, actionable goal statement
+    objective: str                       # Clear, actionable goal statement (~256 char title)
     success_criteria: list[SuccessCriterion]
     scope: ScopeVector
+    description: str | None = None       # Optional rich body (up to 8000 chars)
     dependencies: list[Dependency] = field(default_factory=list)
     constraints: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -103,11 +104,13 @@ class Goal:
         objective: str,
         success_criteria: list[SuccessCriterion],
         scope: ScopeVector = None,
+        description: str | None = None,
         **kwargs
     ) -> 'Goal':
         """Convenience factory method with validation"""
         from .validation import (
             validate_complexity,
+            validate_description,
             validate_objective,
             validate_scope_vector,
             validate_success_criteria,
@@ -115,6 +118,7 @@ class Goal:
 
         # Validate inputs before creating
         validate_objective(objective)
+        validate_description(description)
         validate_success_criteria(success_criteria)
 
         if scope is None:
@@ -130,6 +134,7 @@ class Goal:
             objective=objective,
             success_criteria=success_criteria,
             scope=scope,
+            description=description,
             **kwargs
         )
 
@@ -138,6 +143,7 @@ class Goal:
         return {
             'id': self.id,
             'objective': self.objective,
+            'description': self.description,
             'success_criteria': [
                 {
                     'id': sc.id,

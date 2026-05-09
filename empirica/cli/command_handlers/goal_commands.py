@@ -289,6 +289,7 @@ def _parse_goal_config(args):
     if config_data:
         session_id = config_data.get('session_id')
         objective = config_data.get('objective')
+        description = config_data.get('description')
 
         scope_config = config_data.get('scope', {})
         if isinstance(scope_config, dict):
@@ -308,6 +309,7 @@ def _parse_goal_config(args):
     else:
         session_id = args.session_id
         objective = args.objective
+        description = getattr(args, 'description', None)
         scope_breadth = float(args.scope_breadth) if hasattr(args, 'scope_breadth') and args.scope_breadth else 0.3
         scope_duration = float(args.scope_duration) if hasattr(args, 'scope_duration') and args.scope_duration else 0.2
         scope_coordination = float(args.scope_coordination) if hasattr(args, 'scope_coordination') and args.scope_coordination else 0.1
@@ -321,6 +323,7 @@ def _parse_goal_config(args):
     return {
         'session_id': session_id,
         'objective': objective,
+        'description': description,
         'scope_breadth': scope_breadth,
         'scope_duration': scope_duration,
         'scope_coordination': scope_coordination,
@@ -409,7 +412,8 @@ def _check_goal_duplicates(objective, session_id, output_format, args, config_da
 
 def _build_and_save_goal(objective, success_criteria_list, scope_breadth, scope_duration,
                          scope_coordination, estimated_complexity, constraints, metadata,
-                         session_id, is_cross_project, target_project_id, config_data, args):
+                         session_id, is_cross_project, target_project_id, config_data, args,
+                         description=None):
     """Build Goal object and save to database.
 
     Returns:
@@ -456,6 +460,7 @@ def _build_and_save_goal(objective, success_criteria_list, scope_breadth, scope_
         objective=objective,
         success_criteria=success_criteria_objects,
         scope=scope,
+        description=description,
         estimated_complexity=estimated_complexity,
         constraints=constraints,
         metadata=metadata
@@ -547,7 +552,8 @@ def _goal_post_create_integrations(goal, session_id, objective, scope, success_c
             ai_id = row[1] or getattr(args, 'ai_id', 'empirica_cli')
             qdrant_embedded = embed_goal(
                 project_id=project_id, goal_id=goal.id,
-                objective=objective, session_id=session_id, ai_id=ai_id,
+                objective=objective, description=goal.description,
+                session_id=session_id, ai_id=ai_id,
                 scope_breadth=scope_breadth, scope_duration=scope_duration,
                 scope_coordination=scope_coordination,
                 estimated_complexity=estimated_complexity,
@@ -592,6 +598,7 @@ def handle_goals_create_command(args):
         cfg = _parse_goal_config(args)
         session_id = cfg['session_id']
         objective = cfg['objective']
+        description = cfg.get('description')
         scope_breadth = cfg['scope_breadth']
         scope_duration = cfg['scope_duration']
         scope_coordination = cfg['scope_coordination']
@@ -623,7 +630,8 @@ def handle_goals_create_command(args):
             _build_and_save_goal(
                 objective, success_criteria_list, scope_breadth, scope_duration,
                 scope_coordination, estimated_complexity, constraints, metadata,
-                session_id, is_cross_project, target_project_id, config_data, args))
+                session_id, is_cross_project, target_project_id, config_data, args,
+                description=description))
 
         # Stage 5: Post-creation integrations and result building
         use_beads = getattr(args, 'use_beads', False) or (config_data and config_data.get('use_beads', False))  # type: ignore[reportAttributeAccessIssue]
@@ -636,6 +644,7 @@ def handle_goals_create_command(args):
                 "session_id": session_id,
                 "message": "Goal created successfully",
                 "objective": objective,
+                "description": description,
                 "scope": scope.to_dict(),
                 "timestamp": goal.created_timestamp,
             }

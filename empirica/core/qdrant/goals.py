@@ -30,6 +30,7 @@ def embed_goal(
     status: str = "in_progress",
     tags: list[str] | None = None,
     timestamp: float | None = None,
+    description: str | None = None,
 ) -> bool:
     """
     Embed a goal to Qdrant for semantic search across sessions.
@@ -72,8 +73,10 @@ def embed_goal(
             vector_size = _get_vector_size()
             client.create_collection(coll, vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE))
 
-        # Build rich text for embedding - combines objective and criteria
+        # Build rich text for embedding - combines objective, description, criteria
         text_parts = [objective]
+        if description:
+            text_parts.append(description)
         if success_criteria:
             text_parts.append("Success criteria: " + "; ".join(success_criteria[:5]))
         embed_text = ". ".join(text_parts)
@@ -89,6 +92,8 @@ def embed_goal(
             "type": "goal",
             "objective": objective[:500] if objective else None,
             "objective_full": objective if len(objective) <= 500 else None,
+            "description": description[:500] if description else None,
+            "description_full": description if (description and len(description) <= 500) else None,
             "session_id": session_id,
             "ai_id": ai_id,
             "scope": {

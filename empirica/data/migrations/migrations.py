@@ -1267,6 +1267,7 @@ ALL_MIGRATIONS: list[tuple[str, str, Callable]] = [
     ("040_epistemic_source", "Add epistemic_source field (intuition/search/mixed/NULL) to artifact tables for source-aware Sentinel calibration substrate (PROMPT_FOR_EMPIRICA_CLAUDE_source_aware_sentinel.md)", lambda cursor: migration_040_epistemic_source(cursor)),
     ("041_artifact_edges", "Add normalized artifact_edges table + backfill from data.edges JSON (v0.5 LOCAL-ARTIFACTS daemon — fixes silent edge-drop on assumptions/decisions, enables cheap inverse queries)", lambda cursor: migration_041_artifact_edges(cursor)),
     ("042_impact_on_dead_ends_and_mistakes", "Add impact column to project_dead_ends and mistakes_made (long-lived DBs missed migrations 007/012 for these two tables — daemon /dead-ends endpoint 500s without this)", lambda cursor: migration_042_impact_on_dead_ends_and_mistakes(cursor)),
+    ("043_goal_description", "Add description TEXT column to goals (Linear/GitHub/Jira pattern: title-shaped objective + optional rich body) — extension Claude flagged the title-vs-context-rich tension after the 1000→2000 mitigation in 1.9.2", lambda cursor: migration_043_goal_description(cursor)),
 ]
 
 
@@ -1577,6 +1578,28 @@ def migration_041_artifact_edges(cursor: sqlite3.Cursor):
 
     logger.info(
         f"✅ Migration 041 complete: artifact_edges table created, {backfilled_total} edges backfilled"
+    )
+
+
+def migration_043_goal_description(cursor: sqlite3.Cursor):
+    """Add `description` TEXT (nullable) column to goals.
+
+    The single-`objective`-field design forces a tension between
+    title-shaped (~256 chars) and context-rich (1000-8000 chars) usage.
+    1.9.2 bumped 1000→2000 as short-term mitigation; this is the
+    structural fix mirroring how Linear / GitHub Issues / Jira split
+    title + body.
+
+    Backwards-compat: existing rows have description=NULL. Display layer
+    treats NULL description as "title-only goal" and shows objective only.
+    Validation drops the objective cap to ~256 chars on NEW creates only —
+    existing rows are grandfathered (no retroactive validation).
+
+    Idempotent via add_column_if_missing — safe to re-run.
+    """
+    add_column_if_missing(cursor, "goals", "description", "TEXT", "NULL")
+    logger.info(
+        "✅ Migration 043 complete: description column added to goals"
     )
 
 

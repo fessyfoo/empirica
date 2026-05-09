@@ -39,12 +39,14 @@ class GoalDataRepository(BaseRepository):
 
     def create_goal(self, session_id: str, objective: str, scope_breadth: float | None = None,
                    scope_duration: float | None = None, scope_coordination: float | None = None,
-                   beads_issue_id: str | None = None, status: str = 'in_progress') -> str:
+                   beads_issue_id: str | None = None, status: str = 'in_progress',
+                   description: str | None = None) -> str:
         """Create a new goal for this session
 
         Args:
             session_id: Session UUID
-            objective: What are you trying to accomplish?
+            objective: Title-shaped statement of what you're trying to accomplish (~256 char cap)
+            description: Optional rich body for context, success criteria detail, links (8000 char cap)
             scope_breadth: 0.0-1.0 (0=single file, 1=entire codebase)
             scope_duration: 0.0-1.0 (0=minutes, 1=months)
             scope_coordination: 0.0-1.0 (0=solo, 1=heavy multi-agent)
@@ -67,9 +69,9 @@ class GoalDataRepository(BaseRepository):
         }
 
         self._execute("""
-            INSERT INTO goals (id, session_id, objective, scope, status, created_timestamp, is_completed, goal_data, beads_issue_id)
-            VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)
-        """, (goal_id, session_id, objective, json.dumps(scope_data), status, time.time(), json.dumps({}), beads_issue_id))
+            INSERT INTO goals (id, session_id, objective, description, scope, status, created_timestamp, is_completed, goal_data, beads_issue_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+        """, (goal_id, session_id, objective, description, json.dumps(scope_data), status, time.time(), json.dumps({}), beads_issue_id))
 
         self.commit()
         return goal_id

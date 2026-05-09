@@ -39,6 +39,7 @@ class GoalRepository:
                     id TEXT PRIMARY KEY,
                     session_id TEXT,
                     objective TEXT NOT NULL,
+                    description TEXT,
                     scope TEXT NOT NULL,
                     estimated_complexity REAL,
                     created_timestamp REAL NOT NULL,
@@ -112,13 +113,14 @@ class GoalRepository:
             # Insert main goal record
             self.db.conn.execute("""
                 INSERT OR REPLACE INTO goals
-                (id, session_id, objective, scope, estimated_complexity,
+                (id, session_id, objective, description, scope, estimated_complexity,
                  created_timestamp, completed_timestamp, is_completed, goal_data, project_id, transaction_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 goal.id,
                 session_id,
                 goal.objective,
+                goal.description,
                 json.dumps(goal.scope.to_dict()),
                 goal.estimated_complexity,
                 goal.created_timestamp,
