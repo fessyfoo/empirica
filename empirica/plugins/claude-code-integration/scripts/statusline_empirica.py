@@ -479,6 +479,63 @@ def format_phase_state(phase: str, work_phase: str, composite: float, gate_decis
     return f"{Colors.BLUE}{phase_abbrev}{Colors.RESET} {emoji}{color}{pct}%{Colors.RESET}"
 
 
+def get_provenance_share(db, transaction_id: str | None) -> tuple[float, int] | None:
+    """Compute external-grounding share for the current transaction.
+
+    Returns (ext_share, n_tagged) where ext_share ∈ [0.0, 1.0] is the
+    fraction of tagged artifacts that came from external observation/search
+    (not training-data intuition). `mixed` artifacts count as half-grounded.
+
+    Returns None when there's no signal yet (no tagged artifacts in the
+    transaction). Statusline omits the widget in that case.
+
+    Reuses `_compute_epistemic_provenance` from the grounded-calibration
+    pipeline so the source of truth is shared. Hot-path cost ~5ms (6 small
+    indexed SELECTs).
+    """
+    if not transaction_id:
+        return None
+    try:
+        from empirica.core.post_test.grounded_calibration import (
+            _compute_epistemic_provenance,
+        )
+    except ImportError:
+        return None
+    try:
+        prov = _compute_epistemic_provenance(db, transaction_id)
+    except Exception:
+        return None
+
+    intuition = prov.get('intuition_artifacts', 0)
+    search = prov.get('search_artifacts', 0)
+    mixed = prov.get('mixed_artifacts', 0)
+    n_tagged = intuition + search + mixed
+    if n_tagged == 0:
+        return None
+    grounded = search + 0.5 * mixed
+    return (grounded / n_tagged, n_tagged)
+
+
+def format_provenance(provenance: tuple[float, int] | None) -> str | None:
+    """Render `ext:XX%` indicator. Returns None when there's nothing to show.
+
+    Color: green ≥60% (mostly grounded), yellow 30-60% (mixed), red <30%
+    (intuition-heavy — confidence is largely training-data intuition without
+    external verification this transaction).
+    """
+    if provenance is None:
+        return None
+    ext_share, _n = provenance
+    pct = int(ext_share * 100)
+    if ext_share >= 0.60:
+        color = Colors.BRIGHT_GREEN
+    elif ext_share >= 0.30:
+        color = Colors.YELLOW
+    else:
+        color = Colors.RED
+    return f"{Colors.GRAY}ext:{Colors.RESET}{color}{pct}%{Colors.RESET}"
+
+
 def format_vector_colored(label: str, value: float) -> str:
     """Format a single vector as colored label:value%."""
     pct = int(value * 100)
@@ -1032,12 +1089,13 @@ def _format_statusline_header(project_name, vectors, threshold_info):
     confidence = calculate_confidence(vectors)
     conf_str = format_confidence(confidence)
 
-    threshold_str = ""
-    if threshold_info:
-        know_t, _, t_color = threshold_info
-        threshold_str = f" {format_threshold(know_t, t_color)}"
-
-    parts = [f"{Colors.GREEN}[{label}]{Colors.RESET} {conf_str}{threshold_str}"]
+    # Threshold (↕XX%) intentionally not rendered in live statusline. It's
+    # Sentinel-scoped (set/dynamically-adjusted at session level, not per
+    # action) and not actionable for the AI mid-tool-call. Helpers
+    # `get_dynamic_threshold` + `format_threshold` remain available for
+    # `empirica sentinel-status` and debug surfaces. Pass threshold_info=None
+    # from callers to keep the live statusline tight.
+    parts = [f"{Colors.GREEN}[{label}]{Colors.RESET} {conf_str}"]
 
     ext_str = read_statusline_extensions()
     if ext_str:
@@ -1046,7 +1104,7 @@ def _format_statusline_header(project_name, vectors, threshold_info):
     return label, parts
 
 
-def _format_statusline_default(parts, phase, vectors, deltas, gate_decision, open_counts, stdin_context):
+def _format_statusline_default(parts, phase, vectors, deltas, gate_decision, open_counts, stdin_context, provenance=None):
     """Format the 'default' mode statusline sections."""
     parts.append(format_open_counts(open_counts))
 
@@ -1055,6 +1113,10 @@ def _format_statusline_default(parts, phase, vectors, deltas, gate_decision, ope
         composite_phase = 'check' if phase == 'CHECK' else work_phase
         composite = calculate_phase_composite(vectors, composite_phase)
         parts.append(format_phase_state(phase, work_phase, composite, gate_decision))
+
+    prov_str = format_provenance(provenance)
+    if prov_str:
+        parts.append(prov_str)
 
     if vectors:
         know = vectors.get('know', 0.0)
@@ -1124,6 +1186,7 @@ def format_statusline(
     project_name: str | None = None,
     threshold_info: tuple | None = None,
     stdin_context: dict | None = None,
+    provenance: tuple[float, int] | None = None,
 ) -> str:
     """Format the statusline based on mode."""
     label, parts = _format_statusline_header(project_name, vectors, threshold_info)
@@ -1131,7 +1194,7 @@ def format_statusline(
     if mode == 'basic':
         return ' '.join(parts)
     elif mode == 'default':
-        return _format_statusline_default(parts, phase, vectors, deltas, gate_decision, open_counts, stdin_context)
+        return _format_statusline_default(parts, phase, vectors, deltas, gate_decision, open_counts, stdin_context, provenance)
     elif mode == 'learning':
         return _format_statusline_learning(parts, phase, vectors, deltas, open_counts)
     else:
@@ -1420,7 +1483,8 @@ def main():
         deltas = get_vector_deltas(db, transaction_session_id or session_id)
         goal = get_active_goal(db, session_id)
         open_counts = get_open_counts(db, session_id, project_id=project_id)
-        threshold_info = get_dynamic_threshold(db)
+        # threshold_info intentionally not fetched — Sentinel-scoped, not surfaced live
+        provenance = get_provenance_share(db, transaction_id)
         db.close()
 
         if output_json:
@@ -1441,8 +1505,8 @@ def main():
         output = format_statusline(
             session, phase, vectors, deltas, mode,
             gate_decision=gate_decision, goal=goal, open_counts=open_counts,
-            project_name=project_name, threshold_info=threshold_info,
-            stdin_context=stdin_context,
+            project_name=project_name, threshold_info=None,
+            stdin_context=stdin_context, provenance=provenance,
         )
         print(output)
 

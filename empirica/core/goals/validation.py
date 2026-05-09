@@ -32,8 +32,8 @@ def validate_objective(objective: str) -> None:
     if not objective or not objective.strip():
         raise ValidationError("Objective cannot be empty")
 
-    if len(objective) > 1000:
-        raise ValidationError("Objective too long (max 1000 characters)")
+    if len(objective) > 2000:
+        raise ValidationError("Objective too long (max 2000 characters)")
 
 
 def validate_success_criteria(success_criteria: list[SuccessCriterion]) -> None:

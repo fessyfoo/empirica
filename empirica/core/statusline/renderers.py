@@ -181,7 +181,7 @@ def format_phase_state(
     *,
     backend: Backend,
 ) -> str:
-    """`PRE 🔍65%` / `CHK 🔍82%→` / `POST ⚙92%` — transaction phase + state.
+    """`PRE 🔍65%` / `CHK 🔍82%→` / `POST 🔨92%` — transaction phase + state.
 
     `phase` is the empirica transaction phase (PREFLIGHT / CHECK /
     POSTFLIGHT). `work_phase` is the noetic-vs-praxic tag derived
@@ -189,10 +189,15 @@ def format_phase_state(
     is calculate_phase_composite(...) for the right phase bucket.
 
     On CHECK: appends `→` (proceed) or `…` (investigate).
+
+    Praxic emoji is 🔨 (U+1F528, east-asian-width: W). Was ⚙ (U+2699,
+    eaw: N/ambiguous) which terminal-rendered narrow on some surfaces
+    and wide on others, causing digits to overlap or clip. 🔨 is
+    wide-default and matches the plugin script + CLAUDE_CODE_SETUP.md docs.
     """
     abbrev_map = {"PREFLIGHT": "PRE", "CHECK": "CHK", "POSTFLIGHT": "POST"}
     abbrev = abbrev_map.get(phase or "", (phase or "---")[:3])
-    emoji = "🔍" if work_phase == "noetic" else "⚙"
+    emoji = "🔍" if work_phase == "noetic" else "🔨"
     pct = int((composite or 0.0) * 100)
     color = _color_by_value(composite or 0.0)
     head = f"{backend.wrap(abbrev, 'blue')} {emoji}{backend.wrap(f'{pct}%', color)}"

@@ -201,10 +201,14 @@ class TestFormatPhaseState:
         assert "CHK" in s
         assert "…" in s
 
-    def test_postflight_praxic_uses_gear(self, backend):
+    def test_postflight_praxic_uses_hammer(self, backend):
+        # 🔨 (U+1F528) replaced ⚙ (U+2699) — the gear had ambiguous east-
+        # asian-width and rendered narrow on some terminals, clipping the
+        # percentage digits. Hammer is wide-default and matches docs.
         s = format_phase_state("POSTFLIGHT", "praxic", 0.95, backend=backend)
         assert "POST" in s
-        assert "⚙" in s
+        assert "🔨" in s
+        assert "⚙" not in s
 
 
 class TestFormatVectorColored:
