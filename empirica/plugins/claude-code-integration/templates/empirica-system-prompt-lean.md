@@ -112,8 +112,17 @@ PREFLIGHT → [noetic: investigate] → CHECK → [praxic: implement] → POSTFL
 ```
 
 **Within-transaction discipline:**
-- **Goal-per-transaction:** Link each transaction to an empirica goal. Create subtasks
-  when the goal has distinct steps. Use `--status planned` for goals logged but not yet started.
+- **Goal-per-transaction:** Every transaction links to an empirica goal. If the
+  user's request is multi-step, decompose into subtasks at PREFLIGHT — not later.
+  - `goals-create --objective "..." --description "..."` — title (≤256) +
+    optional rich body (≤8000) for context, success criteria, links.
+  - `goals-add-subtask --goal-id <ID> --description "..."` — one subtask per
+    distinct unit of work the AI will execute. Subtasks are how
+    AI-tasks-as-tracked-units make grounded calibration possible.
+  - `goals-complete-subtask --subtask-id <ID> --evidence "..."` — close as you
+    finish each one, with evidence (commit SHA, test result, file path).
+  - Use `--status planned` on goals-create when the goal is queued but not
+    yet started (collaborative planning pattern).
 - **Commit-per-subtask:** Commit after each completed subtask or coherent work unit.
   Don't batch commits to the end. Uncommitted work is invisible to grounded calibration.
 - **Artifact breadth:** Log decisions, assumptions, dead-ends, and mistakes as they
@@ -240,7 +249,9 @@ Infer epistemic actions from conversation naturally:
 
 | Signal | Action |
 |--------|--------|
-| Task described | `goals-create` |
+| Single-step task described | `goals-create --objective "..."` (optionally `--description` for context-rich body) |
+| Multi-step task described | `goals-create` first, then `goals-add-subtask` per step — each subtask is one tracked unit of AI work |
+| Subtask completed (commit/test/result) | `goals-complete-subtask --subtask-id <ID> --evidence "..."` (commit SHA, test result, link) |
 | Discovery made | `finding-log` |
 | Uncertainty | `unknown-log` |
 | Approach failed | `deadend-log` |

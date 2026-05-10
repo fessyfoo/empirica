@@ -55,15 +55,70 @@ empirica unknown-log --unknown "How does the session store handle concurrent acc
 empirica assumption-log --assumption "Database migrations run automatically" --confidence 0.6 --domain infrastructure
 ```
 
-### Step P3: Decompose into Goals
+### Step P3: Decompose into Goals (and subtasks)
 
-Create goals from your exploration. Each goal = one coherent deliverable.
+A **goal** is one coherent deliverable. **Subtasks** are the AI-tracked
+units of work *inside* a goal — distinct steps that each end in a
+commit / test result / verifiable evidence.
+
+The structural shape (Linear / GitHub / Jira convention):
+- `objective` is title-shaped (≤256 chars). Short, actionable.
+- `description` is the rich body (≤8000 chars, optional). Context,
+  motivation, success criteria, links.
 
 ```bash
-empirica goals-create --objective "Implement X"
-empirica goals-create --objective "Add tests for X"
-empirica goals-create --objective "Update docs for X"
+# Title-only goal — fine for small scope
+empirica goals-create --objective "Implement auth middleware"
+
+# Goal with rich description — when the why matters or success
+# criteria need to be explicit
+empirica goals-create \
+  --objective "Implement auth middleware" \
+  --description "Routes need JWT-based auth. Out-of-scope: session
+storage (separate goal). Success: all routes except /health
+require valid JWT, role-based guards work, unit tests pass.
+References: RFC 7519, prior decision deead8f2 on bcrypt."
+
+# Decompose into subtasks — one per distinct unit of AI work
+empirica goals-add-subtask --goal-id <ID> --description "Read existing middleware chain"
+empirica goals-add-subtask --goal-id <ID> --description "Implement JWT validation middleware"
+empirica goals-add-subtask --goal-id <ID> --description "Add role-based guards"
+empirica goals-add-subtask --goal-id <ID> --description "Write unit tests + commit"
 ```
+
+**When to decompose into subtasks (vs single-shot goal):**
+- Multi-file work → one subtask per file or logical unit
+- Investigation followed by implementation → one subtask per phase
+- Anything that will produce ≥2 commits → subtasks make per-commit
+  evidence linkage explicit
+- Anything you'd otherwise track in a TodoWrite — log as subtasks
+  instead so the work is grounded against calibration
+
+**As you complete each subtask, close it with evidence:**
+
+```bash
+empirica goals-complete-subtask \
+  --subtask-id <ID> \
+  --evidence "Commit abc1234: JWT validation middleware + unit tests passing"
+```
+
+The `--evidence` field is what makes subtasks *grounded* AI work
+rather than self-reported progress. Tie it to a commit SHA, test
+result, or file path — something deterministic that grounded
+calibration can verify.
+
+**Planned vs in-progress goals:**
+
+```bash
+# Logged but not yet started (collaborative planning, queue work)
+empirica goals-create --objective "Future: refactor X" --status planned
+
+# Active immediately (default — start work now)
+empirica goals-create --objective "Implement X"
+```
+
+**Cross-project goals:** add `--project-id <name-or-uuid>` to log against
+a different project's epistemic state without switching session context.
 
 ### Step P4: Generate Transaction Plan
 
