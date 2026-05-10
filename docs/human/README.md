@@ -45,7 +45,7 @@ Technical guides for AI integration.
 | [Epistemic Vectors](end-users/05_EPISTEMIC_VECTORS_EXPLAINED.md) | Everyone | Understanding the 13 vectors |
 | [Claude Code Setup](developers/CLAUDE_CODE_SETUP.md) | Developers | AI integration |
 | [CLI Reference](developers/CLI_COMMANDS_UNIFIED.md) | Developers | All commands |
-| [System Prompts](developers/system-prompts/) | Developers | Model-specific prompts |
+| [AI Self-Management](developers/AI_SELF_MANAGEMENT.md) | Developers | System-prompt source of truth + edit paths |
 
 ---
 

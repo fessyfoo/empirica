@@ -9,7 +9,7 @@
 | You Want To | Start Here |
 |-------------|------------|
 | Set up Claude Code | [CLAUDE_CODE_SETUP.md](CLAUDE_CODE_SETUP.md) |
-| Use system prompts | [system-prompts/](system-prompts/) |
+| Read the live system prompt | `~/.claude/empirica-system-prompt.md` (after `empirica setup-claude-code`) |
 | Learn the CLI | [CLI_COMMANDS_UNIFIED.md](CLI_COMMANDS_UNIFIED.md) |
 | Build custom skills | [skills/](skills/) |
 
@@ -27,21 +27,23 @@
 
 ## System Prompts
 
-Model-specific prompts for different AI systems:
+The live system prompt is generated from a single lean source and
+deployed via `empirica setup-claude-code`:
 
 ```
-system-prompts/
-├── CANONICAL_CORE.md     # AI-agnostic core (source of truth)
-├── model_deltas/         # Model-specific additions
-│   └── claude.md         # Claude-specific features
-├── CLAUDE.md             # Generated: Core + Claude delta
-├── QWEN.md               # Generated: Core only
-├── GEMINI.md             # Generated: Core only
-├── COPILOT_INSTRUCTIONS.md
-└── ROVODEV.md
+empirica/plugins/claude-code-integration/templates/
+├── empirica-system-prompt-lean.md   # Canonical lean source (default)
+└── CLAUDE.md                        # Legacy verbose template (--full-prompt opt-in)
 ```
 
-See [system-prompts/README.md](system-prompts/README.md) for the full architecture.
+After `empirica setup-claude-code`:
+
+- `~/.claude/empirica-system-prompt.md` — lean prompt (~263 lines), overwritten on each setup
+- `~/.claude/CLAUDE.md` — `@include` reference to the above; preserves any user overrides
+
+The previous `CANONICAL_CORE.md + model_deltas/` pipeline was retired
+in 1.7. See [AI_SELF_MANAGEMENT.md](AI_SELF_MANAGEMENT.md) for the
+current source-of-truth paths.
 
 ---
 

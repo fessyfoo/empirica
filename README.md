@@ -119,7 +119,7 @@ pip install empirica-mcp        # MCP Server (for Cursor, Cline, etc.)
 cd your-project && empirica project-init
 ```
 
-The CLI works standalone on any platform. The full epistemic workflow (epistemic transactions, Sentinel, calibration) requires loading the system prompt into your AI. See [System Prompts](docs/human/developers/system-prompts/) for Claude, Copilot, Gemini, Qwen, and Roo Code.
+The CLI works standalone on any platform. The full epistemic workflow (epistemic transactions, Sentinel, calibration) requires loading the system prompt into your AI — the easiest path is `empirica setup-claude-code`, which wires the lean prompt into `~/.claude/empirica-system-prompt.md` and references it from your `~/.claude/CLAUDE.md`. See [Claude Code Setup](docs/human/developers/CLAUDE_CODE_SETUP.md) for details.
 </details>
 
 ### First Session
@@ -247,7 +247,7 @@ The result: Claude Code's native capabilities, enhanced with measurement, gating
 | **[Getting Started](docs/human/end-users/01_START_HERE.md)** | First-time setup and concepts |
 | **[CLI Reference](docs/human/developers/CLI_COMMANDS_UNIFIED.md)** | All 150+ commands documented |
 | **[Architecture](docs/architecture/)** | Technical reference for contributors |
-| **[System Prompts](docs/human/developers/system-prompts/)** | AI prompts for Claude, Copilot, Gemini, Qwen, Roo |
+| **[Claude Code Setup](docs/human/developers/CLAUDE_CODE_SETUP.md)** | Install + system prompt + plugin wiring |
 
 ---
 

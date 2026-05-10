@@ -22,9 +22,7 @@ This folder contains technical documentation. For getting started:
 docs/
 ├── human/                    # For human readers
 │   ├── end-users/            # Installation, concepts, troubleshooting
-│   └── developers/           # Integration, system prompts, API
-│       ├── system-prompts/   # Model-specific prompts (Claude, Copilot, etc.)
-│       │   └── model_deltas/ # Model-specific adjustments
+│   └── developers/           # Integration, AI self-management, API
 │       ├── skills/           # Skill pipeline documentation
 │       └── Security/         # Security patterns and privacy
 │
