@@ -16,7 +16,6 @@ from empirica.api.registry import (
     upsert_project,
 )
 
-
 # ─── load / save round-trip ────────────────────────────────────────────
 
 

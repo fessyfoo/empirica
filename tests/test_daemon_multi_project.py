@@ -19,7 +19,6 @@ from fastapi.testclient import TestClient
 from empirica.api.registry import save_registry
 from empirica.api.serve_app import create_serve_app
 
-
 # ─── Fixtures ──────────────────────────────────────────────────────────
 
 
@@ -88,24 +87,22 @@ def test_health_includes_known_projects_from_registry(tmp_path: Path):
     }, registry_path)
 
     app = create_serve_app()
-    with patch("empirica.api.registry.DEFAULT_REGISTRY_PATH", registry_path):
-        with TestClient(app) as client:
-            r = client.get("/api/v1/health")
-            assert r.status_code == 200
-            body = r.json()
-            assert "known_projects" in body
-            assert len(body["known_projects"]) == 2
-            assert {p["project_id"] for p in body["known_projects"]} == {"p1", "p2"}
+    with patch("empirica.api.registry.DEFAULT_REGISTRY_PATH", registry_path), TestClient(app) as client:
+        r = client.get("/api/v1/health")
+        assert r.status_code == 200
+        body = r.json()
+        assert "known_projects" in body
+        assert len(body["known_projects"]) == 2
+        assert {p["project_id"] for p in body["known_projects"]} == {"p1", "p2"}
 
 
 def test_health_empty_known_projects_when_registry_missing(tmp_path: Path):
     registry_path = tmp_path / "nonexistent.yaml"
     app = create_serve_app()
-    with patch("empirica.api.registry.DEFAULT_REGISTRY_PATH", registry_path):
-        with TestClient(app) as client:
-            r = client.get("/api/v1/health")
-            assert r.status_code == 200
-            assert r.json()["known_projects"] == []
+    with patch("empirica.api.registry.DEFAULT_REGISTRY_PATH", registry_path), TestClient(app) as client:
+        r = client.get("/api/v1/health")
+        assert r.status_code == 200
+        assert r.json()["known_projects"] == []
 
 
 # ─── ?project_id=X registry routing ────────────────────────────────────
@@ -126,20 +123,19 @@ def test_findings_routes_by_project_id(tmp_path: Path):
     }, registry_path)
 
     app = create_serve_app()
-    with patch("empirica.api.registry.DEFAULT_REGISTRY_PATH", registry_path):
-        with TestClient(app) as client:
-            r_a = client.get("/api/v1/findings?project_id=alpha-id")
-            assert r_a.status_code == 200
-            data_a = r_a.json()
-            assert data_a["project_id"] == "alpha-id"
-            assert len(data_a["findings"]) == 1
-            assert data_a["findings"][0]["id"] == "f-alpha"
+    with patch("empirica.api.registry.DEFAULT_REGISTRY_PATH", registry_path), TestClient(app) as client:
+        r_a = client.get("/api/v1/findings?project_id=alpha-id")
+        assert r_a.status_code == 200
+        data_a = r_a.json()
+        assert data_a["project_id"] == "alpha-id"
+        assert len(data_a["findings"]) == 1
+        assert data_a["findings"][0]["id"] == "f-alpha"
 
-            r_b = client.get("/api/v1/findings?project_id=beta-id")
-            assert r_b.status_code == 200
-            data_b = r_b.json()
-            assert data_b["project_id"] == "beta-id"
-            assert data_b["findings"][0]["id"] == "f-beta"
+        r_b = client.get("/api/v1/findings?project_id=beta-id")
+        assert r_b.status_code == 200
+        data_b = r_b.json()
+        assert data_b["project_id"] == "beta-id"
+        assert data_b["findings"][0]["id"] == "f-beta"
 
 
 def test_findings_404_when_project_id_not_in_registry(tmp_path: Path):
@@ -147,13 +143,12 @@ def test_findings_404_when_project_id_not_in_registry(tmp_path: Path):
     save_registry({"version": 1, "projects": []}, registry_path)
 
     app = create_serve_app()
-    with patch("empirica.api.registry.DEFAULT_REGISTRY_PATH", registry_path):
-        with TestClient(app) as client:
-            r = client.get("/api/v1/findings?project_id=nope")
-            assert r.status_code == 404
-            detail = r.json()["detail"]
-            assert "not registered" in detail["error"]
-            assert "projects-discover" in detail["hint"]
+    with patch("empirica.api.registry.DEFAULT_REGISTRY_PATH", registry_path), TestClient(app) as client:
+        r = client.get("/api/v1/findings?project_id=nope")
+        assert r.status_code == 404
+        detail = r.json()["detail"]
+        assert "not registered" in detail["error"]
+        assert "projects-discover" in detail["hint"]
 
 
 def test_findings_404_when_registry_path_stale(tmp_path: Path):
@@ -168,10 +163,9 @@ def test_findings_404_when_registry_path_stale(tmp_path: Path):
     }, registry_path)
 
     app = create_serve_app()
-    with patch("empirica.api.registry.DEFAULT_REGISTRY_PATH", registry_path):
-        with TestClient(app) as client:
-            r = client.get("/api/v1/findings?project_id=stale-id")
-            assert r.status_code == 404
+    with patch("empirica.api.registry.DEFAULT_REGISTRY_PATH", registry_path), TestClient(app) as client:
+        r = client.get("/api/v1/findings?project_id=stale-id")
+        assert r.status_code == 404
 
 
 # ─── ?path=Y power-user bypass ─────────────────────────────────────────
@@ -186,13 +180,12 @@ def test_findings_routes_by_path_bypass(tmp_path: Path):
     save_registry({"version": 1, "projects": []}, registry_path)
 
     app = create_serve_app()
-    with patch("empirica.api.registry.DEFAULT_REGISTRY_PATH", registry_path):
-        with TestClient(app) as client:
-            r = client.get(f"/api/v1/findings?path={proj}")
-            assert r.status_code == 200
-            data = r.json()
-            assert data["project_id"] == "gamma-id"
-            assert data["findings"][0]["id"] == "f-gamma"
+    with patch("empirica.api.registry.DEFAULT_REGISTRY_PATH", registry_path), TestClient(app) as client:
+        r = client.get(f"/api/v1/findings?path={proj}")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["project_id"] == "gamma-id"
+        assert data["findings"][0]["id"] == "f-gamma"
 
 
 def test_findings_404_when_path_not_empirica_project(tmp_path: Path):
@@ -228,13 +221,12 @@ def test_findings_no_params_uses_cached_daemon_project(tmp_path: Path):
     with patch(
         "empirica.api.routes.artifacts.get_cached_daemon_project",
         return_value=cached_project_dict,
-    ):
-        with TestClient(app) as client:
-            r = client.get("/api/v1/findings")
-            assert r.status_code == 200
-            data = r.json()
-            assert data["project_id"] == "delta-id"
-            assert data["findings"][0]["id"] == "f-delta"
+    ), TestClient(app) as client:
+        r = client.get("/api/v1/findings")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["project_id"] == "delta-id"
+        assert data["findings"][0]["id"] == "f-delta"
 
 
 def test_findings_503_when_no_cached_project_and_no_params():
@@ -243,8 +235,7 @@ def test_findings_503_when_no_cached_project_and_no_params():
     with patch(
         "empirica.api.routes.artifacts.get_cached_daemon_project",
         return_value=None,
-    ):
-        with TestClient(app) as client:
-            r = client.get("/api/v1/findings")
-            assert r.status_code == 503
-            assert "Daemon not bound" in r.json()["detail"]
+    ), TestClient(app) as client:
+        r = client.get("/api/v1/findings")
+        assert r.status_code == 503
+        assert "Daemon not bound" in r.json()["detail"]
