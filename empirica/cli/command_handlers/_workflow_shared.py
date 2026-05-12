@@ -1,0 +1,612 @@
+"""Cross-cutting helpers used by all three workflow phases (preflight/check/postflight).
+
+Includes retrospective counters since _build_retrospective is called from BOTH
+check (praxic reminders) and postflight (closing summary). Kept here so neither
+phase module owns the other."""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+
+from empirica.config.path_resolver import resolve_session_db_path
+from empirica.core.canonical.empirica_git.sentinel_hooks import SentinelHooks
+from empirica.utils.session_resolver import InstanceResolver as R
+
+from ..cli_utils import parse_json_safely, run_empirica_subprocess
+
+logger = logging.getLogger(__name__)
+
+# Investigation-heavy work_types where noetic_batch is most useful.
+# Action-pure types (release, comms) and short-form types (data) skip the hint.
+_NOETIC_BATCH_WORK_TYPES = frozenset({
+    "code", "research", "debug", "audit", "docs", "infra", "config", "design",
+})
+
+
+
+def _remap_trajectory_summary(calibration_summary):
+    """Remap Bayesian calibration_summary keys to learning trajectory language.
+
+    The BayesianBeliefManager uses calibration terms (overestimates/underestimates)
+    but these represent learning patterns, not accuracy corrections.
+    Remap to make the distinction clear in PREFLIGHT output.
+    """
+    if not calibration_summary:
+        return None
+    return {
+        "typically_increases": calibration_summary.get("underestimates", []),
+        "typically_decreases": calibration_summary.get("overestimates", []),
+        "stable": calibration_summary.get("well_calibrated", []),
+    }
+
+def _get_db_for_session(session_id: str):
+    """
+    Get SessionDatabase for a specific session_id.
+
+    Resolves the session to its correct project database, allowing
+    CLI commands to work correctly even when CWD is different from
+    the session's project.
+
+    Args:
+        session_id: The session UUID
+
+    Returns:
+        SessionDatabase instance connected to the correct project's DB
+    """
+    from empirica.data.session_database import SessionDatabase
+
+    db_path = resolve_session_db_path(session_id)
+    if db_path:
+        return SessionDatabase(db_path=str(db_path))
+    else:
+        # Fallback to CWD-based detection (legacy behavior)
+        return SessionDatabase()
+
+def _check_bootstrap_status(session_id: str) -> dict:
+    """
+    Check if project-bootstrap has been run for this session.
+
+    Returns:
+        {
+            "has_bootstrap": bool,
+            "project_id": str or None,
+            "session_exists": bool
+        }
+    """
+    try:
+        db = _get_db_for_session(session_id)
+        cursor = db.conn.cursor()
+
+        # Check if session exists and has project_id
+        cursor.execute("""
+            SELECT session_id, project_id FROM sessions
+            WHERE session_id = ?
+        """, (session_id,))
+        row = cursor.fetchone()
+        db.close()
+
+        if not row:
+            return {
+                "has_bootstrap": False,
+                "project_id": None,
+                "session_exists": False
+            }
+
+        project_id = row[1] if row else None
+        return {
+            "has_bootstrap": project_id is not None,
+            "project_id": project_id,
+            "session_exists": True
+        }
+    except Exception as e:
+        return {
+            "has_bootstrap": False,
+            "project_id": None,
+            "session_exists": False,
+            "error": str(e)
+        }
+
+def _auto_bootstrap(session_id: str) -> dict:
+    """
+    Auto-run project-bootstrap for a session.
+
+    Returns:
+        {"ok": bool, "project_id": str, "message": str}
+    """
+    try:
+        result = run_empirica_subprocess(
+            ['empirica', 'project-bootstrap', '--session-id', session_id, '--output', 'json'],
+            timeout=30
+        )
+
+        if result.returncode == 0:
+            try:
+                output = json.loads(result.stdout)
+                return {
+                    "ok": True,
+                    "project_id": output.get('project_id'),
+                    "message": "Auto-bootstrap completed"
+                }
+            except json.JSONDecodeError:
+                return {"ok": True, "project_id": None, "message": "Bootstrap ran (non-JSON output)"}
+        else:
+            return {"ok": False, "error": result.stderr[:500]}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+def _parse_workflow_input(args, phase: str):
+    """Parse and validate workflow input from config file, stdin, or CLI flags.
+
+    Shared across PREFLIGHT, CHECK, and POSTFLIGHT handlers.
+    Returns (config_data, output_format) where config_data is parsed JSON
+    or None if using legacy CLI flags.
+    """
+    import sys
+
+    config_data = None
+
+    # AI-FIRST MODE: Check if config file provided or stdin piped
+    if hasattr(args, 'config') and args.config:
+        if args.config == '-':
+            config_data = parse_json_safely(sys.stdin.read())
+        else:
+            if not os.path.exists(args.config):
+                print(json.dumps({"ok": False, "error": f"Config file not found: {args.config}"}))
+                sys.exit(1)
+            with open(args.config) as f:
+                config_data = parse_json_safely(f.read())
+    elif not sys.stdin.isatty():
+        config_data = parse_json_safely(sys.stdin.read())
+
+    if config_data:
+        # Merge CLI session_id as fallback
+        if not config_data.get('session_id') and getattr(args, 'session_id', None):
+            config_data['session_id'] = args.session_id
+        # Auto-resolve session_id from active session
+        if not config_data.get('session_id'):
+            try:
+                auto_sid = R.session_id()
+                if auto_sid:
+                    config_data['session_id'] = auto_sid
+                    logger.debug(f"{phase}: Auto-derived session_id: {auto_sid[:8]}...")
+            except Exception:
+                pass
+        return config_data, 'json'
+
+    return None, getattr(args, 'output', 'json')
+
+def _resolve_and_validate_session(session_id: str, phase: str) -> str:
+    """Resolve partial session IDs to full UUIDs with consistent error handling.
+
+    Shared across PREFLIGHT, CHECK, and POSTFLIGHT.
+    Returns the resolved session_id or exits with error JSON.
+    """
+    import sys
+
+    try:
+        return R.resolve_session(session_id)
+    except ValueError as e:
+        print(json.dumps({
+            "ok": False,
+            "error": f"Invalid session_id: {e}",
+            "hint": "Use full UUID, partial UUID (8+ chars), or 'latest'"
+        }))
+        sys.exit(1)
+
+def _invoke_sentinel_hook(phase: str, session_id: str, checkpoint_data: dict):
+    """Invoke Sentinel post-checkpoint hook if enabled.
+
+    Returns SentinelDecision or None.
+    """
+    if SentinelHooks.is_enabled():
+        return SentinelHooks.post_checkpoint_hook(
+            session_id=session_id,
+            ai_id=None,
+            phase=phase,
+            checkpoint_data=checkpoint_data
+        )
+    return None
+
+def _build_noetic_guidance(work_type: str | None) -> dict | None:
+    """Surface the noetic-batch schema when the work_type benefits from it.
+
+    Returns a dict with tool name, CLI form, schema, and hint — or None
+    when the work_type isn't investigation-prone (release, comms).
+    """
+    if not work_type or work_type not in _NOETIC_BATCH_WORK_TYPES:
+        return None
+    return {
+        "tool": "mcp__empirica__noetic_batch",
+        "cli": "empirica noetic-batch -",
+        "schema": {
+            "intent": "<one-line investigation goal>",
+            "reads": [{"path": "<file>", "lines": "<optional 'N-M'>"}],
+            "greps": [{
+                "pattern": "<regex>",
+                "glob": "<optional path glob>",
+                "context": "<optional 0-5>",
+                "max_matches": "<optional ≤500>",
+            }],
+            "globs": ["<pattern>", {"pattern": "<...>", "root": "<optional dir>"}],
+            "investigate": [{"query": "<...>", "scope": "session|project|global", "limit": "<optional ≤20>"}],
+        },
+        "hint": (
+            "Use ONLY when batching ≥3 investigation operations together — the "
+            "value is one merged result for your conversation, fewer round-trips. "
+            "Individual Read/Grep/Glob are noetic anywhere (any phase) — use them "
+            "freely. noetic-batch is NOT a Sentinel bypass; calling it once for a "
+            "single read is misuse."
+        ),
+        "skip_if": (
+            "Fewer than 3 investigation operations. Use Read/Grep/Glob/investigate "
+            "directly — they're already noetic and don't need batching."
+        ),
+    }
+
+def _build_voice_guidance(work_type: str | None, voice: str | None) -> dict | None:
+    """Surface the voice profile when work_type=comms or --voice was set.
+
+    Loads the profile via the same resolver as `empirica voice apply` —
+    project-local .empirica/voice/ overrides ~/.empirica/voice/. Output
+    block mirrors voice_commands.handle_voice_apply's payload shape so
+    the AI can treat it as if it had run `voice apply` directly.
+
+    Resolution policy:
+      • voice='<name>' explicit  → load that profile (any work_type)
+      • work_type='comms' alone  → no auto-load (no opinionated default)
+      • neither                  → return None
+
+    Choosing not to auto-pick a profile when work_type=comms is set
+    without --voice keeps the surface explicit and avoids the wrong-voice
+    bug at scale (multi-user sessions, project-shared voice profiles).
+    The voice_guidance block in that case nudges the AI toward
+    `empirica voice list` so the right profile gets named.
+    """
+    if not voice:
+        # work_type=comms without explicit voice → nudge, don't auto-pick
+        if work_type == "comms":
+            return {
+                "hint": (
+                    "work_type=comms — consider naming a voice profile via "
+                    "the 'voice' field in PREFLIGHT (or --voice flag). Run "
+                    "'empirica voice list' to see available profiles."
+                ),
+                "profile": None,
+            }
+        return None
+
+    # Resolve and load the profile
+    try:
+        import yaml
+
+        from empirica.cli.command_handlers.voice_commands import _resolve_profile_path
+        path = _resolve_profile_path(voice)
+        if path is None:
+            return {
+                "hint": f"voice profile {voice!r} not found (no .yaml in project or global voice dirs).",
+                "profile": None,
+                "error": "profile_not_found",
+            }
+        data = yaml.safe_load(path.read_text()) or {}
+    except Exception as e:
+        return {
+            "hint": f"voice profile load failed: {type(e).__name__}: {e}",
+            "profile": None,
+            "error": "load_failed",
+        }
+
+    # Default register: if work_type=comms, prefer email register; otherwise natural
+    natural = data.get("natural_register", "unspecified")
+    register_key = "email" if work_type == "comms" else None
+    platform_conf = (data.get("platforms") or {}).get(register_key or "") or {}
+    effective_register = platform_conf.get("register") or natural
+
+    return {
+        "profile": data.get("name", voice),
+        "profile_path": str(path),
+        "register_effective": effective_register,
+        "depth": platform_conf.get("depth", "medium"),
+        "framing": platform_conf.get("framing", "unspecified"),
+        "tendencies_foreground": data.get("tendencies") or [],
+        "anti_patterns_suppress": data.get("anti_patterns") or [],
+        "natural_register_fallback": natural,
+        "hint": (
+            "Apply these tendencies and avoid the anti-patterns when drafting "
+            "in this register. The guidance is descriptive of the source "
+            "voice, not aspirational — match what the person actually does."
+        ),
+    }
+
+def _extract_numeric_value(value):
+    """
+    Extract numeric value from vector data.
+
+    Handles multiple formats:
+    - Simple float: 0.85
+    - Nested dict: {"score": 0.85, "rationale": "...", "evidence": "..."}
+    - String numbers: "0.85"
+
+    Returns:
+        float or None if value cannot be extracted
+    """
+    if isinstance(value, (int, float)):
+        return float(value)
+    elif isinstance(value, dict):
+        # Extract 'score' key if present
+        if 'score' in value:
+            return float(value['score'])
+        # Extract 'value' key as fallback
+        if 'value' in value:
+            return float(value['value'])
+        # Try to find any numeric value in nested structure
+        for _k, v in value.items():
+            if isinstance(v, (int, float)):
+                return float(v)
+            elif isinstance(v, str) and v.replace('.', '').replace('-', '').isdigit():
+                try:
+                    return float(v)
+                except ValueError:
+                    continue
+        # Try to convert entire dict to float if it looks like a single number
+        for v in value.values():
+            if isinstance(v, (int, float)):
+                return float(v)
+    elif isinstance(value, str):
+        # Try to convert string to float
+        try:
+            return float(value)
+        except ValueError:
+            pass
+    return None
+
+def _extract_all_vectors(vectors):
+    """
+    Extract all numeric values from vectors dict, handling nested structures.
+    Flattens nested dicts to extract individual vector values.
+
+    Args:
+        vectors: Dict containing vector data (simple or nested)
+
+    Returns:
+        Dict with all vector names mapped to numeric values
+
+    Example:
+        Input: {"engagement": 0.85, "foundation": {"know": 0.75, "do": 0.80}}
+        Output: {"engagement": 0.85, "know": 0.75, "do": 0.80}
+    """
+    extracted = {}
+
+    for key, value in vectors.items():
+        if isinstance(value, dict):
+            # Nested structure - recursively extract all sub-vectors
+            for nested_key, nested_value in value.items():
+                numeric_value = _extract_numeric_value(nested_value)
+                if numeric_value is not None:
+                    extracted[nested_key] = numeric_value
+                else:
+                    # Fallback to default if extraction fails
+                    extracted[nested_key] = 0.5
+        else:
+            # Simple value - extract directly
+            numeric_value = _extract_numeric_value(value)
+            if numeric_value is not None:
+                extracted[key] = numeric_value
+            else:
+                # Fallback to default if extraction fails
+                extracted[key] = 0.5
+
+    return extracted
+
+def _retro_count_artifacts(cursor, session_id, transaction_id):
+    """Count artifact types logged in this transaction. Returns dict."""
+    artifact_counts = {}
+    all_tables = [
+        ("project_findings", "findings"), ("project_unknowns", "unknowns"),
+        ("project_dead_ends", "dead_ends"), ("mistakes_made", "mistakes"),
+        ("assumptions", "assumptions"), ("decisions", "decisions"),
+    ]
+    for table, label in all_tables:
+        try:
+            if transaction_id:
+                cursor.execute(f"SELECT COUNT(*) FROM {table} WHERE session_id = ? AND transaction_id = ?",
+                               (session_id, transaction_id))
+            else:
+                cursor.execute(f"SELECT COUNT(*) FROM {table} WHERE session_id = ?", (session_id,))
+            artifact_counts[label] = cursor.fetchone()[0]
+        except Exception:
+            artifact_counts[label] = 0
+    return artifact_counts
+
+def _retro_count_sources(cursor, session_id: str, transaction_id: str | None) -> int:
+    """Count artifacts in this transaction that declare at least one source_ref.
+
+    Sources are tracked via source_refs column (JSON list of source IDs from
+    source-add). 0% adoption today (per goal d290bc3c) — this helper drives
+    the nudge that surfaces when artifacts skip --source.
+    """
+    by_table = ("project_findings", "project_unknowns", "project_dead_ends",
+                "mistakes_made", "assumptions", "decisions")
+    total = 0
+    for table in by_table:
+        try:
+            sql = (
+                f"SELECT COUNT(*) FROM {table} "
+                f"WHERE session_id = ? "
+                f"AND COALESCE(source_refs, '') NOT IN ('', '[]', 'null')"
+            )
+            params: tuple = (session_id,)
+            if transaction_id:
+                sql += " AND transaction_id = ?"
+                params = (session_id, transaction_id)
+            cursor.execute(sql, params)
+            total += cursor.fetchone()[0]
+        except Exception:
+            # Column missing on some tables; ignore silently.
+            pass
+    return total
+
+def _retro_count_edges(cursor, session_id: str, transaction_id: str | None) -> int:
+    """Count artifacts in this transaction that have at least one declared edge.
+
+    Edges live in <type>_data.edges (or just data.edges for assumptions/decisions).
+    Counts rows whose data column has json_array_length(edges) > 0.
+    """
+    by_table = [
+        ("project_findings", "finding_data"),
+        ("project_unknowns", "unknown_data"),
+        ("project_dead_ends", "dead_end_data"),
+        ("mistakes_made", "mistake_data"),
+        ("assumptions", "data"),
+        ("decisions", "data"),
+    ]
+    total = 0
+    for table, data_col in by_table:
+        try:
+            sql = (
+                f"SELECT COUNT(*) FROM {table} "
+                f"WHERE session_id = ? "
+                f"AND COALESCE(json_array_length(json_extract({data_col}, '$.edges')), 0) > 0"
+            )
+            params: tuple = (session_id,)
+            if transaction_id:
+                sql += " AND transaction_id = ?"
+                params = (session_id, transaction_id)
+            cursor.execute(sql, params)
+            total += cursor.fetchone()[0]
+        except Exception:
+            # Column may not exist on older rows / table; ignore silently.
+            pass
+    return total
+
+def _build_retrospective(session_id: str, transaction_id: str | None) -> dict:
+    """Build retrospective feedback: artifact breadth, commit discipline, completion hints.
+
+    Returns dict with artifact_counts, optional breadth_note, commit_warning, completion_hint.
+    Non-fatal -- returns empty dict on any error.
+    """
+    import subprocess as _sp
+
+    try:
+        db = _get_db_for_session(session_id)
+        cursor = db.conn.cursor()
+
+        artifact_counts = _retro_count_artifacts(cursor, session_id, transaction_id)
+        retro: dict = {"artifact_counts": artifact_counts}
+
+        types_used = [k for k, v in artifact_counts.items() if v > 0]
+        types_missing = [k for k, v in artifact_counts.items() if v == 0]
+
+        if len(types_used) <= 1 and sum(artifact_counts.values()) > 0:
+            retro["breadth_note"] = (
+                f"Only {', '.join(types_used) or 'no'} artifacts logged. "
+                f"Missing: {', '.join(types_missing)}. "
+                "Unlogged artifact types are ungrounded prediction domains — "
+                "were there assumptions, decisions, dead-ends, or mistakes worth capturing?"
+            )
+
+        # Edge density nudge — surfaces when artifacts exist but no edges declared.
+        total_artifacts = sum(artifact_counts.values())
+        if total_artifacts >= 2:
+            try:
+                edges_count = _retro_count_edges(cursor, session_id, transaction_id)
+                retro["edges_with_artifacts"] = edges_count
+                if edges_count == 0:
+                    retro["edge_density_note"] = (
+                        f"{total_artifacts} artifacts logged with 0 declared edges. "
+                        "Anchor them in the graph: --related-to <id> on any *-log command, "
+                        "or --edge ID:RELATION for typed links. Unlinked artifacts are "
+                        "invisible to the commit-context walker."
+                    )
+            except Exception:
+                pass
+
+        # Sources discipline nudge — surfaces when artifacts exist but no source_refs declared.
+        if total_artifacts >= 2:
+            try:
+                sources_count = _retro_count_sources(cursor, session_id, transaction_id)
+                retro["artifacts_with_sources"] = sources_count
+                if sources_count == 0:
+                    retro["sources_discipline_note"] = (
+                        f"{total_artifacts} artifacts logged with 0 source_refs. "
+                        "Where did the evidence come from? Use --source <id> on any *-log "
+                        "command, or `empirica source-add` to register the source first. "
+                        "Sourced artifacts get full provenance trail in audit + compliance."
+                    )
+            except Exception:
+                pass
+
+        try:
+            _gr = _sp.run(["git", "status", "--porcelain"], capture_output=True, text=True, timeout=5)
+            if _gr.returncode == 0 and _gr.stdout.strip():
+                retro["commit_warning"] = (
+                    "Uncommitted changes detected. Grounded calibration for change/state/do "
+                    "will be based on committed work only — uncommitted edits are invisible."
+                )
+        except Exception:
+            pass
+
+        try:
+            if transaction_id:
+                cursor.execute("SELECT COUNT(*) FROM project_goals WHERE is_completed = 1 AND completed_transaction_id = ?",
+                               (transaction_id,))
+            else:
+                cursor.execute("SELECT COUNT(*) FROM project_goals WHERE is_completed = 1 AND session_id = ?", (session_id,))
+            goals_completed = cursor.fetchone()[0]
+            if goals_completed > 0:
+                retro["completion_hint"] = (
+                    f"{goals_completed} goal(s) completed in this transaction — "
+                    "completion for this transaction should be near 1.0."
+                )
+        except Exception:
+            pass
+
+        db.close()
+        return retro
+    except Exception as e:
+        logger.debug(f"Retrospective feedback failed (non-fatal): {e}")
+        return {}
+
+def _soft_run(stage_name: str, warnings: list, fn, *args, **kwargs):
+    """Run a downstream POSTFLIGHT stage; collect failures as warnings.
+
+    Stages 5-7 (bus, beliefs, storage, compliance, cortex sync) are
+    informational — they enrich the result but their failures must not
+    erase the reflex that already landed in stages 3-4. Pre-fix, an
+    exception in any of them surfaced as exit-code-1 with persisted=false
+    even though the loop had actually closed (ghost-success bug).
+
+    Post-fix: catch, log, accumulate into warnings[].
+
+    SystemExit is caught explicitly. Some library helpers (like
+    `cli.utils.project_resolver.resolve_project_id`) call `sys.exit(1)`
+    on miss instead of raising — and SystemExit derives from
+    BaseException, not Exception. Without explicit handling, those
+    sys.exit calls would walk straight through every `except Exception`
+    above us and kill POSTFLIGHT, defeating the soft-stage contract.
+    See #95 (pschwinger) for the repro.
+
+    KeyboardInterrupt is intentionally NOT caught — it's a user signal
+    to stop, and we should let it propagate through the whole call stack.
+    """
+    try:
+        return fn(*args, **kwargs)
+    except SystemExit as e:
+        # Library code that called sys.exit(N) — treat as a soft failure
+        # equivalent to a normal exception. Do NOT exit the process.
+        warnings.append({
+            "stage": stage_name,
+            "error_type": "SystemExit",
+            "error": f"library called sys.exit({e.code!r})",
+        })
+        logger.warning(f"POSTFLIGHT {stage_name} soft-failed: SystemExit({e.code!r})")
+        return None
+    except Exception as e:
+        warnings.append({
+            "stage": stage_name,
+            "error_type": type(e).__name__,
+            "error": str(e),
+        })
+        logger.warning(f"POSTFLIGHT {stage_name} soft-failed: {type(e).__name__}: {e}")
+        return None

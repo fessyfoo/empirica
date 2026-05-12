@@ -29,7 +29,7 @@ from __future__ import annotations
 from pathlib import Path
 
 WORKFLOW_COMMANDS_PATH = Path(
-    "/home/yogapad/empirical-ai/empirica/empirica/cli/command_handlers/workflow_commands.py"
+    "/home/yogapad/empirical-ai/empirica/empirica/cli/command_handlers/_workflow_check.py"
 )
 SENTINEL_GATE_PATH = Path(
     "/home/yogapad/empirical-ai/empirica/empirica/plugins/"
