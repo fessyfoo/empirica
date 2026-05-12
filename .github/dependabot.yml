@@ -1,0 +1,52 @@
+# Dependabot v2 config.
+# Auto-PRs for vulnerable + outdated dependencies across pyproject.toml
+# files and GitHub Actions workflows.
+
+version: 2
+updates:
+  # Core empirica package
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    groups:
+      pinned-security:
+        # Group all the security-CVE-pinned deps so one PR rolls them
+        # together rather than fragmenting across 8 PRs.
+        patterns:
+          - "cryptography"
+          - "gitpython"
+          - "lxml"
+          - "pydantic"
+          - "python-dotenv"
+          - "python-multipart"
+          - "requests"
+      lint-and-test:
+        patterns:
+          - "ruff"
+          - "pyright"
+          - "pytest*"
+
+  # MCP wrapper package
+  - package-ecosystem: pip
+    directory: "/empirica-mcp"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:30"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 3
+
+  # GitHub Actions versions
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 3

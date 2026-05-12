@@ -1,0 +1,295 @@
+name: Release
+
+# Tag-triggered release. Expected flow:
+#   1. Locally: scripts/release.py --prepare --old-version <prev>
+#      → builds artifacts, runs tests, sweeps versions, commits to main
+#   2. Locally: scripts/release.py --publish
+#      → creates tag v*.*.*, pushes main + tags
+#   3. GitHub Actions catches the tag push and:
+#      → publishes empirica + empirica-mcp to PyPI via OIDC trusted publishing
+#        (no PYPI_API_TOKEN secret needed once trusted publisher is configured
+#        at pypi.org/manage/account/publishing/)
+#      → builds + pushes Docker images (nubaeon/empirica:<tag> + :latest + :<tag>-alpine)
+#      → updates Nubaeon/homebrew-tap formula
+#      → creates GitHub release with auto-generated notes
+#
+# Required GitHub Actions secrets (Settings → Secrets and variables → Actions):
+#   DOCKERHUB_USERNAME    — Docker Hub username (e.g. "nubaeon")
+#   DOCKERHUB_TOKEN       — Docker Hub access token with push scope
+#   HOMEBREW_TAP_TOKEN    — PAT with `repo` scope for Nubaeon/homebrew-tap
+#
+# Optional: configure PyPI trusted publishers for empirica + empirica-mcp.
+# If trusted publishing isn't set up, the PyPI step will fail — fix by
+# either configuring it (preferred) or adding PYPI_API_TOKEN as a secret
+# and switching the publish step to use it.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write  # gh release create
+  id-token: write  # OIDC trusted publishing to PyPI
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  # ── Build sdist + wheel ─────────────────────────────────────────────
+  build:
+    name: Build sdist + wheel
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+
+      - name: Build empirica
+        run: python -m build --wheel --sdist --outdir dist/
+
+      - name: Build empirica-mcp
+        working-directory: empirica-mcp
+        run: python -m build --wheel --sdist --outdir dist/
+
+      - name: Upload empirica artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: empirica-dist
+          path: dist/*
+
+      - name: Upload empirica-mcp artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: empirica-mcp-dist
+          path: empirica-mcp/dist/*
+
+  # ── PyPI publish (OIDC) ──────────────────────────────────────────────
+  pypi-empirica:
+    name: Publish empirica → PyPI
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 10
+    environment:
+      name: pypi-empirica
+      url: https://pypi.org/project/empirica/
+
+    steps:
+      - name: Download empirica artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: empirica-dist
+          path: dist/
+
+      - name: Publish to PyPI (trusted publisher)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+
+  pypi-empirica-mcp:
+    name: Publish empirica-mcp → PyPI
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 10
+    environment:
+      name: pypi-empirica-mcp
+      url: https://pypi.org/project/empirica-mcp/
+
+    steps:
+      - name: Download empirica-mcp artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: empirica-mcp-dist
+          path: dist/
+
+      - name: Publish to PyPI (trusted publisher)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+
+  # ── Docker ──────────────────────────────────────────────────────────
+  # Skip with a warning rather than failing if DOCKERHUB_* secrets are
+  # missing — keeps forks usable.
+  docker:
+    name: Docker build + push
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: ver
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Check Docker Hub secrets
+        id: secrets
+        env:
+          DH_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          if [ -z "$DH_USER" ]; then
+            echo "::warning::DOCKERHUB_USERNAME not set — skipping Docker push"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.secrets.outputs.skip == 'false'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker Hub login
+        if: steps.secrets.outputs.skip == 'false'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build + push Debian
+        if: steps.secrets.outputs.skip == 'false'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            nubaeon/empirica:${{ steps.ver.outputs.version }}
+            nubaeon/empirica:latest
+
+      - name: Build + push Alpine
+        if: steps.secrets.outputs.skip == 'false'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.alpine
+          push: true
+          tags: |
+            nubaeon/empirica:${{ steps.ver.outputs.version }}-alpine
+
+  # ── Homebrew tap ────────────────────────────────────────────────────
+  # Checks out the tap repo, updates Formula/empirica.rb with the new
+  # version + sha256, commits + pushes. Skip on missing token.
+  homebrew:
+    name: Update Homebrew tap
+    runs-on: ubuntu-latest
+    needs: pypi-empirica
+    timeout-minutes: 10
+
+    steps:
+      - name: Resolve version
+        id: ver
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Check tap token
+        id: secrets
+        env:
+          TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::warning::HOMEBREW_TAP_TOKEN not set — skipping tap update"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download empirica sdist
+        if: steps.secrets.outputs.skip == 'false'
+        uses: actions/download-artifact@v4
+        with:
+          name: empirica-dist
+          path: dist/
+
+      - name: Compute sha256
+        if: steps.secrets.outputs.skip == 'false'
+        id: hash
+        run: |
+          SHA=$(sha256sum "dist/empirica-${{ steps.ver.outputs.version }}.tar.gz" | awk '{print $1}')
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Check out tap
+        if: steps.secrets.outputs.skip == 'false'
+        uses: actions/checkout@v4
+        with:
+          repository: Nubaeon/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update formula
+        if: steps.secrets.outputs.skip == 'false'
+        working-directory: homebrew-tap
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          SHA="${{ steps.hash.outputs.sha256 }}"
+          sed -i -E "s|url \"https://files.pythonhosted.org/packages/source/e/empirica/empirica-.*\\.tar\\.gz\"|url \"https://files.pythonhosted.org/packages/source/e/empirica/empirica-${VERSION}.tar.gz\"|" Formula/empirica.rb || true
+          sed -i -E "s|sha256 \"[a-f0-9]{64}\"|sha256 \"${SHA}\"|" Formula/empirica.rb
+          sed -i -E "s|version \"[0-9]+\\.[0-9]+\\.[0-9]+\"|version \"${VERSION}\"|" Formula/empirica.rb || true
+
+      - name: Commit + push
+        if: steps.secrets.outputs.skip == 'false'
+        working-directory: homebrew-tap
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/empirica.rb
+          if git diff --staged --quiet; then
+            echo "::notice::Formula already up to date; nothing to commit"
+          else
+            git commit -m "Update empirica to ${{ steps.ver.outputs.version }}"
+            git push
+          fi
+
+  # ── GitHub release ──────────────────────────────────────────────────
+  github-release:
+    name: GitHub release
+    runs-on: ubuntu-latest
+    needs: [build, pypi-empirica, pypi-empirica-mcp]
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          REPO_URL="https://github.com/${{ github.repository }}"
+          cat > release-notes.md <<EOF
+          See [CHANGELOG.md](${REPO_URL}/blob/main/CHANGELOG.md) for release notes.
+
+          ### Installation
+          \`\`\`bash
+          pip install empirica==${VERSION}
+          \`\`\`
+
+          ### Docker
+          \`\`\`bash
+          docker pull nubaeon/empirica:${VERSION}-alpine
+          \`\`\`
+
+          ### Homebrew
+          \`\`\`bash
+          brew tap nubaeon/tap && brew install empirica
+          \`\`\`
+          EOF
+          gh release create "${GITHUB_REF_NAME}" \
+            artifacts/empirica-dist/* \
+            artifacts/empirica-mcp-dist/* \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file release-notes.md
