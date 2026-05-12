@@ -996,6 +996,55 @@ def _cortex_resolve_project_id(session_id: str) -> str:
     except Exception:
         return ""
 
+def _cortex_resolve_project_metadata(session_id: str) -> dict:
+    """Resolve {project_id, name, repo_url} for the session's project.
+
+    Used to enrich the Cortex /v1/sync payload so Cortex's auto-create path
+    (triggered when /v1/sync references an unknown project_id) populates
+    proper name + repo_url instead of falling back to name=<UUID>. Without
+    this enrichment, every POSTFLIGHT for a fresh project seeds Cortex with
+    UUID-named rows that bulk-register later can't override (the existing
+    idempotent register_or_get_project skips already-existing IDs).
+
+    Returns empty dict on any miss — caller treats missing fields as
+    "Cortex will use whatever default it has", which preserves backward-
+    compat for older Cortex versions that don't honor the extra fields.
+    """
+    if not session_id:
+        return {}
+    try:
+        from empirica.data.session_database import SessionDatabase
+        db = SessionDatabase()
+        try:
+            cursor = db.conn.cursor()
+            cursor.execute(
+                "SELECT p.id, p.name, p.repos "
+                "FROM sessions s JOIN projects p ON s.project_id = p.id "
+                "WHERE s.session_id = ?",
+                (session_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return {}
+            project_id, name, repos_json = row
+            repo_url = None
+            if repos_json:
+                try:
+                    repos = json.loads(repos_json)
+                    if repos and isinstance(repos, list):
+                        raw = repos[0]
+                        if raw.endswith(".git"):
+                            raw = raw[:-4]
+                        repo_url = raw
+                except (json.JSONDecodeError, AttributeError):
+                    pass
+            return {"project_id": project_id, "name": name, "repo_url": repo_url}
+        finally:
+            db.close()
+    except Exception:
+        return {}
+
+
 def _cortex_format_rows(rows, table, key):
     """Format DB rows for a specific artifact table into sync-ready dicts."""
     if table == "project_findings":
@@ -1118,16 +1167,26 @@ def _run_postflight_cortex_sync(session_id, reasoning, resolved_project_path):
 
         import urllib.request
 
-        _sync_pid = _cortex_resolve_project_id(session_id)
+        _meta = _cortex_resolve_project_metadata(session_id)
+        _sync_pid = _meta.get("project_id") or _cortex_resolve_project_id(session_id)
         _tx_delta = _cortex_extract_transaction_delta(session_id)
         _cal = _cortex_read_calibration_summary(resolved_project_path)
 
-        _payload = json.dumps({
+        _body = {
             "project_id": _sync_pid,
             "task_context": reasoning[:200] if reasoning else "",
             "calibration_summary": _cal,
             "delta": _tx_delta,
-        }).encode("utf-8")
+        }
+        # Enrich with name + repo_url so Cortex's auto-create path on
+        # unknown project_ids gets proper metadata instead of name=<UUID>.
+        # Fix for the bulk-register / postflight-sync contamination bug
+        # (v0.7.8 extension handoff EC-2).
+        if _meta.get("name"):
+            _body["name"] = _meta["name"]
+        if _meta.get("repo_url"):
+            _body["repo_url"] = _meta["repo_url"]
+        _payload = json.dumps(_body).encode("utf-8")
 
         _req = urllib.request.Request(
             f"{_cortex_url.rstrip('/')}/v1/sync",

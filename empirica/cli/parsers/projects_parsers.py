@@ -174,6 +174,18 @@ def add_projects_parsers(subparsers) -> None:
         help="Show what would be registered without making HTTP calls.",
     )
     register.add_argument(
+        "--force-metadata-update",
+        action="store_true",
+        help=(
+            "Re-send name + display_name + repo_url for already-registered "
+            "projects, with `force_metadata_update: true` in the request body. "
+            "Cortex side updates UUID-shaped placeholder names + empty "
+            "repo_urls to the values from the local manifest. Use when "
+            "Cortex's existing rows have stale metadata (e.g. from /v1/sync "
+            "auto-creation). Idempotent. (v1.9.5+)"
+        ),
+    )
+    register.add_argument(
         "--cortex-url",
         default=None,
         help="Override Cortex base URL (default: $CORTEX_REMOTE_URL).",

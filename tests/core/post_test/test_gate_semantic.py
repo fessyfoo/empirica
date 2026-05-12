@@ -28,20 +28,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WORKFLOW_COMMANDS_PATH = Path(
-    "/home/yogapad/empirical-ai/empirica/empirica/cli/command_handlers/_workflow_check.py"
-)
-SENTINEL_GATE_PATH = Path(
-    "/home/yogapad/empirical-ai/empirica/empirica/plugins/"
-    "claude-code-integration/hooks/sentinel-gate.py"
-)
-SENTINEL_HOOKS_PATH = Path(
-    "/home/yogapad/empirical-ai/empirica/empirica/core/canonical/"
-    "empirica_git/sentinel_hooks.py"
-)
-ORCHESTRATOR_PATH = Path(
-    "/home/yogapad/empirical-ai/empirica/empirica/core/sentinel/orchestrator.py"
-)
+# Repo root resolved from this file's location so the tests work on any
+# checkout path (local dev, CI runner, etc.). tests/core/post_test/this.py
+# → parents[3] is the repo root.
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+WORKFLOW_COMMANDS_PATH = REPO_ROOT / "empirica/cli/command_handlers/_workflow_check.py"
+SENTINEL_GATE_PATH = REPO_ROOT / "empirica/plugins/claude-code-integration/hooks/sentinel-gate.py"
+SENTINEL_HOOKS_PATH = REPO_ROOT / "empirica/core/canonical/empirica_git/sentinel_hooks.py"
+ORCHESTRATOR_PATH = REPO_ROOT / "empirica/core/sentinel/orchestrator.py"
 
 
 def _src(path: Path) -> str:
@@ -117,10 +112,7 @@ class TestDisplayStringsUpdated:
     def test_monitor_commands_gate_string(self):
         """monitor_commands.py readiness_gate strings should describe the
         new uncertainty-only gate."""
-        path = Path(
-            "/home/yogapad/empirical-ai/empirica/empirica/cli/"
-            "command_handlers/monitor_commands.py"
-        )
+        path = REPO_ROOT / "empirica/cli/command_handlers/monitor_commands.py"
         src = _src(path)
         # Old string is gone
         assert "know >= 0.70 AND uncertainty <= 0.35" not in src

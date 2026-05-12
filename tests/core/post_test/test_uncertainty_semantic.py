@@ -29,9 +29,11 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-COLLECTOR_PATH = Path(
-    "/home/yogapad/empirical-ai/empirica/empirica/core/post_test/collector.py"
-)
+# Resolved from this file's location so tests work on any checkout path
+# (local dev, CI runner). tests/core/post_test/this.py → parents[3] = repo root.
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+COLLECTOR_PATH = REPO_ROOT / "empirica/core/post_test/collector.py"
 
 
 # ---------------------------------------------------------------------------
@@ -259,10 +261,7 @@ class TestStatuslineAlignment:
     statusline's confidence formula: confidence = 0.40*know +
     0.30*(1-uncertainty) + 0.20*context + 0.10*completion."""
 
-    STATUSLINE_PATH = Path(
-        "/home/yogapad/empirical-ai/empirica/empirica/plugins/"
-        "claude-code-integration/scripts/statusline_empirica.py"
-    )
+    STATUSLINE_PATH = REPO_ROOT / "empirica/plugins/claude-code-integration/scripts/statusline_empirica.py"
 
     def _load_statusline(self):
         import importlib.util

@@ -570,16 +570,26 @@ def _register_one_project(
     cortex_url: str,
     api_key: str,
     timeout: float,
+    force_metadata_update: bool = False,
 ) -> dict[str, Any]:
     """Try to register a single project. Returns a per-project result dict.
 
     Result shape: {name, outcome: registered|skipped|failed, status, reason?}
+
+    When force_metadata_update=True, the request body carries
+    `force_metadata_update: true` so the Cortex side (when supported)
+    updates an existing row's name + display_name + repo_url from
+    UUID-shaped placeholders to the real values from the local manifest.
+    Without this flag, repeat POSTs return 409/already_exists and the
+    stale row is preserved.
     """
-    payload = {"name": project["name"]}
+    payload: dict[str, Any] = {"name": project["name"]}
     if project.get("repo_url"):
         payload["repo_url"] = project["repo_url"]
     if project.get("name"):
         payload["display_name"] = project["name"]
+    if force_metadata_update:
+        payload["force_metadata_update"] = True
 
     # Try the public register path first; fall back to admin on 404/405
     for path in (CORTEX_REGISTER_PATH, CORTEX_ADMIN_PATH):
@@ -724,8 +734,11 @@ def handle_projects_bulk_register_command(args) -> None:
                 file=sys.stderr,
             )
 
+        force_metadata = getattr(args, "force_metadata_update", False)
         results = [
-            _register_one_project(p, cortex_url, api_key, timeout) for p in projects
+            _register_one_project(p, cortex_url, api_key, timeout,
+                                  force_metadata_update=force_metadata)
+            for p in projects
         ]
         sys.stdout.write(_format_register_summary(
             results, output_format, dry_run=False, cortex_url=cortex_url,
