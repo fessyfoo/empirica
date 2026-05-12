@@ -273,7 +273,7 @@ section-order = ["future", "standard-library", "third-party", "first-party", "lo
 "scripts/*.py" = ["S108"]  # scripts use temp paths
 
 [tool.pyright]
-include = ["empirica", "tests"]
+include = ["empirica", "empirica-mcp", "tests"]
 exclude = [
     "_archive",
     "_dev",
@@ -283,6 +283,7 @@ exclude = [
 ]
 extraPaths = [
     "empirica/plugins/claude-code-integration/lib",
+    "empirica-mcp",  # so `from empirica_mcp.server import ...` resolves to the source tree
 ]
 pythonVersion = "3.10"
 typeCheckingMode = "basic"

@@ -18,6 +18,28 @@ from ..cli_utils import parse_json_safely, run_empirica_subprocess
 
 logger = logging.getLogger(__name__)
 
+# Module-level helpers are imported by _workflow_preflight/_workflow_check/
+# _workflow_postflight (cross-module). Declared in __all__ so pyright's
+# unused-function check accepts them as exported, not dead code.
+__all__ = [
+    "_auto_bootstrap",
+    "_build_noetic_guidance",
+    "_build_retrospective",
+    "_build_voice_guidance",
+    "_check_bootstrap_status",
+    "_extract_all_vectors",
+    "_extract_numeric_value",
+    "_get_db_for_session",
+    "_invoke_sentinel_hook",
+    "_parse_workflow_input",
+    "_remap_trajectory_summary",
+    "_resolve_and_validate_session",
+    "_retro_count_artifacts",
+    "_retro_count_edges",
+    "_retro_count_sources",
+    "_soft_run",
+]
+
 # Investigation-heavy work_types where noetic_batch is most useful.
 # Action-pure types (release, comms) and short-form types (data) skip the hint.
 _NOETIC_BATCH_WORK_TYPES = frozenset({
