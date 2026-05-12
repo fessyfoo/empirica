@@ -626,8 +626,71 @@ async def list_tools() -> list[types.Tool]:
     return tools
 
 
+def _build_cli_command(
+    entry: dict, arguments: dict
+) -> tuple[list[str], bytes | None]:
+    """Build the argv + optional stdin payload for a TOOL_REGISTRY entry.
+
+    Two shapes:
+    - `stdin_json` entries (CASCADE commands, lesson-create) get the full
+      `arguments` dict piped as JSON via `-`.
+    - Standard entries map `arguments` keys to CLI flags per `entry["params"]`,
+      with `positional` and `list_params` for the special-case forms.
+    """
+    cmd: list[str] = [EMPIRICA_CLI, entry["cli"], "--output", "json"]
+    if entry.get("stdin_json"):
+        cmd.append("-")
+        return cmd, json.dumps(arguments).encode("utf-8")
+
+    positional = entry.get("positional")
+    if positional:
+        pos_val = arguments.pop(positional, None)
+        if pos_val:
+            cmd.append(str(pos_val))
+
+    list_params = set(entry.get("list_params", []))
+    for param, flag in entry["params"].items():
+        value = arguments.get(param)
+        if value is None:
+            continue
+        if param in list_params and isinstance(value, list):
+            for item in value:
+                cmd.extend([flag, str(item)])
+        elif isinstance(value, bool):
+            if value:
+                cmd.append(flag)
+        else:
+            cmd.extend([flag, str(value)])
+    return cmd, None
+
+
+def _resolve_cwd(arguments: dict) -> str | None:
+    """Pick the working directory for the CLI invocation.
+
+    Precedence: explicit `project_path` arg → `$EMPIRICA_WORKSPACE_ROOT` →
+    `session_resolver.get_active_project_path()` → None.
+    """
+    cwd = arguments.get("project_path")
+    if cwd:
+        return cwd
+    cwd = os.environ.get("EMPIRICA_WORKSPACE_ROOT")
+    if cwd:
+        return cwd
+    try:
+        from empirica.utils.session_resolver import get_active_project_path
+        return get_active_project_path()
+    except Exception as e:
+        logger.debug(f"get_active_project_path lookup failed: {e}")
+        return None
+
+
+def _err_text(payload: dict) -> list[types.TextContent]:
+    """Wrap an error payload as the single-element TextContent list the SDK expects."""
+    return [types.TextContent(type="text", text=json.dumps(payload, indent=2))]
+
+
 @app.call_tool(validate_input=False)
-async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:  # noqa: C901 — flat MCP-tool router; splitting helps readability less than the linear branch table
+async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
     """Route tool calls to CLI."""
 
     if name == "get_empirica_introduction":
@@ -642,60 +705,21 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:  # n
 
     entry = TOOL_REGISTRY.get(name)
     if not entry:
-        return [types.TextContent(type="text", text=json.dumps({
+        return _err_text({
             "ok": False,
             "error": f"Unknown tool: {name}",
             "available": sorted(TOOL_REGISTRY.keys()),
-        }, indent=2))]
+        })
 
     if not EMPIRICA_CLI:
-        return [types.TextContent(type="text", text=json.dumps({
+        return _err_text({
             "ok": False,
             "error": "empirica CLI not found. Install: pip install empirica",
-        }, indent=2))]
+        })
 
-    # Build command
-    cmd = [EMPIRICA_CLI, entry["cli"], "--output", "json"]
-    stdin_data = None
+    cmd, stdin_data = _build_cli_command(entry, arguments)
+    cwd = _resolve_cwd(arguments)
 
-    if entry.get("stdin_json"):
-        # CASCADE commands + lesson-create: send full JSON via stdin
-        cmd.append("-")
-        stdin_data = json.dumps(arguments).encode("utf-8")
-    else:
-        # Positional argument (e.g., goals-search query, investigate query)
-        if entry.get("positional"):
-            pos_val = arguments.pop(entry["positional"], None)
-            if pos_val:
-                cmd.append(str(pos_val))
-
-        # Standard commands: map params to CLI flags
-        list_params = set(entry.get("list_params", []))
-        for param, flag in entry["params"].items():
-            value = arguments.get(param)
-            if value is not None:
-                if param in list_params and isinstance(value, list):
-                    # Repeat flag for each item (e.g., --source id1 --source id2)
-                    for item in value:
-                        cmd.extend([flag, str(item)])
-                elif isinstance(value, bool):
-                    if value:
-                        cmd.append(flag)
-                else:
-                    cmd.extend([flag, str(value)])
-
-    # Resolve working directory
-    cwd = arguments.get("project_path")
-    if not cwd:
-        cwd = os.environ.get("EMPIRICA_WORKSPACE_ROOT")
-    if not cwd:
-        try:
-            from empirica.utils.session_resolver import get_active_project_path
-            cwd = get_active_project_path()
-        except Exception as e:
-            logger.debug(f"get_active_project_path lookup failed: {e}")
-
-    # Execute — CASCADE commands get longer timeout
     timeout = CASCADE_TIMEOUT if entry.get("stdin_json") else CLI_TIMEOUT
     loop = asyncio.get_event_loop()
     try:
@@ -712,22 +736,21 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:  # n
             ),
         )
     except subprocess.TimeoutExpired:
-        return [types.TextContent(type="text", text=json.dumps({
+        return _err_text({
             "ok": False,
             "error": f"Command timed out ({timeout}s): {entry['cli']}",
-        }, indent=2))]
+        })
 
     if result.returncode == 0:
         output = result.stdout or result.stderr or '{"ok": true}'
         if len(output) > MAX_OUTPUT:
             output = output[:MAX_OUTPUT] + f"\n\n⚠️ Truncated ({len(output)} chars)"
         return [types.TextContent(type="text", text=output)]
-    else:
-        return [types.TextContent(type="text", text=json.dumps({
-            "ok": False,
-            "error": result.stderr or result.stdout or "Command failed",
-            "command": entry["cli"],
-        }, indent=2))]
+    return _err_text({
+        "ok": False,
+        "error": result.stderr or result.stdout or "Command failed",
+        "command": entry["cli"],
+    })
 
 
 # =============================================================================
