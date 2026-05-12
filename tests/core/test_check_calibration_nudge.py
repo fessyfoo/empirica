@@ -6,9 +6,9 @@ has zero epistemic artifacts logged, the response should include a
 praxic_reminders.calibration_nudge field with explicit scoring language.
 """
 
-from empirica.cli.command_handlers.workflow_commands import _build_retrospective
-
 import pytest
+
+from empirica.cli.command_handlers.workflow_commands import _build_retrospective
 
 # Marked as integration: requires empirica CLI on PATH, git-initialized
 # CWD, and/or a populated sessions.db. Excluded from default CI run

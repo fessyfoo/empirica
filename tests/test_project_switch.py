@@ -2,9 +2,9 @@
 Test project-switch command
 """
 
-from empirica.data.session_database import SessionDatabase
-
 import pytest
+
+from empirica.data.session_database import SessionDatabase
 
 # Marked as integration: requires empirica CLI on PATH, git-initialized
 # CWD, and/or a populated sessions.db. Excluded from default CI run
