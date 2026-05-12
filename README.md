@@ -2,7 +2,7 @@
 
 > **We Gave AI a Mirror. Now It Measures What It Believes.**
 
-[![Version](https://img.shields.io/badge/version-1.10.0-blue)](https://github.com/Nubaeon/empirica/releases/tag/v1.10.0)
+[![Version](https://img.shields.io/badge/version-1.9.3-blue)](https://github.com/Nubaeon/empirica/releases/tag/v1.9.3)
 [![PyPI](https://img.shields.io/pypi/v/empirica)](https://pypi.org/project/empirica/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)]()
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -100,13 +100,13 @@ empirica setup-claude-code
 
 ```bash
 # Security-hardened Alpine image (~276MB, recommended)
-docker pull nubaeon/empirica:1.10.0-alpine
+docker pull nubaeon/empirica:1.9.3-alpine
 
 # Standard image (Debian slim, ~414MB)
-docker pull nubaeon/empirica:1.10.0
+docker pull nubaeon/empirica:1.9.3
 
 # Run
-docker run -it -v $(pwd)/.empirica:/data/.empirica nubaeon/empirica:1.10.0 /bin/bash
+docker run -it -v $(pwd)/.empirica:/data/.empirica nubaeon/empirica:1.9.3 /bin/bash
 ```
 </details>
 
@@ -266,11 +266,11 @@ The result: Claude Code's native capabilities, enhanced with measurement, gating
 
 ---
 
-## What's New in 1.10.0
+## What's New in 1.9.3
 
 **Daemon multi-project support — one `empirica serve` serves them all.**
 The daemon was CWD-bound at startup; Tier 2/3 users with multiple
-`.empirica/` directories had to restart it to switch context. v1.10.0
+`.empirica/` directories had to restart it to switch context. v1.9.3
 adds:
 
 - **`~/.empirica/registry.yaml`** — atomic-write YAML registry of projects
@@ -527,6 +527,6 @@ MIT License — see [LICENSE](LICENSE) for details.
 ---
 
 **Author:** David S. L. Van Assche
-**Version:** 1.10.0
+**Version:** 1.9.3
 
 *Turtles all the way down — built with its own epistemic framework, measuring what it knows at every step.*

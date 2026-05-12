@@ -1,4 +1,4 @@
-"""Tests for the v1.10.0 daemon multi-project routing.
+"""Tests for the v1.9.3 daemon multi-project routing.
 
 Covers:
 - /api/v1/health surfaces known_projects from registry

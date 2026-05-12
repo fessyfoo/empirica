@@ -1,4 +1,4 @@
-"""Tests for empirica/api/registry.py (v1.10.0 daemon multi-project)."""
+"""Tests for empirica/api/registry.py (v1.9.3 daemon multi-project)."""
 
 from __future__ import annotations
 

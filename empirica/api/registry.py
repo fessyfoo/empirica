@@ -1,4 +1,4 @@
-"""Daemon project registry (v1.10.0).
+"""Daemon project registry (v1.9.3).
 
 Maintains ~/.empirica/registry.yaml — the list of projects the local `empirica
 serve` daemon is willing to serve. Companion to the existing
