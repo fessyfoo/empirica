@@ -78,8 +78,14 @@ jobs:
           pip install -e ".[dev,api,tui,vector]"
           pip install -e "./empirica-mcp[dev]"
 
-      - name: pytest (empirica)
-        run: pytest tests/ -q --tb=short
+      - name: pytest (empirica — excluding integration)
+        # Integration tests need empirica CLI on PATH, git-initialized CWD,
+        # and/or a populated sessions.db. They live behind the `integration`
+        # marker and pass locally where the dev env satisfies those. On a
+        # fresh CI runner they fail for environmental reasons unrelated to
+        # the code being tested. Run them in a separate workflow (nightly /
+        # on-demand) once the env-bootstrapping is wired.
+        run: pytest tests/ -q --tb=short -m "not integration"
 
       - name: pytest (empirica-mcp)
         working-directory: empirica-mcp

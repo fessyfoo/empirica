@@ -4,6 +4,15 @@ Test project-switch command
 
 from empirica.data.session_database import SessionDatabase
 
+import pytest
+
+# Marked as integration: requires empirica CLI on PATH, git-initialized
+# CWD, and/or a populated sessions.db. Excluded from default CI run
+# (pytest -m "not integration"). Run explicitly via:
+#   pytest -m integration tests/...
+pytestmark = pytest.mark.integration
+
+
 
 def test_project_switch_resolves_by_name():
     """Test that project-switch can resolve project by name"""

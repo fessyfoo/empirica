@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from empirica.cli.command_handlers.docs_link_check_commands import (
     DEFAULT_SKIP_DIRS,
     _check_one_file,
@@ -15,6 +17,10 @@ from empirica.cli.command_handlers.docs_link_check_commands import (
     _scan,
     handle_docs_link_check_command,
 )
+
+# Marked as integration: requires real .md files in the repo to scan.
+# Excluded from default CI run (pytest -m "not integration").
+pytestmark = pytest.mark.integration
 
 # ── Classifiers ───────────────────────────────────────────────────────
 

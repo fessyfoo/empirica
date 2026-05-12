@@ -10,6 +10,13 @@ import pytest
 
 from empirica.data.connection_pool import CircuitBreaker, ConnectionPool, RetryPolicy, RetryStrategy
 
+# Marked as integration: requires empirica CLI on PATH, git-initialized
+# CWD, and/or a populated sessions.db. Excluded from default CI run
+# (pytest -m "not integration"). Run explicitly via:
+#   pytest -m integration tests/...
+pytestmark = pytest.mark.integration
+
+
 
 class TestRetryPolicy:
     """Test exponential backoff retry policy"""

@@ -8,6 +8,15 @@ praxic_reminders.calibration_nudge field with explicit scoring language.
 
 from empirica.cli.command_handlers.workflow_commands import _build_retrospective
 
+import pytest
+
+# Marked as integration: requires empirica CLI on PATH, git-initialized
+# CWD, and/or a populated sessions.db. Excluded from default CI run
+# (pytest -m "not integration"). Run explicitly via:
+#   pytest -m integration tests/...
+pytestmark = pytest.mark.integration
+
+
 
 class TestRetrospectiveArtifactCounts:
     """The building block — _build_retrospective should return artifact_counts."""

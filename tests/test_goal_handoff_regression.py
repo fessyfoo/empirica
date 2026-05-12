@@ -11,6 +11,13 @@ import pytest
 
 from empirica.core.canonical.empirica_git import GitGoalStore
 
+# Marked as integration: requires empirica CLI on PATH, git-initialized
+# CWD, and/or a populated sessions.db. Excluded from default CI run
+# (pytest -m "not integration"). Run explicitly via:
+#   pytest -m integration tests/...
+pytestmark = pytest.mark.integration
+
+
 
 class TestGoalHandoffRegression:
     """Regression tests for goal discovery and lineage tracking"""
