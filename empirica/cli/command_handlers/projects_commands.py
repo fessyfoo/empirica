@@ -515,6 +515,32 @@ def filter_projects(
 
 CORTEX_REGISTER_PATH = "/v1/projects/register"
 CORTEX_ADMIN_PATH = "/v1/admin/projects"
+CORTEX_COLLECTIONS_PATH = "/v1/collections"
+
+
+def _fetch_cortex_collections(
+    cortex_url: str, api_key: str, timeout: float
+) -> list[dict[str, Any]]:
+    """GET /v1/collections — list of {id, name, repo_url, ...} for projects
+    the user has already synced to Cortex. Used by --force-metadata-update
+    to filter the local manifest down to the registered subset (Extension
+    Claude v0.7.8 follow-up: avoid attempting to register the 20 discovered-
+    but-not-registered projects when the user only meant 'refresh the 7
+    I've already synced'). Returns [] on any failure — caller treats that
+    as 'no intersection known, fall through to full set'."""
+    req = urllib.request.Request(
+        f"{cortex_url}{CORTEX_COLLECTIONS_PATH}",
+        method="GET",
+        headers={"Authorization": f"Bearer {api_key}"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode("utf-8")
+            body = json.loads(raw) if raw else {}
+            projects = body.get("projects") if isinstance(body, dict) else None
+            return projects if isinstance(projects, list) else []
+    except (urllib.error.URLError, OSError, TimeoutError, json.JSONDecodeError):
+        return []
 
 
 def _resolve_cortex_config(args) -> tuple[str | None, str | None]:
@@ -660,6 +686,42 @@ def _format_register_summary(
     return "\n".join(lines)
 
 
+def _filter_to_registered(
+    projects: list[dict[str, Any]],
+    cortex_url: str,
+    api_key: str,
+    timeout: float,
+    output_format: str,
+) -> list[dict[str, Any]]:
+    """--force-metadata-update implies --only-existing semantics (Extension
+    Claude v0.7.8 follow-up). Pre-query Cortex's /v1/collections and filter
+    the manifest down to the intersection. Match by name OR repo_url so
+    local-slug ↔ Cortex-UUID renames still resolve. Returns the filtered
+    list (possibly empty — caller bails on empty)."""
+    registered = _fetch_cortex_collections(cortex_url, api_key, timeout)
+    registered_names = {p["name"] for p in registered if p.get("name")}
+    registered_repos = {p["repo_url"] for p in registered if p.get("repo_url")}
+    before = len(projects)
+    filtered = [
+        p for p in projects
+        if p.get("name") in registered_names
+        or (p.get("repo_url") and p["repo_url"] in registered_repos)
+    ]
+    if output_format == "human":
+        print(
+            f"🎯 --force-metadata-update: {before} discovered → {len(filtered)} "
+            f"already registered on Cortex (refreshing metadata only)",
+            file=sys.stderr,
+        )
+    if not filtered:
+        print(
+            "⚠ No discovered projects match Cortex's registered set. "
+            "Run without --force-metadata-update to register new ones first.",
+            file=sys.stderr,
+        )
+    return filtered
+
+
 def handle_projects_bulk_register_command(args) -> None:
     """Handle projects-bulk-register. Cortex-dependent."""
     try:
@@ -735,6 +797,14 @@ def handle_projects_bulk_register_command(args) -> None:
             )
 
         force_metadata = getattr(args, "force_metadata_update", False)
+
+        if force_metadata:
+            projects = _filter_to_registered(
+                projects, cortex_url, api_key, timeout, output_format,
+            )
+            if not projects:
+                return
+
         results = [
             _register_one_project(p, cortex_url, api_key, timeout,
                                   force_metadata_update=force_metadata)
