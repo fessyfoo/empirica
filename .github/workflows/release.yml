@@ -288,8 +288,19 @@ jobs:
           brew tap nubaeon/tap && brew install empirica
           \`\`\`
           EOF
-          gh release create "${GITHUB_REF_NAME}" \
-            artifacts/empirica-dist/* \
-            artifacts/empirica-mcp-dist/* \
-            --title "${GITHUB_REF_NAME}" \
-            --notes-file release-notes.md
+          # Idempotent: scripts/release.py --publish (local) may have
+          # already created the release. If so, upload artifacts to the
+          # existing release instead of failing.
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            echo "Release ${GITHUB_REF_NAME} already exists — uploading artifacts with --clobber"
+            gh release upload "${GITHUB_REF_NAME}" \
+              artifacts/empirica-dist/* \
+              artifacts/empirica-mcp-dist/* \
+              --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" \
+              artifacts/empirica-dist/* \
+              artifacts/empirica-mcp-dist/* \
+              --title "${GITHUB_REF_NAME}" \
+              --notes-file release-notes.md
+          fi
