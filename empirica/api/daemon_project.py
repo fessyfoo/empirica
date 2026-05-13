@@ -278,13 +278,25 @@ def resolve_for_request(
             # the registry is stale and can run `projects-discover
             # --register --prune`.
             return None
-        return {
-            "project_id": entry.get("project_id"),
-            "project_path": str(candidate),
-            "project_name": entry.get("name") or candidate.name,
-            "project_slug": entry.get("slug") or candidate.name,
-            "repo_url": entry.get("repo_url"),
-        }
+        # Delegate to _synthesize_project_entry so the registry branch returns
+        # the canonical UUID project_id (consistent with the path-override
+        # branch above + resolve_daemon_project() at lines 159-161). Pre-fix,
+        # this branch returned the slug from registry.yaml — when artifact
+        # tables key on UUID (the projects.id column, set in .empirica/
+        # project.yaml for new projects), the SQL filter WHERE project_id=?
+        # matched zero rows and endpoints returned 200 OK with empty payloads.
+        # Reproduced 2026-05-13 against extension v0.7.11 dispatch.
+        project = _synthesize_project_entry(candidate)
+        # Preserve registry-side metadata overrides (name + slug + repo_url
+        # are user-curated in registry.yaml; respect them over project.yaml's
+        # auto-derived shapes).
+        if entry.get("name"):
+            project["project_name"] = entry["name"]
+        if entry.get("slug"):
+            project["project_slug"] = entry["slug"]
+        if entry.get("repo_url") and not project.get("repo_url"):
+            project["repo_url"] = entry["repo_url"]
+        return project
 
     return get_cached_daemon_project()
 

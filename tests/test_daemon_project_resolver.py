@@ -21,6 +21,7 @@ from empirica.api.daemon_project import (
     _walk_up_for_empirica,
     get_cached_daemon_project,
     resolve_daemon_project,
+    resolve_for_request,
 )
 
 
@@ -319,3 +320,139 @@ def test_get_cached_daemon_project_refresh_forces_re_resolve(tmp_path, monkeypat
         get_cached_daemon_project(refresh=True)
 
     assert call_count["n"] == 2
+
+
+# ---------------------------------------------------------------------------
+# resolve_for_request — registry branch
+# ---------------------------------------------------------------------------
+#
+# Regression coverage for the bug landed 2026-05-13: when an HTTP request
+# arrived with ?project_id=<slug>, this function returned the SLUG as
+# `project_id` in the resolved dict — but artifact tables in newer projects
+# key on the UUID from .empirica/project.yaml. SQL filter
+# `WHERE project_id = <slug>` matched zero rows → endpoints returned 200 OK
+# with empty payloads. Fix: delegate to _synthesize_project_entry so the
+# registry branch resolves UUID consistently with the CWD branch.
+
+
+def test_resolve_for_request_returns_uuid_project_id_for_uuid_yaml(tmp_path):
+    """Registry-lookup with UUID-keyed project.yaml returns UUID as project_id.
+
+    This is the new-project shape (post-2.0): .empirica/project.yaml contains
+    a UUID `project_id` matching the projects.id column in artifact tables.
+    Pre-fix, this branch returned the registry slug instead — SQL filter
+    against UUID-tagged rows matched zero results.
+    """
+    uuid = "d0317d3b-5e31-480d-9086-26bcd6c4cd1d"
+    proj = _make_project(tmp_path, "empirica-cortex", project_id=uuid)
+
+    fake_registry = {
+        "projects": [{
+            "project_id": "empirica-cortex",  # registry uses slug
+            "slug": "empirica-cortex",
+            "name": "empirica-cortex",
+            "path": str(proj),
+            "repo_url": "https://github.com/Nubaeon/empirica-cortex",
+        }],
+    }
+
+    with patch("empirica.api.registry.load_registry", return_value=fake_registry):
+        result = resolve_for_request(project_id="empirica-cortex")
+
+    assert result is not None
+    # The canonical project_id for DB filtering is the UUID, not the slug.
+    assert result["project_id"] == uuid
+    # Slug + name + repo_url still carry the human-readable form for routing.
+    assert result["project_slug"] == "empirica-cortex"
+    assert result["project_name"] == "empirica-cortex"
+    assert result["repo_url"] == "https://github.com/Nubaeon/empirica-cortex"
+    assert result["project_path"] == str(proj)
+
+
+def test_resolve_for_request_preserves_registry_metadata_overrides(tmp_path):
+    """When registry.yaml has name + slug + repo_url, they win over auto-derived.
+
+    Registry entries are user-curated (via projects-bulk-register). They
+    should override project.yaml's defaults for display purposes.
+    """
+    uuid = "a76ef65b-7784-4956-994a-a0d45badae15"
+    proj = _make_project(tmp_path, "ext-folder", project_id=uuid)
+
+    fake_registry = {
+        "projects": [{
+            "project_id": "empirica-extension",
+            "slug": "empirica-extension",
+            "name": "Empirica Extension",  # human-friendly name
+            "path": str(proj),
+            "repo_url": "https://github.com/Nubaeon/empirica-extension",
+        }],
+    }
+
+    with patch("empirica.api.registry.load_registry", return_value=fake_registry):
+        result = resolve_for_request(project_id="empirica-extension")
+
+    assert result is not None
+    assert result["project_id"] == uuid                          # UUID for DB
+    assert result["project_slug"] == "empirica-extension"        # registry override
+    assert result["project_name"] == "Empirica Extension"        # registry override
+    assert result["repo_url"] == "https://github.com/Nubaeon/empirica-extension"
+
+
+def test_resolve_for_request_slug_yaml_still_resolves(tmp_path):
+    """Legacy project.yaml shape (slug-as-project_id) keeps working.
+
+    The CWD branch already handled this via `project_uuid or yaml_id` —
+    if no UUID can be looked up from a workspace DB, fall through to the
+    yaml's slug-style project_id. The registry branch needs the same
+    behavior after delegating to _synthesize_project_entry.
+    """
+    proj = _make_project(tmp_path, "empirica", project_id="empirica")
+
+    fake_registry = {
+        "projects": [{
+            "project_id": "empirica",
+            "slug": "empirica",
+            "name": "empirica",
+            "path": str(proj),
+            "repo_url": None,
+        }],
+    }
+
+    with patch("empirica.api.registry.load_registry", return_value=fake_registry):
+        result = resolve_for_request(project_id="empirica")
+
+    assert result is not None
+    # No UUID upgrade available — falls back to yaml's slug-style id.
+    # (_resolve_project_uuid returns the workspace-DB UUID when available,
+    # else yaml_id. For projects without a workspace DB entry, that's the slug.)
+    assert result["project_id"] in {"empirica", "empirica"}  # slug or yaml_id
+
+
+def test_resolve_for_request_returns_none_for_unregistered_id(tmp_path):
+    """Unknown project_id → None (caller maps to 404)."""
+    fake_registry = {"projects": []}
+
+    with patch("empirica.api.registry.load_registry", return_value=fake_registry):
+        result = resolve_for_request(project_id="not-in-registry")
+
+    assert result is None
+
+
+def test_resolve_for_request_returns_none_for_stale_registry_path(tmp_path):
+    """Registry points at a path with no .empirica/ → None (stale entry)."""
+    stale_path = tmp_path / "deleted-project"
+    stale_path.mkdir()  # no .empirica/ subdir
+
+    fake_registry = {
+        "projects": [{
+            "project_id": "stale",
+            "slug": "stale",
+            "name": "stale",
+            "path": str(stale_path),
+        }],
+    }
+
+    with patch("empirica.api.registry.load_registry", return_value=fake_registry):
+        result = resolve_for_request(project_id="stale")
+
+    assert result is None
