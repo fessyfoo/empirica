@@ -160,11 +160,24 @@ def _attach_related_to(
 
     placeholders = ",".join("?" * len(from_ids))
     cursor = db.conn.cursor()
-    cursor.execute(
-        f"SELECT from_id, to_id, relation FROM artifact_edges WHERE from_id IN ({placeholders})",
-        from_ids,
-    )
-    raw_edges = cursor.fetchall()
+    # Older project sessions.db files (pre-edges schema) lack artifact_edges.
+    # Treat as no-edges rather than 500ing — the daemon's job is to serve
+    # what each project's DB actually has. Schema drift is normal across
+    # projects registered at different times. The per-table type lookups
+    # below already use the same defensive pattern.
+    import sqlite3 as _sqlite3
+    try:
+        cursor.execute(
+            f"SELECT from_id, to_id, relation FROM artifact_edges WHERE from_id IN ({placeholders})",
+            from_ids,
+        )
+        raw_edges = cursor.fetchall()
+    except _sqlite3.OperationalError as e:
+        if "no such table" in str(e).lower():
+            for row in rows:
+                row["related_to"] = []
+            return rows
+        raise
 
     # Resolve to_id → type by checking each artifact table once for the union of to_ids
     to_ids = list({e[1] for e in raw_edges})
@@ -748,31 +761,44 @@ def _walk_graph(  # noqa: C901 — graph walker has multiple branches but reads 
 
     visited: set[str] = set(seeds)
     edges_collected: set[tuple[str, str, str]] = set()
-    frontier = set(seeds)
-    for _ in range(depth):
-        if not frontier or len(visited) >= max_nodes:
-            break
-        ph = ",".join("?" * len(frontier))
-        cursor.execute(
-            f"SELECT from_id, to_id, relation FROM artifact_edges WHERE from_id IN ({ph})",
-            list(frontier),
-        )
-        new_frontier: set[str] = set()
-        for from_id, to_id, relation in cursor.fetchall():
-            edges_collected.add((from_id, to_id, relation))
-            if to_id not in visited and len(visited) < max_nodes:
-                visited.add(to_id)
-                new_frontier.add(to_id)
-        cursor.execute(
-            f"SELECT from_id, to_id, relation FROM artifact_edges WHERE to_id IN ({ph})",
-            list(frontier),
-        )
-        for from_id, to_id, relation in cursor.fetchall():
-            edges_collected.add((from_id, to_id, relation))
-            if from_id not in visited and len(visited) < max_nodes:
-                visited.add(from_id)
-                new_frontier.add(from_id)
-        frontier = new_frontier
+
+    # Pre-edges-schema project DBs lack artifact_edges. Skip the walk in
+    # that case — visited stays at seeds, edges_collected stays empty,
+    # node resolution below still produces {id, type, title} dicts so the
+    # response shape matches. Cheaper than wrapping every cursor.execute
+    # in try/except inside the walk loop. Same defensive pattern used in
+    # _attach_related_to.
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='artifact_edges'"
+    )
+    edges_table_exists = cursor.fetchone() is not None
+
+    if edges_table_exists:
+        frontier = set(seeds)
+        for _ in range(depth):
+            if not frontier or len(visited) >= max_nodes:
+                break
+            ph = ",".join("?" * len(frontier))
+            cursor.execute(
+                f"SELECT from_id, to_id, relation FROM artifact_edges WHERE from_id IN ({ph})",
+                list(frontier),
+            )
+            new_frontier: set[str] = set()
+            for from_id, to_id, relation in cursor.fetchall():
+                edges_collected.add((from_id, to_id, relation))
+                if to_id not in visited and len(visited) < max_nodes:
+                    visited.add(to_id)
+                    new_frontier.add(to_id)
+            cursor.execute(
+                f"SELECT from_id, to_id, relation FROM artifact_edges WHERE to_id IN ({ph})",
+                list(frontier),
+            )
+            for from_id, to_id, relation in cursor.fetchall():
+                edges_collected.add((from_id, to_id, relation))
+                if from_id not in visited and len(visited) < max_nodes:
+                    visited.add(from_id)
+                    new_frontier.add(from_id)
+            frontier = new_frontier
 
     nodes_out: list[dict] = []
     title_col_for: dict[str, str] = {

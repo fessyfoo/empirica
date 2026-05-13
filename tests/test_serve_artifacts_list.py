@@ -377,6 +377,60 @@ def test_related_to_target_type_is_unknown_for_dangling_edges(tmp_path, monkeypa
     assert related[0]["id"] == "ghost-id-not-in-db"
 
 
+def test_list_endpoint_survives_missing_artifact_edges_table(tmp_path, monkeypatch, reset_daemon_cache):
+    """Pre-edges-schema project DB → endpoint returns 200 with related_to=[]
+    instead of 500. Reproduces the failure mode hit 2026-05-13 against an
+    older project DB (empirica-autonomy/.empirica/sessions/sessions.db)
+    that predates the artifact_edges table.
+    """
+    pid = str(uuid.uuid4())
+    proj = _make_project_with_db(tmp_path, pid)
+    db_path = proj / ".empirica" / "sessions" / "sessions.db"
+
+    # Insert a finding via the fixture, then drop the artifact_edges table
+    # to simulate the older-DB schema state.
+    f1 = _insert_finding(db_path, pid, "schema-drift project")
+    conn = sqlite3.connect(str(db_path))
+    conn.execute("DROP TABLE artifact_edges")
+    conn.commit()
+    conn.close()
+
+    with patch("empirica.utils.session_resolver.InstanceResolver.project_path", return_value=str(proj)):
+        monkeypatch.chdir(proj)
+        client = TestClient(create_serve_app())
+        response = client.get("/api/v1/findings")
+
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+    findings = response.json()["findings"]
+    assert len(findings) == 1
+    assert findings[0]["id"] == f1
+    # related_to should be empty (no edges table = no edges) rather than absent
+    assert findings[0]["related_to"] == []
+
+
+def test_graph_endpoint_survives_missing_artifact_edges_table(tmp_path, monkeypatch, reset_daemon_cache):
+    """Graph walk on a pre-edges-schema DB → returns seeds with no edges."""
+    pid = str(uuid.uuid4())
+    proj = _make_project_with_db(tmp_path, pid)
+    db_path = proj / ".empirica" / "sessions" / "sessions.db"
+
+    _insert_finding(db_path, pid, "graph-test seed")
+    conn = sqlite3.connect(str(db_path))
+    conn.execute("DROP TABLE artifact_edges")
+    conn.commit()
+    conn.close()
+
+    with patch("empirica.utils.session_resolver.InstanceResolver.project_path", return_value=str(proj)):
+        monkeypatch.chdir(proj)
+        client = TestClient(create_serve_app())
+        response = client.get("/api/v1/artifacts/graph")
+
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+    payload = response.json()
+    assert len(payload["nodes"]) >= 1
+    assert payload["edges"] == []
+
+
 # ── Filter behavior ──────────────────────────────────────────────────
 
 
