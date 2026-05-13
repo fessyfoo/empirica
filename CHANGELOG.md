@@ -49,25 +49,40 @@ block the local archive; status surfaces in the response as
 tests covering env-unset no-op, success path, HTTPError, URLError,
 `CORTEX_URL` alias.
 
-### Added — `projects-bulk-register --only-existing` + `--force-metadata-update`
+### Changed — `projects-bulk-register` sources from `registry.yaml`
 
-Extension Claude v0.7.8 + follow-up handoff:
+The command was over-engineered. Mid-1.9.4 cycle, David flagged the
+complexity (Extension Claude's `--only-existing` flag + Cortex
+`/v1/collections` intersection round-trip + dry-run coordination)
+and pointed out the simpler model: `registry.yaml` (added in 1.9.3 for
+the daemon multi-project work) is already the user's curated set —
+the same file the daemon reads to decide which projects to serve.
+`bulk-register` should ALSO read it. The intersection happens at
+curation time, not at command time.
 
-- `--force-metadata-update` sets `force_metadata_update: true` in each
-  POST body so Cortex's safe-update logic backfills UUID-shaped
-  placeholder names + empty repo_urls on already-existing rows
-- `--only-existing` pre-queries Cortex `GET /v1/collections` and
-  filters the manifest down to the intersection (match by name OR
-  repo_url so local-slug ↔ Cortex-UUID renames still resolve)
-- Both flags are independent and compose. David's main case:
-  `empirica projects-bulk-register --only-existing --force-metadata-update`
-  refreshes metadata on the registered subset only
-- `--only-existing --dry-run` now correctly previews the intersection
-  (not the full manifest — fixed mid-cycle after David hit the bug)
-- New `_workflow_postflight._cortex_resolve_project_metadata()` enriches
-  the `/v1/sync` payload with `name + repo_url` so Cortex's auto-create
-  on unknown project_ids no longer seeds rows with `name=<UUID>`,
-  `repo_url=""` (the EC-2 root cause from the handoff)
+What ships:
+
+- **Default source: `~/.empirica/registry.yaml`** (the curated set the
+  daemon serves). Populate it via `empirica projects-discover --register`.
+- **`--from-discovered` flag** — opt-in to source from the raw scanner
+  output (`~/.empirica/discovered_projects.yaml`) for the "register
+  everything I have, no curation" workflow
+- **`--force-metadata-update`** — kept; still sets the body flag for
+  Cortex's safe-update of existing rows
+
+What got removed:
+
+- `--only-existing` flag (redundant — registry.yaml IS the curated set)
+- `_fetch_cortex_collections()` helper + Cortex `/v1/collections`
+  round-trip
+- `_filter_to_registered()` intersection logic
+- `_maybe_resolve_cortex_config()` conditional auth helper
+- ~80 LOC delete, 6 tests instead of 13
+
+Backstop preserved: `_workflow_postflight._cortex_resolve_project_metadata()`
+still enriches `/v1/sync` payloads with `name + repo_url` so Cortex's
+auto-create on unknown project_ids doesn't seed rows with `name=<UUID>`,
+`repo_url=""` (EC-2 root cause from the v0.7.8 handoff).
 
 ### Added — empirica-mcp tests
 

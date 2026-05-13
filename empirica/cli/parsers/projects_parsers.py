@@ -180,20 +180,19 @@ def add_projects_parsers(subparsers) -> None:
             "Set `force_metadata_update: true` in each request body. "
             "Cortex's safe-update logic then backfills UUID-shaped "
             "placeholder names + empty repo_urls on already-existing rows. "
-            "Composes with --only-existing for the common 'refresh what's "
-            "on Cortex' use case. (v1.9.5+)"
+            "Useful when Cortex has stale metadata that should be refreshed "
+            "from the local registry. (v1.9.4+)"
         ),
     )
     register.add_argument(
-        "--only-existing",
+        "--from-discovered",
         action="store_true",
         help=(
-            "Filter the manifest to projects ALREADY on Cortex (intersection "
-            "by name OR repo_url via GET /v1/collections). Skip the rest. "
-            "Useful when the local manifest has more projects than you've "
-            "registered and you don't want bulk-register to attempt to "
-            "register them. Usually paired with --force-metadata-update "
-            "to refresh metadata on the registered subset. (v1.9.5+)"
+            "Source projects from the raw scanner output "
+            "(~/.empirica/discovered_projects.yaml) instead of the curated "
+            "daemon registry (~/.empirica/registry.yaml, the default). Use "
+            "when you want to register EVERY project you have on disk, "
+            "not just the curated set the daemon serves. (v1.9.4+)"
         ),
     )
     register.add_argument(

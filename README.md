@@ -301,25 +301,27 @@ sharing workflow. v1.9.4 closes that gap:
   `global_learnings` Qdrant collection; the richer per-project walk +
   push-based auto-surface at project-bootstrap are deferred goals
 
-**`projects-bulk-register` — `--only-existing` + `--force-metadata-update`.**
-Extension Claude v0.7.8 work + David follow-up:
+**`projects-bulk-register` simplified — sources from `registry.yaml`.**
+The command was over-engineered through accumulated handoff iterations.
+Mid-cycle reset: `registry.yaml` (added in 1.9.3 for the daemon multi-
+project work) is already the user's curated set, so `bulk-register` now
+reads from it directly. No more Cortex `/v1/collections` round-trip
+to compute an intersection at command time — the curation happens
+once when you run `projects-discover --register`, and bulk-register
+just syncs what you've curated.
 
-- `--force-metadata-update`: sets `force_metadata_update: true` in each
-  POST body so Cortex's safe-update logic backfills UUID-shaped names +
-  empty repo_urls on existing rows
-- `--only-existing`: pre-queries Cortex `GET /v1/collections` and
-  filters the manifest to the intersection (matches by name OR
-  repo_url to handle local-slug ↔ Cortex-UUID renames)
-- Both flags are independent and compose. The common case is
-  `bulk-register --only-existing --force-metadata-update` — refresh
-  metadata on the registered subset without trying to register
-  unregistered local projects
-- Mid-cycle fix: `--only-existing --dry-run` now correctly previews
-  the intersection (was incorrectly showing the full manifest)
+- **Default**: reads `~/.empirica/registry.yaml`
+- **`--from-discovered`**: opt-in to read the raw scanner output
+  (`discovered_projects.yaml`) for "register everything I have"
+- **`--force-metadata-update`**: still kept — sets body flag for
+  Cortex's safe-update of existing rows
+- **Removed**: `--only-existing` flag, the intersection-fetch logic
+  (~80 LOC, 7 tests). The intersection now happens at curation, not
+  at sync time.
 - POSTFLIGHT `/v1/sync` payload also enriched with `name + repo_url`
   so Cortex's auto-create on unknown project_ids no longer seeds rows
-  with `name=<UUID>`, `repo_url=""` (root cause of the EC-2 contamination
-  identified in the handoff)
+  with `name=<UUID>`, `repo_url=""` (EC-2 root cause from the v0.7.8
+  handoff).
 
 **`source-archive` Cortex sync.** When `CORTEX_REMOTE_URL +
 CORTEX_API_KEY` are set, archiving locally now also calls Cortex's

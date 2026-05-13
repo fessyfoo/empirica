@@ -515,32 +515,6 @@ def filter_projects(
 
 CORTEX_REGISTER_PATH = "/v1/projects/register"
 CORTEX_ADMIN_PATH = "/v1/admin/projects"
-CORTEX_COLLECTIONS_PATH = "/v1/collections"
-
-
-def _fetch_cortex_collections(
-    cortex_url: str, api_key: str, timeout: float
-) -> list[dict[str, Any]]:
-    """GET /v1/collections — list of {id, name, repo_url, ...} for projects
-    the user has already synced to Cortex. Used by --force-metadata-update
-    to filter the local manifest down to the registered subset (Extension
-    Claude v0.7.8 follow-up: avoid attempting to register the 20 discovered-
-    but-not-registered projects when the user only meant 'refresh the 7
-    I've already synced'). Returns [] on any failure — caller treats that
-    as 'no intersection known, fall through to full set'."""
-    req = urllib.request.Request(
-        f"{cortex_url}{CORTEX_COLLECTIONS_PATH}",
-        method="GET",
-        headers={"Authorization": f"Bearer {api_key}"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            raw = resp.read().decode("utf-8")
-            body = json.loads(raw) if raw else {}
-            projects = body.get("projects") if isinstance(body, dict) else None
-            return projects if isinstance(projects, list) else []
-    except (urllib.error.URLError, OSError, TimeoutError, json.JSONDecodeError):
-        return []
 
 
 def _resolve_cortex_config(args) -> tuple[str | None, str | None]:
@@ -686,48 +660,33 @@ def _format_register_summary(
     return "\n".join(lines)
 
 
-def _filter_to_registered(
-    projects: list[dict[str, Any]],
-    cortex_url: str,
-    api_key: str,
-    timeout: float,
-    output_format: str,
-) -> list[dict[str, Any]]:
-    """--force-metadata-update implies --only-existing semantics (Extension
-    Claude v0.7.8 follow-up). Pre-query Cortex's /v1/collections and filter
-    the manifest down to the intersection. Match by name OR repo_url so
-    local-slug ↔ Cortex-UUID renames still resolve. Returns the filtered
-    list (possibly empty — caller bails on empty)."""
-    registered = _fetch_cortex_collections(cortex_url, api_key, timeout)
-    registered_names = {p["name"] for p in registered if p.get("name")}
-    registered_repos = {p["repo_url"] for p in registered if p.get("repo_url")}
-    before = len(projects)
-    filtered = [
-        p for p in projects
-        if p.get("name") in registered_names
-        or (p.get("repo_url") and p["repo_url"] in registered_repos)
-    ]
-    if output_format == "human":
-        print(
-            f"🎯 --force-metadata-update: {before} discovered → {len(filtered)} "
-            f"already registered on Cortex (refreshing metadata only)",
-            file=sys.stderr,
-        )
-    if not filtered:
-        print(
-            "⚠ No discovered projects match Cortex's registered set. "
-            "Run without --force-metadata-update to register new ones first.",
-            file=sys.stderr,
-        )
-    return filtered
+def _load_projects_for_register(
+    manifest_arg: str | None, from_discovered: bool
+) -> list[dict[str, Any]] | None:
+    """Source projects for bulk-register.
 
+    Default: read the user's curated `~/.empirica/registry.yaml` (the same
+    file the daemon uses to decide which projects to serve). If the user
+    has run `empirica projects-discover --register` they have a curated
+    set; that IS the answer.
 
-def handle_projects_bulk_register_command(args) -> None:
-    """Handle projects-bulk-register. Cortex-dependent."""
-    try:
-        # Load or build manifest
-        manifest_arg = getattr(args, "manifest_path", None)
-        target = Path(manifest_arg).expanduser() if manifest_arg else DEFAULT_MANIFEST_PATH
+    `--from-discovered` (or explicit `--from <path>`): use the raw scanner
+    output `~/.empirica/discovered_projects.yaml` instead — for the "I
+    want to register everything I have, no curation" workflow.
+
+    Returns a normalized list of {name, path, repo_url} dicts or None if
+    no source was findable.
+    """
+    if manifest_arg:
+        target = Path(manifest_arg).expanduser()
+        manifest = load_manifest(target)
+        if manifest is None:
+            print(f"⚠ Manifest not found at {target}.", file=sys.stderr)
+            return None
+        return manifest.get("projects", [])
+
+    if from_discovered:
+        target = DEFAULT_MANIFEST_PATH
         manifest = load_manifest(target)
         if manifest is None:
             print(
@@ -735,10 +694,45 @@ def handle_projects_bulk_register_command(args) -> None:
                 file=sys.stderr,
             )
             manifest = discover_projects(roots=[Path.home()])
+        return manifest.get("projects", [])
 
-        projects = manifest.get("projects", [])
-        if not projects:
-            print("⚠ No projects to register.", file=sys.stderr)
+    # Default: source from the curated registry.yaml
+    from empirica.api.registry import DEFAULT_REGISTRY_PATH, load_registry
+    registry = load_registry()
+    if not registry.get("projects"):
+        print(
+            f"⚠ No projects in {DEFAULT_REGISTRY_PATH}.\n"
+            f"  Either run `empirica projects-discover --register` to populate it,\n"
+            f"  or pass --from-discovered to source from the full filesystem scan.",
+            file=sys.stderr,
+        )
+        return None
+    # Normalize registry shape → bulk-register payload shape
+    return [
+        {
+            "name": entry.get("slug") or entry.get("name") or "",
+            "path": entry.get("path", ""),
+            "repo_url": entry.get("repo_url"),
+        }
+        for entry in registry["projects"]
+        if entry.get("slug") or entry.get("name")
+    ]
+
+
+def handle_projects_bulk_register_command(args) -> None:
+    """Handle projects-bulk-register. Cortex-dependent.
+
+    Sources from `~/.empirica/registry.yaml` by default (the curated set
+    the daemon serves). Use `--from-discovered` for the raw scanner output
+    or `--from <path>` for an explicit manifest.
+    """
+    try:
+        manifest_arg = getattr(args, "manifest_path", None)
+        from_discovered = bool(getattr(args, "from_discovered", False))
+        projects = _load_projects_for_register(manifest_arg, from_discovered)
+        if projects is None or not projects:
+            if projects == []:
+                print("⚠ No projects to register.", file=sys.stderr)
             return
 
         # Apply --include/--exclude filters (if any)
@@ -762,49 +756,33 @@ def handle_projects_bulk_register_command(args) -> None:
 
         dry_run = bool(getattr(args, "dry_run", False))
         force_metadata = getattr(args, "force_metadata_update", False)
-        only_existing = getattr(args, "only_existing", False)
         output_format = getattr(args, "output", "human")
         timeout = float(getattr(args, "timeout", 10.0))
 
-        # Resolve Cortex config UNLESS this is a plain dry-run with no
-        # scope-filter flags. --only-existing needs Cortex's /v1/collections
-        # to compute the intersection, even in dry-run mode (otherwise the
-        # dry-run lies: it shows "would register 27" when the actual
-        # intersection is 7).
-        needs_cortex = only_existing or not dry_run
-        cortex_url, api_key = (None, None)
-        if needs_cortex:
-            cortex_url, api_key = _resolve_cortex_config(args)
-            if not cortex_url or not api_key:
-                missing = []
-                if not cortex_url:
-                    missing.append("CORTEX_REMOTE_URL or --cortex-url")
-                if not api_key:
-                    missing.append("CORTEX_API_KEY or --api-key")
-                print(
-                    "⚠ Cortex configuration missing: " + ", ".join(missing) + "\n"
-                    "  This command is Cortex-dependent. Set the env vars or pass "
-                    "the flags explicitly.",
-                    file=sys.stderr,
-                )
-                sys.exit(2)
-
-        # --only-existing scope filter runs BEFORE dry-run short-circuit
-        # so dry-run accurately previews what would be POSTed.
-        if only_existing:
-            projects = _filter_to_registered(
-                projects, cortex_url, api_key, timeout, output_format,
-            )
-            if not projects:
-                return
-
+        # Dry-run short-circuit: no Cortex round-trip needed
         if dry_run:
             results = [{"name": p["name"], "outcome": "registered", "status": 0,
                         "reason": "dry-run"} for p in projects]
             sys.stdout.write(_format_register_summary(
-                results, output_format, dry_run=True, cortex_url=cortex_url,
+                results, output_format, dry_run=True, cortex_url=None,
             ))
             return
+
+        # Live run: resolve Cortex config, POST each project
+        cortex_url, api_key = _resolve_cortex_config(args)
+        if not cortex_url or not api_key:
+            missing = []
+            if not cortex_url:
+                missing.append("CORTEX_REMOTE_URL or --cortex-url")
+            if not api_key:
+                missing.append("CORTEX_API_KEY or --api-key")
+            print(
+                "⚠ Cortex configuration missing: " + ", ".join(missing) + "\n"
+                "  This command is Cortex-dependent. Set the env vars or pass "
+                "the flags explicitly.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
 
         if output_format == "human":
             print(
