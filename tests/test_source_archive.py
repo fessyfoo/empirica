@@ -21,6 +21,33 @@ from empirica.cli.command_handlers.artifact_log_commands import (
 # ─── Fixtures ──────────────────────────────────────────────────────────
 
 
+@pytest.fixture(autouse=True)
+def isolate_home_and_cortex_env(monkeypatch, tmp_path):
+    """Universal isolation — every test gets a fake HOME and clean Cortex env.
+
+    Without this, tests that expect 'no Cortex creds' semantics fail
+    on dev machines where ~/.empirica/credentials.yaml has a cortex
+    block (and the credentials_loader falls through to it when env
+    vars are cleared). The same pattern is used in
+    test_cortex_credentials_loader.py + test_projects_discover.py.
+    """
+    fake_home = tmp_path / "fake_home"
+    fake_home.mkdir()
+    monkeypatch.setenv("HOME", str(fake_home))
+    monkeypatch.delenv("CORTEX_REMOTE_URL", raising=False)
+    monkeypatch.delenv("CORTEX_URL", raising=False)
+    monkeypatch.delenv("CORTEX_API_KEY", raising=False)
+    monkeypatch.delenv("EMPIRICA_CREDENTIALS_PATH", raising=False)
+
+    # Reset both singleton + module-level loader globals so the next
+    # get_credentials_loader() call re-reads from the isolated HOME.
+    from empirica.config import credentials_loader as cl_mod
+    from empirica.config.credentials_loader import CredentialsLoader
+    CredentialsLoader._instance = None
+    CredentialsLoader._credentials_cache = None
+    cl_mod._loader = None
+
+
 @pytest.fixture
 def project_db(tmp_path: Path) -> Path:
     """Project-shaped sqlite DB with epistemic_sources schema (post-044)."""
