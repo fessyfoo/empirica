@@ -425,7 +425,11 @@ def test_resolve_for_request_slug_yaml_still_resolves(tmp_path):
     # No UUID upgrade available — falls back to yaml's slug-style id.
     # (_resolve_project_uuid returns the workspace-DB UUID when available,
     # else yaml_id. For projects without a workspace DB entry, that's the slug.)
-    assert result["project_id"] in {"empirica", "empirica"}  # slug or yaml_id
+    # In this fixture the yaml_id and the slug are both "empirica" — the set
+    # literal previously had two identical values to express "either form is
+    # valid", but ruff caught the duplicate (B033). Asserting on the single
+    # value preserves the test's intent without the lint trip.
+    assert result["project_id"] == "empirica"
 
 
 def test_resolve_for_request_returns_none_for_unregistered_id(tmp_path):
