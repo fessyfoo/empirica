@@ -211,6 +211,7 @@ SCHEMAS = [
     CREATE TABLE IF NOT EXISTS assumptions (
         id TEXT PRIMARY KEY,
         assumption TEXT NOT NULL,
+        description TEXT,
         confidence REAL DEFAULT 0.5 CHECK(confidence BETWEEN 0.0 AND 1.0),
         status TEXT NOT NULL DEFAULT 'unverified' CHECK(status IN (
             'unverified', 'verified', 'falsified'
@@ -236,6 +237,7 @@ SCHEMAS = [
     CREATE TABLE IF NOT EXISTS decisions (
         id TEXT PRIMARY KEY,
         choice TEXT NOT NULL,
+        description TEXT,
         alternatives TEXT,
         rationale TEXT NOT NULL,
         confidence_at_decision REAL CHECK(confidence_at_decision BETWEEN 0.0 AND 1.0),

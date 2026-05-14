@@ -826,6 +826,8 @@ def handle_finding_log_command(args):
 
         # Extract finding-specific fields
         finding = (config_data or {}).get('finding') or getattr(args, 'finding', None)
+        # Optional rich markdown body (renders in extension + skill surfaces)
+        description = (config_data or {}).get('description') or getattr(args, 'description', None)
 
         # Show project context (quiet mode)
         if ctx['output_format'] != 'json':
@@ -855,6 +857,7 @@ def handle_finding_log_command(args):
             source_ids=source_ids,
             visibility=ctx['visibility'],
             epistemic_source=epistemic_source,
+            description=description,
         )
 
         # Entity cross-link
@@ -954,6 +957,7 @@ def handle_unknown_log_command(args):
 
         # Extract unknown-specific fields
         unknown = (config_data or {}).get('unknown') or getattr(args, 'unknown', None)
+        description = (config_data or {}).get('description') or getattr(args, 'description', None)
         epistemic_source = (config_data or {}).get('epistemic_source') or getattr(args, 'epistemic_source', None)
 
         # Show project context (quiet mode)
@@ -978,6 +982,7 @@ def handle_unknown_log_command(args):
             entity_id=ctx['entity_id'],
             visibility=ctx['visibility'],
             epistemic_source=epistemic_source,
+            description=description,
         )
 
         # Entity cross-link
@@ -1282,6 +1287,7 @@ def handle_deadend_log_command(args):
         # Extract deadend-specific fields
         approach = (config_data or {}).get('approach') or getattr(args, 'approach', None)
         why_failed = (config_data or {}).get('why_failed') or getattr(args, 'why_failed', None)
+        description = (config_data or {}).get('description') or getattr(args, 'description', None)
         epistemic_source = (config_data or {}).get('epistemic_source') or getattr(args, 'epistemic_source', None)
 
         # Content-aware provenance nudge (non-blocking)
@@ -1302,6 +1308,7 @@ def handle_deadend_log_command(args):
             entity_id=ctx['entity_id'],
             visibility=ctx['visibility'],
             epistemic_source=epistemic_source,
+            description=description,
         )
 
         # Entity cross-link
@@ -1428,6 +1435,7 @@ def handle_assumption_log_command(args):
         assumption = (config_data or {}).get('assumption') or getattr(args, 'assumption', None)
         confidence = (config_data or {}).get('confidence', 0.5) or getattr(args, 'confidence', 0.5)
         domain = (config_data or {}).get('domain') or getattr(args, 'domain', None)
+        description = (config_data or {}).get('description') or getattr(args, 'description', None)
         epistemic_source = (config_data or {}).get('epistemic_source') or getattr(args, 'epistemic_source', None)
 
         # Content-aware provenance nudge (non-blocking)
@@ -1446,6 +1454,7 @@ def handle_assumption_log_command(args):
             entity_id=ctx['entity_id'],
             visibility=ctx['visibility'],
             epistemic_source=epistemic_source,
+            description=description,
         )
 
         # GIT NOTES: Store in git notes for sync
@@ -1605,6 +1614,7 @@ def handle_decision_log_command(args):
         reversibility = cfg.get('reversibility', 'exploratory') or getattr(args, 'reversibility', 'exploratory')
         evidence_refs = cfg.get('evidence_refs') or getattr(args, 'evidence_refs', None)
         epistemic_source = cfg.get('epistemic_source') or getattr(args, 'epistemic_source', None)
+        description = cfg.get('description') or getattr(args, 'description', None)
         alternatives_json = json.dumps(alternatives_list) if alternatives_list else None
 
         # Content-aware provenance nudge (non-blocking)
@@ -1620,6 +1630,7 @@ def handle_decision_log_command(args):
             entity_type=ctx['entity_type'], entity_id=ctx['entity_id'],
             evidence_refs=evidence_refs, visibility=ctx['visibility'],
             epistemic_source=epistemic_source,
+            description=description,
         )
 
         git_stored = _decision_persist_git(
@@ -2302,6 +2313,7 @@ def handle_mistake_log_command(args):
         cost_estimate = getattr(args, 'cost_estimate', None)
         root_cause_vector = getattr(args, 'root_cause_vector', None)
         prevention = getattr(args, 'prevention', None)
+        description = getattr(args, 'description', None)
         goal_id = getattr(args, 'goal_id', None)
         output_format = getattr(args, 'output', 'json')
         entity_type = getattr(args, 'entity_type', None)
@@ -2339,6 +2351,7 @@ def handle_mistake_log_command(args):
             prevention=prevention, goal_id=goal_id, project_id=project_id,
             transaction_id=transaction_id, entity_type=entity_type, entity_id=entity_id,
             visibility=visibility, epistemic_source=epistemic_source,
+            description=description,
         )
 
         if entity_type and entity_type != 'project' and entity_id:

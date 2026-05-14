@@ -1269,6 +1269,7 @@ ALL_MIGRATIONS: list[tuple[str, str, Callable]] = [
     ("042_impact_on_dead_ends_and_mistakes", "Add impact column to project_dead_ends and mistakes_made (long-lived DBs missed migrations 007/012 for these two tables — daemon /dead-ends endpoint 500s without this)", lambda cursor: migration_042_impact_on_dead_ends_and_mistakes(cursor)),
     ("043_goal_description", "Add description TEXT column to goals (Linear/GitHub/Jira pattern: title-shaped objective + optional rich body) — extension Claude flagged the title-vs-context-rich tension after the 1000→2000 mitigation in 1.9.4", lambda cursor: migration_043_goal_description(cursor)),
     ("044_source_lifecycle", "Add archive lifecycle columns (archived, archive_reason, archive_target_id, lifecycle_audit_log) to epistemic_sources for SOURCES_LIFECYCLE_SPEC Phase 1 (soft-delete + supersession). Empirica-Core CLI parity per the Cortex spec; empirica is the authoritative store.", lambda cursor: migration_044_source_lifecycle(cursor)),
+    ("045_assumption_decision_description", "Add description TEXT column to assumptions + decisions (markdown-first artifacts series — mirrors goals migration 043). Extension renders as prettified markdown.", lambda cursor: migration_045_assumption_decision_description(cursor)),
 ]
 
 
@@ -1579,6 +1580,28 @@ def migration_041_artifact_edges(cursor: sqlite3.Cursor):
 
     logger.info(
         f"✅ Migration 041 complete: artifact_edges table created, {backfilled_total} edges backfilled"
+    )
+
+
+def migration_045_assumption_decision_description(cursor: sqlite3.Cursor):
+    """Add `description` TEXT (nullable) column to assumptions + decisions.
+
+    Mirrors migration 043 (goal description) — title-shaped primary fields
+    (`assumption`, `choice`/`rationale`) get a rich-markdown body alongside,
+    rendered in the extension and skill surfaces. Part of the
+    markdown-first artifacts series (Goal 6a07549c) extending the goals
+    pattern to all `*-log` commands.
+
+    Backwards-compat: existing rows get description=NULL. The bootstrap
+    query returns it as a regular column; consumers treat NULL as
+    "title-only" and show the primary field alone.
+
+    Idempotent via add_column_if_missing — safe to re-run.
+    """
+    add_column_if_missing(cursor, "assumptions", "description", "TEXT", "NULL")
+    add_column_if_missing(cursor, "decisions", "description", "TEXT", "NULL")
+    logger.info(
+        "✅ Migration 045 complete: description column added to assumptions + decisions"
     )
 
 

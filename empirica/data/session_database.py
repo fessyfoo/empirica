@@ -2301,6 +2301,7 @@ class SessionDatabase:
         source_ids: list[str] | None = None,
         visibility: str | None = None,
         epistemic_source: str | None = None,
+        description: str | None = None,
     ) -> str:
         """Log a project finding (delegates to BreadcrumbRepository)"""
         # Auto-derive impact from latest CASCADE if not provided
@@ -2315,6 +2316,7 @@ class SessionDatabase:
             source_ids=source_ids,
             visibility=visibility,
             epistemic_source=epistemic_source,
+            description=description,
         )
 
     def log_session_finding(
@@ -2400,6 +2402,7 @@ class SessionDatabase:
         entity_id: str | None = None,
         visibility: str | None = None,
         epistemic_source: str | None = None,
+        description: str | None = None,
     ) -> str:
         """Log a project unknown (delegates to BreadcrumbRepository)"""
         # Auto-derive impact from latest CASCADE if not provided
@@ -2413,6 +2416,7 @@ class SessionDatabase:
             entity_id=entity_id,
             visibility=visibility,
             epistemic_source=epistemic_source,
+            description=description,
         )
 
     def resolve_unknown(self, unknown_id: str, resolved_by: str,
@@ -2437,6 +2441,7 @@ class SessionDatabase:
         entity_id: str | None = None,
         visibility: str | None = None,
         epistemic_source: str | None = None,
+        description: str | None = None,
     ) -> str:
         """Log a project dead end (delegates to BreadcrumbRepository)
 
@@ -2454,7 +2459,8 @@ class SessionDatabase:
                                              entity_type=entity_type,
                                              entity_id=entity_id,
                                              visibility=visibility,
-                                             epistemic_source=epistemic_source)
+                                             epistemic_source=epistemic_source,
+                                             description=description)
 
     def add_reference_doc(
         self,
@@ -2641,6 +2647,7 @@ class SessionDatabase:
         entity_id: str | None = None,
         visibility: str | None = None,
         epistemic_source: str | None = None,
+        description: str | None = None,
     ) -> str:
         """Log a mistake for learning (delegates to BreadcrumbRepository)
 
@@ -2663,7 +2670,8 @@ class SessionDatabase:
                                            entity_type=entity_type,
                                            entity_id=entity_id,
                                            visibility=visibility,
-                                           epistemic_source=epistemic_source)
+                                           epistemic_source=epistemic_source,
+                                           description=description)
 
     def get_mistakes(
         self,
@@ -2696,13 +2704,15 @@ class SessionDatabase:
         entity_id: str | None = None,
         visibility: str | None = None,
         epistemic_source: str | None = None,
+        description: str | None = None,
     ) -> str:
         """Log an unverified belief (delegates to BreadcrumbRepository)."""
         return self.breadcrumbs.log_assumption(
             project_id, session_id, assumption, confidence,
             domain=domain, goal_id=goal_id, transaction_id=transaction_id,
             entity_type=entity_type, entity_id=entity_id,
-            visibility=visibility, epistemic_source=epistemic_source)
+            visibility=visibility, epistemic_source=epistemic_source,
+            description=description)
 
     def log_decision(
         self,
@@ -2720,6 +2730,7 @@ class SessionDatabase:
         evidence_refs: list[str] | None = None,
         visibility: str | None = None,
         epistemic_source: str | None = None,
+        description: str | None = None,
     ) -> str:
         """Log a decision choice point (delegates to BreadcrumbRepository)."""
         return self.breadcrumbs.log_decision(
@@ -2729,7 +2740,8 @@ class SessionDatabase:
             transaction_id=transaction_id,
             entity_type=entity_type, entity_id=entity_id,
             evidence_refs=evidence_refs,
-            visibility=visibility, epistemic_source=epistemic_source)
+            visibility=visibility, epistemic_source=epistemic_source,
+            description=description)
 
     def log_token_saving(
         self,

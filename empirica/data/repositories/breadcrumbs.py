@@ -130,6 +130,7 @@ class BreadcrumbRepository(BaseRepository):
         source_ids: list[str] | None = None,
         visibility: str | None = None,
         epistemic_source: str | None = None,
+        description: str | None = None,
     ) -> str:
         """Log a project finding (what was learned/discovered)
 
@@ -174,6 +175,7 @@ class BreadcrumbRepository(BaseRepository):
 
         finding_data = {
             "finding": finding,
+            "description": description,  # optional rich markdown body
             "goal_id": goal_id,
             "subtask_id": subtask_id,
             "impact": impact,
@@ -220,6 +222,7 @@ class BreadcrumbRepository(BaseRepository):
         entity_id: str | None = None,
         visibility: str | None = None,
         epistemic_source: str | None = None,
+        description: str | None = None,
     ) -> str:
         """Log a project unknown (what's still unclear)
 
@@ -260,6 +263,7 @@ class BreadcrumbRepository(BaseRepository):
 
         unknown_data = {
             "unknown": unknown,
+            "description": description,  # optional rich markdown body
             "goal_id": goal_id,
             "subtask_id": subtask_id,
             "impact": impact,
@@ -333,6 +337,7 @@ class BreadcrumbRepository(BaseRepository):
         entity_id: str | None = None,
         visibility: str | None = None,
         epistemic_source: str | None = None,
+        description: str | None = None,
     ) -> str:
         """Log a project dead end (what didn't work)
 
@@ -372,6 +377,7 @@ class BreadcrumbRepository(BaseRepository):
         dead_end_data = {
             "approach": approach,
             "why_failed": why_failed,
+            "description": description,  # optional rich markdown body
             "goal_id": goal_id,
             "subtask_id": subtask_id,
             "impact": impact,
@@ -641,6 +647,7 @@ class BreadcrumbRepository(BaseRepository):
         entity_id: str | None = None,
         visibility: str | None = None,
         epistemic_source: str | None = None,
+        description: str | None = None,
     ) -> str:
         """
         Log a mistake for learning and future prevention.
@@ -671,6 +678,7 @@ class BreadcrumbRepository(BaseRepository):
         mistake_data = {
             "mistake": mistake,
             "why_wrong": why_wrong,
+            "description": description,  # optional rich markdown body
             "cost_estimate": cost_estimate,
             "root_cause_vector": root_cause_vector,
             "prevention": prevention,
@@ -777,6 +785,7 @@ class BreadcrumbRepository(BaseRepository):
         entity_id: str | None = None,
         visibility: str | None = None,
         epistemic_source: str | None = None,
+        description: str | None = None,
     ) -> str:
         """Log an unverified belief to the assumptions table."""
         assumption_id = str(uuid.uuid4())
@@ -793,12 +802,14 @@ class BreadcrumbRepository(BaseRepository):
             INSERT INTO assumptions (
                 id, assumption, confidence, status,
                 entity_type, entity_id, project_id, session_id,
-                transaction_id, goal_id, created_timestamp, visibility, epistemic_source
-            ) VALUES (?, ?, ?, 'unverified', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                transaction_id, goal_id, created_timestamp, visibility, epistemic_source,
+                description
+            ) VALUES (?, ?, ?, 'unverified', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             assumption_id, assumption, confidence,
             entity_type, entity_id, project_id, session_id,
-            transaction_id, goal_id, time.time(), visibility_tier, source_tag
+            transaction_id, goal_id, time.time(), visibility_tier, source_tag,
+            description
         ))
 
         self.commit()
@@ -824,6 +835,7 @@ class BreadcrumbRepository(BaseRepository):
         evidence_refs: list[str] | None = None,
         visibility: str | None = None,
         epistemic_source: str | None = None,
+        description: str | None = None,
     ) -> str:
         """Log a decision choice point to the decisions table."""
         decision_id = str(uuid.uuid4())
@@ -843,14 +855,14 @@ class BreadcrumbRepository(BaseRepository):
                 confidence_at_decision, reversibility,
                 entity_type, entity_id, project_id, session_id,
                 transaction_id, goal_id, created_timestamp, evidence_refs, visibility,
-                epistemic_source
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                epistemic_source, description
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             decision_id, choice, alternatives, rationale,
             confidence, reversibility,
             entity_type, entity_id, project_id, session_id,
             transaction_id, goal_id, time.time(), evidence_refs_json, visibility_tier,
-            source_tag
+            source_tag, description
         ))
 
         self.commit()
