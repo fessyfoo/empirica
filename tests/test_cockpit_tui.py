@@ -498,7 +498,7 @@ async def test_no_recent_widget(cockpit_env):
             app.query_one('#recent')
 
 
-# ─── L button mechanical-kill regression (1.9.4 + this commit) ────────────
+# ─── L button mechanical-kill regression (1.9.5 + this commit) ────────────
 
 
 @pytest.mark.asyncio
@@ -685,14 +685,23 @@ async def test_l_click_empty_registry_installs_from_project_yaml(cockpit_env):
 
 
 @pytest.mark.asyncio
-async def test_l_click_empty_registry_no_yaml_falls_back_to_hint(cockpit_env):
+async def test_l_click_empty_registry_no_yaml_falls_back_to_canonical_catalog(cockpit_env):
     """When project.yaml has no cockpit.loops block, L click should
-    fall back to a CLI hint message (no crash, no install)."""
+    fall back to the system-level canonical catalog (v1.9.5+) and
+    install the canonical loops instead of just showing a hint.
+
+    Previously (pre-1.9.5) this test asserted a 'cockpit.loops or
+    install-request' hint message in the notif widget — but the new
+    fallback intentionally supersedes that path so users don't have to
+    manually configure every instance to get the orchestration spine
+    (cortex-mailbox-poll). We now assert on the observable side-effect
+    (pending install-request file) rather than the transient UI message,
+    which gets clobbered by refresh_payload() after install."""
+    from empirica.core.cockpit.canonical_loops import CANONICAL_LOOPS
+
     home, project = cockpit_env
     _bind_instance(home, project, 'tmux_test')
     _write_project_yaml(project, {})  # empty cockpit block
-
-    from textual.widgets import Static
 
     from empirica.cli.tui import CockpitApp
 
@@ -702,18 +711,24 @@ async def test_l_click_empty_registry_no_yaml_falls_back_to_hint(cockpit_env):
         await pilot.pause()
         await pilot.press('l')
         await pilot.pause()
-        notif = app.query_one('#notif', Static)
-        from rich.console import Console
-        c = Console(width=120, file=io.StringIO())
-        with c.capture() as cap:
-            c.print(notif.render())
-        text = cap.get()
-        # Should mention the missing config or the install-request CLI
-        assert 'cockpit.loops' in text or 'install-request' in text
 
-    # No loop should have been registered
-    pending = list(home.glob('loop_install_pending_*.json'))
-    assert pending == []
+    # Canonical-catalog loops should now have pending install-request files
+    # (one per CANONICAL_LOOPS entry — currently just cortex-mailbox-poll).
+    pending = list(home.glob('loop_install_pending_tmux_test_*.json'))
+    expected_count = len(CANONICAL_LOOPS)
+    assert len(pending) == expected_count, (
+        f"expected {expected_count} pending install requests "
+        f"(one per canonical loop), got {len(pending)}: {pending}"
+    )
+    # And each one should match a canonical-catalog entry name.
+    canonical_names = {entry['name'] for entry in CANONICAL_LOOPS}
+    pending_names = {
+        p.stem.replace('loop_install_pending_tmux_test_', '')
+        for p in pending
+    }
+    assert pending_names == canonical_names, (
+        f"pending {pending_names} != canonical {canonical_names}"
+    )
 
 
 @pytest.mark.asyncio
@@ -752,7 +767,7 @@ async def test_e_click_empty_registry_installs_listener_from_project_yaml(cockpi
     assert len(pending) == 1
 
 
-# ─── Compliance panel + domain chip (1.9.4) ───────────────────────────────
+# ─── Compliance panel + domain chip (1.9.5) ───────────────────────────────
 
 
 def _write_project_id(project: Path, project_id: str) -> None:
