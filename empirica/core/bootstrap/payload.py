@@ -20,6 +20,7 @@ from .circles import (
     circle_3_topic_relevant_backlog,
 )
 from .edges import attach_edges_to_payload
+from .situation import build_situation
 from .topic import DEFAULT_SIMILARITY_THRESHOLD, detect_active_topic
 
 logger = logging.getLogger(__name__)
@@ -83,7 +84,14 @@ def build_bootstrap_payload(
         c2 = _empty_circle_2()
         c3 = _empty_circle_3()
 
+    # Compaction-recovery narrative — same shape as CLI bootstrap's
+    # top-level `situation` field. Best-effort; missing data → fields
+    # omitted, never raises. Placed first so the AI sees state before
+    # deep lists (attention-decay-aware).
+    situation = build_situation(project_path, project_id)
+
     payload: dict[str, Any] = {
+        "situation": situation,
         "schema_version": SCHEMA_VERSION,
         "project_id": project_id,
         "project_path": str(project_path),
