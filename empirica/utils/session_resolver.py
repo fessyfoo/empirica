@@ -806,10 +806,23 @@ def get_instance_id() -> str | None:
     if explicit_id:
         tmux_pane = os.environ.get('TMUX_PANE')
         if tmux_pane:
-            logger.warning(
-                f"EMPIRICA_INSTANCE_ID='{explicit_id}' overrides TMUX_PANE='{tmux_pane}'. "
-                f"This breaks per-pane isolation. Unset EMPIRICA_INSTANCE_ID if using tmux."
-            )
+            # Slot-shaped IDs (lowercase alphanumeric + dashes, no special chars)
+            # are the cockpit-blessed override pattern — stable per pane across
+            # restart. Log at debug, not warning, since this is intentional.
+            # Other shapes (e.g. set globally in .bashrc, contains %, ':', etc.)
+            # still get the warning because they break per-pane isolation.
+            import re as _re
+            looks_like_cockpit_slot = bool(_re.fullmatch(r'[a-z][a-z0-9_-]*', explicit_id))
+            if looks_like_cockpit_slot:
+                logger.debug(
+                    f"EMPIRICA_INSTANCE_ID='{explicit_id}' overrides TMUX_PANE='{tmux_pane}' "
+                    f"(cockpit-style slot override — intentional)"
+                )
+            else:
+                logger.warning(
+                    f"EMPIRICA_INSTANCE_ID='{explicit_id}' overrides TMUX_PANE='{tmux_pane}'. "
+                    f"This breaks per-pane isolation. Unset EMPIRICA_INSTANCE_ID if using tmux."
+                )
         logger.debug(f"Using explicit instance_id: {explicit_id}")
         return explicit_id
 
