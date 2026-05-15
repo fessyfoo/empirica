@@ -686,8 +686,8 @@ def handle_loop_enable_command(args) -> int:
     import shutil as _sh
 
     from empirica.core.loop_scheduler import (
-        SystemdLoopScheduler,
-        SystemdUnavailable,
+        LoopSchedulerUnavailable,
+        get_loop_scheduler,
     )
     instance_id = _require_instance_id(args)
     empirica_bin = _sh.which('empirica')
@@ -697,17 +697,18 @@ def handle_loop_enable_command(args) -> int:
             {'ok': False, 'error':
              "Could not resolve absolute path to 'empirica' via shutil.which(). "
              "Install via pipx (`pipx install empirica`) or activate the venv "
-             "before enabling a systemd loop — otherwise the timer fires but "
-             "the service can't find the binary."},
+             "before enabling a loop — otherwise the scheduler fires but the "
+             "service/agent can't find the binary."},
             'enable failed: empirica binary not on PATH'
         )
+    # T10: get_loop_scheduler picks systemd-user (Linux/WSL2) or launchd
+    # (macOS). Same API surface across backends; handler stays portable.
     try:
-        sched = SystemdLoopScheduler(empirica_bin=empirica_bin)
+        sched = get_loop_scheduler(empirica_bin=empirica_bin)
         paths = sched.enable(instance_id, args.name, args.interval)
-    except SystemdUnavailable as e:
-        return _emit(args, {'ok': False, 'error': str(e),
-                            'platform_hint': 'macOS uses launchd (Phase 2)'},
-                     f'systemd unavailable: {e}')
+    except LoopSchedulerUnavailable as e:
+        return _emit(args, {'ok': False, 'error': str(e)},
+                     f'no scheduler available: {e}')
     except Exception as e:
         return _emit(args, {'ok': False, 'error': str(e)},
                      f'enable failed: {e}')
@@ -756,35 +757,41 @@ def handle_loop_enable_command(args) -> int:
 
 
 def handle_loop_disable_command(args) -> int:
-    """Stop+remove systemd timer. Registry entry stays (toggle off shouldn't
-    forget the loop) — use `loop unregister` to fully forget."""
+    """Stop+remove OS scheduler entry (systemd timer or launchd agent).
+    Registry entry stays (toggle off shouldn't forget the loop) — use
+    `loop unregister` to fully forget."""
     from empirica.core.loop_scheduler import (
-        SystemdLoopScheduler,
-        SystemdUnavailable,
+        LoopSchedulerUnavailable,
+        get_loop_scheduler,
     )
     instance_id = _require_instance_id(args)
     try:
-        sched = SystemdLoopScheduler()
+        sched = get_loop_scheduler()
         removed = sched.disable(instance_id, args.name)
-    except SystemdUnavailable as e:
-        return _emit(args, {'ok': False, 'error': str(e)}, f'systemd unavailable: {e}')
+    except LoopSchedulerUnavailable as e:
+        return _emit(args, {'ok': False, 'error': str(e)},
+                     f'no scheduler available: {e}')
     payload = {'ok': True, 'instance_id': instance_id, 'name': args.name, 'removed': removed}
-    summary = (f'disabled {args.name} (unit files removed)' if removed
+    summary = (f'disabled {args.name} (scheduler entry removed)' if removed
                else f'{args.name} was not enabled — no-op')
     return _emit(args, payload, summary)
 
 
 def handle_loop_systemd_status_command(args) -> int:
+    """Query the OS scheduler for the loop's state. Verb name kept as
+    'systemd-status' for back-compat — it works on launchd too via the
+    portable scheduler interface."""
     from empirica.core.loop_scheduler import (
-        SystemdLoopScheduler,
-        SystemdUnavailable,
+        LoopSchedulerUnavailable,
+        get_loop_scheduler,
     )
     instance_id = _require_instance_id(args)
     try:
-        sched = SystemdLoopScheduler()
+        sched = get_loop_scheduler()
         st = sched.status(instance_id, args.name)
-    except SystemdUnavailable as e:
-        return _emit(args, {'ok': False, 'error': str(e)}, f'systemd unavailable: {e}')
+    except LoopSchedulerUnavailable as e:
+        return _emit(args, {'ok': False, 'error': str(e)},
+                     f'no scheduler available: {e}')
     payload = {
         'ok': True, 'instance_id': instance_id, 'name': args.name,
         'active': st.active, 'enabled': st.enabled,

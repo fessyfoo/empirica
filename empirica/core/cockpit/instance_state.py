@@ -385,17 +385,18 @@ def _annotate_loops_with_systemd_state(
     if not systemd_loops:
         return
     try:
-        from empirica.core.loop_scheduler.systemd import (
-            SystemdLoopScheduler,
-            is_systemd_available,
+        # T10: portable across systemd (Linux/WSL2) and launchd (macOS).
+        from empirica.core.loop_scheduler import (
+            LoopSchedulerUnavailable,
+            get_loop_scheduler,
         )
     except Exception:
         return
-    if not is_systemd_available():
+    try:
+        sched = get_loop_scheduler("empirica")
+    except LoopSchedulerUnavailable:
         return
     try:
-        sched = SystemdLoopScheduler.__new__(SystemdLoopScheduler)
-        sched.empirica_bin = "empirica"  # not used by status()
         for name in systemd_loops:
             try:
                 st = sched.status(instance_id, name)

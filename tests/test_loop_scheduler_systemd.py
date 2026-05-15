@@ -325,11 +325,15 @@ def test_handler_writes_absolute_empirica_path_to_service_file(fake_systemd_env,
         return subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
 
     with patch.object(subprocess, "run", fake_run):
-        # Bypass LoopRegistry side-effects by patching it to a no-op double
+        # T10: handler now uses get_loop_scheduler() factory. Patch the
+        # factory's local lookup of is_systemd_available (re-exported
+        # at __init__ scope) so it returns True regardless of host.
         import empirica.cli.command_handlers.cockpit_commands as _mod
+        import empirica.core.loop_scheduler as _sched_pkg
         from empirica.cli.command_handlers.cockpit_commands import (
             handle_loop_enable_command,
         )
+        monkeypatch.setattr(_sched_pkg, "is_systemd_available", lambda: True)
 
         class _NoopReg:
             def __init__(self, *a, **kw): pass
