@@ -730,7 +730,7 @@ def handle_loop_enable_command(args) -> int:
             status=entry.last_status or 'ok',
             result=entry.last_result,
             message=entry.last_message,
-            scheduler_kind='systemd',
+            scheduler_kind='systemd-user',
         )
     except ValueError:
         # Already registered — refresh scheduler_kind only.
@@ -741,7 +741,7 @@ def handle_loop_enable_command(args) -> int:
                 status=existing.last_status if existing else 'ok',
                 result=existing.last_result if existing else None,
                 message=existing.last_message if existing else None,
-                scheduler_kind='systemd',
+                scheduler_kind='systemd-user',
             )
         except Exception:
             pass  # registry stamp is best-effort; systemd state is source of truth

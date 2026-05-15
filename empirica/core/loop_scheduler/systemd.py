@@ -302,15 +302,45 @@ class SystemdLoopScheduler:
     # ── Tick (service ExecStart target) ──────────────────────────────────
 
     @staticmethod
-    def tick(instance_id: str, name: str) -> Path:
+    def _instance_has_open_transaction(instance_id: str) -> bool:
+        """Probe ~/.empirica/active_transaction_<inst>.json for status='open'.
+
+        Used by tick() to skip log writes when the target AI is busy — every
+        30s heartbeat in the chat while the AI is mid-transaction is just
+        noise. False on any read error (conservative: when in doubt, fire).
+        """
+        safe = "".join(c if c.isalnum() or c in "-_" else "-" for c in instance_id)
+        path = Path.home() / ".empirica" / f"active_transaction_{safe}.json"
+        if not path.exists():
+            return False
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return data.get("status") == "open"
+        except Exception:
+            return False
+
+    @staticmethod
+    def tick(instance_id: str, name: str, *, force: bool = False) -> Path | None:
         """Append one JSON line to the fires log — the Monitor bridge target.
 
         Called by the systemd service's ExecStart. Idempotent + cheap so a
         failing tick doesn't escalate (the next interval will fire again).
 
-        Returns the path of the fires log (caller may want to log it).
+        **Self-throttling (Phase 1c-tail, David 2026-05-15):** when the target
+        instance has an open empirica transaction, skip the log write. The AI
+        is already working — adding tick events to the chat is noise. Pass
+        `force=True` to bypass (e.g. from manual fire commands).
+
+        Returns the fires log path when written, None when throttled (so the
+        caller can distinguish "tick fired" vs "tick suppressed" in tests).
         """
         import datetime as _dt
+
+        if not force and SystemdLoopScheduler._instance_has_open_transaction(instance_id):
+            logger.debug(
+                f"tick suppressed for {instance_id}/{name}: open transaction"
+            )
+            return None
 
         path = _fires_log_path()
         event = {

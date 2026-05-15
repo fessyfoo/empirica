@@ -32,16 +32,25 @@ from empirica.core.loop_scheduler.systemd import (
 
 @pytest.fixture
 def fake_systemd_env(tmp_path, monkeypatch):
-    """Redirect ~/.config/systemd/user and ~/.empirica to tmp_path. Stub
-    is_systemd_available() to True so the constructor doesn't raise."""
+    """Redirect ~/.config/systemd/user, ~/.empirica, and Path.home() to tmp_path.
+    Stub is_systemd_available() to True so the constructor doesn't raise.
+
+    The Path.home() redirect matters for tick() throttling tests — without it,
+    the test would consult the REAL ~/.empirica/active_transaction_<inst>.json
+    and pollute results based on whatever's running on the host."""
     sysd = tmp_path / "systemd" / "user"
     empirica = tmp_path / "empirica_home"
     sysd.mkdir(parents=True, exist_ok=True)
+    empirica.mkdir(parents=True, exist_ok=True)
+    fake_home = tmp_path / "fake_home"
+    (fake_home / ".empirica").mkdir(parents=True, exist_ok=True)
+
+    from pathlib import Path
     monkeypatch.setattr(scheduler_mod, "_systemd_user_dir", lambda: sysd)
     monkeypatch.setattr(scheduler_mod, "_fires_log_path", lambda: empirica / "loop_fires.log")
-    empirica.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(scheduler_mod, "is_systemd_available", lambda: True)
-    return {"sysd": sysd, "empirica": empirica}
+    monkeypatch.setattr(Path, "home", lambda: fake_home)
+    return {"sysd": sysd, "empirica": empirica, "home": fake_home}
 
 
 def _fake_run(stdout: str = "", stderr: str = "", returncode: int = 0):
@@ -233,6 +242,59 @@ def test_tick_static_method_does_not_require_systemd(monkeypatch, fake_systemd_e
     monkeypatch.setattr(scheduler_mod, "is_systemd_available", lambda: False)
     # Should not raise — tick is a @staticmethod that doesn't need the class
     SystemdLoopScheduler.tick("inst", "name")
+    log = fake_systemd_env["empirica"] / "loop_fires.log"
+    assert log.exists()
+
+
+# ── tick() throttles when target instance is mid-transaction ────────────
+
+
+def test_tick_suppressed_when_target_instance_has_open_transaction(fake_systemd_env):
+    """David 2026-05-15: every 30s tick in the chat while the AI is mid-tx
+    is noise. tick() must skip the log write when the instance has an
+    open transaction file."""
+    tx_file = fake_systemd_env["home"] / ".empirica" / "active_transaction_cortex.json"
+    tx_file.write_text(json.dumps({"status": "open", "transaction_id": "abc"}))
+
+    result = SystemdLoopScheduler.tick("cortex", "mailbox-poll")
+    assert result is None, "tick must return None when throttled"
+
+    log = fake_systemd_env["empirica"] / "loop_fires.log"
+    assert not log.exists(), "tick must not append when instance is mid-transaction"
+
+
+def test_tick_fires_when_target_transaction_is_closed(fake_systemd_env):
+    """A closed transaction shouldn't throttle — the AI is between epistemic
+    transactions and the tick should land."""
+    tx_file = fake_systemd_env["home"] / ".empirica" / "active_transaction_cortex.json"
+    tx_file.write_text(json.dumps({"status": "closed", "transaction_id": "abc"}))
+
+    result = SystemdLoopScheduler.tick("cortex", "mailbox-poll")
+    assert result is not None
+    log = fake_systemd_env["empirica"] / "loop_fires.log"
+    assert log.exists()
+
+
+def test_tick_force_bypasses_throttle(fake_systemd_env):
+    """Manual fire (via `empirica loop fire`) should bypass the throttle so
+    operators can trigger work even mid-transaction."""
+    tx_file = fake_systemd_env["home"] / ".empirica" / "active_transaction_cortex.json"
+    tx_file.write_text(json.dumps({"status": "open", "transaction_id": "abc"}))
+
+    result = SystemdLoopScheduler.tick("cortex", "mailbox-poll", force=True)
+    assert result is not None
+    log = fake_systemd_env["empirica"] / "loop_fires.log"
+    assert log.exists()
+
+
+def test_tick_handles_malformed_transaction_file_by_firing(fake_systemd_env):
+    """Conservative: when in doubt, fire. Malformed transaction file ≠
+    'instance is busy'."""
+    tx_file = fake_systemd_env["home"] / ".empirica" / "active_transaction_cortex.json"
+    tx_file.write_text("not valid json {{{")
+
+    result = SystemdLoopScheduler.tick("cortex", "mailbox-poll")
+    assert result is not None
     log = fake_systemd_env["empirica"] / "loop_fires.log"
     assert log.exists()
 

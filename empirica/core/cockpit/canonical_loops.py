@@ -81,7 +81,8 @@ CANONICAL_LOOPS: list[dict[str, Any]] = [
         # scheduler path. TUI install + toggle route through systemctl
         # instead of CronCreate. The wake bridge into the running session is
         # the Monitor armed at SessionStart (session-monitor-arm.py).
-        "scheduler_kind": "systemd",
+        # Must match VALID_SCHEDULER_KIND in loop_registry.py.
+        "scheduler_kind": "systemd-user",
     },
 ]
 

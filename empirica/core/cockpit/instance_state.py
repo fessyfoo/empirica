@@ -327,6 +327,52 @@ def _newest_instance_file_mtime(instance_id: str) -> float | None:
     return _newest_mtime(candidates)
 
 
+def _annotate_loops_with_systemd_state(
+    instance_id: str, loops_dict: dict[str, Any],
+) -> None:
+    """For each loop with scheduler_kind='systemd', query live systemd state
+    and inject systemd_active / systemd_enabled fields.
+
+    Phase 1c-tail (goal f718156c): the TUI panel + glyph logic needs accurate
+    state for systemd-managed loops because the legacy `paused` field
+    (file-flag pause sidecar) doesn't apply — `systemctl --user is-active`
+    is the source of truth. Best-effort: silently skip if the loop_scheduler
+    module isn't importable or systemd-user isn't available.
+    """
+    systemd_loops = [
+        name for name, info in loops_dict.items()
+        if (info.get('scheduling') or {}).get('scheduler_kind') == 'systemd-user'
+    ]
+    if not systemd_loops:
+        return
+    try:
+        from empirica.core.loop_scheduler.systemd import (
+            SystemdLoopScheduler,
+            is_systemd_available,
+        )
+    except Exception:
+        return
+    if not is_systemd_available():
+        return
+    try:
+        sched = SystemdLoopScheduler.__new__(SystemdLoopScheduler)
+        sched.empirica_bin = "empirica"  # not used by status()
+        for name in systemd_loops:
+            try:
+                st = sched.status(instance_id, name)
+                loops_dict[name]['systemd_active'] = st.active
+                loops_dict[name]['systemd_enabled'] = st.enabled
+                loops_dict[name]['last_trigger'] = st.last_trigger
+                loops_dict[name]['next_trigger'] = st.next_trigger
+            except Exception:
+                # Per-loop probe failure → leave fields absent. UI treats
+                # absent as "unknown / unhealthy" → conservative.
+                loops_dict[name]['systemd_active'] = False
+                loops_dict[name]['systemd_enabled'] = False
+    except Exception:  # noqa: S110 — best-effort systemd state probe
+        pass
+
+
 def aggregate_instance_state(
     instance_id: str,
     live_panes: set[str] | None = None,
@@ -378,6 +424,14 @@ def aggregate_instance_state(
         d = entry.to_dict()
         d['paused'] = is_loop_paused(instance_id, entry.name)
         loops_dict[entry.name] = d
+
+    # systemd state annotation (Phase 1c-tail, goal f718156c): for loops
+    # registered with scheduler_kind='systemd', the file-flag pause is
+    # meaningless — the truth is `systemctl --user is-active`. Inject
+    # `systemd_active` + `systemd_enabled` so the TUI panel + glyph
+    # logic can show accurate state. Best-effort: skip silently when
+    # systemd-user isn't available (macOS / Windows-native hosts).
+    _annotate_loops_with_systemd_state(instance_id, loops_dict)
 
     # Per-loop last-notify annotation (audit log → loops by `loop:{name}` source).
     annotate_loops_with_last_notify(loops_dict)

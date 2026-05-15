@@ -312,13 +312,23 @@ class CockpitApp(App):
         }.get(phase, phase[:4])
 
     @staticmethod
+    def _loop_is_off(v: dict[str, Any]) -> bool:
+        """A loop is 'off' if its systemd timer is inactive (when systemd-managed),
+        or its pause sidecar exists (legacy file-flag path). Phase 1c-tail:
+        single source of truth that handles both scheduler kinds."""
+        if (v.get('scheduler_kind') or '').lower() == 'systemd':
+            # systemd_active absent → unknown → treat as off (conservative)
+            return not v.get('systemd_active', False)
+        return bool(v.get('paused'))
+
+    @staticmethod
     def _loops_glyph(loops: dict[str, Any]) -> str:
         if not loops:
             return '–'
-        paused = sum(1 for v in loops.values() if v.get('paused'))
-        if paused == 0:
+        off = sum(1 for v in loops.values() if CockpitApp._loop_is_off(v))
+        if off == 0:
             return '●'
-        if paused == len(loops):
+        if off == len(loops):
             return '○'
         return '◐'
 
