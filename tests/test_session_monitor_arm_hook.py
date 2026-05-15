@@ -135,6 +135,10 @@ def test_hook_emits_empty_when_no_active_loops(monkeypatch):
 
 
 def test_hook_emits_additional_context_with_active_loops(monkeypatch):
+    """Post-T8 (2026-05-15): hook now arms Monitor on `empirica loop listen`
+    — the push-primary ntfy listener — replacing the earlier tail-F-grep
+    approach. Listener handles per-instance filtering internally via the
+    --instance flag."""
     result = _run_hook(
         monkeypatch, instance_id="cortex",
         active_loops=["cortex-mailbox-poll"],
@@ -143,11 +147,11 @@ def test_hook_emits_additional_context_with_active_loops(monkeypatch):
     parsed = result["parsed"]
     assert parsed.get("hookSpecificOutput", {}).get("hookEventName") == "SessionStart"
     ctx = parsed["hookSpecificOutput"]["additionalContext"]
-    # Must instruct AI to arm Monitor + filter to this instance
+    # Must instruct AI to arm Monitor on the listener for THIS instance
     assert "Monitor(" in ctx
     assert "persistent=True" in ctx
-    assert 'instance_id": "cortex"' in ctx  # the grep filter
-    assert "loop_fires.log" in ctx
+    assert "empirica loop listen --instance cortex" in ctx
+    assert "ECO" in ctx  # the ECO-gated autonomy property must be surfaced
 
 
 def test_hook_reaction_table_maps_loop_to_body_skill(monkeypatch):

@@ -292,6 +292,19 @@ def _add_loop_group(subparsers):
     tick.add_argument('instance_id', help='Instance identifier')
     tick.add_argument('name', help='Loop name')
 
+    listen = loop_subs.add_parser(
+        'listen',
+        help='Long-running ntfy listener — push-primary wake mechanism. '
+             'Holds an HTTP stream to cortex ntfy topic, prints one JSON '
+             'event line to stdout per ECO-decided proposal change. '
+             'Runs forever; SessionStart hook arms a Monitor on its stdout. '
+             'On disconnect: runs one catch-up content_poll, reconnects.',
+    )
+    _add_instance(listen)
+    listen.add_argument('--loop-name', default='cortex-mailbox-poll',
+                        help='Canonical loop name to attribute events to '
+                             '(default: cortex-mailbox-poll)')
+
 
 def _add_listener_group(subparsers):
     """Event-listener subcommands per PROPOSAL_EVENT_LISTENER.md.

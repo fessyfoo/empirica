@@ -52,50 +52,58 @@ def _build_reaction_table(loop_names: list[str]) -> str:
 
 
 def _build_additional_context(instance_id: str, loop_names: list[str]) -> str:
-    fires_log = "~/.empirica/loop_fires.log"
-    # tail -F -n 0: start from the END of the file (skip historical events
-    # accumulated while no session was running — they're stale, replaying
-    # them would flood the conversation). grep --line-buffered filters to
-    # this instance only since the log is shared across instances.
-    monitor_cmd = (
-        f'tail -F -n 0 {fires_log} 2>/dev/null | '
-        f'grep --line-buffered \'"instance_id": "{instance_id}"\''
-    )
+    # T8 (goal f718156c): switched from `tail -F loop_fires.log` to
+    # `empirica loop listen` — the listener is the push-primary wake
+    # mechanism. It holds an ntfy stream to cortex, emits one stdout
+    # line per ECO-decided proposal event (catch-up content_poll on
+    # every push arrival + on every reconnect). Each stdout line is
+    # one Monitor wake event into the running Claude session.
+    monitor_cmd = f"empirica loop listen --instance {instance_id}"
     return f"""\
-## ⚙ Empirica systemd loops armed
+## 📬 Empirica orchestration listener — arm at session start
 
-The following canonical loops are active for instance `{instance_id}` via
-systemd-user timers (they fire on the OS schedule regardless of this
-session's state — true synchronous pause is `empirica loop disable <name>`):
+This instance (`{instance_id}`) has canonical loops registered. The
+push-primary wake mechanism is `empirica loop listen` — it holds an
+authenticated ntfy stream to Cortex and emits one stdout line per
+ECO-decided proposal event (real wake) or AI-to-AI completion ack.
 
 {_build_reaction_table(loop_names)}
 
-**Action required at session start:** arm a persistent Monitor that bridges
-timer fires into this session. Each new line in `{fires_log}` is one fire
-event. The Monitor tool streams matching lines as events into the active
-conversation — that's the wake-from-idle mechanism replacing /loop's
-in-session CronCreate.
+**Arm this Monitor at session start:**
 
 ```python
 Monitor(
-    description="systemd canonical-loop fires for instance {instance_id}",
+    description="Cortex orchestration push listener for {instance_id}",
     command="{monitor_cmd}",
     persistent=True,
 )
 ```
 
-**Reaction protocol** — when a fire event arrives (a JSON line in the chat):
+The listener does the right thing on every failure mode: catches up via
+content_poll on initial start, on each push arrival, AND on disconnect
++ reconnect. No periodic timer needed — push-primary, poll-on-reconnect-only
+("epistemic email for the AI age" — David, 2026-05-15).
 
-1. Parse the line. The `loop` field tells you which skill to invoke.
-2. **If you're mid-transaction:** log a goal `"Process pending fire: <loop>"`
-   and continue current work. Pick it up at the next natural break (EWM pattern).
-3. **If you're idle (between user prompts):** invoke the matching body skill
-   directly via the Skill tool.
-4. Body skills self-throttle on open transactions — re-firing is safe.
+**Reaction protocol** — when an event arrives (one JSON line in the chat):
 
-If you do not arm this Monitor, timer fires will accumulate in the log but
-no work will trigger. Arming is idempotent — calling Monitor with the same
-command twice is fine.
+1. Read `direction` field:
+   - `inbox` → ECO-decided proposal targeting you (act per status)
+   - `outbox` → ack/refinement on a proposal you emitted (informational)
+2. **If mid-transaction:** log a goal `"Process <direction>/<status>: <proposal_id>"`
+   and pick up at next natural break (EWM pattern).
+3. **If idle:** invoke `/cortex-mailbox-poll` skill — it has the per-direction
+   per-status reaction protocol (act on accepted, refine on changed,
+   acknowledge on completed, etc.).
+
+**ECO-gated autonomy property:** every event you act on traces back to an
+ECO actor decision (`eco_actor` field). The listener filters `eco_review`
+proposals server-side — they never cross the wake boundary. Even if the
+ntfy stream were compromised, your status re-verification against Cortex
+by `proposal_id` is the auth boundary.
+
+If you do not arm this Monitor, events will accumulate at Cortex but no
+work will trigger in this session. Arming is idempotent (Monitor with
+identical command is a no-op the second time).
 """
 
 

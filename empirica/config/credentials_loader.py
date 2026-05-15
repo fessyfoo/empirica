@@ -313,6 +313,45 @@ class CredentialsLoader:
             "api_key": key or None,
         }
 
+    def get_ntfy_config(self) -> dict[str, str | None]:
+        """Return ntfy {url, topic, user, password} resolved by precedence:
+
+        1. Env vars (ORCHESTRATION_NTFY_URL, ORCHESTRATION_NTFY_TOPIC,
+           ORCHESTRATION_NTFY_USER, ORCHESTRATION_NTFY_PASS)
+        2. `ntfy:` block in credentials file (~/.empirica/credentials.yaml)
+        3. Defaults: cortex's prod ntfy server + default topic
+
+        Used by the ntfy listener (`empirica loop listen`) to subscribe to
+        the orchestration proposals topic and bridge push events into
+        running Claude sessions via Monitor.
+
+        Returns: {"url", "topic", "user", "password"} — user/password are
+        None when the topic has anonymous read access, or when no creds
+        are configured (listener will surface the error).
+        """
+        defaults = {
+            "url": "https://ntfy.getempirica.com",
+            "topic": "orchestration-proposals",
+        }
+        env_map = {
+            "url": os.getenv("ORCHESTRATION_NTFY_URL"),
+            "topic": os.getenv("ORCHESTRATION_NTFY_TOPIC"),
+            "user": os.getenv("ORCHESTRATION_NTFY_USER"),
+            "password": os.getenv("ORCHESTRATION_NTFY_PASS"),
+        }
+
+        if not self._credentials_cache:
+            self._load_credentials()
+        file_cfg = self._credentials_cache.get("ntfy") if self._credentials_cache else None
+        file_map = file_cfg if isinstance(file_cfg, dict) else {}
+
+        return {
+            "url": (env_map["url"] or file_map.get("url") or defaults["url"]).rstrip("/"),
+            "topic": env_map["topic"] or file_map.get("topic") or defaults["topic"],
+            "user": env_map["user"] or file_map.get("user") or None,
+            "password": env_map["password"] or file_map.get("password") or None,
+        }
+
     def get_provider_config(self, provider: str) -> dict[str, Any] | None:
         """
         Get configuration for a specific provider

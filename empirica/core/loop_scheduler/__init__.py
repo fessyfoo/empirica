@@ -14,6 +14,7 @@ Future:
   - TaskSchedulerLoopScheduler (Windows native Phase 3 — most users on WSL2)
 """
 
+from .listener import run_listener
 from .systemd import (
     SystemdLoopScheduler,
     SystemdUnavailable,
@@ -26,4 +27,5 @@ __all__ = [
     "SystemdUnavailable",
     "is_systemd_available",
     "list_active_loops_for_instance",
+    "run_listener",
 ]

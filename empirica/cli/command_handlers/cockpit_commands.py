@@ -810,6 +810,25 @@ def handle_loop_tick_command(args) -> int:
                  f'tick: {args.instance_id}/{args.name}')
 
 
+def handle_loop_listen_command(args) -> int:
+    """Long-running ntfy listener — push-primary wake mechanism.
+
+    Holds an authenticated stream to cortex's ntfy topic. Each message
+    arrival triggers a content_poll catch-up that emits one stdout line
+    per ECO-decided proposal event. SessionStart hook arms Monitor on
+    this command's stdout — each line becomes a Monitor wake event in
+    the running Claude session.
+
+    Runs forever (or until SIGTERM). Exit code 0 on clean stop, nonzero
+    on configuration errors (missing ntfy creds → exit 2 so systemd /
+    Monitor lifecycle surfaces the problem clearly).
+    """
+    from empirica.core.loop_scheduler import run_listener
+    instance_id = _require_instance_id(args)
+    loop_name = getattr(args, 'loop_name', None) or 'cortex-mailbox-poll'
+    return run_listener(instance_id, loop_name)
+
+
 # ─── empirica listener ──────────────────────────────────────────────────────
 #
 # Sister concept to `empirica loop` but event-driven (PROPOSAL_EVENT_LISTENER).
@@ -1376,6 +1395,7 @@ _LOOP_DISPATCH = {
     'disable': handle_loop_disable_command,
     'systemd-status': handle_loop_systemd_status_command,
     'tick': handle_loop_tick_command,
+    'listen': handle_loop_listen_command,
 }
 
 
@@ -1467,6 +1487,7 @@ __all__ = [
     'handle_loop_group_command',
     'handle_loop_heartbeat_command',
     'handle_loop_list_command',
+    'handle_loop_listen_command',
     'handle_loop_pause_command',
     'handle_loop_poke_command',
     'handle_loop_register_command',
