@@ -597,6 +597,15 @@ def aggregate_all(include_dead: bool = False) -> dict[str, Any]:
         1 for i in instances if i['phase'] in ('noetic', 'praxic')
     )
 
+    # T11: auto-accept mode (per-user, cortex-persisted). Cached at module
+    # scope so the TUI's 5s refresh doesn't hammer cortex. None → state
+    # unknown / cortex unreachable / endpoint not shipped — TUI hides chip.
+    try:
+        from empirica.core.cockpit.auto_accept import fetch_auto_accept_mode
+        auto_accept = fetch_auto_accept_mode()
+    except Exception:
+        auto_accept = None
+
     return {
         'generated_at': datetime.now(tz=timezone.utc).isoformat(),
         'instances': instances,
@@ -609,6 +618,7 @@ def aggregate_all(include_dead: bool = False) -> dict[str, Any]:
             'active_tx': active_tx,
             'open_notifications': notifications_total(),
             'notify_dispatcher': build_notify_dispatcher_block(),
+            'auto_accept': auto_accept,
         },
     }
 

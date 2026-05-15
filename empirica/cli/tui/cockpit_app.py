@@ -127,6 +127,7 @@ class CockpitApp(App):
         Binding('c', 'toggle_compliance', 'Compl.'),
         Binding('i', 'toggle_services', 'Servic.'),
         Binding('D', 'toggle_dead', 'Show dead'),
+        Binding('a', 'toggle_auto_accept', 'AutoAcc'),
     ]
 
     def __init__(self, include_dead: bool = False) -> None:
@@ -211,6 +212,42 @@ class CockpitApp(App):
         self.include_dead = not self.include_dead
         self.refresh_payload()
 
+    def action_toggle_auto_accept(self) -> None:
+        """T11: flip the per-user auto-accept-mode toggle on cortex.
+
+        ON: proposals from this user's api_key skip ECO review and go
+        straight to accepted with eco_decision.actor='auto-mode:<user>'.
+        Target AI's listener wakes as if ECO pressed Accept on the phone.
+        Per-user (cortex column), so the toggle propagates wherever the
+        same api_key is used (this TUI, the extension, any cockpit).
+
+        OFF: normal ECO review path (default).
+
+        Failure (cortex unreachable / endpoint not shipped) surfaces as a
+        status-line message; toggle leaves cortex state untouched."""
+        from empirica.core.cockpit.auto_accept import (
+            fetch_auto_accept_mode,
+            set_auto_accept_mode,
+        )
+        current = fetch_auto_accept_mode(force=True)
+        if current is None:
+            self._log_status(
+                'auto-accept: cortex unreachable or endpoint not shipped yet — toggle no-op'
+            )
+            return
+        new_state = set_auto_accept_mode(not current)
+        if new_state is None:
+            self._log_status(
+                'auto-accept: toggle failed (cortex returned no body / non-2xx)'
+            )
+            return
+        verb = 'ENABLED' if new_state else 'DISABLED'
+        self._log_status(
+            f'auto-accept {verb} for this user. '
+            f'{"All future cortex_propose emissions auto-accept (no ECO ack)." if new_state else "ECO review resumed for future emissions."}'
+        )
+        self.refresh_payload()
+
     def _render_summary(self) -> None:
         s = self.payload.get('summary', {})
         notif_total = s.get('open_notifications', 0)
@@ -240,9 +277,16 @@ class CockpitApp(App):
                 stats += f' fb:{fb_24h}'
             dispatch_part = f' · {" ".join(cells)} {stats}'
 
+        # T11: auto-accept chip — visible when explicitly ON (loud warning),
+        # hidden when OFF or unknown (cortex unreachable / endpoint not
+        # shipped). The ⚡ glyph signals "no ECO ack required for emissions
+        # from this user" — the trust-me-I-know-what-I-am-doing surface.
+        auto_accept = s.get('auto_accept')
+        auto_part = ' · ⚡AUTO-ACCEPT' if auto_accept is True else ''
+
         text = (
             f"empirica · {s.get('instances', 0)} inst{notif_part}"
-            f"{dispatch_part} · {ts}"
+            f"{auto_part}{dispatch_part} · {ts}"
         )
         self.query_one('#summary', Static).update(text)
 
