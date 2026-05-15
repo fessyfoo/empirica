@@ -107,10 +107,187 @@ def build_bootstrap_payload(
         "limits": _effective_limits(limits),
     }
 
+    # Sidecar blocks — same shape as CLI bootstrap. Best-effort, additive.
+    # Extension Overview pane consumes these for project context + activity
+    # rhythm + the flow chip. (proposal prop_sf63hrj7xvd3je2gcbzitwsnbi)
+    _attach_sidecar_blocks(payload, project_path, project_id)
+
     # Single batched edge fold across all surfaced items
     attach_edges_to_payload(project_path, payload)
 
     return payload
+
+
+def _attach_sidecar_blocks(
+    payload: dict[str, Any], project_path: Path, project_id: str | None
+) -> None:
+    """Surface CLI-only fields on the HTTP wire — Option B per proposal.
+
+    Three blocks query the DB directly with bare SQL (decouples from
+    SessionDatabase schema evolution). flow_metrics requires SessionDatabase's
+    assessment-aggregation logic, so we delegate there inside an isolated
+    try/except — if init fails (e.g. schema mismatch in a test fixture),
+    flow_metrics gracefully degrades to absent.
+
+    All four blocks are best-effort. Missing data → key omitted, never raises.
+    """
+    if project_id is None:
+        return
+    db_path = Path(project_path) / ".empirica" / "sessions" / "sessions.db"
+    if not db_path.exists():
+        return
+
+    try:
+        project_block = _build_project_block(db_path, project_id)
+        if project_block:
+            payload["project"] = project_block
+    except Exception as e:
+        logger.debug(f"sidecar project block skipped: {e}")
+
+    try:
+        gs = _build_git_status(project_path)
+        if gs:
+            payload["git_status"] = gs
+    except Exception as e:
+        logger.debug(f"sidecar git_status skipped: {e}")
+
+    try:
+        payload["reference_docs_count"] = _count_reference_docs(db_path, project_id)
+    except Exception as e:
+        logger.debug(f"sidecar reference_docs_count skipped: {e}")
+
+    try:
+        from empirica.data.session_database import SessionDatabase
+        db = SessionDatabase(db_path=str(db_path))
+        flow = db.calculate_flow_metrics(project_id, limit=5)
+        if flow and flow.get("current_flow"):
+            payload["flow_metrics"] = flow
+    except Exception as e:
+        logger.debug(f"sidecar flow_metrics skipped: {e}")
+
+
+def _build_project_block(db_path: Path, project_id: str) -> dict | None:
+    """Direct-SQL build of the project metadata block. Returns None if no row."""
+    import json as _json
+    import sqlite3 as _sq
+    conn = _sq.connect(str(db_path))
+    conn.row_factory = _sq.Row
+    try:
+        row = conn.execute(
+            "SELECT id, name, description, status, repos, "
+            "total_sessions, total_goals, project_type "
+            "FROM projects WHERE id = ?",
+            (project_id,),
+        ).fetchone()
+        if not row:
+            return None
+        repos = row["repos"] or "[]"
+        if isinstance(repos, str):
+            try:
+                repos = _json.loads(repos)
+            except (ValueError, TypeError):
+                repos = []
+        # Live counts (the stored denormalized counters drift — see
+        # session_database._count_project_artifacts).
+        try:
+            ts = conn.execute(
+                "SELECT COUNT(*) FROM sessions WHERE project_id = ?",
+                (project_id,),
+            ).fetchone()[0]
+        except Exception:
+            ts = row["total_sessions"] or 0
+        try:
+            tt = conn.execute(
+                "SELECT COUNT(*) FROM transactions WHERE project_id = ?",
+                (project_id,),
+            ).fetchone()[0]
+        except Exception:
+            tt = 0
+        try:
+            tg = conn.execute(
+                "SELECT COUNT(*) FROM goals WHERE project_id = ? OR "
+                "session_id IN (SELECT session_id FROM sessions WHERE project_id = ?)",
+                (project_id, project_id),
+            ).fetchone()[0]
+        except Exception:
+            tg = row["total_goals"] or 0
+        return {
+            "id": row["id"],
+            "name": row["name"],
+            "description": row["description"] or "",
+            "status": row["status"] or "active",
+            "repos": repos,
+            "total_sessions": ts,
+            "total_transactions": tt,
+            "total_goals": tg,
+            "type": row["project_type"] or "product",
+        }
+    finally:
+        conn.close()
+
+
+def _build_git_status(project_path: Path) -> dict | None:
+    """Direct subprocess git for the activity-rhythm block."""
+    import subprocess as _sp
+    try:
+        br = _sp.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=str(project_path), capture_output=True, text=True, timeout=2,
+        )
+        if br.returncode != 0:
+            return None
+        branch = br.stdout.strip()
+
+        uncommitted = 0
+        untracked = 0
+        try:
+            st = _sp.run(
+                ["git", "status", "--porcelain"],
+                cwd=str(project_path), capture_output=True, text=True, timeout=2,
+            )
+            for line in st.stdout.splitlines():
+                if line.startswith("??"):
+                    untracked += 1
+                elif line.strip():
+                    uncommitted += 1
+        except Exception:  # noqa: S110 — best-effort git introspection
+            pass
+
+        recent: list[str] = []
+        try:
+            lg = _sp.run(
+                ["git", "log", "-3", "--format=%h %s"],
+                cwd=str(project_path), capture_output=True, text=True, timeout=2,
+            )
+            if lg.returncode == 0:
+                recent = [ln for ln in lg.stdout.splitlines() if ln.strip()]
+        except Exception:  # noqa: S110 — best-effort git introspection
+            pass
+
+        return {
+            "current_branch": branch,
+            "uncommitted_changes": uncommitted,
+            "untracked_files": untracked,
+            "recent_commits": recent,
+        }
+    except Exception:
+        return None
+
+
+def _count_reference_docs(db_path: Path, project_id: str) -> int:
+    """Direct SQL count of project-scoped reference docs."""
+    import sqlite3 as _sq
+    conn = _sq.connect(str(db_path))
+    try:
+        try:
+            return conn.execute(
+                "SELECT COUNT(*) FROM project_reference_docs WHERE project_id = ?",
+                (project_id,),
+            ).fetchone()[0]
+        except Exception:
+            return 0
+    finally:
+        conn.close()
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────
