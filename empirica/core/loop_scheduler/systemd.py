@@ -321,18 +321,25 @@ class SystemdLoopScheduler:
 
     @staticmethod
     def tick(instance_id: str, name: str, *, force: bool = False) -> Path | None:
-        """Append one JSON line to the fires log — the Monitor bridge target.
+        """Append zero-or-more JSON lines to the fires log — Monitor bridge target.
 
         Called by the systemd service's ExecStart. Idempotent + cheap so a
         failing tick doesn't escalate (the next interval will fire again).
 
-        **Self-throttling (Phase 1c-tail, David 2026-05-15):** when the target
-        instance has an open empirica transaction, skip the log write. The AI
-        is already working — adding tick events to the chat is noise. Pass
-        `force=True` to bypass (e.g. from manual fire commands).
+        **Dispatch (Phase 2 / T6, goal f718156c):**
+          - `cortex-mailbox-poll`: content-aware via `content_poll.poll_and_diff`.
+            Emits one line per new-or-status-changed ECO-decided proposal.
+            Empty inbox = silent (zero token cost). The AI's wake signal
+            traces back to an ECO decision (David's ECO-gated autonomy property).
+          - Any other loop name: legacy heartbeat — appends one timestamp
+            per fire. Body skills decide what to do.
 
-        Returns the fires log path when written, None when throttled (so the
-        caller can distinguish "tick fired" vs "tick suppressed" in tests).
+        **Self-throttling:** when the target instance has an open empirica
+        transaction, skip emission entirely. AI is already working — adding
+        events to the chat is noise. `force=True` bypasses (manual fires).
+
+        Returns the fires log path when at least one line was written, None
+        when throttled OR when content-poll produced zero events.
         """
         import datetime as _dt
 
@@ -342,6 +349,11 @@ class SystemdLoopScheduler:
             )
             return None
 
+        # Content-aware path for cortex-mailbox-poll.
+        if name == "cortex-mailbox-poll":
+            return SystemdLoopScheduler._tick_content_aware(instance_id, name)
+
+        # Legacy heartbeat path (other canonical loops, custom user loops).
         path = _fires_log_path()
         event = {
             "ts": _dt.datetime.now(_dt.timezone.utc).isoformat(),
@@ -350,6 +362,49 @@ class SystemdLoopScheduler:
         }
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(event) + "\n")
+        return path
+
+    @staticmethod
+    def _tick_content_aware(instance_id: str, name: str) -> Path | None:
+        """Cortex poll-and-diff body. Emits one fires-log line per new or
+        status-changed ECO-decided proposal. Silent when nothing new.
+
+        Returns the fires-log path if any events were emitted, None if
+        silent (no new content) or on credential/Cortex failure (degrade
+        gracefully — next tick retries)."""
+        try:
+            from empirica.config.credentials_loader import get_credentials_loader
+            from empirica.core.loop_scheduler.content_poll import poll_and_diff
+        except Exception as e:
+            logger.debug(f"content_poll import failed: {e}")
+            return None
+
+        try:
+            cfg = get_credentials_loader().get_cortex_config()
+            cortex_url = cfg.get("url")
+            api_key = cfg.get("api_key")
+        except Exception as e:
+            logger.debug(f"cortex credentials load failed: {e}")
+            return None
+
+        if not cortex_url or not api_key:
+            logger.debug(
+                f"cortex credentials missing in ~/.empirica/credentials.yaml — "
+                f"skipping content poll for {instance_id}/{name}"
+            )
+            return None
+
+        events = poll_and_diff(instance_id, name, cortex_url, api_key)
+        if not events:
+            return None
+
+        path = _fires_log_path()
+        with open(path, "a", encoding="utf-8") as f:
+            for ev in events:
+                f.write(ev.to_log_line() + "\n")
+        logger.info(
+            f"content_poll emitted {len(events)} event(s) for {instance_id}/{name}"
+        )
         return path
 
 

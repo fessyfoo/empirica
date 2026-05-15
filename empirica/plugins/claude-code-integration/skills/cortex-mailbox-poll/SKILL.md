@@ -34,6 +34,71 @@ project-specific config takes precedence over this canonical default.
 
 ---
 
+## Reaction Protocol — Phase 2 / T6 content events (preferred)
+
+When the SessionStart `session-monitor-arm.py` hook armed a Monitor on
+`~/.empirica/loop_fires.log`, you receive **two distinct event shapes**:
+
+### Content event (the wake signal you should usually act on)
+
+```json
+{"event_type": "proposal_event",
+ "proposal_id": "prop_abc",
+ "proposal_title": "Surface project block on daemon HTTP",
+ "status": "accepted",
+ "action_category": "TACTICAL",
+ "eco_actor": "eco-phone",
+ "change_kind": "new",
+ "instance_id": "<you>",
+ "loop": "cortex-mailbox-poll",
+ "ts": "..."}
+```
+
+The `empirica loop tick` body polled Cortex and diffed against last-seen
+state. **This event IS the content** — you don't need to poll inbox/outbox
+yourself. Each event represents one ECO-decided proposal (`accepted` /
+`changed` / `declined`).
+
+**ECO-gated autonomy property:** every action you take ultimately traces
+back to `eco_actor`'s decision. Even if the timer or fires log were
+compromised, your re-verification via `cortex_inbox_poll(status="accepted")`
+against the proposal_id is the auth boundary — Cortex only returns
+ECO-decided state. Hijacking the wake signal cannot widen your authority.
+
+**What to do:**
+
+1. Read the event fields. The `proposal_id` + `status` tells you what
+   happened and to which item.
+2. **If mid-transaction:** log a goal `"Process proposal <proposal_id>: <title>"`
+   and pick up at the next natural break (EWM pattern). Do not interrupt
+   current work.
+3. **If idle (between user prompts):**
+   - status `accepted` → fetch full proposal via
+     `cortex_inbox_poll(ai_id=<you>, status="accepted", limit=1)` filtered
+     to this proposal_id, then execute the proposal's payload (code change,
+     follow-up emit, etc.)
+   - status `changed` → ECO requested refinement. Read the
+     `eco_decision.note` and emit a parent_id-linked follow-up proposal
+     via `cortex_propose`.
+   - status `declined` → ECO said no. Update your mental model; no action.
+4. After handling, archive the proposal via `cortex_archive_proposal` to
+   clear it from active surfaces (and prevent re-emission if you see it
+   again on a later tick).
+
+### Heartbeat event (legacy fallback)
+
+```json
+{"ts": "...", "instance_id": "<you>", "loop": "cortex-mailbox-poll"}
+```
+
+Older empirica versions, or non-cortex-mailbox-poll loops, emit
+content-free heartbeats. If you receive one (no `event_type` field),
+fall through to the Cron Prompt Template below — poll inbox/outbox
+manually via MCP. This path costs more tokens; prefer the content-event
+path when available.
+
+---
+
 ## Adaptive cadence model
 
 | Signal | Effect |
