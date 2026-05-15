@@ -677,14 +677,32 @@ def handle_loop_enable_command(args) -> int:
     entry so the TUI/cockpit sees the loop. Registry entry is stamped with
     scheduler_kind='systemd' so subsequent toggles route via systemctl, not
     via the file-flag pause path.
+
+    Resolves the empirica binary to an absolute path via shutil.which()
+    before baking it into the service ExecStart. systemd-user environments
+    don't inherit shell PATH, so bare `empirica` fails silently when the
+    binary lives in `~/.local/bin` (pipx) or a venv. Smoke-tested 2026-05-15.
     """
+    import shutil as _sh
+
     from empirica.core.loop_scheduler import (
         SystemdLoopScheduler,
         SystemdUnavailable,
     )
     instance_id = _require_instance_id(args)
+    empirica_bin = _sh.which('empirica')
+    if not empirica_bin:
+        return _emit(
+            args,
+            {'ok': False, 'error':
+             "Could not resolve absolute path to 'empirica' via shutil.which(). "
+             "Install via pipx (`pipx install empirica`) or activate the venv "
+             "before enabling a systemd loop — otherwise the timer fires but "
+             "the service can't find the binary."},
+            'enable failed: empirica binary not on PATH'
+        )
     try:
-        sched = SystemdLoopScheduler()
+        sched = SystemdLoopScheduler(empirica_bin=empirica_bin)
         paths = sched.enable(instance_id, args.name, args.interval)
     except SystemdUnavailable as e:
         return _emit(args, {'ok': False, 'error': str(e),

@@ -235,3 +235,83 @@ def test_tick_static_method_does_not_require_systemd(monkeypatch, fake_systemd_e
     SystemdLoopScheduler.tick("inst", "name")
     log = fake_systemd_env["empirica"] / "loop_fires.log"
     assert log.exists()
+
+
+# ── Handler: must resolve empirica binary to absolute path ───────────────
+#
+# Regression test for the smoke-test bug 2026-05-15: the unit-file ExecStart
+# had bare `empirica` instead of an absolute path, so systemd-user services
+# failed silently because ~/.local/bin (pipx) isn't on systemd's default PATH.
+# Timer fires but no fires log appears. Caught immediately on first real-host
+# smoke-test. Fix: handle_loop_enable_command resolves via shutil.which().
+
+
+def test_handler_writes_absolute_empirica_path_to_service_file(fake_systemd_env, monkeypatch):
+    """handle_loop_enable_command must bake the resolved absolute path of the
+    empirica binary into the unit-file ExecStart — bare `empirica` fails
+    silently in systemd-user environments where ~/.local/bin isn't on PATH."""
+    import shutil
+    from argparse import Namespace
+    monkeypatch.setattr(shutil, "which",
+                        lambda name: "/abs/pipx/bin/empirica" if name == "empirica" else None)
+
+    captured: dict = {}
+
+    def fake_run(args, **kw):
+        # Capture systemctl invocations + always succeed
+        captured.setdefault("calls", []).append(tuple(args))
+        return subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+
+    with patch.object(subprocess, "run", fake_run):
+        # Bypass LoopRegistry side-effects by patching it to a no-op double
+        import empirica.cli.command_handlers.cockpit_commands as _mod
+        from empirica.cli.command_handlers.cockpit_commands import (
+            handle_loop_enable_command,
+        )
+
+        class _NoopReg:
+            def __init__(self, *a, **kw): pass
+            def register(self, **kw):
+                from types import SimpleNamespace
+                return SimpleNamespace(last_status="ok", last_result=None, last_message=None)
+            def heartbeat(self, **kw): pass
+            def get(self, name):
+                from types import SimpleNamespace
+                return SimpleNamespace(last_status="ok", last_result=None, last_message=None)
+
+        monkeypatch.setattr(_mod, "LoopRegistry", _NoopReg)
+
+        args = Namespace(
+            name="cortex-mailbox-poll",
+            interval="30s",
+            instance="cortex",
+            output="json",
+        )
+        rc = handle_loop_enable_command(args)
+
+    assert rc == 0
+    # Service file must contain the absolute path, NOT bare `empirica`
+    paths = fake_systemd_env["sysd"] / "empirica-loop-cortex-cortex-mailbox-poll.service"
+    assert paths.exists()
+    service = paths.read_text()
+    assert "ExecStart=/abs/pipx/bin/empirica loop tick cortex cortex-mailbox-poll" in service, (
+        "ExecStart must use shutil.which-resolved path — bare `empirica` fails "
+        "in systemd-user where ~/.local/bin isn't on PATH"
+    )
+
+
+def test_handler_errors_when_empirica_not_on_path(fake_systemd_env, monkeypatch):
+    """If shutil.which can't find empirica, refuse rather than write a broken
+    unit file that fails silently at fire time."""
+    import shutil
+    from argparse import Namespace
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+
+    from empirica.cli.command_handlers.cockpit_commands import (
+        handle_loop_enable_command,
+    )
+    args = Namespace(name="x", interval="30s", instance="i", output="json")
+    rc = handle_loop_enable_command(args)
+    assert rc != 0, "handler must surface the missing-binary case, not silently install a broken timer"
+    # No service file should have been written
+    assert not (fake_systemd_env["sysd"] / "empirica-loop-i-x.service").exists()
