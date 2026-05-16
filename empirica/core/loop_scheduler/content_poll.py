@@ -37,10 +37,16 @@ verification step against Cortex catches them.
 
 ## Bootstrap behavior
 
-On first run (state file absent), every proposal in the response is "new" —
-emitting all of them would flood the chat with historical state. So the
-first run **records without emitting** (status_quo handshake). Subsequent
-runs emit on differences only.
+On first run (state file absent), the listener now emits all proposals
+that pass the EMISSION_STATUSES filter — those are already the meaningful
+wake events (accepted/changed/declined for inbox; changed/declined/completed
+for outbox). The earlier "record without emit" policy was overcautious:
+it prevented historical-flood, but also lost wake events for unacked
+proposals pending at install time (the test case David hit 2026-05-16
+when pressing Events on a fresh instance that had already-accepted
+proposals in inbox). The AI's reaction protocol is idempotent
+(re-verifies each proposal_id against Cortex) so a one-time emit of
+~dozen items at bootstrap is benign.
 """
 
 from __future__ import annotations
@@ -343,19 +349,25 @@ def poll_and_diff(
     inbox = inbox or []
     outbox = outbox or []
 
-    bootstrap = not state  # first run: state file was absent
-
+    # First-run vs steady-state. The original "bootstrap = skip emit"
+    # rule was overcautious: it prevented historical-flood (good) but
+    # also suppressed wake events for unacked items pending at install
+    # time (bad — David, 2026-05-16: "press Events on fresh instance,
+    # see existing pending proposal trigger wake"). Now we emit on
+    # bootstrap too — EMISSION_STATUSES already filters to meaningful
+    # statuses, so the worst case is a one-time emit of ~dozen items
+    # the AI's reaction protocol already handles idempotently
+    # (it re-verifies each proposal_id against Cortex before acting).
     inbox_diffs = diff_proposals(inbox, last_seen_statuses,
                                   valid_statuses=EMISSION_STATUSES_INBOX)
     outbox_diffs = diff_proposals(outbox, last_seen_statuses,
                                    valid_statuses=EMISSION_STATUSES_OUTBOX)
 
     events: list[ProposalEvent] = []
-    if not bootstrap:
-        for (p, kind) in inbox_diffs:
-            events.append(build_event(p, kind, instance_id, loop_name, direction="inbox"))
-        for (p, kind) in outbox_diffs:
-            events.append(build_event(p, kind, instance_id, loop_name, direction="outbox"))
+    for (p, kind) in inbox_diffs:
+        events.append(build_event(p, kind, instance_id, loop_name, direction="inbox"))
+    for (p, kind) in outbox_diffs:
+        events.append(build_event(p, kind, instance_id, loop_name, direction="outbox"))
 
     # Update state — single proposals map covers both directions (UUIDs unique).
     new_proposals_map = {}

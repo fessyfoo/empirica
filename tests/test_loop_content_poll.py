@@ -181,16 +181,21 @@ def _empty_fetch(url, key, ai_id):
     return []
 
 
-def test_first_run_records_state_without_emitting(tmp_path):
-    """Bootstrap behavior: when state file doesn't exist yet, record current
-    proposals as seen but emit NOTHING — avoids flooding the chat with
-    historical inbox content when David first enables a loop."""
+def test_first_run_emits_pending_inbox_items(tmp_path):
+    """Bootstrap behavior (revised 2026-05-16): when state file doesn't
+    exist yet, emit proposals that pass EMISSION_STATUSES — these are
+    the items the AI has work to do on. Original policy "record without
+    emit" lost wake events for unacked items pending at install time.
+
+    EMISSION_STATUSES already filters out noise (eco_review, accepted
+    on outbox), so the worst case is a one-time emit of ~dozen items
+    the AI's reaction protocol handles idempotently."""
     state_path = tmp_path / "state.json"
 
     def fake_inbox(url, key, ai_id):
         return [
-            {"id": "prop_old1", "status": "accepted"},
-            {"id": "prop_old2", "status": "changed"},
+            {"id": "prop_pending1", "status": "accepted"},
+            {"id": "prop_pending2", "status": "changed"},
         ]
 
     events = poll_and_diff("cortex", "cortex-mailbox-poll",
@@ -198,12 +203,40 @@ def test_first_run_records_state_without_emitting(tmp_path):
                            state_path=state_path,
                            inbox_fetch_fn=fake_inbox,
                            outbox_fetch_fn=_empty_fetch)
-    assert events == [], "first run must not emit historical content"
+    # Both items pass EMISSION_STATUSES_INBOX → both emit as "new"
+    by_id = {e.proposal_id: e for e in events}
+    assert "prop_pending1" in by_id, "first run must emit pending accepted items"
+    assert "prop_pending2" in by_id, "first run must emit pending changed items"
+    assert by_id["prop_pending1"].new_or_changed == "new"
+    assert by_id["prop_pending2"].new_or_changed == "new"
 
+    # State must still be recorded so subsequent runs diff against it
     state = load_state(state_path)
     assert state.get("bootstrap_completed") is True
-    assert "prop_old1" in state["proposals"]
-    assert "prop_old2" in state["proposals"]
+    assert "prop_pending1" in state["proposals"]
+    assert "prop_pending2" in state["proposals"]
+
+
+def test_first_run_filters_out_eco_review_even_on_bootstrap(tmp_path):
+    """Bootstrap-emit must still respect the ECO-gated autonomy boundary —
+    eco_review status is excluded regardless of bootstrap state."""
+    state_path = tmp_path / "state.json"
+
+    def fake_inbox(url, key, ai_id):
+        return [
+            {"id": "prop_pending", "status": "accepted"},
+            {"id": "prop_undecided", "status": "eco_review"},
+        ]
+
+    events = poll_and_diff("cortex", "cortex-mailbox-poll",
+                           "https://cortex.test", "ctx_test",
+                           state_path=state_path,
+                           inbox_fetch_fn=fake_inbox,
+                           outbox_fetch_fn=_empty_fetch)
+    ids = {e.proposal_id for e in events}
+    assert ids == {"prop_pending"}, (
+        "ECO-gated autonomy: eco_review must never wake the AI even on bootstrap"
+    )
 
 
 def test_subsequent_run_emits_only_new_proposals(tmp_path):
