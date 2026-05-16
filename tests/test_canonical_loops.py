@@ -114,7 +114,7 @@ def test_fallback_path_returns_canonical_when_project_has_none(fake_project_no_y
 def test_cortex_mailbox_poll_uses_systemd_scheduler():
     """Phase 1c (goal f718156c): cortex-mailbox-poll is the pilot loop for
     the systemd scheduler path. The TUI's _install_loops_from_project +
-    action_toggle_loops dispatch on this field. Must match
+    action_toggle_events dispatch on this field. Must match
     VALID_SCHEDULER_KIND in loop_registry.py — using the wrong value here
     causes the loop_registry.heartbeat() validation to silently reject the
     scheduler_kind stamp (caught during real-host smoke-test 2026-05-15).

@@ -120,8 +120,7 @@ class CockpitApp(App):
         Binding('q', 'quit', 'Quit'),
         Binding('r', 'refresh_now', 'Refresh'),
         Binding('p', 'toggle_sentinel', 'Sent.'),
-        Binding('l', 'toggle_loops', 'Loops'),
-        Binding('e', 'toggle_listeners', 'Listen'),
+        Binding('e', 'toggle_events', 'Events'),
         Binding('s', 'stop', 'Stop'),
         Binding('n', 'clear_notifications', 'Notif'),
         Binding('c', 'toggle_compliance', 'Compl.'),
@@ -165,8 +164,7 @@ class CockpitApp(App):
 
         with Horizontal(id='action-bar'):
             yield Button('P sent', id='btn-sent', variant='warning')
-            yield Button('L loops', id='btn-loops', variant='warning')
-            yield Button('E listen', id='btn-listen', variant='warning')
+            yield Button('E events', id='btn-events', variant='warning')
             yield Button('S stop', id='btn-stop', variant='error')
             yield Button('N notif', id='btn-notif', variant='primary')
 
@@ -277,12 +275,19 @@ class CockpitApp(App):
                 stats += f' fb:{fb_24h}'
             dispatch_part = f' · {" ".join(cells)} {stats}'
 
-        # T11: auto-accept chip — visible when explicitly ON (loud warning),
-        # hidden when OFF or unknown (cortex unreachable / endpoint not
-        # shipped). The ⚡ glyph signals "no ECO ack required for emissions
-        # from this user" — the trust-me-I-know-what-I-am-doing surface.
+        # Auto-accept chip — always visible so the bypass state is never
+        # ambiguous (was prev hidden when OFF, which made "is bypass on?"
+        # require pressing 'a'). Loud ⚡ glyph when ON (no ECO ack
+        # required for emissions from this user); muted text when OFF;
+        # hidden only when state is unknown (cortex unreachable / endpoint
+        # not shipped — distinguishing "off" from "unknown" matters).
         auto_accept = s.get('auto_accept')
-        auto_part = ' · ⚡AUTO-ACCEPT' if auto_accept is True else ''
+        if auto_accept is True:
+            auto_part = ' · ⚡AUTO-ACCEPT'
+        elif auto_accept is False:
+            auto_part = ' · auto-accept:off'
+        else:
+            auto_part = ''
 
         text = (
             f"empirica · {s.get('instances', 0)} inst{notif_part}"
@@ -698,48 +703,58 @@ class CockpitApp(App):
             self._log_status(f'sentinel paused: {inst["instance_id"]}')
         self.refresh_payload()
 
-    def action_toggle_loops(self) -> None:
-        """Toggle all loops via the proper command handlers.
+    def action_toggle_events(self) -> None:
+        """Toggle all event sources (loops + listeners) for the selected row.
 
-        Calls handle_loop_pause_command / handle_loop_resume_command so the
-        new mechanical pause-cancels-cron mechanism (1.9.6) fires:
-          - pause writes loop_uninstall_pending_*.json containing the
-            recorded job_id when scheduler_kind=cron-create
-          - the loop-uninstall-pickup hook surfaces it as system-reminder
-            on the owning Claude's next prompt asking it to CronDelete
-          - body's pause-check at next fire is the backstop
+        Collapses the previous L (loops) + E (listeners) bindings into one
+        Events button. Each press flips both subsystems together — they're
+        two halves of the same wake-from-idle mechanism (loop schedules
+        the catch-up tick, listener holds the ntfy push connection).
 
-        When no loops are registered, surface a hint pointing at the
-        install-request CLI (Phase 2 of TUI work will auto-install from
-        a project.yaml canonical-loop config).
+        Per-row, not global: the cockpit shows one row per Claude instance
+        and each instance has its own systemd timer + listener registry.
+
+        Empty-state behavior: when nothing is registered yet for this
+        instance, attempts to bootstrap from `.empirica/project.yaml`'s
+        cockpit.loops + cockpit.listeners blocks via the install-request
+        flow (UserPromptSubmit pickup by the owning Claude).
         """
         inst = self._require_selected()
         if inst is None:
             return
         loops = inst.get('loops') or {}
-        if not loops:
-            # No loops registered — first click registers + installs from
-            # the project's .empirica/project.yaml cockpit.loops block.
-            installed = self._install_loops_from_project(inst)
-            if installed:
+        listeners = inst.get('listeners') or {}
+
+        # Empty registries on both sides — try project.yaml bootstrap.
+        if not loops and not listeners:
+            installed_l = self._install_loops_from_project(inst)
+            installed_e = self._install_listeners_from_project(inst)
+            total = installed_l + installed_e
+            if total:
                 self._log_status(
-                    f'{inst["instance_id"]}: requested install of {installed} '
-                    f'loop(s) from project.yaml — owning Claude will pick up '
-                    'via UserPromptSubmit'
+                    f'{inst["instance_id"]}: requested install of '
+                    f'{installed_l} loop(s) + {installed_e} listener(s) '
+                    'from project.yaml — owning Claude picks up via '
+                    'UserPromptSubmit'
                 )
                 self.refresh_payload()
             else:
                 self._log_status(
-                    f'{inst["instance_id"]}: no loops registered + no '
-                    'cockpit.loops in project.yaml — add a loops: block or '
-                    'use `empirica loop install-request --instance ID ...`'
+                    f'{inst["instance_id"]}: no events registered + no '
+                    'cockpit.loops/listeners in project.yaml — add the '
+                    'blocks or use install-request CLI'
                 )
             return
-        any_unpaused = any(not v.get('paused') for v in loops.values())
+
+        # Decide target state from current state: any-unpaused → pause all.
+        any_unpaused = (
+            any(not v.get('paused') for v in loops.values())
+            or any(not v.get('paused') for v in listeners.values())
+        )
         target_paused = bool(any_unpaused)
-        # Phase 1c (goal f718156c): route per-loop based on scheduler_kind.
-        # Systemd-managed loops use systemctl enable/disable (true external
-        # pause); legacy cron-create loops keep the file-flag pause path.
+
+        # Loops first (scheduler-aware): systemd-kind uses systemctl
+        # enable/disable, legacy cron-create stays on file-flag pause.
         for name, loop_data in loops.items():
             scheduler_kind = (loop_data.get('scheduler_kind') or '').lower()
             if scheduler_kind == 'systemd':
@@ -751,7 +766,6 @@ class CockpitApp(App):
                     'output': 'json',
                 }
                 if not target_paused:
-                    # Enable needs interval; derive from registry entry.
                     args_dict['interval'] = (
                         loop_data.get('interval')
                         or loop_data.get('base_interval')
@@ -769,45 +783,11 @@ class CockpitApp(App):
             try:
                 handler(args)
             except Exception as e:
-                self._log_status(f'{inst["instance_id"]} {name}: {e}')
+                self._log_status(f'{inst["instance_id"]} loop {name}: {e}')
                 return
-        verb = 'disabled/paused' if target_paused else 'enabled/resumed'
-        self._log_status(f'{verb} {len(loops)} loop(s) on {inst["instance_id"]}')
-        self.refresh_payload()
 
-    def action_toggle_listeners(self) -> None:
-        """Toggle all listeners via the proper command handlers.
-
-        Mirror of action_toggle_loops for event-driven listeners. Calls
-        handle_listener_pause_command / handle_listener_resume_command so
-        the mechanical Monitor-kill flow fires (writes pending uninstall
-        with monitor_task_id; listener-uninstall-pickup hook surfaces it).
-        """
-        inst = self._require_selected()
-        if inst is None:
-            return
-        listeners = inst.get('listeners') or {}
-        if not listeners:
-            # No listeners registered — first click registers + installs from
-            # the project's .empirica/project.yaml cockpit.listeners block.
-            installed = self._install_listeners_from_project(inst)
-            if installed:
-                self._log_status(
-                    f'{inst["instance_id"]}: requested install of {installed} '
-                    f'listener(s) from project.yaml — owning Claude will arm '
-                    'via UserPromptSubmit'
-                )
-                self.refresh_payload()
-            else:
-                self._log_status(
-                    f'{inst["instance_id"]}: no listeners registered + no '
-                    'cockpit.listeners in project.yaml — add a listeners: '
-                    'block or use `empirica listener install-request ...`'
-                )
-            return
-        any_unpaused = any(not v.get('paused') for v in listeners.values())
-        target_paused = bool(any_unpaused)
-        handler = (
+        # Then listeners (mirror mechanical pause flow).
+        listener_handler = (
             handle_listener_pause_command if target_paused
             else handle_listener_resume_command
         )
@@ -818,12 +798,16 @@ class CockpitApp(App):
                 output='json',
             )
             try:
-                handler(args)
+                listener_handler(args)
             except Exception as e:
-                self._log_status(f'{inst["instance_id"]} {name}: {e}')
+                self._log_status(f'{inst["instance_id"]} listener {name}: {e}')
                 return
+
         verb = 'paused' if target_paused else 'resumed'
-        self._log_status(f'{verb} {len(listeners)} listener(s) on {inst["instance_id"]}')
+        self._log_status(
+            f'{verb} {len(loops)} loop(s) + {len(listeners)} listener(s) '
+            f'on {inst["instance_id"]}'
+        )
         self.refresh_payload()
 
     def action_stop(self) -> None:
@@ -872,8 +856,7 @@ class CockpitApp(App):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         actions = {
             'btn-sent': self.action_toggle_sentinel,
-            'btn-loops': self.action_toggle_loops,
-            'btn-listen': self.action_toggle_listeners,
+            'btn-events': self.action_toggle_events,
             'btn-stop': self.action_stop,
             'btn-notif': self.action_clear_notifications,
         }

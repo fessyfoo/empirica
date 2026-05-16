@@ -85,7 +85,7 @@ async def test_tui_mounts_compact_widgets(cockpit_env):
         # v1.6: portrait layout — recent strip replaced with goals + notif
         assert app.query_one('#goals', Static) is not None
         assert app.query_one('#notif', Static) is not None
-        for btn_id in ('btn-sent', 'btn-loops', 'btn-stop', 'btn-notif'):
+        for btn_id in ('btn-sent', 'btn-events', 'btn-stop', 'btn-notif'):
             assert app.query_one(f'#{btn_id}', Button) is not None, btn_id
 
 
@@ -183,6 +183,78 @@ async def test_btn_sent_toggles_sentinel(cockpit_env):
         assert (home / 'sentinel_paused_tmux_42').exists()
 
 
+# ─── auto-accept chip always visible ──────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_auto_accept_chip_shows_off_state(cockpit_env, monkeypatch):
+    """The auto-accept chip is now ALWAYS visible — loud ⚡AUTO-ACCEPT when
+    ON, muted 'auto-accept:off' when OFF. Only hidden when state is None
+    (cortex unreachable / endpoint unshipped). Lets users see the bypass
+    state without pressing 'a' first."""
+    from textual.widgets import Static
+
+    from empirica.cli.tui import CockpitApp
+
+    # Force the aggregator to return auto_accept=False (OFF, known state).
+    import empirica.cli.tui.cockpit_app as cockpit_module
+
+    real_aggregate = cockpit_module.aggregate_all
+
+    def stub_aggregate(*args, **kwargs):
+        payload = real_aggregate(*args, **kwargs)
+        payload.setdefault('summary', {})['auto_accept'] = False
+        return payload
+
+    monkeypatch.setattr(cockpit_module, 'aggregate_all', stub_aggregate)
+
+    app = CockpitApp(include_dead=True)
+    async with app.run_test(headless=True, size=(80, 20)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        summary = app.query_one('#summary', Static)
+        from rich.console import Console
+        c = Console(width=120, file=io.StringIO())
+        with c.capture() as cap:
+            c.print(summary.render())
+        text = cap.get()
+        assert 'auto-accept:off' in text, (
+            f'OFF state should be visible in summary; got: {text!r}'
+        )
+
+
+@pytest.mark.asyncio
+async def test_auto_accept_chip_shows_on_state(cockpit_env, monkeypatch):
+    """The loud ⚡AUTO-ACCEPT marker remains for the ON state."""
+    from textual.widgets import Static
+
+    from empirica.cli.tui import CockpitApp
+    import empirica.cli.tui.cockpit_app as cockpit_module
+
+    real_aggregate = cockpit_module.aggregate_all
+
+    def stub_aggregate(*args, **kwargs):
+        payload = real_aggregate(*args, **kwargs)
+        payload.setdefault('summary', {})['auto_accept'] = True
+        return payload
+
+    monkeypatch.setattr(cockpit_module, 'aggregate_all', stub_aggregate)
+
+    app = CockpitApp(include_dead=True)
+    async with app.run_test(headless=True, size=(80, 20)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        summary = app.query_one('#summary', Static)
+        from rich.console import Console
+        c = Console(width=120, file=io.StringIO())
+        with c.capture() as cap:
+            c.print(summary.render())
+        text = cap.get()
+        assert '⚡AUTO-ACCEPT' in text or 'AUTO-ACCEPT' in text, (
+            f'ON state should be loudly visible; got: {text!r}'
+        )
+
+
 # ─── toggle loops ─────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
@@ -200,7 +272,7 @@ async def test_l_pauses_all_loops_when_any_unpaused(cockpit_env):
     async with app.run_test(headless=True, size=(54, 20)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        await pilot.press('l')
+        await pilot.press('e')
         await pilot.pause()
 
         from empirica.core.cockpit import is_loop_paused
@@ -225,7 +297,7 @@ async def test_l_resumes_all_loops_when_all_paused(cockpit_env):
     async with app.run_test(headless=True, size=(54, 20)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        await pilot.press('l')
+        await pilot.press('e')
         await pilot.pause()
 
         assert not is_loop_paused('tmux_42', 'loop-a')
@@ -531,7 +603,7 @@ async def test_l_button_writes_pending_uninstall_when_armed(cockpit_env):
         await pilot.pause()
         await pilot.pause()
         # Press L — should toggle to paused, which now writes pending uninstall
-        await pilot.press('l')
+        await pilot.press('e')
         await pilot.pause()
         await pilot.pause()
 
@@ -580,14 +652,15 @@ async def test_e_button_toggles_listener_pause(cockpit_env):
 
 
 @pytest.mark.asyncio
-async def test_e_button_no_listeners_message(cockpit_env):
-    """E with no registered listeners should surface an install-request hint."""
+async def test_e_button_empty_registry_falls_back_to_canonical(cockpit_env):
+    """E with empty registries should bootstrap from the canonical catalog
+    (cortex-mailbox-poll loop + inbox-listener). Tests the empty-state
+    install path of the consolidated Events action."""
     home, project = cockpit_env
     _bind_instance(home, project, 'tmux_test')
 
-    from textual.widgets import Static
-
     from empirica.cli.tui import CockpitApp
+    from empirica.core.cockpit import LoopRegistry
 
     app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(40, 24)) as pilot:
@@ -595,14 +668,13 @@ async def test_e_button_no_listeners_message(cockpit_env):
         await pilot.pause()
         await pilot.press('e')
         await pilot.pause()
-        # _log_status writes to the #notif widget
-        notif = app.query_one('#notif', Static)
-        from rich.console import Console
-        c = Console(width=120, file=io.StringIO())
-        with c.capture() as cap:
-            c.print(notif.render())
-        text = cap.get()
-        assert 'no listeners' in text or 'install-request' in text
+        # Canonical loop catalog provides cortex-mailbox-poll by default —
+        # pressing 'e' on an empty registry registers it.
+        reg = LoopRegistry('tmux_test')
+        loops = reg.list_loops()
+        assert any(entry.name == 'cortex-mailbox-poll' for entry in loops), (
+            f'expected canonical loop registered; got {[e.name for e in loops]}'
+        )
 
 
 # ─── E column in instance table ────────────────────────────────────────────
@@ -671,7 +743,7 @@ async def test_l_click_empty_registry_installs_from_project_yaml(cockpit_env):
     async with app.run_test(headless=True, size=(40, 24)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        await pilot.press('l')
+        await pilot.press('e')
         await pilot.pause()
         await pilot.pause()
 
@@ -711,7 +783,7 @@ async def test_l_click_empty_registry_no_yaml_falls_back_to_canonical_catalog(co
     async with app.run_test(headless=True, size=(40, 24)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        await pilot.press('l')
+        await pilot.press('e')
         await pilot.pause()
 
     # Canonical-catalog loops should now have pending install-request files
