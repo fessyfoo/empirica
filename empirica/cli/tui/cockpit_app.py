@@ -370,8 +370,13 @@ class CockpitApp(App):
     def _loop_is_off(v: dict[str, Any]) -> bool:
         """A loop is 'off' if its systemd timer is inactive (when systemd-managed),
         or its pause sidecar exists (legacy file-flag path). Phase 1c-tail:
-        single source of truth that handles both scheduler kinds."""
-        if (v.get('scheduler_kind') or '').lower() == 'systemd':
+        single source of truth that handles both scheduler kinds.
+
+        VALID_SCHEDULER_KIND uses 'systemd-user' (loop_registry.py line 33);
+        match by prefix so any 'systemd*' variant routes through the systemctl
+        liveness check instead of falling through to file-flag pause.
+        """
+        if (v.get('scheduler_kind') or '').lower().startswith('systemd'):
             # systemd_active absent → unknown → treat as off (conservative)
             return not v.get('systemd_active', False)
         return bool(v.get('paused'))
@@ -766,9 +771,11 @@ class CockpitApp(App):
 
         # Loops first (scheduler-aware): systemd-kind uses systemctl
         # enable/disable, legacy cron-create stays on file-flag pause.
+        # VALID_SCHEDULER_KIND uses 'systemd-user'; match by prefix so
+        # any systemd* variant routes through systemctl.
         for name, loop_data in loops.items():
             scheduler_kind = (loop_data.get('scheduler_kind') or '').lower()
-            if scheduler_kind == 'systemd':
+            if scheduler_kind.startswith('systemd'):
                 handler = (handle_loop_disable_command if target_paused
                            else handle_loop_enable_command)
                 args_dict = {
@@ -915,7 +922,10 @@ class CockpitApp(App):
         for cfg in configs:
             scheduler_kind = (cfg.get('scheduler_kind') or '').lower()
             try:
-                if scheduler_kind == 'systemd':
+                # canonical_loops.py declares 'systemd-user' per the
+                # VALID_SCHEDULER_KIND alphabet — match by prefix so any
+                # systemd* variant routes through systemctl install.
+                if scheduler_kind.startswith('systemd'):
                     # Phase 1c: systemd-scheduled loops install via systemctl
                     # directly. No pending file, no AI cooperation needed —
                     # the timer starts immediately. SessionStart's monitor-arm

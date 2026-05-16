@@ -798,19 +798,36 @@ async def test_l_click_empty_registry_installs_from_project_yaml(cockpit_env):
 
 
 @pytest.mark.asyncio
-async def test_l_click_empty_registry_no_yaml_falls_back_to_canonical_catalog(cockpit_env):
+async def test_l_click_empty_registry_no_yaml_falls_back_to_canonical_catalog(
+    cockpit_env, monkeypatch,
+):
     """When project.yaml has no cockpit.loops block, L click should
     fall back to the system-level canonical catalog (v1.9.6+) and
     install the canonical loops instead of just showing a hint.
 
-    Previously (pre-1.9.6) this test asserted a 'cockpit.loops or
-    install-request' hint message in the notif widget — but the new
-    fallback intentionally supersedes that path so users don't have to
-    manually configure every instance to get the orchestration spine
-    (cortex-mailbox-poll). We now assert on the observable side-effect
-    (pending install-request file) rather than the transient UI message,
-    which gets clobbered by refresh_payload() after install."""
+    Updated 2026-05-16 — canonical_loops.py declares scheduler_kind=
+    'systemd-user', so the install path now dispatches via systemctl
+    (handle_loop_enable_command) directly rather than writing a pending
+    file. Pre-fix bug: cockpit_app.py compared `== 'systemd'` literally
+    against the canonical value 'systemd-user' → mismatch → fell through
+    to legacy cron-create pending-file path. After the prefix-match fix,
+    systemd* values route to direct install.
+
+    We stub handle_loop_enable_command so the test doesn't need a real
+    systemd-user environment, and verify it gets called once per
+    canonical systemd-user loop."""
     from empirica.core.cockpit.canonical_loops import CANONICAL_LOOPS
+
+    captured: list[tuple[str, str]] = []
+
+    def fake_enable(args):
+        captured.append((args.instance, args.name))
+        return 0
+
+    monkeypatch.setattr(
+        'empirica.cli.tui.cockpit_app.handle_loop_enable_command',
+        fake_enable,
+    )
 
     home, project = cockpit_env
     _bind_instance(home, project, 'tmux_test')
@@ -825,23 +842,17 @@ async def test_l_click_empty_registry_no_yaml_falls_back_to_canonical_catalog(co
         await pilot.press('e')
         await pilot.pause()
 
-    # Canonical-catalog loops should now have pending install-request files
-    # (one per CANONICAL_LOOPS entry — currently just cortex-mailbox-poll).
-    pending = list(home.glob('loop_install_pending_tmux_test_*.json'))
-    expected_count = len(CANONICAL_LOOPS)
-    assert len(pending) == expected_count, (
-        f"expected {expected_count} pending install requests "
-        f"(one per canonical loop), got {len(pending)}: {pending}"
+    systemd_loops = [
+        c for c in CANONICAL_LOOPS
+        if (c.get('scheduler_kind') or '').lower().startswith('systemd')
+    ]
+    assert len(captured) == len(systemd_loops), (
+        f'expected {len(systemd_loops)} systemd loop installs, '
+        f'got {len(captured)}: {captured}'
     )
-    # And each one should match a canonical-catalog entry name.
-    canonical_names = {entry['name'] for entry in CANONICAL_LOOPS}
-    pending_names = {
-        p.stem.replace('loop_install_pending_tmux_test_', '')
-        for p in pending
-    }
-    assert pending_names == canonical_names, (
-        f"pending {pending_names} != canonical {canonical_names}"
-    )
+    captured_names = {name for _, name in captured}
+    expected_names = {c['name'] for c in systemd_loops}
+    assert captured_names == expected_names
 
 
 @pytest.mark.asyncio
