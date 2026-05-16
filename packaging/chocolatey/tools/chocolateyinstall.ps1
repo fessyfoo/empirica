@@ -6,7 +6,7 @@ $ErrorActionPreference = 'Stop'
 $packageName = 'empirica'
 $packageVersion = '1.9.6'
 $url = "https://files.pythonhosted.org/packages/source/e/empirica/empirica-$packageVersion.tar.gz"
-$checksum = '8b7ee23e9a1a9da8c52bfdcec599f0aee7891afbeeab2647d6f0ad037f16edd7'  # TODO: Update sha256 after PyPI publish
+$checksum = 'fa8c9ccd545f0c86102a1a769610dc5f61b179079b7642c9d02c2a72913f8d97'  # TODO: Update sha256 after PyPI publish
 $checksumType = 'sha256'
 
 Write-Host "Installing Empirica $packageVersion..." -ForegroundColor Cyan
