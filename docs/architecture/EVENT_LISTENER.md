@@ -85,16 +85,39 @@ ECO actor decision (phone / extension)
 - **Why:** defense in depth + ECO-gated autonomy. Even a fully compromised
   ntfy topic can wake the AI but cannot direct it to act on forged content —
   the listener always re-verifies against Cortex's actual proposal state.
-- **Auth:** basic auth via `~/.empirica/credentials.yaml` `ntfy:` block
-  (`url`, `topic`, `user`, `password`) or the equivalent
-  `ORCHESTRATION_NTFY_*` env vars.
+- **Auth:** Bearer-token (preferred) or basic-auth, resolved by
+  `credentials_loader.get_ntfy_config()` with this precedence:
+  1. `ORCHESTRATION_NTFY_*` env vars (`_URL` / `_TOPIC` / `_USER` /
+     `_PASS` / `_TOKEN`)
+  2. `~/.empirica/credentials.yaml` `ntfy:` block
+  3. `~/.empirica/notify.yaml` `backends.ntfy` block (the outbound
+     dispatcher's config; the loader follows `auth_env` indirection so
+     env-var-stored tokens are picked up automatically)
+  4. Defaults: prod ntfy server + the AI-wake topic
+- **Token auth (`tk_` prefix):** access tokens use `Authorization: Bearer
+  tk_...`. Preferred because they're revocable + don't expose the account
+  password. Extension obtains the token on registration and sets it on
+  Cortex; copy that value into `credentials.yaml`'s `ntfy.token` field.
+- **Topic split** (cortex T12 design): two topics so phone notifications
+  and AI-wake events don't cross-pollute.
+  - `orchestration-proposals` — phone-targeted (ECO decisions waiting on
+    a human Accept/Decline)
+  - `orchestration-events` — AI-wake topic (this listener subscribes here;
+    both auto-accepted + ECO-accepted proposals emit here)
+- **Tag-based filtering (cortex `ae92166` + listener `c9981f35e`):** Cortex
+  publishes each event with `X-Tags: zap,orchestration_event,<source>,
+  <targets…>`. Listeners subscribe with `?tags=<their_ai_id>` so ntfy
+  server-side filters out events not touching this instance. Per-event
+  wake traffic scales `O(involved_instances)`, not `O(N_instances)`.
+  Default on; override with `EMPIRICA_NTFY_TAG_FILTER=false` for
+  unfiltered (audit dashboards, debugging).
 
 ### Listener — `empirica loop listen`
 
 - **File:** `empirica/core/loop_scheduler/listener.py` → `run_listener()`
 - **CLI:** `empirica loop listen --instance <id> [--loop-name cortex-mailbox-poll]`
 - **Held connection:** `curl -sN --no-buffer --keepalive-time 30` to
-  `<ntfy>/<topic>/json` — one JSON line per ntfy message.
+  `<ntfy>/<topic>/json[?tags=<ai_id>]` — one JSON line per ntfy message.
 - **Per-message reaction:** call `_emit_catchup_events()` →
   `content_poll.poll_and_diff()` → emit any new-or-changed proposal events
   to stdout. The ntfy payload itself is discarded; Cortex is the source of
@@ -106,6 +129,30 @@ ECO actor decision (phone / extension)
     backoff (auth issues rarely self-fix in seconds).
   - SIGTERM/SIGINT → clean exit code 0 (systemd / Monitor lifecycle
     knows the listener stopped intentionally).
+
+### Cortex emission points (shipped 2026-05-16)
+
+Cortex publishes a ntfy event with proper tags on each of these
+proposal-lifecycle moments:
+
+| Trigger | Status | Publishes ntfy? | Commit |
+|---|---|---|---|
+| Create + ECO-accept | accepted | ✅ honest flag in response | `f4c85bf` |
+| Create + auto-accept (Homer mode) | accepted | ✅ honest flag | `f4c85bf` |
+| Status transition (changed / declined) | matching status | ✅ inherited from publish helper | (pre-existing) |
+| Target AI calls `cortex_complete_proposal` | completed | ✅ source AI wakes on outbox | `91cbd2f` |
+
+All publishes carry `X-Tags: zap,orchestration_event,<source>,<targets…>`
+(`ae92166`) so the listener-side `?tags=<ai_id>` filter scopes delivery.
+
+### Companion MCP tool — `cortex_get_proposal` (`e8d3b1a`)
+
+When a wake event arrives the AI has a `proposal_id`. Rather than guessing
+`target_claudes` to call `cortex_inbox_poll`, the AI calls
+`cortex_get_proposal(api_key, proposal_id)` to fetch the full envelope
+directly. Cross-tenant safe (unknown ids return 404-shape). This makes
+wake events self-sufficient — the listener-to-action path needs no
+ai_id-guessing.
 
 ### Content poll — `poll_and_diff`
 
@@ -360,19 +407,123 @@ is either disabled or failing.
 ```yaml
 # ~/.empirica/credentials.yaml
 ntfy:
-  url: https://ntfy.example.org
-  topic: orchestration-events
-  user: <basic-auth-user>
-  password: <basic-auth-pass>
+  url: https://ntfy.example.org              # defaults to prod ntfy server
+  topic: orchestration-events                 # AI-wake topic; default ok
+  token: tk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx     # PREFERRED — ntfy access token
+  # — or, legacy basic auth:
+  # user: <basic-auth-user>
+  # password: <basic-auth-pass>
 
 cortex:
   url: https://cortex.example.org
   api_key: <bearer-token>
 ```
 
-Without the `ntfy:` block, the listener exits with code 2 and a clear
-message on stderr — systemd surfaces the failure rather than silently
-sleeping.
+**One of `token` or `user+password` is required.** Without ntfy creds the
+listener exits with code 2 and a clear message on stderr — systemd
+surfaces the failure rather than silently sleeping. Tokens are preferred
+(revocable, no password exposure); the empirica extension obtains a
+token on registration and stores the same value on Cortex — copy that
+into `credentials.yaml`.
+
+**Fallback resolution:** `get_ntfy_config()` will also read from
+`~/.empirica/notify.yaml` `backends.ntfy` block and follow `auth_env`
+indirection (env var named there → value used as token if `tk_`-prefixed,
+otherwise password). Single source of truth across inbound listener
+and outbound notify dispatcher.
+
+---
+
+## Fresh install — getting wake working on a new machine
+
+Tonight's debugging surfaced the install-time gaps. This section captures
+the minimum new-user path so the same headache doesn't repeat.
+
+**Pre-reqs:**
+- empirica installed (`pip install empirica` or editable dev install)
+- A Claude Code session running in the project root
+- For Linux: systemd-user available (`systemctl --user is-system-running`).
+  Optional — listener works without systemd (push-only mode); systemd is
+  the catch-up safety net.
+
+**Step 1 — Run the canonical project init.** From your project root:
+
+```bash
+empirica project-init
+```
+
+This writes `.empirica/project.yaml` including a derived `ai_id` (the
+basename of your project, with `empirica-` prefix stripped where present).
+That `ai_id` is what Cortex addresses you with in orchestration routing.
+
+**Step 2 — Register with Cortex via the extension.** The empirica
+extension does this end-to-end:
+1. You sign in to ntfy via the extension (creates a `tk_…` access token)
+2. Extension registers your `ai_id` with Cortex, passing the token
+3. Extension writes the token + cortex creds to `~/.empirica/credentials.yaml`
+
+If you're not using the extension, populate `credentials.yaml` manually
+per the structure above.
+
+**Step 3 — Setup the Claude Code plugin.**
+
+```bash
+empirica setup-claude-code --force
+```
+
+This installs the hooks (including `session-monitor-arm.py` which arms
+Monitor on session start) and configures the MCP server bridge.
+
+**Step 4 — Enable the canonical loop from the cockpit TUI.** From any
+terminal:
+
+```bash
+empirica tui
+```
+
+Press `e` (Events) on your instance row. This installs the
+`empirica-loop-<ai_id>-cortex-mailbox-poll` systemd-user timer + writes
+the loop into the registry. The TUI's active-wake (commit `063e8556a`)
+also sends a Space+Enter into your pane so the AI processes any queued
+state on its next turn.
+
+**Step 5 — Restart your Claude session** so `SessionStart` fires the
+updated hook:
+
+```bash
+/exit
+claude --resume    # or fresh: just run `claude`
+```
+
+The hook detects your active timer, emits `additionalContext` instructing
+the AI to call `Monitor(command="empirica loop listen --instance <ai_id>",
+persistent=true)`. After your first turn post-restart, the AI arms the
+Monitor and the listener subscribes to ntfy with tag filter.
+
+**Step 6 — Verify.**
+
+```bash
+ps aux | grep "empirica loop listen"
+# Should show 1 python listener + 1 curl-to-ntfy subprocess for your ai_id
+
+systemctl --user list-timers 'empirica-loop-*'
+# Should show your instance's timer firing every 30s
+```
+
+Send a test proposal from another AI session (or a manual
+`cortex_propose` call) targeting your `ai_id`. Within ~5 seconds you
+should see a `proposal_event` task-notification arrive in your chat.
+
+**Common pitfalls:**
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Listener exits code 2 | Missing `ntfy:` block in credentials.yaml | Add the block per Step 2 |
+| `ntfy_emitted: false` in propose response | Pre-`f4c85bf` cortex | Update Cortex |
+| Wake delivers but completion ack never wakes source | Pre-`91cbd2f` cortex | Update Cortex |
+| Every listener wakes on every event (noisy) | Pre-`ae92166` cortex OR `EMPIRICA_NTFY_TAG_FILTER=false` | Update Cortex + use default-true flag |
+| Hook fires but AI doesn't call Monitor | AI session not restarted since hook update | `/exit` + `claude --resume` |
+| Stray `empirica-loop-<test_name>-…` timer installed by tests | Test that ran real `handle_loop_enable_command` without stubbing | `systemctl --user disable --now <unit>` + `rm ~/.config/systemd/user/<unit>*` |
 
 ### Per-instance enable
 
