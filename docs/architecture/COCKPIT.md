@@ -4,9 +4,7 @@
 >
 > **Version:** 1.9.6
 > **Updated:** 2026-04-30
-> **Specs:** `../specs/PROPOSAL_SENTINEL_LOOP_TUI.md` (loops + cockpit base),
-> [`PROPOSAL_EVENT_LISTENER.md`](PROPOSAL_EVENT_LISTENER.md) (listener subsystem,
-> shipped 1.9.6)
+> **History:** loops + cockpit base + event-listener subsystem shipped 1.9.6.
 
 ---
 
@@ -320,9 +318,10 @@ block.
 button does the same, reading `<project>/.empirica/project.yaml`'s
 `cockpit.listeners` block. Once armed, the listener body holds an HTTP
 connection (curl -N) and wakes when an event arrives — sub-second
-latency from publish, zero token cost at idle. See
-[`PROPOSAL_EVENT_LISTENER.md`](PROPOSAL_EVENT_LISTENER.md) for the
-full architecture.
+latency from publish, zero token cost at idle. The listener body
+implementation lives in `empirica/core/loop_scheduler/listener.py`;
+the install-request flow mirrors loops via
+`empirica/core/cockpit/listener_install_request.py`.
 
 ### Project-canonical loop/listener config
 

@@ -31,6 +31,10 @@ DEFAULT_SKIP_DIRS = frozenset({
     ".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build",
     ".tox", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".cache",
     "htmlcov", ".empirica", ".empirica-project",
+    # Local-only / gitignored content — references inside aren't gating
+    # public ship-readiness. Mirrors the .gitignore stance on these paths.
+    "research",  # docs/research/ — paper outlines + experiments, local-only
+    "superpowers",  # docs/superpowers/ — internal design specs, local-only
     # Deprecated by design — broken links there are accepted noise
     "_archive",
 })
