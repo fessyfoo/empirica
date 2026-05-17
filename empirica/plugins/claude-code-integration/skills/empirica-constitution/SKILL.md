@@ -284,7 +284,7 @@ Don't wait for explicit commands. Infer the right mechanism from conversation:
 
 | Conversation Signal | Empirica Action |
 |--------------------|-----------------------|
-| Task described | `goals-create --objective "<title>" --description "<context-rich body>"`. Skip `--description` only for truly trivial single-line tasks — substantive goals need the body so peer AIs + the extension UI + post-compact context can act on them without re-deriving why they exist. |
+| Task described | `goals-create --objective "<title>" --description "<context-rich **markdown** body>"`. Write `--description` as markdown (extension renders prettified — use headings, lists, code fences, links). Skip `--description` only for truly trivial single-line tasks — substantive goals need the body so peer AIs + the extension UI + post-compact context can act on them without re-deriving why they exist. Same markdown convention applies to all `*-log --description` flags. |
 | Discovery made | `finding-log` |
 | Uncertainty expressed | `unknown-log` |
 | Approach failed | `deadend-log` |
