@@ -88,18 +88,22 @@ PREFLIGHT --> CHECK --> POSTFLIGHT --> POST-TEST
  Assessment    Gate        Delta       Verification
 ```
 
-**AUTO-PROCEED:** CHECK is the noetic→praxic gate, but Sentinel skips
-it automatically when your PREFLIGHT vectors clear the dynamic threshold
-(`know` high enough AND `uncertainty` low enough — bars adapt via
-Brier-calibrated history). For trivial, well-understood work where
-PREFLIGHT is honestly high-confidence, you do NOT need a ceremonial
-CHECK before praxic tools. The gate is honest about your beliefs.
+**When CHECK is needed vs not:**
 
-The anti-pattern Sentinel catches: **PREFLIGHT-with-high-uncertainty →
-immediate CHECK with no intervening Read/Grep/investigate** (rubber-
-stamp). Real noetic work between the two is the only legitimate path
-from moderate PREFLIGHT to a passing CHECK. Inflating vectors to dodge
-the gate shows up later as belief↔observation divergence.
+- **Not needed** (skip the ceremony): when your predictive ability
+  for the next action is grounded in data you've actually pulled
+  this session — files read, patterns verified, behaviors observed.
+  The outcome is predictable from what's in your context. Move
+  straight to praxic.
+- **Needed** (real gate): when your predictive ability rests on
+  priors and assumptions instead of session-gathered data — patterns
+  you're inferring without reading, files you haven't opened,
+  behaviors you're guessing at. Do real Read/Grep/investigate work
+  FIRST, then CHECK reflects what you actually found.
+
+The discriminator is grounded predictive ability, not vectors. If
+your prediction of "this action will produce X" leans more on priors
+than on session-gathered evidence, CHECK is needed.
 
 POSTFLIGHT triggers automatic post-test verification:
 deterministic services (tests, artifacts, git, goals) collect observations

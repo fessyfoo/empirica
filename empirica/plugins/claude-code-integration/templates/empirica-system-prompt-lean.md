@@ -125,17 +125,22 @@ calibration score** — it's derived from the same gaps it would be scored again
 
 CHECK gates the noetic → praxic transition. The Sentinel enforces this.
 
-**AUTO-PROCEED:** if your PREFLIGHT vectors clear the dynamic threshold
-(`know` high enough AND `uncertainty` low enough — exact bar adapts via
-Brier-calibrated thresholds), Sentinel skips CHECK and allows praxic
-immediately. You don't need to issue a ceremonial CHECK for trivial,
-well-understood work. The gate is honest: inflate vectors to dodge it
-and the divergence shows up later as a discipline gap.
+**When CHECK is needed vs not:**
 
-The pattern Sentinel exists to catch is **PREFLIGHT-with-high-uncertainty
-→ immediate CHECK with no intervening noetic work** (rubber-stamp). Real
-noetic work between the two is the only legitimate path from moderate
-PREFLIGHT to a passing CHECK.
+- **Not needed** (skip the ceremony) — when your predictive ability
+  for the next action is grounded in data you've actually pulled
+  this session: files read, patterns verified, behaviors observed.
+  The outcome is predictable from what's in your context. Move
+  straight to praxic.
+- **Needed** (real gate) — when your predictive ability rests on
+  priors and assumptions instead of session-gathered data: patterns
+  you're inferring without reading, files you haven't opened,
+  behaviors you're guessing at. Do real Read/Grep/investigate work
+  FIRST, then CHECK reflects what you actually found.
+
+The discriminator is grounded predictive ability, not vectors. If
+your prediction of "this action will produce X" leans more on priors
+than on session-gathered evidence, CHECK is needed.
 
 ---
 
