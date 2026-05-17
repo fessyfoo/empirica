@@ -181,7 +181,8 @@ class TestDeferredProposalsNudgeSql:
         cur.execute("INSERT INTO sessions VALUES ('S1', 'P1')")
         cur.execute("INSERT INTO sessions VALUES ('S2', 'P1')")
         cur.execute("INSERT INTO sessions VALUES ('S3', 'P2')")
-        # Two open proposal-derived goals in P1 (should surface)
+        # Two open proposal-derived goals in P1 — match the convention
+        # prefix "Process proposal prop_<id>:" (should surface)
         cur.execute("INSERT INTO goals VALUES "
                     "('G1','S1','Process proposal prop_aaa: fix bootstrap', '', 0, 100)")
         cur.execute("INSERT INTO goals VALUES "
@@ -195,9 +196,12 @@ class TestDeferredProposalsNudgeSql:
         # Open proposal goal in OTHER project P2 (should not surface — scoped)
         cur.execute("INSERT INTO goals VALUES "
                     "('G5','S3','Process proposal prop_ddd: other project', '', 0, 300)")
-        # Proposal reference in description only (should surface — pattern matches both columns)
+        # Planning goal that MENTIONS a prop_ id in description but isn't a
+        # defer goal — must NOT surface (convention-prefix-only filter).
+        # Pre-2026-05-17 the query also matched description, which over-fired
+        # on planning goals that referenced proposals or PROPOSAL_*.md files.
         cur.execute("INSERT INTO goals VALUES "
-                    "('G6','S1','Generic title', 'See prop_eee for context', 0, 400)")
+                    "('G6','S1','Generic planning goal', 'See prop_eee for context', 0, 400)")
         conn.commit()
         return conn
 
@@ -211,7 +215,7 @@ class TestDeferredProposalsNudgeSql:
               AND s.project_id = (
                 SELECT project_id FROM sessions WHERE session_id = ?
               )
-              AND (g.objective LIKE '%prop_%' OR g.description LIKE '%prop_%')
+              AND g.objective LIKE 'Process proposal prop_%'
             ORDER BY g.created_timestamp DESC
         """, (session_id,))
         return cur.fetchall()
@@ -219,8 +223,9 @@ class TestDeferredProposalsNudgeSql:
     def test_open_proposal_goals_in_same_project_surface(self, seeded_db):
         results = self._query(seeded_db, "S1")
         ids = {row[0] for row in results}
-        # G1 + G2 (other session same project) + G6 (prop ref in description)
-        assert ids == {"G1", "G2", "G6"}
+        # G1 + G2 (other session same project). G6 has prop_ in description
+        # but doesn't match the convention prefix — correctly excluded.
+        assert ids == {"G1", "G2"}
 
     def test_completed_proposal_goals_do_not_surface(self, seeded_db):
         results = self._query(seeded_db, "S1")
@@ -232,6 +237,17 @@ class TestDeferredProposalsNudgeSql:
         ids = {row[0] for row in results}
         assert "G3" not in ids, "non-proposal-derived goals should not be flagged"
 
+    def test_planning_goals_with_prop_in_description_do_not_surface(self, seeded_db):
+        """Convention discipline: only objectives starting with 'Process
+        proposal prop_' count as defer goals. Planning goals that mention
+        a prop_ id in their description (proposal references, PROPOSAL_*.md
+        filenames, etc.) must NOT be flagged. Pre-2026-05-17 the query also
+        matched description text, surfacing 16 false positives in the very
+        first transaction that fired it."""
+        results = self._query(seeded_db, "S1")
+        ids = {row[0] for row in results}
+        assert "G6" not in ids, "description-only prop_ matches must not be flagged"
+
     def test_other_project_goals_do_not_surface(self, seeded_db):
         """Scoping: querying from a session in P1 should not see P2's goals."""
         results = self._query(seeded_db, "S1")
@@ -242,6 +258,6 @@ class TestDeferredProposalsNudgeSql:
         """Most recently created proposal goals appear first — limit-10 keeps
         recency relevance when many are open."""
         results = self._query(seeded_db, "S1")
-        timestamps = [row[0] for row in results]
-        # G6 (400) > G2 (200) > G1 (100)
-        assert timestamps == ["G6", "G2", "G1"]
+        ids_in_order = [row[0] for row in results]
+        # G2 (200) > G1 (100). G6 excluded by convention-prefix filter.
+        assert ids_in_order == ["G2", "G1"]

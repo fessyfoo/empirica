@@ -607,10 +607,19 @@ def _build_retrospective(session_id: str, transaction_id: str | None) -> dict:
 def _maybe_add_deferred_proposals_note(cursor, session_id: str, retro: dict) -> None:
     """Surface open goals derived from peer-AI proposals.
 
-    Convention (per cortex-mailbox-poll skill): objectives carry the
-    "Process proposal prop_<id>: ..." prefix. Scoped to the current
-    project (peer AIs' proposals land per-project). Mutates `retro`
-    in-place; non-fatal on any error.
+    Convention (per cortex-mailbox-poll skill): defer goals MUST be created
+    with objective = "Process proposal prop_<id>: <title>". The query
+    matches that exact prefix so planning goals that mention prop_* in
+    their description (proposal references, doc filenames like
+    PROPOSAL_*.md, etc.) don't get false-positive-flagged as defer goals.
+
+    Scoped to the current project. Mutates `retro` in-place; non-fatal
+    on any error.
+
+    Earlier shape used `LIKE '%prop_%' OR description LIKE '%prop_%'`
+    which was over-broad — surfaced 16 false positives in the first
+    transaction that fired it (planning goals from weeks prior). Tightened
+    to convention-prefix only 2026-05-17.
     """
     try:
         cursor.execute("""
@@ -620,7 +629,7 @@ def _maybe_add_deferred_proposals_note(cursor, session_id: str, retro: dict) -> 
               AND s.project_id = (
                 SELECT project_id FROM sessions WHERE session_id = ?
               )
-              AND (g.objective LIKE '%prop_%' OR g.description LIKE '%prop_%')
+              AND g.objective LIKE 'Process proposal prop_%'
             ORDER BY g.created_timestamp DESC
         """, (session_id,))
         deferred = cursor.fetchall()
