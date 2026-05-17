@@ -33,6 +33,12 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(lr, 'EMPIRICA_DIR', fake_home)
     monkeypatch.setattr(sp, 'EMPIRICA_DIR', fake_home)
     monkeypatch.setattr(sp, 'GLOBAL_PAUSE_FILE', fake_home / 'sentinel_paused')
+    # liveness._read_captured_pids reads EMPIRICA_DIR/instance_projects/<id>.json
+    # for pid/ppid lookup. Without patching lv.EMPIRICA_DIR, the test reads the
+    # real ~/.empirica/ — when an old tmux_5 pid file exists there with a now-
+    # dead pid, is_alive returns DEAD and aggregate state flips to 'no-claude'.
+    # This made test_aggregate_phase_noetic flaky on hosts with leftover state.
+    monkeypatch.setattr(lv, 'EMPIRICA_DIR', fake_home)
     # Isolate from the host tmux server — discovery now scans live panes
     # to surface pre-empirica Claude sessions, but tests should see only
     # what they wrote. Patch BOTH instance_state (used in discovery) and
