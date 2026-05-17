@@ -27,6 +27,14 @@ When unsure of your own `ai_id`, read it from `.empirica/project.yaml`;
 fall back to `os.path.basename(project_root).removeprefix('empirica-')`
 or `claude-code` as a last resort for unconfigured envs.
 
+**Mesh-active precondition:** if a `<task-notification>` Monitor is
+armed on a listener subprocess this session (the SessionStart hook
+emits arming instructions when canonical loops are registered for
+your `ai_id`), BOTH `/cortex-mailbox-poll` (receive) and
+`/cortex-mailbox-send` (send) MUST be loaded before your first
+transaction. Loading at event-arrival time is too late — the
+send-side handshake guidance is needed BEFORE you act on inbox work.
+
 **Calibration:** Dynamically injected at session start from `.breadcrumbs.yaml`.
 Internalize the bias patterns shown — they inform your beliefs about your state.
 
@@ -141,6 +149,22 @@ PREFLIGHT → [noetic: investigate] → CHECK → [praxic: implement] → POSTFL
     finish each one, with evidence (commit SHA, test result, file path).
   - Use `--status planned` on goals-create when the goal is queued but not
     yet started (collaborative planning pattern).
+
+  **Worked example** (user asks "audit X, fix gaps, ship"):
+  ```bash
+  empirica goals-create --objective "Audit X + ship fixes" --description "..."
+  # → goal_id = G
+  empirica goals-add-subtask --goal-id G --description "Audit: read surfaces, surface gaps"
+  empirica goals-add-subtask --goal-id G --description "Apply fixes per audit findings"
+  empirica goals-add-subtask --goal-id G --description "Verify + commit"
+  # ...execute subtask 1...
+  empirica goals-complete-subtask --subtask-id S1 --evidence "audit findings logged: ids 1,2,3"
+  # ...execute subtask 2 → commit...
+  empirica goals-complete-subtask --subtask-id S2 --evidence "commit abc123 — 4 files edited"
+  # ...etc. Then goals-complete + POSTFLIGHT.
+  ```
+  Decompose at PREFLIGHT, not retroactively. A subtask added after the work
+  is done is a self-graded checkbox, not a tracked unit.
 - **Commit-per-subtask:** Commit after each completed subtask or coherent work unit.
   Don't batch commits to the end. Uncommitted work is invisible to grounded calibration.
 - **Artifact breadth:** Log decisions, assumptions, dead-ends, and mistakes as they
@@ -204,6 +228,28 @@ The constitution covers: search routing, action gating, artifact logging,
 interaction protocols (EPP, EWM), project routing, transaction lifecycle,
 context management, escalation paths, phase-aware completion, natural
 interpretation of conversation signals, and the cognitive immune system.
+
+---
+
+## WHEN TO LOAD SKILLS
+
+Skills are lazy — they only inform your behavior when you load them.
+Load triggers are behavioral, not aspirational: when the trigger fires,
+load the skill BEFORE acting on what triggered it. Repeated misses
+compound — every "I'll just do it from memory" call is a calibration gap.
+
+| Skill | Load when |
+|-------|-----------|
+| `/empirica-constitution` | (a) First PREFLIGHT of any session — orientation; (b) you're about to pick a mechanism for a situation you haven't routed before; (c) user asks about Empirica capabilities or workflow |
+| `/epistemic-transaction` | Task spans 3+ files OR 2+ goals OR multiple noetic→praxic cycles. Plan transactions explicitly with PREFLIGHT vector estimates rather than letting one bleed into the next. |
+| `/cortex-mailbox-poll` | A `<task-notification>` arrives carrying `proposal_event` — the receive-side reaction protocol (per `direction` × `status`) lives there |
+| `/cortex-mailbox-send` | You want to send to a peer AI — FYI, question, request work, OR ack a proposal a peer made of YOU (completion handshake). Covers the collab vs ECO-gated flavor split. |
+| `/empirica-commands` | Need a specific CLI flag and `--help` isn't enough |
+| `/code-audit`, `/code-docs-align` | Pre-release pass OR after a refactor sweep that may have left drift |
+| `/epistemic-persistence-protocol` | User pushes back on your position — load BEFORE responding to classify the pushback type |
+
+**Anti-pattern:** "I remember roughly what that skill says, I'll skip
+loading it." The skill content evolves. Trigger fired → load → act.
 
 ---
 
@@ -285,8 +331,6 @@ Infer epistemic actions from conversation naturally:
 | Starting work on something that another Claude (in this or another project) may have already learned about | `empirica project-search --task "<active topic>" --global` BEFORE diving in — surfaces eidetic facts + episodic narratives from other projects' artifacts |
 | Logging a finding about a target project you're not currently in (multi-project workflow) | `empirica finding-log --project-id <project-name> --finding "..."` — resolves name → DB path, writes directly. Supported on finding-log + unknown-log today; others need full UUID. |
 | Intentional stub / placeholder created | `goals-create --status planned` at the same time — names what fills it and when, so stubs don't fall through the cracks |
-| **Want to send to a peer AI** (FYI, question, request action, ack completion of a request peer made of you) | Load `/cortex-mailbox-send` — full guide to `cortex_propose` flavors, target verification, completion handshake |
-| **Wake event arrives via listener** (`<task-notification>` with `proposal_event`) | Load `/cortex-mailbox-poll` for the per-direction × per-status reaction protocol |
 | Low confidence | Stay noetic, investigate |
 | Ready to act | CHECK → praxic |
 

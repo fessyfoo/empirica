@@ -182,3 +182,25 @@ def test_hook_handles_unknown_loop_name_gracefully(monkeypatch):
     assert "some-project-specific-loop" in ctx
     # Falls back to using loop name as skill name
     assert "`/some-project-specific-loop`" in ctx
+
+
+def test_hook_requires_both_mesh_skills_when_listener_armed(monkeypatch):
+    """When the hook tells the AI to arm a listener Monitor, it MUST also
+    require both mesh skills be loaded before first transaction. Sending-side
+    handshake (cortex_complete_proposal) lives in /cortex-mailbox-send, and
+    without it the AI processes inbox work but never acks back, leaving the
+    source AI's outbox visibly stalled. Loading at event-arrival time is too
+    late — load both up front. David, 2026-05-17."""
+    result = _run_hook(
+        monkeypatch, instance_id="empirica",
+        active_loops=["cortex-mailbox-poll"],
+    )
+    ctx = result["parsed"]["hookSpecificOutput"]["additionalContext"]
+    # The REQUIRED section + both skills must appear when a listener is armed
+    assert "REQUIRED" in ctx
+    assert "/cortex-mailbox-poll" in ctx
+    assert "/cortex-mailbox-send" in ctx
+    # The "before first transaction" framing must be present — that's the
+    # precondition phrasing (vs the soft "if needed, load X" pattern that
+    # gets routinely missed)
+    assert "before your first" in ctx.lower() or "before first" in ctx.lower()

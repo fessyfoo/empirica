@@ -67,6 +67,23 @@ push-primary wake mechanism is `empirica loop listen` — it holds an
 authenticated ntfy stream to Cortex and emits one stdout line per
 ECO-decided proposal event (real wake) or AI-to-AI completion ack.
 
+### REQUIRED: load mesh skills before your first transaction
+
+Because this session will receive AI-mesh wake events, BOTH messaging
+skills MUST be loaded before your first PREFLIGHT:
+
+- `/cortex-mailbox-poll` — receive side: per-direction × per-status
+  reaction protocol for incoming `proposal_event` notifications
+- `/cortex-mailbox-send` — send side: how to emit proposals, the
+  collab vs ECO-gated flavor split, target ai_id verification, AND
+  the completion-ack handshake (without which the source AI never
+  knows you delivered)
+
+Loading them only when an event arrives is too late — the send-side
+handshake guidance is needed BEFORE you act, not after. Load both now.
+
+### Active loops + their body skills
+
 {_build_reaction_table(loop_names)}
 
 **Arm this Monitor at session start:**
@@ -91,9 +108,12 @@ content_poll on initial start, on each push arrival, AND on disconnect
    - `outbox` → ack/refinement on a proposal you emitted (informational)
 2. **If mid-transaction:** log a goal `"Process <direction>/<status>: <proposal_id>"`
    and pick up at next natural break (EWM pattern).
-3. **If idle:** invoke `/cortex-mailbox-poll` skill — it has the per-direction
-   per-status reaction protocol (act on accepted, refine on changed,
-   acknowledge on completed, etc.).
+3. **If idle:** follow the per-direction × per-status reaction protocol
+   in the already-loaded `/cortex-mailbox-poll` skill (act on accepted,
+   refine on changed, acknowledge on completed). When completing work a
+   peer asked of you, ack via the `/cortex-mailbox-send` skill's
+   completion-handshake guidance — without it, the source AI never sees
+   the work landed.
 
 **ECO-gated autonomy property:** every event you act on traces back to an
 ECO actor decision (`eco_actor` field). The listener filters `eco_review`
