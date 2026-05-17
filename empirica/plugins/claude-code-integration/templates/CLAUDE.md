@@ -98,12 +98,21 @@ PREFLIGHT --> CHECK --> POSTFLIGHT --> POST-TEST
 - **Needed** (real gate): when your predictive ability rests on
   priors and assumptions instead of session-gathered data — patterns
   you're inferring without reading, files you haven't opened,
-  behaviors you're guessing at. Do real Read/Grep/investigate work
-  FIRST, then CHECK reflects what you actually found.
+  behaviors you're guessing at. Do real grounding work FIRST, then
+  CHECK reflects what you actually found.
+
+**External grounding includes any data pull from outside your priors:**
+- Project-local exploration (`Read`, `Grep`, `Glob`)
+- Empirica retrieval (`empirica investigate`, `empirica project-search`,
+  `--global` for cross-project)
+- External searches (`WebSearch`, `WebFetch`)
+- MCP retrievals (`mcp__cortex__investigate`, `mcp__cortex__search_knowledge`,
+  any tool that fetches from another system)
+- Reading docs / specs / commits / git notes outside the AI's training
 
 The discriminator is grounded predictive ability, not vectors. If
 your prediction of "this action will produce X" leans more on priors
-than on session-gathered evidence, CHECK is needed.
+than on session-gathered evidence — local OR external — CHECK is needed.
 
 POSTFLIGHT triggers automatic post-test verification:
 deterministic services (tests, artifacts, git, goals) collect observations
