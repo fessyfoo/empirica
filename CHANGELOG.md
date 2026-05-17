@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Deferred-proposals POSTFLIGHT nudge
+- POSTFLIGHT retrospective now surfaces `deferred_proposals_note` listing
+  open proposal-derived goals (project-scoped, `prop_*` token match on
+  objective OR description, recency-ordered, top 10 inline). Driver
+  (David, 2026-05-17): when proposals from peer AIs come in mid-transaction,
+  the receive-side discipline correctly logs a defer goal — but those
+  goals evaporated from attention after the in-flight POSTFLIGHT closed,
+  leaving source AIs' outboxes visibly stalled (the half-handshake bug
+  class).
+- `cortex-mailbox-poll` skill defer-goal convention codified: objective
+  MUST be `"Process proposal <prop_id>: <title>"` so the retrospective
+  query can detect. Adds pre-POSTFLIGHT discipline note to scan goals-list.
+- `cortex-mailbox-send` skill: `cortex_complete_proposal` now paired
+  with `goals-complete --goal-id <defer-goal>` to close both ends of the
+  handshake loop. Without it the nudge keeps surfacing the goal.
+- Test: `tests/core/test_check_calibration_nudge.py::TestDeferredProposalsNudgeSql`
+  — 5 tests cover the SQL pattern (surfaces open prop_*, ignores
+  completed, ignores non-proposal, scopes to project, recency-orders).
+
+### Fixed — Latent POSTFLIGHT completion-hint bug
+- `_build_retrospective` was querying `project_goals` (table doesn't
+  exist; real name is `goals`) AND `completed_transaction_id` (column
+  doesn't exist; column is `transaction_id`). Silent try/except masked
+  it, so `completion_hint` never appeared in any POSTFLIGHT response
+  since the helper was written. Fixed both — hint now actually fires
+  when goals close in a transaction.
+
 ### Added — AI mesh send side
 - **`cortex-mailbox-send` skill** (`4c09b6174`) — paired to `cortex-mailbox-poll`. Documents
   when to use `cortex_propose`, the **collab vs ECO-gated** flavor split (TYPE × ACTION_CATEGORY),

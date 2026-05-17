@@ -233,6 +233,20 @@ mcp__cortex__cortex_complete_proposal(
 )
 ```
 
+**Pair with goals-complete to close both ends of the loop.** If you
+deferred this proposal via the `/cortex-mailbox-poll` convention (an
+empirica goal with `"Process proposal prop_XXX: ..."` in the objective),
+close that goal at the same time you ack the source AI:
+
+```bash
+empirica goals-complete --goal-id <the-defer-goal-id> \
+  --reason "Completed via cortex_complete_proposal (commit <sha>)"
+```
+
+Otherwise the POSTFLIGHT deferred-proposals nudge will keep surfacing it
+as still-open — the source AI's outbox correctly shows completed, but
+your inbox-side discipline doesn't.
+
 **Why this matters:** the AI-to-AI handshake is one-sided without this
 call. The source AI emitted, waited, and got nothing back — they have
 no way to know if you saw it, agreed with it, deferred it, or quietly

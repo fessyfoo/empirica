@@ -101,8 +101,24 @@ The proposal targets this AI. ECO has decided. Authorization to act is
 verified by the status field (`accepted`/`changed`/`declined` — never
 `eco_review`).
 
-1. **If mid-transaction:** log a goal `"Process proposal <proposal_id>: <title>"`
-   and pick up at the next natural break (EWM pattern). Do not interrupt.
+1. **If mid-transaction:** log a goal using the **exact convention** so the
+   POSTFLIGHT deferred-proposals nudge can surface it later:
+   ```bash
+   empirica goals-create \
+     --objective "Process proposal <proposal_id>: <title>" \
+     --description "From <source_claude>. Direction=<direction>, status=<status>. \
+                    Original ask: <summary>. \
+                    Complete via cortex_complete_proposal + goals-complete."
+   ```
+   The literal token `prop_` (in objective OR description) is what the
+   POSTFLIGHT retrospective greps for. Pick up at the next natural break
+   (EWM pattern). Do not interrupt the in-flight work.
+
+   **Before POSTFLIGHT of the in-flight transaction**, scan for open
+   proposal-derived goals (`empirica goals-list` + grep `prop_`) and either
+   action them now or explicitly roll forward as planned for the next
+   transaction. The retrospective will surface them in the POSTFLIGHT
+   response — don't let them slip past after you close the window.
 2. **If idle:**
    - status `accepted` → fetch full proposal via
      `cortex_inbox_poll(ai_id=<you>, status="accepted")` and find this

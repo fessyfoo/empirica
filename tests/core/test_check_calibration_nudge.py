@@ -148,3 +148,100 @@ class TestCalibrationNudgeMessages:
         assert "assumption-log" in message
         assert "decision-log" in message
         assert "deadend-log" in message
+
+
+class TestDeferredProposalsNudgeSql:
+    """The SQL pattern that surfaces open proposal-derived goals at
+    POSTFLIGHT. Tests at the SQL level rather than via _build_retrospective
+    to avoid the project-DB-resolution fixture overhead — the wiring layer
+    is trivial; the discriminating logic is the query.
+
+    Driver: David, 2026-05-17. AIs were logging "Process proposal prop_XXX"
+    defer goals during in-flight work then forgetting them post-POSTFLIGHT,
+    leaving peer AIs' outboxes visibly stalled (half-handshake bug class).
+    """
+
+    @pytest.fixture
+    def seeded_db(self):
+        import sqlite3
+        conn = sqlite3.connect(":memory:")
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE sessions (
+                session_id TEXT PRIMARY KEY, project_id TEXT
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE goals (
+                id TEXT PRIMARY KEY, session_id TEXT, objective TEXT,
+                description TEXT, is_completed INTEGER DEFAULT 0,
+                created_timestamp REAL DEFAULT 0
+            )
+        """)
+        cur.execute("INSERT INTO sessions VALUES ('S1', 'P1')")
+        cur.execute("INSERT INTO sessions VALUES ('S2', 'P1')")
+        cur.execute("INSERT INTO sessions VALUES ('S3', 'P2')")
+        # Two open proposal-derived goals in P1 (should surface)
+        cur.execute("INSERT INTO goals VALUES "
+                    "('G1','S1','Process proposal prop_aaa: fix bootstrap', '', 0, 100)")
+        cur.execute("INSERT INTO goals VALUES "
+                    "('G2','S2','Process proposal prop_bbb: deprecate refdocs', '', 0, 200)")
+        # Open goal in P1 NOT proposal-derived (should not surface)
+        cur.execute("INSERT INTO goals VALUES "
+                    "('G3','S1','Regular goal — refactor cockpit', '', 0, 150)")
+        # Completed proposal goal in P1 (should not surface)
+        cur.execute("INSERT INTO goals VALUES "
+                    "('G4','S1','Process proposal prop_ccc: done', '', 1, 50)")
+        # Open proposal goal in OTHER project P2 (should not surface — scoped)
+        cur.execute("INSERT INTO goals VALUES "
+                    "('G5','S3','Process proposal prop_ddd: other project', '', 0, 300)")
+        # Proposal reference in description only (should surface — pattern matches both columns)
+        cur.execute("INSERT INTO goals VALUES "
+                    "('G6','S1','Generic title', 'See prop_eee for context', 0, 400)")
+        conn.commit()
+        return conn
+
+    def _query(self, conn, session_id):
+        """Mirrors the SQL pattern in _build_retrospective."""
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT g.id, g.objective FROM goals g
+            JOIN sessions s ON g.session_id = s.session_id
+            WHERE g.is_completed = 0
+              AND s.project_id = (
+                SELECT project_id FROM sessions WHERE session_id = ?
+              )
+              AND (g.objective LIKE '%prop_%' OR g.description LIKE '%prop_%')
+            ORDER BY g.created_timestamp DESC
+        """, (session_id,))
+        return cur.fetchall()
+
+    def test_open_proposal_goals_in_same_project_surface(self, seeded_db):
+        results = self._query(seeded_db, "S1")
+        ids = {row[0] for row in results}
+        # G1 + G2 (other session same project) + G6 (prop ref in description)
+        assert ids == {"G1", "G2", "G6"}
+
+    def test_completed_proposal_goals_do_not_surface(self, seeded_db):
+        results = self._query(seeded_db, "S1")
+        ids = {row[0] for row in results}
+        assert "G4" not in ids, "completed goals should not be flagged"
+
+    def test_non_proposal_goals_do_not_surface(self, seeded_db):
+        results = self._query(seeded_db, "S1")
+        ids = {row[0] for row in results}
+        assert "G3" not in ids, "non-proposal-derived goals should not be flagged"
+
+    def test_other_project_goals_do_not_surface(self, seeded_db):
+        """Scoping: querying from a session in P1 should not see P2's goals."""
+        results = self._query(seeded_db, "S1")
+        ids = {row[0] for row in results}
+        assert "G5" not in ids, "other-project goals must not cross the scope"
+
+    def test_ordering_is_recency(self, seeded_db):
+        """Most recently created proposal goals appear first — limit-10 keeps
+        recency relevance when many are open."""
+        results = self._query(seeded_db, "S1")
+        timestamps = [row[0] for row in results]
+        # G6 (400) > G2 (200) > G1 (100)
+        assert timestamps == ["G6", "G2", "G1"]

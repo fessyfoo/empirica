@@ -570,17 +570,61 @@ def _build_retrospective(session_id: str, transaction_id: str | None) -> dict:
             pass
 
         try:
+            # Table is `goals`, not `project_goals` (pre-existing typo that
+            # silently dropped this hint for the entire history of the file).
+            # Column is `transaction_id` (set at activation; no separate
+            # completed_transaction_id exists in schema).
             if transaction_id:
-                cursor.execute("SELECT COUNT(*) FROM project_goals WHERE is_completed = 1 AND completed_transaction_id = ?",
-                               (transaction_id,))
+                cursor.execute(
+                    "SELECT COUNT(*) FROM goals "
+                    "WHERE is_completed = 1 AND transaction_id = ?",
+                    (transaction_id,),
+                )
             else:
-                cursor.execute("SELECT COUNT(*) FROM project_goals WHERE is_completed = 1 AND session_id = ?", (session_id,))
+                cursor.execute(
+                    "SELECT COUNT(*) FROM goals "
+                    "WHERE is_completed = 1 AND session_id = ?",
+                    (session_id,),
+                )
             goals_completed = cursor.fetchone()[0]
             if goals_completed > 0:
                 retro["completion_hint"] = (
                     f"{goals_completed} goal(s) completed in this transaction — "
                     "completion for this transaction should be near 1.0."
                 )
+        except Exception:
+            pass
+
+        # Deferred-proposals nudge: surface open goals derived from peer-AI
+        # proposals so the AI doesn't lose track after the in-flight tx that
+        # pushed them aside. Convention (per cortex-mailbox-poll skill):
+        # objectives carry "Process proposal prop_<id>: ..." prefix.
+        # Scoped to the current project (peer AIs' proposals land per-project).
+        try:
+            cursor.execute("""
+                SELECT g.id, g.objective FROM goals g
+                JOIN sessions s ON g.session_id = s.session_id
+                WHERE g.is_completed = 0
+                  AND s.project_id = (
+                    SELECT project_id FROM sessions WHERE session_id = ?
+                  )
+                  AND (g.objective LIKE '%prop_%' OR g.description LIKE '%prop_%')
+                ORDER BY g.created_timestamp DESC
+            """, (session_id,))
+            deferred = cursor.fetchall()
+            if deferred:
+                listing = "\n".join(
+                    f"  - {gid[:8]}: {obj[:90]}" for gid, obj in deferred[:10]
+                )
+                more = f"\n  ... + {len(deferred) - 10} more" if len(deferred) > 10 else ""
+                retro["deferred_proposals_note"] = (
+                    f"{len(deferred)} proposal-derived goal(s) still open in this project. "
+                    "These came in from peer AIs and were deferred during in-flight "
+                    "work. Action or ack them now — without follow-through the source "
+                    "AI's outbox stays visibly stalled (the half-handshake bug class).\n"
+                    f"{listing}{more}"
+                )
+                retro["deferred_proposals_count"] = len(deferred)
         except Exception:
             pass
 
