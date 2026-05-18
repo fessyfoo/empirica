@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 try:
     from empirica.core.cockpit.canonical_loops import canonical_loop_by_name
     from empirica.core.loop_scheduler import list_active_loops_for_instance
+    from empirica.core.loop_scheduler.persistent_listener import is_listener_running
     from empirica.utils.session_resolver import InstanceResolver
 except Exception:
     # Empirica package broken / not installed → emit empty output, exit clean.
@@ -51,14 +52,45 @@ def _build_reaction_table(loop_names: list[str]) -> str:
     )
 
 
-def _build_additional_context(instance_id: str, loop_names: list[str]) -> str:
+def _build_additional_context(
+    instance_id: str, loop_names: list[str], listener_running: bool = False,
+) -> str:
     # T8 (goal f718156c): switched from `tail -F loop_fires.log` to
     # `empirica loop listen` — the listener is the push-primary wake
     # mechanism. It holds an ntfy stream to cortex, emits one stdout
     # line per ECO-decided proposal event (catch-up content_poll on
     # every push arrival + on every reconnect). Each stdout line is
     # one Monitor wake event into the running Claude session.
+    #
+    # As of prop_flrtxxn32japbazq (2026-05-18): if a persistent listener
+    # service (systemd-user / launchd) is already running for this ai_id,
+    # we DON'T tell Claude to arm an in-session Monitor — that would
+    # duplicate the listener. Wake events still reach this session via
+    # the standard event-notification channel from the system service.
     monitor_cmd = f"empirica loop listen --instance {instance_id}"
+    monitor_block = (
+        f"""\
+**Arm this Monitor at session start:**
+
+```python
+Monitor(
+    description="Cortex orchestration push listener for {instance_id}",
+    command="{monitor_cmd}",
+    persistent=True,
+)
+```
+
+The listener does the right thing on every failure mode: catches up via
+content_poll on initial start, on each push arrival, AND on disconnect
++ reconnect. No periodic timer needed — push-primary, poll-on-reconnect-only
+("epistemic email for the AI age" — David, 2026-05-15)."""
+        if not listener_running
+        else f"""\
+**A persistent listener service is already running for this ai_id**
+({instance_id}), so you don't need to arm an in-session Monitor —
+wake events arrive via the system service (systemd-user / launchd).
+Verify status anytime: `empirica loop listen-status --ai-id {instance_id}`."""
+    )
     return f"""\
 ## 📬 Empirica orchestration listener — arm at session start
 
@@ -86,20 +118,7 @@ handshake guidance is needed BEFORE you act, not after. Load both now.
 
 {_build_reaction_table(loop_names)}
 
-**Arm this Monitor at session start:**
-
-```python
-Monitor(
-    description="Cortex orchestration push listener for {instance_id}",
-    command="{monitor_cmd}",
-    persistent=True,
-)
-```
-
-The listener does the right thing on every failure mode: catches up via
-content_poll on initial start, on each push arrival, AND on disconnect
-+ reconnect. No periodic timer needed — push-primary, poll-on-reconnect-only
-("epistemic email for the AI age" — David, 2026-05-15).
+{monitor_block}
 
 **Reaction protocol** — when an event arrives (one JSON line in the chat):
 
@@ -150,7 +169,17 @@ def main() -> int:
         print(json.dumps({}))
         return 0
 
-    additional = _build_additional_context(instance_id, loops)
+    # If the persistent listener service (prop_flrtxxn32japbazq) is already
+    # running for this ai_id, an in-session Monitor would duplicate the
+    # listener — emit a thinner block (skill-load + reaction protocol only)
+    # without the Monitor arming instructions.
+    listener_running = False
+    try:
+        listener_running = is_listener_running(instance_id)
+    except Exception:
+        listener_running = False
+
+    additional = _build_additional_context(instance_id, loops, listener_running)
     print(json.dumps({
         "hookSpecificOutput": {
             "hookEventName": "SessionStart",

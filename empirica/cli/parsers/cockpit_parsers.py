@@ -305,6 +305,35 @@ def _add_loop_group(subparsers):
                         help='Canonical loop name to attribute events to '
                              '(default: cortex-mailbox-poll)')
 
+    # ── Persistent listener service (cortex prop_flrtxxn32japbazq) ────────
+    # OS-detected install of `empirica loop listen` as a system-level service
+    # (systemd-user on Linux, launchd on macOS). Replaces the Monitor-only
+    # architecture where the listener died with the Claude session.
+    listen_install = loop_subs.add_parser(
+        'listen-install',
+        help='Install the persistent listener service for an ai_id. '
+             'Auto-detects OS (systemd-user / launchd). The service runs '
+             '`empirica loop listen --instance <ai_id>` with auto-restart, '
+             'so wake events arrive even when no Claude session is open.',
+    )
+    listen_install.add_argument('--ai-id', help='AI identifier (default: project basename via project.yaml)')
+    _add_output(listen_install)
+
+    listen_uninstall = loop_subs.add_parser(
+        'listen-uninstall',
+        help='Stop + remove the persistent listener service. Idempotent.',
+    )
+    listen_uninstall.add_argument('--ai-id', help='AI identifier (default: project basename)')
+    _add_output(listen_uninstall)
+
+    listen_status = loop_subs.add_parser(
+        'listen-status',
+        help='Inspect the persistent listener service state (installed, '
+             'active, unit path, log path).',
+    )
+    listen_status.add_argument('--ai-id', help='AI identifier (default: project basename)')
+    _add_output(listen_status)
+
 
 def _add_listener_group(subparsers):
     """Event-listener subcommands per PROPOSAL_EVENT_LISTENER.md.

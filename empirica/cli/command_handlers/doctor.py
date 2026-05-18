@@ -379,6 +379,64 @@ def check_loops_registered() -> Check:
                  data={"loops": names})
 
 
+def check_listener_service(cwd: Path | None = None) -> Check:
+    """Persistent listener service (systemd-user / launchd) status for project's ai_id.
+
+    Added 2026-05-18 for prop_flrtxxn32japbazq — the system-level service
+    that keeps `empirica loop listen` alive outside Claude sessions, so
+    wake events arrive in real time.
+    """
+    cwd = cwd or Path.cwd()
+    pyaml_path = cwd / ".empirica" / "project.yaml"
+    if not pyaml_path.exists():
+        return Check("listener service installed", SKIP, "no project.yaml in cwd")
+    try:
+        import yaml
+        data = yaml.safe_load(pyaml_path.read_text(encoding="utf-8")) or {}
+        ai_id = data.get("ai_id") if isinstance(data, dict) else None
+    except Exception:
+        return Check("listener service installed", SKIP, "project.yaml unparseable")
+    if not ai_id:
+        return Check("listener service installed", SKIP, "no ai_id in project.yaml")
+
+    try:
+        from empirica.core.loop_scheduler.persistent_listener import (
+            PersistentListenerService,
+        )
+    except ImportError:
+        return Check("listener service installed", SKIP, "persistent_listener module missing")
+
+    service = PersistentListenerService()
+    status = service.status(ai_id)
+    if status.backend == "unavailable":
+        return Check(
+            "listener service installed", WARN,
+            "no supported backend on this host (systemd-user / launchd)",
+            "Linux/WSL2 needs systemd-user; macOS needs launchctl",
+            data={"backend": "unavailable", "ai_id": ai_id},
+        )
+    if not status.installed:
+        return Check(
+            "listener service installed", WARN,
+            f"no {status.backend} service for ai_id={ai_id}",
+            f"`empirica loop listen-install --ai-id {ai_id}` (or re-run `empirica setup-claude-code`)",
+            data={"backend": status.backend, "installed": False, "ai_id": ai_id},
+        )
+    if not status.active:
+        return Check(
+            "listener service installed", WARN,
+            f"{status.backend} service installed but inactive",
+            f"Restart: `empirica loop listen-install --ai-id {ai_id}` (idempotent)",
+            data={"backend": status.backend, "installed": True, "active": False, "ai_id": ai_id},
+        )
+    return Check(
+        "listener service installed", PASS,
+        f"{status.backend} service active for ai_id={ai_id}",
+        data={"backend": status.backend, "installed": True, "active": True,
+              "ai_id": ai_id, "unit_path": status.unit_path, "log_path": status.log_path},
+    )
+
+
 # ─── MCP server config ─────────────────────────────────────────────────
 
 
@@ -520,6 +578,7 @@ def run_all_checks(cwd: Path | None = None) -> list[Check]:
 
         # Listener / loops + MCP config
         check_loops_registered(),
+        check_listener_service(cwd),
         check_mcp_config(),
     ]
 

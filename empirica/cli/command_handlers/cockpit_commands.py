@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json as _json
 import logging
+import subprocess
 import sys
 from typing import Any
 
@@ -836,6 +837,102 @@ def handle_loop_listen_command(args) -> int:
     return run_listener(instance_id, loop_name)
 
 
+def _resolve_listener_ai_id(args) -> str:
+    """Use --ai-id if provided, else derive from project.yaml basename.
+
+    Falls back to `_require_instance_id` resolution for parity with the
+    other loop subcommands.
+    """
+    if getattr(args, "ai_id", None):
+        return args.ai_id
+    # Fall back to project basename / instance id
+    return _require_instance_id(args)
+
+
+def handle_loop_listen_install_command(args) -> int:
+    """Install the persistent listener service for an ai_id.
+
+    OS-detected (systemd-user / launchd). Closes prop_flrtxxn32japbazq —
+    listener stays alive even when no Claude session is open, so wake
+    events arrive in real time.
+    """
+    from empirica.core.loop_scheduler.persistent_listener import (
+        ListenerServiceUnavailable,
+        PersistentListenerService,
+    )
+    ai_id = _resolve_listener_ai_id(args)
+    service = PersistentListenerService()
+    try:
+        unit_path = service.install(ai_id)
+    except ListenerServiceUnavailable as e:
+        return _emit(args, {"ok": False, "error": str(e)}, f"error: {e}")
+    except subprocess.CalledProcessError as e:
+        return _emit(args, {"ok": False, "error": f"install failed: {e}"},
+                     f"error: {e}")
+
+    status = service.status(ai_id)
+    payload = {
+        "ok": True,
+        "ai_id": ai_id,
+        "backend": service.backend,
+        "unit_path": str(unit_path),
+        "log_path": status.log_path,
+        "active": status.active,
+    }
+    summary = (
+        f"Installed persistent listener ({service.backend}) for {ai_id}\n"
+        f"  unit: {unit_path}\n"
+        f"  log:  {status.log_path}\n"
+        f"  active: {status.active}"
+    )
+    return _emit(args, payload, summary)
+
+
+def handle_loop_listen_uninstall_command(args) -> int:
+    """Stop + remove the persistent listener service. Idempotent."""
+    from empirica.core.loop_scheduler.persistent_listener import (
+        PersistentListenerService,
+    )
+    ai_id = _resolve_listener_ai_id(args)
+    service = PersistentListenerService()
+    removed = service.uninstall(ai_id)
+    payload = {
+        "ok": True, "ai_id": ai_id,
+        "backend": service.backend, "removed": removed,
+    }
+    summary = (
+        f"Uninstalled persistent listener for {ai_id}"
+        if removed else f"No listener service for {ai_id} (no-op)"
+    )
+    return _emit(args, payload, summary)
+
+
+def handle_loop_listen_status_command(args) -> int:
+    """Inspect the persistent listener service state."""
+    from empirica.core.loop_scheduler.persistent_listener import (
+        PersistentListenerService,
+    )
+    ai_id = _resolve_listener_ai_id(args)
+    status = PersistentListenerService().status(ai_id)
+    payload = {
+        "ok": True, "ai_id": ai_id,
+        "backend": status.backend,
+        "installed": status.installed, "active": status.active,
+        "unit_path": status.unit_path, "log_path": status.log_path,
+    }
+    if status.backend == "unavailable":
+        summary = (f"Listener service: unavailable on this host ({sys.platform}). "
+                   f"Linux/WSL2 needs systemd-user, macOS needs launchctl.")
+    elif not status.installed:
+        summary = f"Listener service ({status.backend}) for {ai_id}: NOT installed"
+    else:
+        state = "active" if status.active else "INSTALLED but inactive"
+        summary = (f"Listener service ({status.backend}) for {ai_id}: {state}\n"
+                   f"  unit: {status.unit_path}\n"
+                   f"  log:  {status.log_path}")
+    return _emit(args, payload, summary)
+
+
 # ─── empirica listener ──────────────────────────────────────────────────────
 #
 # Sister concept to `empirica loop` but event-driven (PROPOSAL_EVENT_LISTENER).
@@ -1403,6 +1500,10 @@ _LOOP_DISPATCH = {
     'systemd-status': handle_loop_systemd_status_command,
     'tick': handle_loop_tick_command,
     'listen': handle_loop_listen_command,
+    # Persistent listener service (prop_flrtxxn32japbazq, 2026-05-18)
+    'listen-install': handle_loop_listen_install_command,
+    'listen-uninstall': handle_loop_listen_uninstall_command,
+    'listen-status': handle_loop_listen_status_command,
 }
 
 

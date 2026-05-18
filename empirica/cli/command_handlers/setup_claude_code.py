@@ -1023,6 +1023,88 @@ def _resolve_and_persist_tenant_metadata(
     return metadata
 
 
+def _resolve_listener_ai_id(args) -> str | None:
+    """Resolve the ai_id for listener service install — args > project.yaml > None."""
+    if getattr(args, "ai_id", None):
+        return args.ai_id
+    pyaml = Path.cwd() / ".empirica" / "project.yaml"
+    if not pyaml.exists():
+        return None
+    try:
+        import yaml
+        data = yaml.safe_load(pyaml.read_text(encoding="utf-8")) or {}
+        if isinstance(data, dict):
+            return data.get("ai_id")
+    except Exception:
+        return None
+    return None
+
+
+def _install_listener_service(args, output_format: str, skip: bool = False) -> dict | None:
+    """Auto-install the persistent listener service for this project's ai_id.
+
+    Returns a dict summary for the JSON output, or None when skipped /
+    backend unavailable. Never raises — failures degrade silently with a
+    warn in human mode (listener-service install is a nice-to-have, not
+    a blocker for the rest of setup-claude-code).
+    """
+    if skip:
+        if output_format != 'json':
+            print("   ⏭  listener service: skipped (--skip-listener-service)")
+        return {"skipped": True}
+
+    ai_id = _resolve_listener_ai_id(args)
+    if not ai_id:
+        if output_format != 'json':
+            print("   ℹ️  listener service: no ai_id (run `empirica project-init` first)")
+        return None
+
+    try:
+        from empirica.core.loop_scheduler.persistent_listener import (
+            ListenerServiceUnavailable,
+            PersistentListenerService,
+        )
+    except ImportError as e:
+        if output_format != 'json':
+            print(f"   ⚠️  listener service: import error: {e}")
+        return None
+
+    service = PersistentListenerService()
+    if service.backend == "unavailable":
+        if output_format != 'json':
+            print(
+                f"   ⏭  listener service: backend unavailable on this host "
+                f"({sys.platform}) — Linux/WSL2 needs systemd-user, "
+                f"macOS needs launchctl"
+            )
+        return {"backend": "unavailable"}
+
+    try:
+        unit_path = service.install(ai_id)
+    except ListenerServiceUnavailable as e:
+        if output_format != 'json':
+            print(f"   ⚠️  listener service: {e}")
+        return {"backend": service.backend, "error": str(e)}
+    except subprocess.CalledProcessError as e:
+        if output_format != 'json':
+            print(f"   ⚠️  listener service install failed: {e}")
+        return {"backend": service.backend, "error": f"install failed: {e}"}
+
+    status = service.status(ai_id)
+    if output_format != 'json':
+        print(
+            f"   ✓ listener service installed ({service.backend}): "
+            f"{unit_path} — active: {status.active}"
+        )
+    return {
+        "backend": service.backend,
+        "ai_id": ai_id,
+        "unit_path": str(unit_path),
+        "log_path": status.log_path,
+        "active": status.active,
+    }
+
+
 def _check_credentials_state() -> dict:
     """Return current credentials state for the setup summary.
 
@@ -1246,6 +1328,17 @@ def handle_setup_claude_code_command(args):
         # override the REST fetch field-by-field.
         tenant_metadata = _resolve_and_persist_tenant_metadata(args, output_format)
 
+        # Stage 6.7: Persistent listener service install (prop_flrtxxn32japbazq).
+        # Auto-detected systemd-user (Linux) / launchd (macOS) install of
+        # `empirica loop listen --instance <ai_id>` as a system-level service.
+        # Without this, wake events queue in cortex+ntfy until a Claude
+        # session opens — pull-when-session-starts. With it, the listener
+        # stays alive and pushes wake events in real time.
+        skip_listener_service = getattr(args, 'skip_listener_service', False)
+        listener_service_result = _install_listener_service(
+            args, output_format, skip=skip_listener_service,
+        )
+
         # Stage 7: Output
         if output_format == 'json':
             return {
@@ -1261,6 +1354,7 @@ def handle_setup_claude_code_command(args):
                     "issues": creds_state["issues"],
                 },
                 "tenant_metadata": tenant_metadata,
+                "listener_service": listener_service_result,
                 "hooks_configured": [
                     "PreToolUse (Sentinel)",
                     "PreCompact",

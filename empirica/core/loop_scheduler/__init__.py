@@ -16,6 +16,15 @@ Future:
 
 from .launchd import LaunchdLoopScheduler, LaunchdUnavailable, is_launchd_available
 from .listener import run_listener
+from .persistent_listener import (
+    ListenerServiceUnavailable,
+    ListenerStatus,
+    PersistentListenerService,
+    install_listener_for,
+    is_listener_running,
+    listener_status_for,
+    uninstall_listener_for,
+)
 from .systemd import (
     SystemdLoopScheduler,
     SystemdUnavailable,
@@ -60,12 +69,19 @@ def get_loop_scheduler(empirica_bin: str = "empirica"):
 __all__ = [
     "LaunchdLoopScheduler",
     "LaunchdUnavailable",
+    "ListenerServiceUnavailable",
+    "ListenerStatus",
     "LoopSchedulerUnavailable",
+    "PersistentListenerService",
     "SystemdLoopScheduler",
     "SystemdUnavailable",
     "get_loop_scheduler",
+    "install_listener_for",
     "is_launchd_available",
+    "is_listener_running",
     "is_systemd_available",
     "list_active_loops_for_instance",
+    "listener_status_for",
     "run_listener",
+    "uninstall_listener_for",
 ]
