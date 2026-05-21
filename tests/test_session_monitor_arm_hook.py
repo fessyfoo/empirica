@@ -184,6 +184,125 @@ def test_hook_handles_unknown_loop_name_gracefully(monkeypatch):
     assert "`/some-project-specific-loop`" in ctx
 
 
+# ── Phase 2: CLI delegation (prop_oxrhoehv4) ────────────────────────────
+
+
+def _load_hook_module():
+    import importlib.util as _ilu
+    hook_path = Path(__file__).resolve().parents[1] / (
+        "empirica/plugins/claude-code-integration/hooks/session-monitor-arm.py"
+    )
+    spec = _ilu.spec_from_file_location("session_monitor_arm_hook", hook_path)
+    assert spec and spec.loader
+    mod = _ilu.module_from_spec(spec)
+    sys.modules["session_monitor_arm_hook"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_query_listener_on_returns_parsed_json_on_success():
+    mod = _load_hook_module()
+    fake_payload = {"ok": True, "status": "awaiting_arm",
+                    "next_step": {"tool": "Monitor"}}
+    with patch.object(subprocess, "run", return_value=_fake_run(
+        stdout=json.dumps(fake_payload), returncode=0,
+    )):
+        result = mod._query_listener_on("cortex")
+    assert result == fake_payload
+
+
+def test_query_listener_on_returns_none_on_nonzero_exit():
+    mod = _load_hook_module()
+    with patch.object(subprocess, "run", return_value=_fake_run(
+        stdout="", returncode=1,
+    )):
+        result = mod._query_listener_on("cortex")
+    assert result is None
+
+
+def test_query_listener_on_returns_none_on_empty_stdout():
+    mod = _load_hook_module()
+    with patch.object(subprocess, "run", return_value=_fake_run(
+        stdout="", returncode=0,
+    )):
+        result = mod._query_listener_on("cortex")
+    assert result is None
+
+
+def test_query_listener_on_returns_none_on_malformed_json():
+    mod = _load_hook_module()
+    with patch.object(subprocess, "run", return_value=_fake_run(
+        stdout="not json", returncode=0,
+    )):
+        result = mod._query_listener_on("cortex")
+    assert result is None
+
+
+def test_query_listener_on_returns_none_when_cli_missing():
+    """FileNotFoundError when `empirica` binary isn't on PATH."""
+    mod = _load_hook_module()
+    with patch.object(subprocess, "run", side_effect=FileNotFoundError):
+        result = mod._query_listener_on("cortex")
+    assert result is None
+
+
+def test_build_monitor_block_persistent_service_active():
+    mod = _load_hook_module()
+    payload = {"ok": True, "status": "persistent_service_active"}
+    block = mod._build_monitor_block_from_cli(payload, "myai")
+    assert "persistent listener service is already running" in block
+    assert "myai" in block
+    assert "Monitor(" not in block
+
+
+def test_build_monitor_block_uses_cli_command_when_awaiting_arm():
+    mod = _load_hook_module()
+    payload = {
+        "ok": True, "status": "awaiting_arm",
+        "next_step": {
+            "tool": "Monitor",
+            "args": {
+                "description": "Custom desc for cortex",
+                "command": "empirica loop listen --instance cortex",
+                "persistent": True,
+                "timeout_ms": 3600000,
+            },
+            "after_arm": "empirica listener arm <monitor_task_id> --name cortex-inbox",
+        },
+    }
+    block = mod._build_monitor_block_from_cli(payload, "cortex")
+    assert "Monitor(" in block
+    assert "Custom desc for cortex" in block
+    assert "empirica loop listen --instance cortex" in block
+    assert "empirica listener arm" in block
+
+
+def test_build_monitor_block_falls_back_when_cli_unavailable():
+    """payload=None → fallback to canonical default command (preserves
+    pre-Phase-2 behavior when the CLI is unavailable)."""
+    mod = _load_hook_module()
+    block = mod._build_monitor_block_from_cli(None, "myai")
+    assert "Monitor(" in block
+    assert "empirica loop listen --instance myai" in block
+
+
+def test_hook_emits_persistent_block_when_cli_reports_persistent(monkeypatch):
+    """End-to-end: hook subprocesses listener on, gets persistent_service_active,
+    renders the no-Monitor-needed block."""
+    persistent_payload = json.dumps({
+        "ok": True, "status": "persistent_service_active",
+    })
+    monkeypatch.setattr(subprocess, "run",
+        lambda *args, **kw: _fake_run(stdout=persistent_payload, returncode=0))
+    result = _run_hook(
+        monkeypatch, instance_id="cortex",
+        active_loops=["cortex-mailbox-poll"],
+    )
+    ctx = result["parsed"]["hookSpecificOutput"]["additionalContext"]
+    assert "persistent listener service is already running" in ctx
+    assert "Monitor(" not in ctx
+
+
 def test_hook_requires_both_mesh_skills_when_listener_armed(monkeypatch):
     """When the hook tells the AI to arm a listener Monitor, it MUST also
     require both mesh skills be loaded before first transaction. Sending-side
