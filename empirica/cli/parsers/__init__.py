@@ -58,6 +58,7 @@ from .epistemics_parsers import add_epistemics_parsers
 from .investigation_parsers import add_investigation_parsers
 from .issue_capture_parsers import add_issue_capture_parsers
 from .lesson_parsers import add_lesson_parsers
+from .mailbox_parsers import add_mailbox_parsers
 from .mcp_parsers import add_mcp_parsers
 from .memory_parsers import add_memory_parsers
 from .message_parsers import add_message_parsers
@@ -100,6 +101,7 @@ __all__ = [
     'add_investigation_parsers',
     'add_issue_capture_parsers',
     'add_lesson_parsers',
+    'add_mailbox_parsers',
     'add_mcp_parsers',
     'add_memory_parsers',
     'add_message_parsers',

@@ -147,6 +147,7 @@ from .command_handlers.concept_graph_commands import (
 )
 from .command_handlers.docs_commands import handle_docs_assess, handle_docs_explain
 from .command_handlers.docs_link_check_commands import handle_docs_link_check_command
+from .command_handlers.mailbox_commands import handle_mailbox_group_command
 from .command_handlers.mcp_commands import (
     handle_mcp_call_command,
     handle_mcp_list_tools_command,
@@ -214,6 +215,7 @@ from .parsers import (
     add_investigation_parsers,
     add_issue_capture_parsers,
     add_lesson_parsers,
+    add_mailbox_parsers,
     add_mcp_parsers,
     add_memory_parsers,
     add_message_parsers,
@@ -305,6 +307,7 @@ def create_argument_parser():
     add_concept_graph_parsers(subparsers)
     add_mcp_parsers(subparsers)
     add_message_parsers(subparsers)
+    add_mailbox_parsers(subparsers)
     add_bus_parsers(subparsers)
     add_cockpit_parsers(subparsers)
     add_cockpit_launcher_parsers(subparsers)
@@ -515,6 +518,7 @@ def main(args=None):
             'sentinel': handle_sentinel_group_command,
             'loop': handle_loop_group_command,
             'listener': handle_listener_group_command,
+            'mailbox': handle_mailbox_group_command,
             'instance': handle_instance_group_command,
             'status': handle_cockpit_status_command,
             'tui': handle_tui_command,
