@@ -290,6 +290,19 @@ def run_listener(  # noqa: C901 — held-connection loop; clarity beats decompos
         except Exception as e:
             err_stream.write(f"listener: initial catch-up failed: {e}\n")
 
+    # Start the heartbeat thread (prop_5rlp6tk). Reports liveness to
+    # Cortex's /v1/listeners/heartbeat so the extension's GET /v1/listeners
+    # aggregation sees this ai_id as alive while the persistent service
+    # is up. Failures are non-fatal — heartbeat never crashes the listener.
+    heartbeat = None
+    try:
+        from empirica.core.loop_scheduler.heartbeat import HeartbeatEmitter
+        heartbeat = HeartbeatEmitter(ai_id=instance_id)
+        heartbeat.start()
+        err_stream.write(f"listener: heartbeat emitter started for ai_id={instance_id}\n")
+    except Exception as e:
+        err_stream.write(f"listener: heartbeat start failed (non-fatal): {e}\n")
+
     try:
         while True:
             proc = _stream_factory(url, headers)
@@ -343,3 +356,9 @@ def run_listener(  # noqa: C901 — held-connection loop; clarity beats decompos
     except Exception as e:
         err_stream.write(f"listener: unexpected exit: {type(e).__name__}: {e}\n")
         return 1
+    finally:
+        if heartbeat is not None:
+            try:
+                heartbeat.stop(timeout=2.0)
+            except Exception as e:
+                err_stream.write(f"listener: heartbeat stop failed (non-fatal): {e}\n")
