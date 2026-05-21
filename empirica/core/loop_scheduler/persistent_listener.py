@@ -55,24 +55,28 @@ def _unit_name(ai_id: str) -> str:
 
 
 def _systemd_user_dir() -> Path:
+    """User-scoped systemd unit directory; created if missing."""
     p = Path.home() / ".config" / "systemd" / "user"
     p.mkdir(parents=True, exist_ok=True)
     return p
 
 
 def _launchd_agents_dir() -> Path:
+    """User-scoped launchd agents directory (macOS); created if missing."""
     p = Path.home() / "Library" / "LaunchAgents"
     p.mkdir(parents=True, exist_ok=True)
     return p
 
 
 def _logs_dir() -> Path:
+    """~/.empirica/logs directory for listener service stdout/stderr."""
     p = Path.home() / ".empirica" / "logs"
     p.mkdir(parents=True, exist_ok=True)
     return p
 
 
 def _systemctl(*args: str, check: bool = False) -> subprocess.CompletedProcess:
+    """Run `systemctl --user <args>` with a 5s timeout. Defensive, never raises unless `check=True`."""
     return subprocess.run(
         ["systemctl", "--user", *args],
         capture_output=True, text=True, timeout=5, check=check,
@@ -80,6 +84,7 @@ def _systemctl(*args: str, check: bool = False) -> subprocess.CompletedProcess:
 
 
 def _launchctl(*args: str, check: bool = False) -> subprocess.CompletedProcess:
+    """Run `launchctl <args>` with a 5s timeout. Defensive, never raises unless `check=True`."""
     return subprocess.run(
         ["launchctl", *args],
         capture_output=True, text=True, timeout=5, check=check,
@@ -90,6 +95,7 @@ def _launchctl(*args: str, check: bool = False) -> subprocess.CompletedProcess:
 
 
 def is_systemd_available() -> bool:
+    """True if systemctl --user can connect to its session bus on this host."""
     if shutil.which("systemctl") is None:
         return False
     try:
@@ -103,6 +109,7 @@ def is_systemd_available() -> bool:
 
 
 def is_launchd_available() -> bool:
+    """True on macOS when launchctl is on PATH."""
     return sys.platform == "darwin" and shutil.which("launchctl") is not None
 
 
@@ -167,6 +174,8 @@ _LAUNCHD_LISTENER_TEMPLATE = """\
 
 @dataclass
 class ListenerStatus:
+    """Snapshot of a persistent listener service for a given ai_id."""
+
     ai_id: str
     backend: str  # 'systemd' | 'launchd' | 'unavailable'
     installed: bool
@@ -204,6 +213,7 @@ class PersistentListenerService:
 
     @staticmethod
     def _detect_backend() -> str:
+        """Pick the persistent-service backend for this host: 'launchd' on macOS, 'systemd' on Linux/WSL2, 'unavailable' otherwise."""
         if sys.platform == "darwin" and is_launchd_available():
             return "launchd"
         if is_systemd_available():
@@ -213,6 +223,7 @@ class PersistentListenerService:
     # ── Path resolution ─────────────────────────────────────────────────
 
     def unit_path(self, ai_id: str) -> Path | None:
+        """Resolve the unit/plist file path for `ai_id` under the active backend; None on unsupported."""
         if self.backend == "systemd":
             return _systemd_user_dir() / f"{_unit_name(ai_id)}.service"
         if self.backend == "launchd":
@@ -220,6 +231,7 @@ class PersistentListenerService:
         return None
 
     def log_path(self, ai_id: str) -> Path:
+        """Path to the listener's stdout/stderr append log for `ai_id`."""
         return _logs_dir() / f"listener-{_safe(ai_id)}.log"
 
     # ── Install ─────────────────────────────────────────────────────────
@@ -243,6 +255,7 @@ class PersistentListenerService:
         return self._install_launchd(ai_id, log_path)
 
     def _install_systemd(self, ai_id: str, log_path: Path) -> Path:
+        """Write the systemd-user unit file for `ai_id` + daemon-reload + enable --now."""
         unit_name = _unit_name(ai_id)
         unit_file = _systemd_user_dir() / f"{unit_name}.service"
         unit_file.write_text(
@@ -259,6 +272,7 @@ class PersistentListenerService:
         return unit_file
 
     def _install_launchd(self, ai_id: str, log_path: Path) -> Path:
+        """Write the launchd plist for `ai_id` + bootout-then-load via launchctl."""
         plist_file = _launchd_agents_dir() / f"com.empirica.listener.{_safe(ai_id)}.plist"
         # If a previous version is loaded, unload first so launchctl picks up the new file
         if plist_file.exists():
@@ -342,14 +356,17 @@ class PersistentListenerService:
 
 
 def install_listener_for(ai_id: str, empirica_bin: str | None = None) -> Path:
+    """Convenience: instantiate + install in one call. Returns the unit file path."""
     return PersistentListenerService(empirica_bin).install(ai_id)
 
 
 def uninstall_listener_for(ai_id: str) -> bool:
+    """Convenience: stop + remove the persistent listener for `ai_id`. Returns True if anything was removed."""
     return PersistentListenerService().uninstall(ai_id)
 
 
 def listener_status_for(ai_id: str) -> ListenerStatus:
+    """Convenience: snapshot the persistent listener status for `ai_id`."""
     return PersistentListenerService().status(ai_id)
 
 

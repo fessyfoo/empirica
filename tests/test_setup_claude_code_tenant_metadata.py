@@ -216,8 +216,7 @@ def test_resolve_flags_partial_then_rest_fills_gaps(tmp_path):
     }
 
     with patch(
-        "empirica.cli.command_handlers.setup_claude_code.get_credentials_loader",
-        create=True,
+        "empirica.config.credentials_loader.get_credentials_loader",
     ) as mock_loader_factory, patch(
         "urllib.request.urlopen", return_value=_fake_response(rest_payload),
     ):
@@ -241,8 +240,7 @@ def test_resolve_flags_partial_then_rest_fills_gaps(tmp_path):
 def test_resolve_returns_none_when_no_creds_no_flags(tmp_path):
     args = types.SimpleNamespace()
     with patch(
-        "empirica.cli.command_handlers.setup_claude_code.get_credentials_loader",
-        create=True,
+        "empirica.config.credentials_loader.get_credentials_loader",
     ) as mock_loader_factory:
         mock_loader = mock_loader_factory.return_value
         mock_loader.get_cortex_config.return_value = {}  # no creds
@@ -256,8 +254,7 @@ def test_resolve_rest_failure_does_not_crash(tmp_path, output_format, capsys):
     args = types.SimpleNamespace()
 
     with patch(
-        "empirica.cli.command_handlers.setup_claude_code.get_credentials_loader",
-        create=True,
+        "empirica.config.credentials_loader.get_credentials_loader",
     ) as mock_loader_factory, patch(
         "urllib.request.urlopen",
         side_effect=urllib.error.URLError("no route"),

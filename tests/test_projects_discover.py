@@ -347,7 +347,11 @@ def test_resolve_cortex_config_returns_none_when_unset(monkeypatch, tmp_path):
 
 
 def test_register_one_project_success_201():
-    """201 Created → outcome=registered, no fallback to admin path."""
+    """201 Created → outcome=registered, no fallback to admin path.
+
+    Post c27819963: also fires defensive POST /v1/users/me/projects after
+    successful register, so call_count == 2 (register + user-link).
+    """
     project = {"name": "alpha", "repo_url": "https://github.com/x/alpha"}
     with patch(
         "empirica.cli.command_handlers.projects_commands._post_project",
@@ -356,8 +360,8 @@ def test_register_one_project_success_201():
         result = _register_one_project(project, "https://cortex", "key", 10.0)
     assert result["outcome"] == "registered"
     assert result["status"] == 201
-    # Only the public path was tried
-    assert m.call_count == 1
+    # Public path + defensive user-link (no admin fallback on 201)
+    assert m.call_count == 2
 
 
 def test_register_one_project_409_skips_silently():
@@ -372,9 +376,18 @@ def test_register_one_project_409_skips_silently():
 
 
 def test_register_one_project_404_falls_back_to_admin():
-    """404 on /v1/projects/register → retry on /v1/admin/projects."""
+    """404 on /v1/projects/register → retry on /v1/admin/projects.
+
+    Post c27819963: also fires defensive POST /v1/users/me/projects after
+    successful admin-path register, so call_count == 3 (register-404 +
+    admin-201 + user-link).
+    """
     project = {"name": "alpha"}
-    responses = iter([(404, None), (201, {"project_id": "uuid-alpha"})])
+    responses = iter([
+        (404, None),                              # /v1/projects/register fails
+        (201, {"project_id": "uuid-alpha"}),      # /v1/admin/projects succeeds
+        (200, {"linked": True}),                   # /v1/users/me/projects link
+    ])
 
     def fake_post(*_args, **_kwargs):
         return next(responses)
@@ -385,7 +398,7 @@ def test_register_one_project_404_falls_back_to_admin():
     ) as m:
         result = _register_one_project(project, "https://cortex", "key", 10.0)
     assert result["outcome"] == "registered"
-    assert m.call_count == 2  # both paths tried
+    assert m.call_count == 3  # register + admin-fallback + user-link
 
 
 def test_register_one_project_500_fails_without_fallback():
