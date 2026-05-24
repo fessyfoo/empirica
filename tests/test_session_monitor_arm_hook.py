@@ -135,10 +135,86 @@ def test_hook_emits_empty_when_no_instance_id(monkeypatch):
     assert result["parsed"] == {}
 
 
-def test_hook_emits_empty_when_no_active_loops(monkeypatch):
+def test_hook_emits_empty_when_no_loops_AND_no_persistent_service(monkeypatch):
+    """No wake source at all → no Monitor to arm, hook stays silent.
+
+    Phase-3 fix: the OR condition (loops OR persistent service) replaced
+    the loops-only check. When BOTH are absent, the hook correctly
+    emits nothing — there's nothing to wake the session for.
+    """
     result = _run_hook(monkeypatch, instance_id="cortex", active_loops=[])
     assert result["rc"] == 0
     assert result["parsed"] == {}
+
+
+def test_hook_arms_tail_monitor_when_persistent_service_running_no_loops(monkeypatch):
+    """The exact empirica-AI deafness scenario (David, 2026-05-24):
+
+    Persistent OS service is up + writing events to loop_fires.log, but
+    no canonical loops are registered, AND the in-session Claude is deaf
+    because no Monitor was armed. Pre-Phase-3, the hook short-circuited
+    on `not loops` and emitted nothing. Post-Phase-3, it MUST emit the
+    tail-Monitor block so the session can read its own log.
+    """
+    # Persistent service IS running for this ai_id (mocked)
+    import importlib.util as _ilu
+    hook_path = (
+        Path(__file__).parent.parent
+        / "empirica/plugins/claude-code-integration/hooks"
+        / "session-monitor-arm.py"
+    )
+    spec = _ilu.spec_from_file_location("session_monitor_arm_hook", hook_path)
+    assert spec and spec.loader
+    mod = _ilu.module_from_spec(spec)
+    sys.modules["session_monitor_arm_hook"] = mod
+    spec.loader.exec_module(mod)
+
+    monkeypatch.setattr(mod.InstanceResolver, "instance_id",
+                        classmethod(lambda cls: "empirica"))
+    monkeypatch.setattr(mod.InstanceResolver, "ai_id",
+                        classmethod(lambda cls, *a, **k: "empirica"))
+    monkeypatch.setattr(mod, "list_active_loops_for_instance",
+                        lambda iid: [])  # No canonical loops
+    monkeypatch.setattr(mod, "is_listener_running",
+                        lambda iid: True)  # But persistent service IS up
+
+    # CLI subprocess returns tail-session payload
+    tail_payload = json.dumps({
+        "ok": True,
+        "status": "persistent_service_tail_session",
+        "next_step": {
+            "tool": "Monitor",
+            "args": {
+                "description": "Cortex orchestration log tail for empirica (persistent-service mode)",
+                "command": "tail -F -n 0 ~/.empirica/loop_fires.log 2>/dev/null | grep --line-buffered '\"instance_id\": \"empirica\"'",
+                "persistent": True,
+                "timeout_ms": 3600000,
+            },
+            "after_arm": "empirica listener arm <monitor_task_id> --name empirica-inbox",
+        },
+    })
+    monkeypatch.setattr(subprocess, "run",
+        lambda *args, **kw: _fake_run(stdout=tail_payload, returncode=0))
+
+    from io import StringIO
+    captured = StringIO()
+    monkeypatch.setattr(sys, "stdout", captured)
+    rc = mod.main()
+    output = captured.getvalue().strip()
+    parsed = json.loads(output) if output else {}
+
+    assert rc == 0
+    ctx = parsed["hookSpecificOutput"]["additionalContext"]
+    # The fix: Monitor block IS emitted even with no canonical loops
+    assert "Monitor(" in ctx
+    assert "tail -F" in ctx
+    assert "loop_fires.log" in ctx
+    # Wake-source explainer adapts to service-only case
+    assert "no canonical loops registered" in ctx
+    # No reaction table when no loops — but mesh skills still required
+    assert "Active loops + their body skills" not in ctx
+    assert "/cortex-mailbox-poll" in ctx
+    assert "/cortex-mailbox-send" in ctx
 
 
 def test_hook_emits_additional_context_with_active_loops(monkeypatch):
@@ -246,13 +322,34 @@ def test_query_listener_on_returns_none_when_cli_missing():
     assert result is None
 
 
-def test_build_monitor_block_persistent_service_active():
+def test_build_monitor_block_persistent_service_tail_session():
+    """Phase-3 wake-delivery fix: persistent_service_tail_session means the
+    persistent service is running AND we arm a tail-Monitor on its log so
+    wakes still reach this session (without duplicating ntfy curl)."""
     mod = _load_hook_module()
-    payload = {"ok": True, "status": "persistent_service_active"}
+    payload = {
+        "ok": True,
+        "status": "persistent_service_tail_session",
+        "next_step": {
+            "tool": "Monitor",
+            "args": {
+                "description": "Cortex orchestration log tail for myai (persistent-service mode)",
+                "command": "tail -F -n 0 /home/me/.empirica/loop_fires.log 2>/dev/null | grep --line-buffered '\"instance_id\": \"myai\"'",
+                "persistent": True,
+                "timeout_ms": 3600000,
+            },
+            "after_arm": "empirica listener arm <monitor_task_id> --name myai-inbox",
+        },
+    }
     block = mod._build_monitor_block_from_cli(payload, "myai")
-    assert "persistent listener service is already running" in block
-    assert "myai" in block
-    assert "Monitor(" not in block
+    # The Monitor block IS emitted now — Phase-3 gap closure
+    assert "Monitor(" in block
+    assert "tail -F" in block
+    assert "loop_fires.log" in block
+    # Mode-specific explainer tells the reader WHY this shape
+    assert "persistent OS listener service is already running" in block
+    assert "LOG-TAIL" in block
+    assert "WITHOUT spawning a duplicate" in block
 
 
 def test_build_monitor_block_uses_cli_command_when_awaiting_arm():
@@ -286,11 +383,25 @@ def test_build_monitor_block_falls_back_when_cli_unavailable():
     assert "empirica loop listen --instance myai" in block
 
 
-def test_hook_emits_persistent_block_when_cli_reports_persistent(monkeypatch):
-    """End-to-end: hook subprocesses listener on, gets persistent_service_active,
-    renders the no-Monitor-needed block."""
+def test_hook_emits_tail_monitor_block_when_cli_reports_persistent(monkeypatch):
+    """End-to-end: hook subprocesses listener on, gets persistent_service_tail_session,
+    renders a tail-Monitor block (Phase-3 in-session wake-delivery fix).
+
+    Before the fix, the hook said 'no Monitor needed' and the session was
+    deaf despite the persistent service writing events to loop_fires.log."""
     persistent_payload = json.dumps({
-        "ok": True, "status": "persistent_service_active",
+        "ok": True,
+        "status": "persistent_service_tail_session",
+        "next_step": {
+            "tool": "Monitor",
+            "args": {
+                "description": "Cortex orchestration log tail for cortex (persistent-service mode)",
+                "command": "tail -F -n 0 /tmp/.empirica/loop_fires.log 2>/dev/null | grep --line-buffered '\"instance_id\": \"cortex\"'",
+                "persistent": True,
+                "timeout_ms": 3600000,
+            },
+            "after_arm": "empirica listener arm <monitor_task_id> --name cortex-inbox",
+        },
     })
     monkeypatch.setattr(subprocess, "run",
         lambda *args, **kw: _fake_run(stdout=persistent_payload, returncode=0))
@@ -299,8 +410,11 @@ def test_hook_emits_persistent_block_when_cli_reports_persistent(monkeypatch):
         active_loops=["cortex-mailbox-poll"],
     )
     ctx = result["parsed"]["hookSpecificOutput"]["additionalContext"]
-    assert "persistent listener service is already running" in ctx
-    assert "Monitor(" not in ctx
+    # Monitor block IS emitted — the Phase-3 wake-delivery gap is closed
+    assert "Monitor(" in ctx
+    assert "tail -F" in ctx
+    assert "loop_fires.log" in ctx
+    assert "LOG-TAIL" in ctx
 
 
 def test_hook_requires_both_mesh_skills_when_listener_armed(monkeypatch):

@@ -17,6 +17,7 @@ import json as _json
 import logging
 import subprocess
 import sys
+from pathlib import Path
 from typing import Any
 
 from empirica.core.cockpit import (
@@ -1540,16 +1541,25 @@ def handle_listener_on_command(args) -> int:
     Auto-resolves name (default `<ai_id>-inbox`), topic (canonical
     `ntfy:orchestration-events?tags=<ai_id>`), and instance_id.
 
-    Short-circuits when the persistent OS listener service is running
-    for `ai_id` (per persistent_listener.is_listener_running): no
-    in-session Monitor needed because the systemd-user / launchd
-    service already holds the ntfy stream.
+    Two arming modes, picked automatically by detecting whether the
+    persistent OS service is running for `ai_id`:
 
-    Otherwise: register the listener in the per-instance registry,
-    write `listener_active_*.json` with a placeholder monitor_task_id,
-    and emit structured JSON containing the Monitor command Claude
-    should arm — plus `after_arm: empirica listener arm <task_id>`
-    for the followup state-file update.
+    1. **Persistent-service-tail mode** — persistent service IS running.
+       Returns a log-tail Monitor command (`tail -F loop_fires.log`
+       filtered to this ai_id). The persistent service writes each
+       ECO-decided event to the shared fires log; tailing it delivers
+       wakes into THIS session without spawning a duplicate ntfy curl
+       subscriber (which is what cortex/the docs explicitly warn
+       against — duplicate subscribers double-count wake traffic and
+       confuse the `GET /v1/listeners` aggregation).
+
+    2. **Standalone mode** — no persistent service. Returns a
+       `empirica loop listen` Monitor command (the session itself
+       holds the ntfy stream + handles catch-up on reconnect).
+
+    Both paths write `listener_active_*.json` with a placeholder
+    monitor_task_id and return `after_arm: empirica listener arm <task_id>`
+    so `listener off` can later TaskStop the right Monitor.
     """
     ai_id = _resolve_canonical_ai_id(args)
     if not ai_id:
@@ -1561,31 +1571,17 @@ def handle_listener_on_command(args) -> int:
     name = getattr(args, 'name', None) or f'{ai_id}-inbox'
     topic = getattr(args, 'topic', None) or f'ntfy:orchestration-events?tags={ai_id}'
 
-    # Short-circuit: persistent OS service already subscribed for this ai_id
+    # Detect persistent service. If present, pick the tail-Monitor mode;
+    # otherwise the standalone-Monitor mode further down. Both paths share
+    # the same active-state-file write at the end of the function.
+    persistent_active = False
     try:
         from empirica.core.loop_scheduler.persistent_listener import is_listener_running
-        if is_listener_running(ai_id):
-            payload = {
-                'ok': True,
-                'ai_id': ai_id,
-                'name': name,
-                'status': 'persistent_service_active',
-                'message': (
-                    f"Persistent listener service is running for ai_id={ai_id}. "
-                    f"No in-session Monitor needed — wake events arrive via the "
-                    f"system service. Verify: `empirica loop listen-status --ai-id {ai_id}`"
-                ),
-                'next_step': None,
-            }
-            summary = (
-                f'persistent service active for ai_id={ai_id} — '
-                f'no Monitor arming needed'
-            )
-            return _emit(args, payload, summary)
+        persistent_active = is_listener_running(ai_id)
     except Exception:
         # is_listener_running is defensive; on any failure fall through
-        # to the in-session arming path. The body never blocks.
-        pass
+        # to the standalone-Monitor path. The body never blocks.
+        persistent_active = False
 
     # Register the listener in the per-instance registry (idempotent)
     instance_id = _require_instance_id(args)
@@ -1611,14 +1607,41 @@ def handle_listener_on_command(args) -> int:
         'ai_id': ai_id,
         'name': name,
         'topic': entry.topic,
+        'mode': 'tail' if persistent_active else 'standalone',
     }
     active_path.write_text(_json.dumps(placeholder, indent=2), encoding='utf-8')
 
-    # Canonical Monitor command — uses `empirica loop listen` (the
-    # subprocess that holds the ntfy stream + catches up via content_poll
-    # on every push arrival + reconnect). Mirrors session-monitor-arm.py's
-    # arming pattern but driven by an explicit CLI invocation.
-    monitor_cmd = f'empirica loop listen --instance {ai_id}'
+    # Pick the Monitor command based on detection above.
+    #
+    # Tail mode: persistent OS service is already holding the ntfy stream
+    # and writing each ECO-decided event to ~/.empirica/loop_fires.log.
+    # The session-level Monitor is a `tail -F` on that log filtered to
+    # this ai_id — delivers wakes in-band without spawning a duplicate
+    # ntfy subscriber. The persistent service subscribed with
+    # `?tags=<ai_id>` server-side, so its writes to loop_fires.log carry
+    # `instance_id: "<ai_id>"` and are already pre-filtered to events
+    # relevant to us.
+    #
+    # Standalone mode: no persistent service. The Monitor runs
+    # `empirica loop listen` itself — holds the ntfy stream + handles
+    # catch-up on reconnect.
+    if persistent_active:
+        log_path = Path.home() / '.empirica' / 'loop_fires.log'
+        monitor_cmd = (
+            f'tail -F -n 0 {log_path} 2>/dev/null | '
+            f'grep --line-buffered \'"instance_id": "{ai_id}"\''
+        )
+        description = f'Cortex orchestration log tail for {ai_id} (persistent-service mode)'
+        status = 'persistent_service_tail_session'
+        mode_note = (
+            f'persistent service active for ai_id={ai_id} — arming a '
+            f'log-tail Monitor (no duplicate ntfy subscriber)'
+        )
+    else:
+        monitor_cmd = f'empirica loop listen --instance {ai_id}'
+        description = f'Cortex orchestration push listener for {ai_id}'
+        status = 'awaiting_arm'
+        mode_note = 'standalone Monitor (this session holds the ntfy stream)'
 
     payload = {
         'ok': True,
@@ -1627,11 +1650,11 @@ def handle_listener_on_command(args) -> int:
         'name': name,
         'topic': entry.topic,
         'state_file': str(active_path),
-        'status': 'awaiting_arm',
+        'status': status,
         'next_step': {
             'tool': 'Monitor',
             'args': {
-                'description': f'Cortex orchestration push listener for {ai_id}',
+                'description': description,
                 'command': monitor_cmd,
                 'persistent': True,
                 'timeout_ms': 3600000,
@@ -1640,8 +1663,8 @@ def handle_listener_on_command(args) -> int:
         },
     }
     summary = (
-        f'Listener "{name}" registered for ai_id={ai_id} (topic={entry.topic}). '
-        f'Now arm Monitor with command "{monitor_cmd}" then run '
+        f'Listener "{name}" registered for ai_id={ai_id} (topic={entry.topic}, '
+        f'{mode_note}). Arm Monitor with command "{monitor_cmd}" then run '
         f'`empirica listener arm <task_id> --name {name}`.'
     )
     return _emit(args, payload, summary)

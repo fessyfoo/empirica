@@ -58,7 +58,18 @@ def test_resolve_canonical_ai_id_falls_back_to_resolver():
 # ─── on: short-circuit on persistent service ──────────────────────────
 
 
-def test_on_short_circuits_when_persistent_service_running(capsys):
+def test_on_persistent_service_returns_tail_monitor(tmp_path, monkeypatch, capsys):
+    """When persistent service is up, `on` returns a tail-Monitor command
+    that bridges loop_fires.log into this session — NOT 'no Monitor needed'
+    (which was the Phase-3 wake-delivery gap).
+
+    The tail-Monitor doesn't spawn a duplicate ntfy curl; it just tails
+    the log the persistent service writes to.
+    """
+    monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr('empirica.core.cockpit.listener_registry.EMPIRICA_DIR',
+                        tmp_path / '.empirica')
+    (tmp_path / '.empirica').mkdir()
     args = _make_args(ai_id='empirica')
     with patch(
         'empirica.core.loop_scheduler.persistent_listener.is_listener_running',
@@ -68,9 +79,42 @@ def test_on_short_circuits_when_persistent_service_running(capsys):
     assert rc == 0
     out = json.loads(capsys.readouterr().out)
     assert out['ok'] is True
-    assert out['status'] == 'persistent_service_active'
-    assert out['next_step'] is None
-    assert 'No in-session Monitor needed' in out['message']
+    assert out['status'] == 'persistent_service_tail_session'
+    ns = out['next_step']
+    assert ns is not None, 'next_step must include a Monitor command — the persistent service alone does not deliver wakes into the session'
+    assert ns['tool'] == 'Monitor'
+    cmd = ns['args']['command']
+    assert 'tail -F' in cmd
+    assert 'loop_fires.log' in cmd
+    # Filter scopes the tail to events for this ai_id
+    assert '"instance_id": "empirica"' in cmd
+    # Crucially, no duplicate ntfy subscriber
+    assert 'empirica loop listen' not in cmd
+    assert 'curl' not in cmd
+    assert ns['args']['persistent'] is True
+    assert 'after_arm' in ns
+
+
+def test_on_persistent_service_writes_tail_mode_state_file(tmp_path, monkeypatch):
+    """Tail-mode state file is written with mode='tail' so `listener off`
+    can distinguish the cleanup path later."""
+    monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr('empirica.core.cockpit.listener_registry.EMPIRICA_DIR',
+                        tmp_path / '.empirica')
+    (tmp_path / '.empirica').mkdir()
+    args = _make_args(ai_id='empirica')
+    with patch(
+        'empirica.core.loop_scheduler.persistent_listener.is_listener_running',
+        return_value=True,
+    ):
+        handle_listener_on_command(args)
+    # Default instance from _make_args is 'test_instance'
+    state_file = tmp_path / '.empirica' / 'listener_active_test_instance_empirica-inbox.json'
+    assert state_file.exists()
+    state = json.loads(state_file.read_text())
+    assert state['mode'] == 'tail'
+    assert state['ai_id'] == 'empirica'
+    assert state['monitor_task_id'] is None  # filled by `arm`
 
 
 def test_on_arms_in_session_when_no_persistent_service(tmp_path, monkeypatch):
@@ -154,6 +198,7 @@ def test_on_writes_placeholder_state_file(tmp_path, monkeypatch):
     data = json.loads(state_file.read_text())
     assert data['monitor_task_id'] is None  # placeholder
     assert data['ai_id'] == 'myai'
+    assert data['mode'] == 'standalone'  # distinguishes from tail-mode
 
 
 def test_on_errors_when_ai_id_unresolved(capsys):
