@@ -1270,6 +1270,7 @@ ALL_MIGRATIONS: list[tuple[str, str, Callable]] = [
     ("043_goal_description", "Add description TEXT column to goals (Linear/GitHub/Jira pattern: title-shaped objective + optional rich body) — extension Claude flagged the title-vs-context-rich tension after the 1000→2000 mitigation in 1.9.6", lambda cursor: migration_043_goal_description(cursor)),
     ("044_source_lifecycle", "Add archive lifecycle columns (archived, archive_reason, archive_target_id, lifecycle_audit_log) to epistemic_sources for SOURCES_LIFECYCLE_SPEC Phase 1 (soft-delete + supersession). Empirica-Core CLI parity per the Cortex spec; empirica is the authoritative store.", lambda cursor: migration_044_source_lifecycle(cursor)),
     ("045_assumption_decision_description", "Add description TEXT column to assumptions + decisions (markdown-first artifacts series — mirrors goals migration 043). Extension renders as prettified markdown.", lambda cursor: migration_045_assumption_decision_description(cursor)),
+    ("046_refdocs_to_sources", "Migrate project_reference_docs rows into epistemic_sources with source_type='pointer'. Phase 1 of refdocs→sources unification (goal 3d6aeb08). Idempotent — skips rows already migrated by id. The old table stays in place this phase; reader+writer switch over to sources, CLI drop + table drop in a follow-up.", lambda cursor: migration_046_refdocs_to_sources(cursor)),
 ]
 
 
@@ -1580,6 +1581,110 @@ def migration_041_artifact_edges(cursor: sqlite3.Cursor):
 
     logger.info(
         f"✅ Migration 041 complete: artifact_edges table created, {backfilled_total} edges backfilled"
+    )
+
+
+def migration_046_refdocs_to_sources(cursor: sqlite3.Cursor):
+    """Copy project_reference_docs rows into epistemic_sources(type='pointer').
+
+    Phase 1 of the refdocs → sources unification. Refdocs were a
+    pre-sources artifact type that's effectively a subset of what
+    epistemic_sources represents (a registered, citable reference).
+    This migration moves the rows into the unified store; the
+    breadcrumbs reader + add_reference_doc writer are switched to
+    read/write epistemic_sources WHERE source_type='pointer' in
+    the same change set.
+
+    Field mapping:
+      project_reference_docs       → epistemic_sources
+      ───────────────────────────────────────────────────────
+      id                           → id                  (preserved)
+      project_id                   → project_id          (preserved)
+      doc_path                     → source_url
+      doc_type                     → source_metadata.doc_type
+      description                  → description
+      created_timestamp (epoch)    → discovered_at (datetime)
+      doc_data (json)              → source_metadata.original_doc_data
+      (synthesized)                  source_type        = 'pointer'
+      (synthesized)                  title              = basename(doc_path) or doc_path
+      (default)                      confidence         = 0.7
+      (default)                      epistemic_layer    = 'noetic'
+
+    Idempotent — skips rows whose id already exists in epistemic_sources.
+    Safe to re-run; long-lived DBs missing the migration get backfilled
+    on next SessionDatabase init.
+
+    The old table is NOT dropped in this migration — keep both around
+    during the transition so any consumer that hasn't switched yet
+    still works. Cleanup migration (TODO 047) drops the old table.
+    """
+    import json as _json
+    import os.path
+    from datetime import datetime as _dt
+
+    cursor.execute("SELECT * FROM project_reference_docs")
+    rows = cursor.fetchall()
+    column_names = [d[0] for d in cursor.description] if cursor.description else []
+    if not rows:
+        logger.info("✅ Migration 046 complete: no refdocs to migrate")
+        return
+
+    migrated = 0
+    skipped = 0
+    for row in rows:
+        row_dict = dict(zip(column_names, row, strict=False))
+        doc_id = row_dict["id"]
+
+        # Idempotence: skip if already in sources
+        cursor.execute(
+            "SELECT 1 FROM epistemic_sources WHERE id = ? LIMIT 1",
+            (doc_id,),
+        )
+        if cursor.fetchone():
+            skipped += 1
+            continue
+
+        doc_path = row_dict.get("doc_path") or ""
+        doc_type = row_dict.get("doc_type")
+        description = row_dict.get("description")
+        created_ts = row_dict.get("created_timestamp") or 0.0
+        doc_data_raw = row_dict.get("doc_data")
+        try:
+            original_doc_data = _json.loads(doc_data_raw) if doc_data_raw else None
+        except (ValueError, TypeError):
+            original_doc_data = doc_data_raw  # leave as string
+
+        # Reasonable title: filename, else doc_type-coded path, else the path itself
+        basename = os.path.basename(doc_path) if doc_path else ""
+        title = basename or doc_path or "refdoc"
+
+        source_metadata = {
+            "doc_type": doc_type,
+            "original_doc_data": original_doc_data,
+            "migrated_from": "project_reference_docs",
+        }
+        discovered_at = _dt.fromtimestamp(created_ts) if created_ts else _dt.now()
+
+        cursor.execute("""
+            INSERT INTO epistemic_sources (
+                id, project_id, session_id,
+                source_type, source_url, title, description,
+                confidence, epistemic_layer,
+                supports_vectors, related_findings,
+                discovered_by_ai, discovered_at,
+                source_metadata
+            ) VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?)
+        """, (
+            doc_id, row_dict.get("project_id"),
+            "pointer", doc_path, title, description,
+            0.7, "noetic",
+            discovered_at, _json.dumps(source_metadata),
+        ))
+        migrated += 1
+
+    logger.info(
+        f"✅ Migration 046 complete: refdocs → sources "
+        f"({migrated} migrated, {skipped} already present)"
     )
 
 

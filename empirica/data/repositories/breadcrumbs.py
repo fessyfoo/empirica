@@ -9,6 +9,7 @@ import json
 import logging
 import time
 import uuid
+from datetime import datetime
 
 from ..epistemic_source import normalize_epistemic_source
 from ..visibility import normalize_visibility
@@ -453,27 +454,47 @@ class BreadcrumbRepository(BaseRepository):
         doc_type: str | None = None,
         description: str | None = None
     ) -> str:
-        """Add a reference document to project"""
-        doc_id = str(uuid.uuid4())
+        """Add a reference document to project.
 
-        doc_data = {
-            "doc_path": doc_path,
+        Phase 1 of refdocs→sources unification (migration 046): writes
+        to `epistemic_sources` with source_type='pointer' instead of the
+        legacy `project_reference_docs` table. The reader companion
+        (`get_project_reference_docs`) queries the same source-type and
+        maps columns back to the legacy refdoc shape, so consumers
+        (bootstrap formatter, extension) see no behavior change.
+        """
+        import os.path
+
+        doc_id = str(uuid.uuid4())
+        basename = os.path.basename(doc_path) if doc_path else ""
+        title = basename or doc_path or "refdoc"
+        source_metadata = {
             "doc_type": doc_type,
-            "description": description
+            "original_doc_data": {
+                "doc_path": doc_path,
+                "doc_type": doc_type,
+                "description": description,
+            },
         }
 
         self._execute("""
-            INSERT INTO project_reference_docs (
-                id, project_id, doc_path, doc_type, description,
-                created_timestamp, doc_data
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO epistemic_sources (
+                id, project_id, session_id,
+                source_type, source_url, title, description,
+                confidence, epistemic_layer,
+                supports_vectors, related_findings,
+                discovered_by_ai, discovered_at,
+                source_metadata
+            ) VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?)
         """, (
-            doc_id, project_id, doc_path, doc_type, description,
-            time.time(), json.dumps(doc_data)
+            doc_id, project_id,
+            "pointer", doc_path, title, description,
+            0.7, "noetic",
+            datetime.now(), json.dumps(source_metadata),
         ))
 
         self.commit()
-        logger.info(f"📄 Reference doc added: {doc_path}")
+        logger.info(f"📄 Reference doc added (as source): {doc_path}")
 
         return doc_id
 
@@ -611,24 +632,61 @@ class BreadcrumbRepository(BaseRepository):
     def get_project_reference_docs(self, project_id: str) -> list[dict]:
         """Get all reference docs for a project.
 
-        `doc_data` JSON column is decoded to a native dict so consumers
-        (extension renderer, AI bootstrap) don't have to do a second
-        json.loads.
+        Phase 1 of refdocs→sources unification (migration 046): reads
+        from `epistemic_sources` WHERE source_type='pointer' and maps
+        columns back to the legacy refdoc shape so existing consumers
+        (bootstrap_formatter renders `doc.get('doc_path')` and
+        `doc.get('doc_type')`, extension UI, AI bootstrap) see no
+        behavior change.
+
+        `doc_data` is reconstructed from `source_metadata.original_doc_data`
+        for callers that introspected it. New writes don't preserve a
+        meaningful `doc_data` beyond what's already in the other columns.
         """
         cursor = self._execute("""
-            SELECT * FROM project_reference_docs
+            SELECT id, project_id, source_url, source_metadata,
+                   description, discovered_at
+            FROM epistemic_sources
             WHERE project_id = ?
-            ORDER BY created_timestamp DESC
+              AND source_type = 'pointer'
+              AND (archived IS NULL OR archived = 0)
+            ORDER BY discovered_at DESC
         """, (project_id,))
         rows = []
         for row in cursor.fetchall():
             d = dict(row)
-            doc_data = d.get('doc_data')
-            if isinstance(doc_data, str) and doc_data:
+            metadata_raw = d.pop('source_metadata', None)
+            metadata = {}
+            if isinstance(metadata_raw, str) and metadata_raw:
                 try:
-                    d['doc_data'] = json.loads(doc_data)
+                    metadata = json.loads(metadata_raw)
                 except (ValueError, TypeError):
-                    pass  # leave as string if not valid JSON
+                    metadata = {}
+            # Project the source row back into the legacy refdoc shape
+            # so consumers don't have to know about the migration.
+            d['doc_path'] = d.pop('source_url', None)
+            d['doc_type'] = metadata.get('doc_type')
+            d['doc_data'] = metadata.get('original_doc_data') or {
+                'doc_path': d.get('doc_path'),
+                'doc_type': d.get('doc_type'),
+                'description': d.get('description'),
+            }
+            # Convert ISO timestamp to epoch for legacy compat
+            discovered_at = d.pop('discovered_at', None)
+            if discovered_at is not None:
+                try:
+                    if isinstance(discovered_at, str):
+                        # SQLite ISO format: 'YYYY-MM-DD HH:MM:SS[.ffffff]'
+                        dt = datetime.fromisoformat(discovered_at.replace(' ', 'T'))
+                        d['created_timestamp'] = dt.timestamp()
+                    elif isinstance(discovered_at, (int, float)):
+                        d['created_timestamp'] = float(discovered_at)
+                    else:
+                        d['created_timestamp'] = 0.0
+                except (ValueError, TypeError):
+                    d['created_timestamp'] = 0.0
+            else:
+                d['created_timestamp'] = 0.0
             rows.append(d)
         return rows
 
