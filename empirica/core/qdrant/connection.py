@@ -35,8 +35,21 @@ _qdrant_warned = False
 class CollectionDimensionMismatchError(RuntimeError):
     """Raised when an existing Qdrant collection and embeddings provider disagree."""
 
-def _check_qdrant_available() -> bool:
-    """Check if Qdrant is available and enabled."""
+def _check_qdrant_available(qdrant_url: str | None = None) -> bool:
+    """Check if Qdrant is available and enabled.
+
+    Args:
+        qdrant_url: Optional. Accepted for API parity with `_get_qdrant_client`
+            so cortex's per-org routing can call both with the same signature
+            (prop_aifzk5hv2vgzjcdmef7pocbhde). Currently unused — this function
+            only checks library installation + the global enable flag, both of
+            which are URL-agnostic. The argument is reserved for a future
+            per-URL probe (e.g., reachability test against the resolved URL).
+
+    Returns:
+        True when qdrant-client is installed and embeddings aren't disabled.
+    """
+    del qdrant_url  # reserved for future per-URL reachability probe
     global _qdrant_available, _qdrant_warned
 
     if _qdrant_available is not None:
@@ -223,12 +236,21 @@ def _get_embeddings_batch_for_collection(
     return vectors
 
 
-def _get_qdrant_client():
+def _get_qdrant_client(qdrant_url: str | None = None):
     """Get Qdrant client with lazy imports.
 
+    Args:
+        qdrant_url: Optional per-request URL override. When provided, connect
+            to that URL instead of the module default. Used by cortex's per-org
+            routing (prop_aifzk5hv2vgzjcdmef7pocbhde) — `resolve_qdrant_url(org_id)`
+            returns the right container URL per request, then this factory
+            opens the client against it. None (the default) preserves the
+            pre-existing env→localhost fallback exactly.
+
     Priority:
-    1. EMPIRICA_QDRANT_URL environment variable (explicit URL)
-    2. localhost:6333 if Qdrant server is running
+    1. `qdrant_url` argument (explicit per-request URL)
+    2. EMPIRICA_QDRANT_URL environment variable (explicit URL)
+    3. localhost:6333 if Qdrant server is running
 
     Returns None if no Qdrant server is available. File-based storage was
     removed (#45) because it creates incompatible storage formats, causes
@@ -236,12 +258,16 @@ def _get_qdrant_client():
     """
     QdrantClient, _, _, _ = _get_qdrant_imports()
 
-    # Priority 1: Explicit URL
+    # Priority 1: Per-request URL (cortex per-org routing)
+    if qdrant_url:
+        return QdrantClient(url=qdrant_url)
+
+    # Priority 2: Module default from env
     url = os.getenv("EMPIRICA_QDRANT_URL")
     if url:
         return QdrantClient(url=url)
 
-    # Priority 2: Check if Qdrant server is running on localhost:6333
+    # Priority 3: Check if Qdrant server is running on localhost:6333
     default_url = "http://localhost:6333"
     try:
         import urllib.request
@@ -257,15 +283,36 @@ def _get_qdrant_client():
     return None
 
 
-def _service_url() -> str | None:
-    return os.getenv("EMPIRICA_QDRANT_URL")
+def _service_url(qdrant_url: str | None = None) -> str | None:
+    """Resolve the service URL used by the REST search path.
+
+    Args:
+        qdrant_url: Optional per-request URL override. When provided, that URL
+            wins. Otherwise falls back to EMPIRICA_QDRANT_URL env var.
+    """
+    return qdrant_url or os.getenv("EMPIRICA_QDRANT_URL")
 
 
-def _rest_search(collection: str, vector: list[float], limit: int) -> list[dict]:
-    """REST-based search (requires EMPIRICA_QDRANT_URL)."""
+def _rest_search(
+    collection: str,
+    vector: list[float],
+    limit: int,
+    qdrant_url: str | None = None,
+) -> list[dict]:
+    """REST-based search.
+
+    Args:
+        collection: Qdrant collection name.
+        vector: Query vector.
+        limit: Max results.
+        qdrant_url: Optional per-request URL override (cortex per-org routing).
+            None preserves the existing env-based behavior.
+
+    Returns empty list when no URL is resolvable (offline-safe).
+    """
     try:
         import requests
-        url = _service_url()
+        url = _service_url(qdrant_url=qdrant_url)
         if not url:
             return []
         resp = requests.post(
