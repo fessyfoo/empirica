@@ -7,6 +7,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.11] — 2026-05-25
+
+### Fixed — Listener wake delivery
+
+- **Listener self-exit on pip-upgrade version drift** (`c47c4b4f0`) —
+  The persistent listener service (systemd-user / launchd) holds the
+  running process across reboots; pre-fix, a `pip install --upgrade
+  empirica` left the old code in memory until next manual restart.
+  Listener now compares `__version__` (in-process, frozen at import)
+  against `importlib.metadata.version` (re-reads dist-info, sees the
+  upgrade) on every reconnect boundary. Drift → clean exit code 0 →
+  OS `Restart=always` relaunches against new code on disk. No new
+  install machinery needed (pip + PEP 517 has no post-install hook
+  surface anyway). Closes goal 62347fc4.
+
+- **Phase-3 in-session wake-delivery gap closed** (`c7744d69d`) — When
+  the persistent service was running, the in-session Monitor was
+  short-circuited away (cockpit returned `next_step: None`, hook
+  emitted "no Monitor needed"). Result: the persistent service wrote
+  events to `~/.empirica/loop_fires.log` but the running Claude
+  session never read them — deaf despite the wake source being alive.
+  Two fixes: (1) `handle_listener_on_command` now returns a
+  tail-Monitor (`tail -F loop_fires.log | grep instance_id`) when the
+  persistent service is up — bridges writes into the session without
+  duplicating the ntfy curl subscription cortex warns against. New
+  status `persistent_service_tail_session`, state file carries
+  `mode: tail` for `listener off` cleanup symmetry. (2) Hook
+  short-circuit replaced `not loops` with `not loops AND not
+  persistent_service` — now fires when EITHER wake source is present,
+  closing the "persistent service running, zero canonical loops"
+  case. 7 new tests including a regression for the exact empirica-AI
+  deafness scenario.
+
+### Fixed — CI / build
+
+- **Dependency-scan workflow** (`ea76a45e4`) — `pip-audit --strict
+  --skip-editable` had been failing every run since the workflow was
+  introduced (~6 consecutive weeks). The combination is inconsistent:
+  strict mode rejects skipped/unauditable distributions, editable
+  installs can't be audited (no resolved wheel). Switched to
+  non-editable install (`pip install .` instead of `-e .`) so
+  pip-audit can audit empirica + empirica-mcp themselves alongside
+  their dependencies. Verified green via workflow_dispatch.
+
+- **`project-embed` chunking + batch re-hydration** (`c3b482455`,
+  cortex AI) — `upsert_docs` now chunks large batches so a single
+  oversized payload doesn't fail the whole sync; `_rehydrate_eidetic`
+  batches reads to reduce Qdrant round-trips.
+
+### Improved — CLI documentation
+
+- **`scripts/generate_cli_docs.py`** (`1454d2617`) — Live-introspection
+  generator for `docs/human/developers/CLI_COMMANDS_UNIFIED.md`.
+  Walks the argparse tree directly, picks up dynamic arg additions,
+  aliases, nested subparsers (loop register, listener on, mailbox
+  reply). Replaces the brittle AST-extraction approach in
+  `_archive/dev_scripts/`. Regen is one command:
+  `python3 scripts/generate_cli_docs.py`. Doc went 56KB → 176KB,
+  231 commands rendered. Plus targeted `_HELP_CATEGORIES` catch-up
+  (+12 commands surfaced from drift). Closes goals aebb81eb, 21bf768d.
+
+- **Doc role split made explicit** (`61a33af5e`) — Prologue states the
+  doc is reference-only (WHAT exists, with flag detail); conceptual
+  material (WHEN to use, workflow patterns) lives in skills
+  (`/empirica-constitution`, `/epistemic-transaction`,
+  `/cortex-mailbox-send`, `/cortex-mailbox-poll`) and architecture
+  docs. Improving per-command depth means editing parser `help=`
+  strings, not the generated doc.
+
+- **Substantive `help=` strings for 36 daily-driver commands**
+  (`50aabec55`) — Rewrites workflow (4) + logging (16) + goals (16)
+  parser help strings with WHAT/WHEN-to-use/sibling-cross-refs.
+  Both `empirica <cmd> --help` and the generated reference benefit
+  in lockstep (single source of truth). Extracts shared workflow
+  strings to keep parsers DRY. `action_parsers.py` rewritten
+  end-to-end (was the thinnest surface).
+
+### Improved — Skill docs
+
+- **`/cortex-mailbox-send` v1.1.0** (`8801f35cd`) — Teaches
+  `empirica mailbox reply` as the canonical atomic completion-ack
+  path; raw `cortex_complete_proposal` documented as fallback for
+  unusual flows. Worked example updated, new anti-pattern row for
+  "two-call reply" non-atomicity. Closes goal c8b33b0c.
+
 ## [1.9.10] — 2026-05-21
 
 ### Added — Mesh interaction primitives
