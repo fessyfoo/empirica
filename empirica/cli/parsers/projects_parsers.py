@@ -217,3 +217,137 @@ def add_projects_parsers(subparsers) -> None:
         default="human",
         help="Output format for the summary (default: human).",
     )
+
+    # ── projects-sync ─────────────────────────────────────────────────
+    # Master command collapsing projects-discover → registry.yaml upsert →
+    # Cortex POST into one verb. Mirrors the `listener on/off` and
+    # `mailbox reply` AI-ergonomic pattern: AI-as-primary-CLI-user, single
+    # verb hides the multi-step protocol. The individual verbs stay as
+    # power-user surface for fine control.
+    sync = subparsers.add_parser(
+        "projects-sync",
+        help=(
+            "One-shot: walk filesystem → upsert ~/.empirica/registry.yaml → "
+            "register on Cortex. Idempotent. Use --no-cortex for offline, "
+            "--no-write for pure preview, --dry-run for full preview."
+        ),
+        description=(
+            "Master command for end-to-end project sync. Equivalent to:\n"
+            "  empirica projects-discover --register [--prune]\n"
+            "  empirica projects-bulk-register [filters...]\n"
+            "But in one verb with one set of flags. Default: full pipeline "
+            "(walk filesystem, write manifest cache, upsert registry.yaml, "
+            "POST each to Cortex). Phase-skip flags peel off as needed. "
+            "Closes prop_ncitlxqewrabzheagvdkra5ahi from the extension AI — "
+            "AI-as-primary-CLI-user, single verb hides multi-step protocol. "
+            "The individual `projects-discover` / `projects-bulk-register` "
+            "verbs remain as the power-user surface for fine-grained control."
+        ),
+    )
+    sync.add_argument(
+        "--root",
+        action="append",
+        dest="roots",
+        help="Root directory to walk (default: $HOME). Repeatable.",
+    )
+    sync.add_argument(
+        "--max-depth",
+        type=int,
+        default=5,
+        help="Maximum walk depth from each root (default: 5).",
+    )
+    sync.add_argument(
+        "--include-hidden",
+        action="store_true",
+        help="Walk hidden directories during discovery (default: skip).",
+    )
+    sync.add_argument(
+        "--include",
+        action="append",
+        dest="includes",
+        default=None,
+        help=(
+            "Regex matched against project name OR path during Cortex POST. "
+            "Repeatable — multi --include is OR. Doesn't affect discovery "
+            "or registry.yaml — only filters what gets registered on Cortex."
+        ),
+    )
+    sync.add_argument(
+        "--exclude",
+        action="append",
+        dest="excludes",
+        default=None,
+        help=(
+            "Regex matched against project name OR path during Cortex POST. "
+            "Repeatable — multi --exclude is OR (project dropped if ANY "
+            "pattern matches). Applied after --include."
+        ),
+    )
+    sync.add_argument(
+        "--no-cortex",
+        action="store_true",
+        help=(
+            "Stop after registry.yaml write. Use when Cortex is down, "
+            "offline-first setup, or when you only need the daemon's served "
+            "set populated."
+        ),
+    )
+    sync.add_argument(
+        "--no-write",
+        action="store_true",
+        help=(
+            "Pure discover-only preview. Don't write the manifest cache, "
+            "don't upsert registry.yaml, don't POST to Cortex. Equivalent "
+            "to `--dry-run` for the discover phase only."
+        ),
+    )
+    sync.add_argument(
+        "--prune",
+        action="store_true",
+        help=(
+            "Remove stale entries from registry.yaml (projects no longer "
+            "present on disk). Off by default — keeps the registry "
+            "additive-only unless explicitly asked."
+        ),
+    )
+    sync.add_argument(
+        "--dry-run",
+        action="store_true",
+        help=(
+            "Full pipeline preview: walk, show what would be written/"
+            "registered, but make no changes (no manifest write, no "
+            "registry upsert, no Cortex POST). Strongest no-op flag."
+        ),
+    )
+    sync.add_argument(
+        "--cortex-url",
+        default=None,
+        help="Override Cortex base URL (default: $CORTEX_REMOTE_URL).",
+    )
+    sync.add_argument(
+        "--api-key",
+        default=None,
+        help="Override Cortex API key (default: $CORTEX_API_KEY).",
+    )
+    sync.add_argument(
+        "--timeout",
+        type=float,
+        default=10.0,
+        help="Per-request timeout for Cortex POSTs in seconds (default: 10).",
+    )
+    sync.add_argument(
+        "--force-metadata-update",
+        action="store_true",
+        help=(
+            "Set `force_metadata_update: true` in each Cortex request body, "
+            "asking Cortex to backfill UUID-shaped placeholder names + empty "
+            "repo_urls on already-existing rows. Useful when Cortex has "
+            "stale metadata that should be refreshed from local."
+        ),
+    )
+    sync.add_argument(
+        "--output",
+        choices=["human", "json"],
+        default="human",
+        help="Output format for the summary (default: human).",
+    )

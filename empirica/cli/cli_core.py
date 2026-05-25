@@ -338,7 +338,7 @@ _HELP_CATEGORIES = {
     'workflow': ['preflight-submit', 'check', 'check-submit', 'postflight-submit'],
     'goals': ['goals-create', 'goals-list', 'goals-search', 'goals-complete', 'goals-claim', 'goals-add-subtask', 'goals-add-dependency', 'goals-complete-subtask', 'goals-get-subtasks', 'goals-progress', 'goals-discover', 'goals-ready', 'goals-resume', 'goals-mark-stale', 'goals-get-stale', 'goals-refresh'],
     'logging': ['finding-log', 'unknown-log', 'unknown-list', 'unknown-resolve', 'deadend-log', 'assumption-log', 'decision-log', 'mistake-log', 'mistake-query', 'source-add', 'source-list', 'source-archive', 'act-log', 'investigate-log', 'log-artifacts', 'resolve-artifacts', 'delete-artifacts', 'epistemics-list', 'epistemics-show', 'noetic-batch'],
-    'project': ['project-init', 'project-update', 'project-create', 'project-list', 'project-switch', 'project-bootstrap', 'project-handoff', 'project-search', 'project-embed', 'code-embed', 'doc-check', 'bootstrap-context', 'projects-discover', 'projects-list', 'projects-bulk-register'],
+    'project': ['project-init', 'project-update', 'project-create', 'project-list', 'project-switch', 'project-bootstrap', 'project-handoff', 'project-search', 'project-embed', 'code-embed', 'doc-check', 'bootstrap-context', 'projects-sync', 'projects-discover', 'projects-list', 'projects-bulk-register'],
     'workspace': ['workspace-init', 'workspace-map', 'workspace-list', 'workspace-overview', 'workspace-search', 'engagement-focus', 'ecosystem-check', 'save', 'history'],
     'checkpoint': ['checkpoint-create', 'checkpoint-load', 'checkpoint-list', 'checkpoint-diff', 'checkpoint-sign', 'checkpoint-verify', 'checkpoint-signatures'],
     'sync': ['sync-config', 'sync-push', 'sync-pull', 'sync-status', 'rebuild', 'artifacts-generate'],
@@ -599,6 +599,7 @@ def main(args=None):
             'doc-check': handle_doc_check_command,
             'projects-discover': handle_projects_discover_command,
             'projects-list': handle_projects_list_command,
+            'projects-sync': handle_projects_sync_command,
             'projects-bulk-register': handle_projects_bulk_register_command,
             'daemon-list': handle_daemon_list_command,
 

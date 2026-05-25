@@ -23,8 +23,8 @@
 > dictionary, then running this script.
 
 **Framework version:** 1.9.11
-**Generated:** 2026-05-25 19:03:24 UTC
-**Total commands:** 230 (across 26 categories)
+**Generated:** 2026-05-25 19:22:23 UTC
+**Total commands:** 231 (across 26 categories)
 
 For the most up-to-date detail on any single command, prefer
 `empirica <command> --help` — the generator extracts the same `help`
@@ -66,7 +66,7 @@ require `--session-id` (`project-bootstrap`, `sessions-show`,
 | [workflow](#workflow) | 4 | `preflight-submit`, `check`, `check-submit`, … |
 | [goals](#goals) | 16 | `goals-create`, `goals-list`, `goals-search`, … |
 | [logging](#logging) | 20 | `finding-log`, `unknown-log`, `unknown-list`, … |
-| [project](#project) | 15 | `project-init`, `project-update`, `project-create`, … |
+| [project](#project) | 16 | `project-init`, `project-update`, `project-create`, … |
 | [workspace](#workspace) | 9 | `workspace-init`, `workspace-map`, `workspace-list`, … |
 | [checkpoint](#checkpoint) | 7 | `checkpoint-create`, `checkpoint-load`, `checkpoint-list`, … |
 | [sync](#sync) | 6 | `sync-config`, `sync-push`, `sync-pull`, … |
@@ -1454,6 +1454,41 @@ Emit the bootstrap context payload (schema v2) — three-circle artifact graph
   Cosine threshold for circle 3 topic-relevance pull (default: 0.65).
 - `--output` — optional · type=`choice` · choices={human, json} · default=`json`
   Output format (default: json — what hooks/MCP consume).
+
+#### `empirica projects-sync`
+
+One-shot: walk filesystem → upsert ~/.empirica/registry.yaml → register on Cortex. Idempotent. Use --no-cortex for offline, --no-write for pure preview, --dry-run for full preview.
+
+**Arguments:**
+
+- `--root` — optional
+  Root directory to walk (default: $HOME). Repeatable.
+- `--max-depth` — optional · type=`int` · default=`5`
+  Maximum walk depth from each root (default: 5).
+- `--include-hidden` — optional · flag
+  Walk hidden directories during discovery (default: skip).
+- `--include` — optional
+  Regex matched against project name OR path during Cortex POST. Repeatable — multi --include is OR. Doesn't affect discovery or registry.yaml — only filters what gets registered on Cortex.
+- `--exclude` — optional
+  Regex matched against project name OR path during Cortex POST. Repeatable — multi --exclude is OR (project dropped if ANY pattern matches). Applied after --include.
+- `--no-cortex` — optional · flag
+  Stop after registry.yaml write. Use when Cortex is down, offline-first setup, or when you only need the daemon's served set populated.
+- `--no-write` — optional · flag
+  Pure discover-only preview. Don't write the manifest cache, don't upsert registry.yaml, don't POST to Cortex. Equivalent to `--dry-run` for the discover phase only.
+- `--prune` — optional · flag
+  Remove stale entries from registry.yaml (projects no longer present on disk). Off by default — keeps the registry additive-only unless explicitly asked.
+- `--dry-run` — optional · flag
+  Full pipeline preview: walk, show what would be written/registered, but make no changes (no manifest write, no registry upsert, no Cortex POST). Strongest no-op flag.
+- `--cortex-url` — optional
+  Override Cortex base URL (default: $CORTEX_REMOTE_URL).
+- `--api-key` — optional
+  Override Cortex API key (default: $CORTEX_API_KEY).
+- `--timeout` — optional · type=`float` · default=`10.0`
+  Per-request timeout for Cortex POSTs in seconds (default: 10).
+- `--force-metadata-update` — optional · flag
+  Set `force_metadata_update: true` in each Cortex request body, asking Cortex to backfill UUID-shaped placeholder names + empty repo_urls on already-existing rows. Useful when Cortex has stale metadata that should be refreshed from local.
+- `--output` — optional · type=`choice` · choices={human, json} · default=`human`
+  Output format for the summary (default: human).
 
 #### `empirica projects-discover`
 

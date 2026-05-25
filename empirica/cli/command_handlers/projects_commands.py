@@ -452,6 +452,178 @@ def handle_daemon_list_command(args) -> None:
         handle_cli_error(e, "daemon-list")
 
 
+def handle_projects_sync_command(args) -> None:
+    """Master sync verb: discover → registry → Cortex POST, one shot.
+
+    Closes prop_ncitlxqewrabzheagvdkra5ahi. Collapses the discover →
+    registry upsert → bulk-register chain into one verb so users don't
+    have to know the two-name sequence. Each phase is independently
+    skippable via flags so the same command works for online sync,
+    offline registry-only, and pure-preview modes.
+
+    Phase 1 (always): filesystem walk via discover_projects.
+    Phase 2 (skipped by --no-write/--dry-run): write manifest cache +
+        upsert registry.yaml. --prune drops stale rows.
+    Phase 3 (skipped by --no-cortex/--no-write/--dry-run): POST each
+        registered project to Cortex via the existing bulk-register loop.
+
+    All composition delegates to existing helpers — no logic duplication.
+    """
+    try:
+        # ── Phase 1: filesystem walk (always) ─────────────────────
+        roots = [Path(r).expanduser() for r in (args.roots or [str(Path.home())])]
+        manifest = discover_projects(
+            roots=roots,
+            max_depth=args.max_depth,
+            include_hidden=args.include_hidden,
+        )
+        n_discovered = len(manifest.get("projects", []))
+
+        output_format = getattr(args, "output", "human")
+        dry_run = bool(getattr(args, "dry_run", False))
+        no_write = bool(getattr(args, "no_write", False))
+        no_cortex = bool(getattr(args, "no_cortex", False))
+
+        # Stash phase-by-phase outcomes for the summary
+        outcome: dict[str, Any] = {
+            "discovered": n_discovered,
+            "manifest_written": False,
+            "registry": None,  # filled by phase 2
+            "cortex": None,    # filled by phase 3
+            "phases_skipped": [],
+        }
+
+        if no_write or dry_run:
+            outcome["phases_skipped"].append("manifest_write")
+            outcome["phases_skipped"].append("registry_upsert")
+            outcome["phases_skipped"].append("cortex_post")
+            _emit_sync_summary(outcome, output_format, dry_run=True)
+            return
+
+        # ── Phase 2: manifest cache + registry upsert ──────────────
+        try:
+            write_manifest(manifest, DEFAULT_MANIFEST_PATH)
+            outcome["manifest_written"] = True
+        except OSError as e:
+            print(f"⚠ Failed to write manifest cache: {e}", file=sys.stderr)
+
+        try:
+            outcome["registry"] = _register_discovered_to_registry(
+                manifest, prune=getattr(args, "prune", False),
+            )
+        except Exception as e:
+            print(f"⚠ Registry upsert failed: {e}", file=sys.stderr)
+            outcome["phases_skipped"].append("cortex_post")
+            _emit_sync_summary(outcome, output_format, dry_run=False)
+            return
+
+        # ── Phase 3: Cortex POST (unless --no-cortex) ──────────────
+        if no_cortex:
+            outcome["phases_skipped"].append("cortex_post")
+            _emit_sync_summary(outcome, output_format, dry_run=False)
+            return
+
+        outcome["cortex"] = _sync_phase3_cortex_post(args, output_format)
+        _emit_sync_summary(outcome, output_format, dry_run=False)
+    except Exception as e:
+        handle_cli_error(e, "projects-sync")
+
+
+def _sync_phase3_cortex_post(args, output_format: str) -> dict[str, Any] | None:
+    """Run the Cortex POST loop using the registry as source of truth.
+
+    Returns a dict with {cortex_url, results, registered, failed} or None
+    when Cortex config is missing (signaled to caller for summary).
+    """
+    cortex_url, api_key = _resolve_cortex_config(args)
+    if not cortex_url or not api_key:
+        missing = []
+        if not cortex_url:
+            missing.append("CORTEX_REMOTE_URL or --cortex-url")
+        if not api_key:
+            missing.append("CORTEX_API_KEY or --api-key")
+        print(
+            "⚠ Cortex configuration missing: " + ", ".join(missing) + "\n"
+            "  Use --no-cortex to skip the POST phase explicitly, or set "
+            "the env vars / pass the flags.",
+            file=sys.stderr,
+        )
+        return None
+
+    # Source from registry.yaml (the curated set we just upserted)
+    projects = _load_projects_for_register(None, from_discovered=False)
+    if not projects:
+        return {"cortex_url": cortex_url, "results": [], "registered": 0, "failed": 0}
+
+    # Apply filters
+    includes = getattr(args, "includes", None) or []
+    excludes = getattr(args, "excludes", None) or []
+    if includes or excludes:
+        try:
+            projects = filter_projects(projects, includes=includes, excludes=excludes)
+        except re.error as e:
+            print(f"⚠ Invalid filter regex: {e}", file=sys.stderr)
+            return {"cortex_url": cortex_url, "results": [], "registered": 0, "failed": 0}
+    if not projects:
+        return {"cortex_url": cortex_url, "results": [], "registered": 0, "failed": 0}
+
+    timeout = float(getattr(args, "timeout", 10.0))
+    force_metadata = bool(getattr(args, "force_metadata_update", False))
+    if output_format == "human":
+        print(f"📡 Registering {len(projects)} projects on Cortex at {cortex_url}",
+              file=sys.stderr)
+    results = [
+        _register_one_project(p, cortex_url, api_key, timeout,
+                              force_metadata_update=force_metadata)
+        for p in projects
+    ]
+    registered = sum(1 for r in results if r.get("status") in (0, 200, 201))
+    failed = len(results) - registered
+    return {
+        "cortex_url": cortex_url,
+        "results": results,
+        "registered": registered,
+        "failed": failed,
+    }
+
+
+def _emit_sync_summary(outcome: dict[str, Any], output_format: str, *, dry_run: bool) -> None:
+    """Render the projects-sync summary (json or human)."""
+    if output_format == "json":
+        payload = {
+            "ok": True,
+            "dry_run": dry_run,
+            "discovered": outcome["discovered"],
+            "manifest_written": outcome["manifest_written"],
+            "registry": outcome["registry"],
+            "cortex": outcome["cortex"],
+            "phases_skipped": outcome["phases_skipped"],
+        }
+        sys.stdout.write(json.dumps(payload, indent=2) + "\n")
+        return
+
+    # Human format
+    prefix = "🔎 [DRY RUN] " if dry_run else "📦 "
+    print(f"{prefix}Discovered {outcome['discovered']} project(s)", file=sys.stderr)
+
+    if outcome["registry"]:
+        r = outcome["registry"]
+        line = (f"📌 Registry: +{r['added']} added, ~{r['updated']} updated"
+                + (f", −{r['pruned']} pruned" if r['pruned'] else "")
+                + f" → {r['total']} total")
+        print(line, file=sys.stderr)
+    elif "registry_upsert" in outcome["phases_skipped"] and not dry_run:
+        print("⏭  Registry upsert skipped", file=sys.stderr)
+
+    if outcome["cortex"]:
+        c = outcome["cortex"]
+        print(f"☁️  Cortex: {c['registered']} registered, {c['failed']} failed "
+              f"({c['cortex_url']})", file=sys.stderr)
+    elif "cortex_post" in outcome["phases_skipped"]:
+        reason = "(--no-cortex)" if not dry_run else "(dry-run)"
+        print(f"⏭  Cortex POST skipped {reason}", file=sys.stderr)
+
+
 def handle_projects_list_command(args) -> None:
     """Handle the projects-list command."""
     try:
