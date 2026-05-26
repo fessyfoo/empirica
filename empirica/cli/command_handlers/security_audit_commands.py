@@ -2,7 +2,7 @@
 
 Phase 1: pip-audit + CISA KEV cross-reference. See
 empirica/core/security/audit.py for the audit logic and
-docs/architecture/SECURITY_AUDIT.md (TODO) for the design.
+docs/architecture/SECURITY_AUDIT.md for the design.
 """
 
 from __future__ import annotations

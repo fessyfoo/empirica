@@ -216,7 +216,7 @@ class TestGoalsWorkflowE2E:
 
         for i, desc in enumerate(["Subtask 1", "Subtask 2", "Subtask 3"]):
             result = subprocess.run(
-                ["empirica", "goals-add-subtask",
+                ["empirica", "goals-add-task",
                  "--goal-id", goal_id,
                  "--description", desc,
                  "--importance", "high",
@@ -259,7 +259,7 @@ class TestGoalsWorkflowE2E:
         # Step 5: Complete first subtask
         if subtask_ids:
             result = subprocess.run(
-                ["empirica", "goals-complete-subtask",
+                ["empirica", "goals-complete-task",
                  "--task-id", subtask_ids[0],
                  "--evidence", "E2E test completion"],
                 capture_output=True,

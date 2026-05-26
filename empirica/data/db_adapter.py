@@ -282,8 +282,8 @@ class PostgreSQLAdapter(DatabaseAdapter):
             **kwargs: Additional psycopg2 connection parameters
         """
         try:
-            import psycopg2
-            import psycopg2.extras  # pyright: ignore[reportUnusedImport] — used in execute()
+            import psycopg2  # pyright: ignore[reportMissingModuleSource]
+            import psycopg2.extras  # pyright: ignore[reportUnusedImport,reportMissingModuleSource] — used in execute()
         except ImportError as e:
             raise ImportError(
                 "PostgreSQL support requires psycopg2. Install with: pip install psycopg2-binary"
@@ -316,7 +316,7 @@ class PostgreSQLAdapter(DatabaseAdapter):
 
         Note: Converts SQLite-style ? placeholders to PostgreSQL %s
         """
-        import psycopg2.extras
+        import psycopg2.extras  # pyright: ignore[reportMissingModuleSource]
 
         # Convert SQLite ? to PostgreSQL %s
         pg_query = query.replace("?", "%s")

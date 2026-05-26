@@ -1075,8 +1075,8 @@ def _wrap_item(marker: str, text: str, width: int = _WRAP_WIDTH) -> str:
 def run_tui(include_dead: bool = False) -> int:
     """Entry point for `empirica tui`. Returns shell exit code."""
     try:
-        LoopRegistry.__name__  # noqa: B018
-        is_loop_paused  # noqa: B018
+        LoopRegistry.__name__  # noqa: B018  # pyright: ignore[reportUnusedExpression]
+        is_loop_paused  # noqa: B018  # pyright: ignore[reportUnusedExpression]
     except Exception:  # noqa: S110 — import-warming presence check; deliberately silent
         pass
 

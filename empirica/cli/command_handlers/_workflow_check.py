@@ -550,17 +550,7 @@ def _check_gate_decision(vectors, ready_uncertainty_threshold, diminishing_retur
     Returns (decision, computed_decision, autopilot_mode, decision_binding).
     """
 
-    know = vectors.get('know', 0.5)
     uncertainty = vectors.get('uncertainty', 0.5)
-
-    # Load grounded corrections (informational only)
-    try:
-        from empirica.core.bayesian_beliefs import load_grounded_corrections
-        _corrections = load_grounded_corrections()
-    except Exception:
-        _corrections = {}
-    know + _corrections.get('know', 0.0)
-    uncertainty + _corrections.get('uncertainty', 0.0)
 
     # Compute gate decision
     computed_decision = None
@@ -1001,7 +991,7 @@ def handle_check_submit_command(args):
         vectors = _check_normalize_vectors(vectors)
 
         # Stage 5: Compute dynamic readiness thresholds
-        _ready_know_threshold, ready_uncertainty_threshold, dynamic_thresholds_info = (
+        _, ready_uncertainty_threshold, dynamic_thresholds_info = (
             _check_load_dynamic_thresholds(session_id)
         )
 
@@ -1013,7 +1003,7 @@ def handle_check_submit_command(args):
         )
 
         # Stage 7: Compute gate decision (proceed/investigate) + autopilot
-        decision, computed_decision, _autopilot_mode, decision_binding = (
+        decision, computed_decision, _, decision_binding = (
             _check_gate_decision(vectors, ready_uncertainty_threshold,
                                 diminishing_returns, round_num, decision)
         )

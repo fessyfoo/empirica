@@ -117,6 +117,87 @@ either be properly documented or moved to a less prominent home.
   `ActionError`, `ConfigStatus`, `GateStatus` — orchestration +
   profile import surface.
 
+## TUI + chat surface
+
+- `ChatInput` — Textual `Input` subclass for the cockpit chat pane,
+  with up/down history navigation and slash-command completion
+  (`empirica/cli/tui/`).
+- `CockpitApp` — top-level Textual `App` for `empirica tui`. Owns the
+  multi-instance state pane, sentinel/loop/listener subpanels, and the
+  worker that polls cockpit state on a backoff cadence
+  (`empirica/cli/tui/cockpit_app.py`).
+- `ModelSelectorModal`, `StatuslinePanel` — modal + panel widgets used
+  inside the cockpit app.
+- `CrateReport` — dataclass returned by the project-discovery worker
+  representing a single discovered crate/project.
+- `UnknownTurn` — sentinel value used in transcript ingestion when a
+  conversation turn doesn't classify under any known `TurnKind`.
+- `WorkspaceScanner` — walks a directory tree to surface workspace
+  entities (project, contact, organisation) for `entity-list` and
+  `setup-claude-code --discover`.
+
+## API + serving
+
+- `CortexCredentialsRequest`, `CortexCredentialsResponse` — Pydantic
+  models for the daemon's `/v1/cortex/credentials` endpoint
+  (`empirica/api/`). Used by the extension's "set Cortex creds" flow.
+
+## Data + repositories
+
+- `CodebaseModelRepository` — read/write access to the per-project
+  `codebase_model` table (entities + relationships extracted by the
+  entity-extractor hook).
+- `MetricsRepository` — reads aggregated metrics for the calibration
+  dashboard and grounded-verification trends.
+- `WorkspaceRepository` — companion to `WorkspaceDBRepository` for
+  reads that span the workspace.db `entity_registry` +
+  `entity_memberships` graph.
+- `PostgreSQLAdapter`, `SQLiteAdapter` — concrete `DBAdapter`
+  implementations in `empirica/data/db_adapter.py`. PostgreSQL is
+  experimental (psycopg2-binary optional dependency); SQLite is the
+  default and only production-tested path.
+
+## Errors + sentinels
+
+- `CollectionDimensionMismatchError` — raised by the embedding adapter
+  when a Qdrant collection's `vector_size` doesn't match the configured
+  model's output dimension (`empirica/core/embeddings/`).
+- `InstanceIdRequiredError` — raised when a CLI handler that requires
+  an instance-scoped lookup can't resolve one (no TTY mapping, no
+  override flag).
+- `RegistrationConflict` — domain registry exception when two
+  `(work_type, domain, criticality)` registrations collide.
+
+## Domain + config
+
+- `DomainKey` — frozen dataclass key for the domain registry
+  (`(work_type, domain, criticality)` tuple wrapper).
+- `MCOLoader` — loads `.empirica/mco.yaml` mission-critical-objectives
+  config used by the praxic gate's escalation logic.
+- `UniversalConstraints` — config-merge layer combining defaults,
+  project overrides, and per-instance overrides.
+
+## Vision + performance
+
+- `SlideProcessor` — vision-module helper that walks a slide deck
+  artifact, extracts per-slide image + alt-text, and emits a structured
+  doc body (`empirica/core/vision/`).
+- `EmpiricalPerformanceAnalyzer` — benchmark harness used by
+  `empirica benchmark` and the components/ self-test paths.
+
+## Workflow + structure
+
+- `ListenerUpgraded` — marker emitted by the persistent listener
+  when an in-flight version drift is detected and a clean restart is
+  scheduled (`empirica/core/loop_scheduler/listener.py`).
+- `ReadSurface` — typed view used by the noetic-batch executor for
+  collated read results.
+- `SubtaskCompletionEvaluator` — internal evaluator that closes
+  goal subtasks based on commit + evidence signals (pre-rename name
+  preserved; CLI uses `task` vocabulary, storage still uses `subtask`).
+- `StructureHealthAnalyzer` — utility that scores a project's
+  directory layout for the structural-drift compliance check.
+
 ---
 
 This index is maintained alongside the codebase; classes added or
