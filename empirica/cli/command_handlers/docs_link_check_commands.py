@@ -62,14 +62,38 @@ def _resolve_relative(source: Path, target: str) -> Path:
     return (source.parent / bare).resolve()
 
 
+def _gitignored_paths(root: Path) -> set[Path]:
+    """Return the set of gitignored file paths under root.
+
+    Returns an empty set if root isn't a git repo, git isn't available, or
+    the command fails — link-check still works, just without the filter.
+    """
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "ls-files",
+             "--others", "--ignored", "--exclude-standard"],
+            capture_output=True, text=True, timeout=10, check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    if result.returncode != 0:
+        return set()
+    return {(root / line).resolve() for line in result.stdout.splitlines() if line}
+
+
 def _find_md_files(root: Path, skip_dirs: frozenset[str]) -> list[Path]:
     found: list[Path] = []
+    gitignored = _gitignored_paths(root)
     for path in root.rglob("*.md"):
         try:
             rel_parts = path.relative_to(root).parts
         except ValueError:
             continue
         if any(part in skip_dirs for part in rel_parts):
+            continue
+        if path.resolve() in gitignored:
+            # File exists on disk but isn't tracked — don't ship-gate on it.
             continue
         found.append(path)
     return sorted(found)

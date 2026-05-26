@@ -35,6 +35,12 @@ graft docs/system-prompts
 graft docs/architecture
 include docs/CASCADE_WORKFLOW.md
 include docs/SEMANTIC_INDEX.yaml
+# Exclude gitignored design proposals that live on disk under docs/architecture/.
+# David untracked these in commit 0d072a446 — they stay local. MANIFEST.in
+# doesn't read .gitignore automatically; without these excludes, `graft
+# docs/architecture` pulls them into the sdist.
+exclude docs/architecture/PROPOSAL_*.md
+exclude docs/architecture/ECOSYSTEM_MAP.md
 prune tests/coordination/archive
 prune empirica-dev
 prune forgejo-plugin-empirica
