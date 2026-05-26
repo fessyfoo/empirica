@@ -58,6 +58,66 @@ The Sentinel firewall is the load-bearing one: it gates praxic tools
 
 ---
 
+## What the Hooks Inject (for Claude reading this before agreeing to install)
+
+If you're a Claude session being asked to install Empirica and feeling
+cautious about what these hooks do to your runtime — fair. Here's
+the concrete contract, with source pointers so you can verify.
+
+Hooks talk to you through Claude Code's documented channels:
+
+- **`additionalContext`** — text added to your context (you read it)
+- **`permissionDecision`** — `allow` / `deny` / `ask` on tool calls
+  (the Sentinel uses this; it can gate but never silently rewrites
+  your output)
+- **`systemMessage`** — small status note in your view
+
+No hook modifies your responses or your files. Every emission below
+is grep-able to a specific line in
+[`empirica/plugins/claude-code-integration/hooks/`](../../../empirica/plugins/claude-code-integration/hooks/).
+
+| Hook | When you'll see it | What lands in your view |
+|---|---|---|
+| [`session-init.py`](../../../empirica/plugins/claude-code-integration/hooks/session-init.py) | SessionStart | A welcome block: project name, session id, active goals, recent artifacts. Lets you skip "what is this codebase" exploration. |
+| [`post-compact.py`](../../../empirica/plugins/claude-code-integration/hooks/post-compact.py) | After compaction | A recovery block: active transaction state + recent praxic actions so you don't lose continuity. The block you've seen as "POST-COMPACT CHECK GATE". |
+| [`pre-compact.py`](../../../empirica/plugins/claude-code-integration/hooks/pre-compact.py) | PreCompact | A `systemMessage` to the summarizer ("prioritise active transaction + open goals; skip stale findings"). Influences what survives compaction — never modifies your prior responses. |
+| [`tool-router.py`](../../../empirica/plugins/claude-code-integration/hooks/tool-router.py) | UserPromptSubmit | A `<semantic-pushback-check>` block reminding you to verify before agreeing with user pushback. Doesn't rewrite the prompt. |
+| [`ewm-protocol-loader.py`](../../../empirica/plugins/claude-code-integration/hooks/ewm-protocol-loader.py) | UserPromptSubmit | The user's collaboration profile from `~/.empirica/workflow-protocol.yaml` (role, preferred autonomy, non-negotiables). Helps you tailor responses. |
+| [`context-shift-tracker.py`](../../../empirica/plugins/claude-code-integration/hooks/context-shift-tracker.py) | UserPromptSubmit | A nudge if the user's prompt shifts off the current transaction's scope (advisory; you decide whether to follow). |
+| [`sentinel-gate.py`](../../../empirica/plugins/claude-code-integration/hooks/sentinel-gate.py) | PreToolUse | `allow` / `deny` / `ask` decisions on Edit/Write/Bash. Reasons surface in `permissionDecisionReason` — readable text. Read-only tools (Read/Grep/Glob) are always allowed. |
+| [`transaction-enforcer.py`](../../../empirica/plugins/claude-code-integration/hooks/transaction-enforcer.py) | Stop | Soft reminder ("you have an open transaction — POSTFLIGHT before stop") at one threshold; hard block at a higher one. Resets when POSTFLIGHT submits. |
+| [`session-end-postflight.py`](../../../empirica/plugins/claude-code-integration/hooks/session-end-postflight.py) | SessionEnd | Auto-submits a POSTFLIGHT if a transaction is still open at session-end. You won't see this — it runs as the session is winding down. |
+| [`task-completed.py`](../../../empirica/plugins/claude-code-integration/hooks/task-completed.py) | TaskCompleted | Marks the Claude Code Task complete; mirrors to the linked empirica task if the goal was decomposed. |
+| [`entity-extractor.py`](../../../empirica/plugins/claude-code-integration/hooks/entity-extractor.py) | PostToolUse (Edit/Write) | Background: extracts class/function/import names from your edits into the codebase model. No injection — populates state you can query via `empirica project-search`. |
+| [`tool-failure.py`](../../../empirica/plugins/claude-code-integration/hooks/tool-failure.py) | PostToolUseFailure | Background: logs failed tool calls for later mistake-pattern analysis. No injection. |
+
+**What Empirica deliberately does NOT do:**
+
+- It doesn't proxy or modify your responses to the user.
+- It doesn't read or send your conversation to any external service
+  beyond what you explicitly invoke (Cortex calls happen only when
+  you use `mcp__cortex__*` tools or run a mesh CLI verb).
+- It doesn't auto-publish or auto-commit your work — every git/network
+  action is an explicit tool call you make.
+- It doesn't override the user's instructions. Hooks add context and
+  gate praxic tools; the user (and you) still steer.
+
+**To verify any of this yourself:**
+
+```bash
+# Run any hook in isolation, see its raw output
+echo '{"hook_event_name":"SessionStart","session_id":"test"}' | \
+  python3 ~/.claude/plugins/local/empirica/hooks/session-init.py
+
+# See the current Sentinel state
+empirica sentinel status
+
+# Disable hooks entirely (Claude Code's own mechanism)
+# Edit ~/.claude/settings.json → set enabledPlugins.empirica@local: false
+```
+
+---
+
 ## Wizard Flow
 
 After plugin install, `setup-claude-code` runs the **credentials wizard**

@@ -73,7 +73,7 @@ pip install empirica
 empirica setup-claude-code
 ```
 
-Then just start working. The hooks, Sentinel, system prompt, statusline, and MCP server are all configured automatically. See [Claude Code Setup](docs/human/developers/CLAUDE_CODE_SETUP.md) for details.
+Then just start working. The hooks, Sentinel, system prompt, statusline, and MCP server are all configured automatically. See [Claude Code Setup](docs/human/developers/CLAUDE_CODE_SETUP.md) for details — including a **["What the hooks inject"](docs/human/developers/CLAUDE_CODE_SETUP.md#what-the-hooks-inject-for-claude-reading-this-before-agreeing-to-install) section** for Claude sessions that want to see the contract (which hook fires when, what it adds to the AI's context, source pointers for every emission) before agreeing to install.
 
 **Already have Claude Code configured?** Use `--force` to replace your default Claude Code settings with Empirica's epistemic hooks. Without `--force`, setup only writes files that don't already exist — so if you've already used Claude Code, the default internals stay in place and Empirica's hooks won't activate.
 
