@@ -7,6 +7,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.1] — 2026-05-26
+
+Documentation polish + clean-up pass following 1.10.0. No CLI surface
+changes, no breaking changes. Safe to upgrade from 1.10.0.
+
+### Added — documentation
+
+- **`docs/architecture/SECURITY_AUDIT.md`** — Phase 1 design doc for
+  `empirica security-audit` (pip-audit + CISA KEV cross-reference,
+  scope split, rotation-priority rubric, regulatory mapping to EU AI
+  Act 15(4) / ISO 42001 8.4 / GDPR 32). Drops the `(TODO)` marker
+  that had been carried in `security_audit_commands.py` since the
+  audit shipped.
+- **`docs/reference/INTERNAL_CLASSES.md`** — six new sections covering
+  28 missing class names across TUI, API, Data, Errors, Domain/Config,
+  Vision, Workflow. `docs-assess` now reports 100.0% coverage
+  (1116/1116 features, full moon 🌕) — was 95.3%.
+
+### Changed — README + cross-AI mesh surfacing
+
+- **README adds Cross-AI Mesh section** — surfaces the 1.9.9 → 1.10.0
+  orchestration jump that was previously invisible to readers:
+  `cortex_propose` two-flavor mailbox (collab vs ECO-gated),
+  `empirica mailbox reply`, persistent listener service, canonical
+  loops (`cortex-mailbox-poll`, `message-cleanup`). New capability-
+  table row `Coordinates with peer AIs` for the at-a-glance view.
+- **README adds Practice Model + Entity Graph section** — frames the
+  1.10.0 entity CLI (`entity-list`, `entity-show`, `entity-walk`,
+  `entity-search`) with the practitioner/practice/agent vocabulary
+  that landed in `/empirica-constitution` Section XIII.
+- **README "What's New" replaced** with a single 1.10.0 highlights
+  block + `[Full Changelog →](CHANGELOG.md)` link, removing the
+  drift-prone pattern of inline-mirroring every release.
+  Net README diff: +60/-161 (−101 lines).
+- **Empirica Extension** added to the Ecosystem table as a Proprietary
+  row (matches the Cortex/Workspace treatment) — Chrome extension
+  surface for ECO Accept/Decline, inbox/outbox triage, publish review,
+  conversation extraction from Claude.ai / ChatGPT / Gemini / Grok.
+- **Changelog + Upgrade-to-1.10 rows** added to the Documentation table.
+
+### Fixed — pyright cleanup (0 warnings)
+
+- **`_workflow_check.py`** — Removed misleading load-and-discard of
+  bayesian `_corrections`. The docstring says biases are
+  informational, but the code computed `know + _corrections.get('know')`
+  expressions and threw the results away — pyright flagged these as
+  unused expressions. Cleanup also removes 2 unused tuple-unpack
+  variables (`_ready_know_threshold`, `_autopilot_mode`).
+- **`cockpit_app.py:1079`** — Added
+  `# pyright: ignore[reportUnusedExpression]` alongside the existing
+  `# noqa: B018` (pyright doesn't honor ruff's noqa for B018).
+- **`db_adapter.py:285,286,319`** — Added
+  `# pyright: ignore[reportMissingModuleSource]` on the optional
+  `psycopg2` imports. `pyright` now reports `0 errors, 0 warnings`
+  (was `0 errors, 6 warnings`).
+
+### Fixed — 1.10.0 rename regression in e2e tests
+
+- **`tests/integration/test_e2e_workflows.py`** — The `subtask → task`
+  CLI rename in 1.10.0 missed the goals workflow e2e test (still
+  called `goals-add-subtask` and `goals-complete-subtask`). Caught
+  during the pre-1.10.1 audit's full pytest pass. Full suite green:
+  2838 passed, 8 skipped.
+
+### Changed — system prompt drift fix
+
+- **`empirica-system-prompt-lean.md`** — The `--global` cross-project
+  search caveat was version-labelled `(v1.9.8)`; reframed as
+  version-agnostic since the caveat persists across versions until
+  the full cross-project semantic walk lands.
+
+### Verified clean state
+
+- pyright: 0 errors, 0 warnings (was 6 warnings)
+- ruff: 0 violations
+- vulture: 0 dead code (80% confidence)
+- docs-assess: 100.0% 🌕 (was 95.3% 🌕)
+- broken doc links: 0 across 178 files
+- compliance-report: 12/12 fully_compliant, score 1.0
+- doctor: 23/23 ok
+- pytest: 2838 passed, 8 skipped
+- release-ready: 5 pass / 1 warn (architecture coupling — pre-existing
+  large-file tech debt; tracked as a deferred structural goal)
+
 ## [1.10.0] — 2026-05-26
 
 See [`docs/guides/UPGRADE_TO_1.10.md`](docs/guides/UPGRADE_TO_1.10.md)
