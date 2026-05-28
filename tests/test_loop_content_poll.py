@@ -13,9 +13,13 @@ silently dropped — the AI must not act on ECO-undecided content.
 from __future__ import annotations
 
 import json
+import urllib.error
+
+import pytest
 
 from empirica.core.loop_scheduler.content_poll import (
     EMISSION_STATUSES,
+    ContentPollUnreachable,
     ProposalEvent,
     build_event,
     diff_proposals,
@@ -425,3 +429,93 @@ def test_inbox_and_outbox_state_share_proposals_map(tmp_path):
     props = state["proposals"]
     assert "in1" in props and props["in1"]["direction"] == "inbox"
     assert "out1" in props and props["out1"]["direction"] == "outbox"
+
+
+# ── Unreachable-Cortex handling (2026-05-28 listener-deaf fix) ───────────
+#
+# Regression guard for the 10-day silent freeze: when BOTH inbox+outbox
+# fetches fail, the old code swallowed the error at debug level and
+# returned [] — indistinguishable from "no new events" — so the listener
+# looked alive while delivering nothing. Now the failure is loud and the
+# listener opts into raise_on_unreachable to surface a fail-heartbeat.
+
+
+def _raising_fetch(url, key, ai_id):
+    raise urllib.error.URLError("simulated cortex down")
+
+
+def _ok_inbox(url, key, ai_id):
+    return [{"id": "in1", "status": "accepted"}]
+
+
+def test_both_fetches_fail_default_returns_empty_and_preserves_state(tmp_path):
+    """Back-compat: default (raise_on_unreachable=False) must NOT raise and
+    must NOT touch state — graceful degrade for the timer/systemd callers."""
+    state_path = tmp_path / "state.json"
+    # Seed prior state so we can assert it's preserved untouched.
+    save_state(state_path, {"last_poll_ts": "2026-05-18T00:00:00+00:00",
+                            "proposals": {"old1": {"status": "accepted",
+                                                   "direction": "inbox"}},
+                            "bootstrap_completed": True})
+    before = state_path.read_text()
+
+    events = poll_and_diff("empirica", "cortex-mailbox-poll",
+                           "https://cortex.test", "ctx_test",
+                           state_path=state_path,
+                           inbox_fetch_fn=_raising_fetch,
+                           outbox_fetch_fn=_raising_fetch)
+
+    assert events == [], "total fetch failure yields no events"
+    assert state_path.read_text() == before, (
+        "state must be preserved untouched on total fetch failure — "
+        "NOT overwritten with an empty proposals map"
+    )
+
+
+def test_both_fetches_fail_raise_on_unreachable_raises(tmp_path):
+    """Listener opt-in: raise_on_unreachable=True surfaces the failure as
+    ContentPollUnreachable so the listener can emit a fail-heartbeat
+    instead of silently no-op'ing (the deaf-for-10-days failure mode)."""
+    state_path = tmp_path / "state.json"
+    with pytest.raises(ContentPollUnreachable):
+        poll_and_diff("empirica", "cortex-mailbox-poll",
+                      "https://cortex.test", "ctx_test",
+                      state_path=state_path,
+                      inbox_fetch_fn=_raising_fetch,
+                      outbox_fetch_fn=_raising_fetch,
+                      raise_on_unreachable=True)
+
+
+def test_one_fetch_fails_other_succeeds_still_processes(tmp_path):
+    """Partial failure (one direction down) must NOT raise even with
+    raise_on_unreachable — the surviving direction still produces events
+    and state advances. Only a TOTAL failure is 'unreachable'."""
+    state_path = tmp_path / "state.json"
+    events = poll_and_diff("empirica", "cortex-mailbox-poll",
+                           "https://cortex.test", "ctx_test",
+                           state_path=state_path,
+                           inbox_fetch_fn=_ok_inbox,
+                           outbox_fetch_fn=_raising_fetch,
+                           raise_on_unreachable=True)
+    assert any(e.proposal_id == "in1" for e in events), (
+        "surviving inbox fetch must still emit its event"
+    )
+    # State advanced — proves the success path wrote despite outbox failing.
+    state = load_state(state_path)
+    assert "in1" in state["proposals"]
+
+
+def test_loud_warning_logged_on_total_failure(tmp_path, caplog):
+    """The failure must be visible at WARNING level (not debug) — that's
+    what would have surfaced the freeze in seconds instead of 10 days."""
+    import logging
+    state_path = tmp_path / "state.json"
+    with caplog.at_level(logging.WARNING, logger="empirica.core.loop_scheduler.content_poll"):
+        poll_and_diff("empirica", "cortex-mailbox-poll",
+                      "https://cortex.test", "ctx_test",
+                      state_path=state_path,
+                      inbox_fetch_fn=_raising_fetch,
+                      outbox_fetch_fn=_raising_fetch)
+    msgs = " ".join(r.message for r in caplog.records)
+    assert "BOTH inbox+outbox fetches failed" in msgs
+    assert "empirica" in msgs

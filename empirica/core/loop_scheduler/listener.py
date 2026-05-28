@@ -175,6 +175,51 @@ def _is_real_event(ntfy_message: dict[str, Any]) -> bool:
     return ntfy_message.get("event") == "message"
 
 
+def _listener_health_path(instance_id: str) -> Path:
+    return Path.home() / ".empirica" / f"listener_health_{instance_id}.json"
+
+
+def _emit_fail_heartbeat(instance_id: str, loop_name: str, *, reason: str) -> None:
+    """Surface a listener-poll failure so it shows up in `empirica status`
+    + cockpit instead of silently degrading (the 10-day-deaf failure mode).
+    Writes a `degraded` health marker. Best-effort — never raises."""
+    import datetime as _dt
+    logger.error(
+        "listener poll DEGRADED — instance=%s loop=%s reason=%s",
+        instance_id, loop_name, reason,
+    )
+    try:
+        _listener_health_path(instance_id).write_text(
+            json.dumps({
+                "instance_id": instance_id,
+                "loop": loop_name,
+                "status": "degraded",
+                "reason": reason,
+                "ts": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+            }, indent=2),
+            encoding="utf-8",
+        )
+    except OSError as e:
+        logger.debug(f"listener health marker write failed (non-fatal): {e}")
+
+
+def _clear_fail_heartbeat(instance_id: str, loop_name: str) -> None:
+    """Mark the listener healthy after a successful poll. Best-effort."""
+    import datetime as _dt
+    try:
+        _listener_health_path(instance_id).write_text(
+            json.dumps({
+                "instance_id": instance_id,
+                "loop": loop_name,
+                "status": "ok",
+                "ts": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+            }, indent=2),
+            encoding="utf-8",
+        )
+    except OSError as e:
+        logger.debug(f"listener health marker clear failed (non-fatal): {e}")
+
+
 def _emit_catchup_events(
     instance_id: str, loop_name: str, output_stream=sys.stdout,
 ) -> int:
@@ -189,7 +234,10 @@ def _emit_catchup_events(
     """
     try:
         from empirica.config.credentials_loader import get_credentials_loader
-        from empirica.core.loop_scheduler.content_poll import poll_and_diff
+        from empirica.core.loop_scheduler.content_poll import (
+            ContentPollUnreachable,
+            poll_and_diff,
+        )
     except Exception as e:
         logger.warning(f"catch-up disabled — content_poll import failed: {e}")
         return 0
@@ -205,7 +253,17 @@ def _emit_catchup_events(
         logger.debug("catch-up skipped — cortex creds missing")
         return 0
 
-    events = poll_and_diff(instance_id, loop_name, url, key)
+    # raise_on_unreachable=True: a total fetch failure must NOT be a silent
+    # no-op (that's the 10-day-deaf bug). Surface it as a fail-heartbeat so
+    # `empirica status` + cortex's listener aggregation see the degradation
+    # immediately, and re-raise so run_listener logs it loudly to stderr/journal.
+    try:
+        events = poll_and_diff(
+            instance_id, loop_name, url, key, raise_on_unreachable=True,
+        )
+    except ContentPollUnreachable:
+        _emit_fail_heartbeat(instance_id, loop_name, reason="cortex_unreachable")
+        raise
     # Tee target — cockpit TUI's `_read_recent_events_for_instance` tails
     # ~/.empirica/loop_fires.log to render the "N" events column + the
     # notifications detail pane. Post-T8 the listener streamed only to
@@ -227,6 +285,9 @@ def _emit_catchup_events(
         except OSError as e:
             logger.debug(f"loop_fires.log tee failed (non-fatal): {e}")
     output_stream.flush()
+    # Poll succeeded (fetch returned, state written) — mark healthy so a
+    # prior `degraded` marker clears and recovery is visible.
+    _clear_fail_heartbeat(instance_id, loop_name)
     return len(events)
 
 

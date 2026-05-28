@@ -63,6 +63,14 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+class ContentPollUnreachable(Exception):
+    """Raised by poll_and_diff(raise_on_unreachable=True) when BOTH the
+    inbox and outbox fetches fail — i.e. Cortex is unreachable and no wake
+    events can be emitted. The listener opts into this so it can surface a
+    fail-heartbeat instead of silently no-op'ing (the 10-day-deaf failure
+    mode). Callers that don't pass the flag keep the graceful empty return."""
+
+
 # Status filters per direction — what counts as a real wake signal.
 #
 # INBOX: proposals TARGETING this AI. ECO must have decided — that's the
@@ -297,6 +305,7 @@ def poll_and_diff(
     state_path: Path | None = None,
     inbox_fetch_fn=fetch_cortex_inbox,
     outbox_fetch_fn=fetch_cortex_outbox,
+    raise_on_unreachable: bool = False,
 ) -> list[ProposalEvent]:
     """Poll both inbox + outbox, diff against last-seen, return wake events.
 
@@ -334,17 +343,41 @@ def poll_and_diff(
     } if isinstance(last_seen, dict) else {}
 
     # Fetch both directions; degrade gracefully on either failure.
-    def _safe(fn):
+    # Failures are logged at WARNING (not debug) — a silently-degraded
+    # fetch is exactly how empirica's listener went deaf for 10 days
+    # (2026-05-18 → 05-28): the fetch failed every poll, _safe swallowed
+    # it at debug level, state never advanced, and nothing surfaced.
+    def _safe(fn, direction: str):
         try:
             return fn(cortex_url, api_key, instance_id)
         except (urllib.error.URLError, urllib.error.HTTPError, OSError, TimeoutError) as e:
-            logger.debug(f"content_poll fetch failed: {e}")
+            detail = ""
+            if isinstance(e, urllib.error.HTTPError):
+                try:
+                    detail = f" — HTTP {e.code}: {e.read().decode('utf-8')[:160]}"
+                except Exception:
+                    detail = f" — HTTP {e.code}"
+            logger.warning(
+                "content_poll %s fetch failed for instance=%s%s",
+                direction, instance_id, detail or f": {e}",
+            )
             return None
 
-    inbox = _safe(inbox_fetch_fn)
-    outbox = _safe(outbox_fetch_fn)
+    inbox = _safe(inbox_fetch_fn, "inbox")
+    outbox = _safe(outbox_fetch_fn, "outbox")
     if inbox is None and outbox is None:
         # Both failed → entire Cortex unreachable. Don't touch state.
+        # Loud by design: a recurring all-fail means the listener is deaf.
+        logger.warning(
+            "content_poll: BOTH inbox+outbox fetches failed for instance=%s — "
+            "Cortex unreachable, state NOT updated (no wake events will emit "
+            "until this recovers)",
+            instance_id,
+        )
+        if raise_on_unreachable:
+            raise ContentPollUnreachable(
+                f"both inbox+outbox fetches failed for instance={instance_id}"
+            )
         return []
     inbox = inbox or []
     outbox = outbox or []
