@@ -313,7 +313,21 @@ def test_resolve_cortex_config_prefers_args_over_env(monkeypatch):
     assert key == "flag-key"
 
 
-def test_resolve_cortex_config_strips_trailing_slash(monkeypatch):
+def test_resolve_cortex_config_strips_trailing_slash(monkeypatch, tmp_path):
+    # Isolate HOME so the file-first loader (post-2026-05-28 flip) doesn't let
+    # the developer's real ~/.empirica/credentials.yaml win over the env under
+    # test. With no file, env fills the gap → trailing-slash stripping is what's
+    # exercised here. (CI passed without this because CI has no creds file.)
+    fake_home = tmp_path / "fake_home"
+    fake_home.mkdir()
+    monkeypatch.setenv("HOME", str(fake_home))
+    monkeypatch.delenv("EMPIRICA_CREDENTIALS_PATH", raising=False)
+    from empirica.config import credentials_loader as cl_mod
+    from empirica.config.credentials_loader import CredentialsLoader
+    CredentialsLoader._instance = None
+    CredentialsLoader._credentials_cache = None
+    cl_mod._loader = None
+
     monkeypatch.setenv("CORTEX_REMOTE_URL", "https://cortex.example.com/")
     monkeypatch.setenv("CORTEX_API_KEY", "key")
     args = SimpleNamespace(cortex_url=None, api_key=None)
