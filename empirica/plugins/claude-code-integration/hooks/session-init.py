@@ -192,13 +192,36 @@ def _write_cortex_cache(sync_result: dict, sync_project_id: str) -> dict:
     }
 
 
+def _resolve_cortex_creds() -> tuple[str, str]:
+    """Resolve Cortex (api_key, url) via credentials_loader — the same path
+    the listener uses — so credentials.yaml is the single source of truth.
+
+    Was raw os.environ.get before; the 2026-05-28 listener-deaf incident
+    showed why env-direct reads are fragile: a revoked CORTEX_API_KEY in
+    ~/.bashrc got imported into systemd --user and 401'd every poll for 10
+    days. The .bashrc exports were removed in the same change, so with no env
+    override get_cortex_config() falls through to the file. (Note:
+    get_cortex_config remains env-first by design for fleet escape-hatch; a
+    separate goal tracks hardening that precedence / warning on env-vs-file
+    mismatch.) Falls back to raw env only if the loader import fails."""
+    try:
+        sys.path.insert(0, str(Path.home() / 'empirical-ai' / 'empirica'))
+        from empirica.config.credentials_loader import get_credentials_loader
+        cfg = get_credentials_loader().get_cortex_config() or {}
+        key, url = cfg.get('api_key') or '', cfg.get('url') or ''
+        if key and url:
+            return key, url
+    except Exception:
+        pass
+    return os.environ.get('CORTEX_API_KEY', ''), os.environ.get('CORTEX_REMOTE_URL', '')
+
+
 def _cortex_remote_sync(result: dict) -> None:
     """Pull cross-domain context from Cortex at session start.
 
     Graceful degradation — if Cortex unavailable, session continues normally.
     """
-    cortex_api_key = os.environ.get('CORTEX_API_KEY', '')
-    cortex_url = os.environ.get('CORTEX_REMOTE_URL', '')
+    cortex_api_key, cortex_url = _resolve_cortex_creds()
     if not (cortex_api_key and cortex_url):
         return
 
