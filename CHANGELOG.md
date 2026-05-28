@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Cortex-credential hardening, epistemic-decay correctness (joint design with
+the cortex AI on the artifact decay/supersession thread), and a session-routing
+fix.
+
+### Added — epistemic decay (P1/a, ranking-only)
+
+- **Read-time recency ranking of findings in PREFLIGHT retrieval**
+  (`pattern_retrieval.retrieve_task_patterns`). Findings were ranked by raw
+  cosine similarity, so a finding about code removed months ago ranked
+  identically to one written today. Now `effective_score = cosine × time-decay`,
+  over-fetching candidates so a stale-but-similar finding is dropped for a
+  fresher relevant one. No stored confidence mutation. Reuses the canonical
+  `FindingsDeprecationEngine.calculate_time_decay`, which existed but was wired
+  only into the breadcrumbs path, never the Qdrant PREFLIGHT path.
+- **Impact-modulated decay** — high-impact facts resist ageing instead of
+  fading like tactical noise: `tau = 30 * (1 + 2*impact)` (impact 0→30d,
+  0.5→60d, 1.0→90d e-folding). `calculate_time_decay` gains an optional `impact`
+  param (defaults to flat for backwards-compat; `calculate_relevance_score`
+  keeps the flat call to avoid double-counting impact). Cortex mirrors the same
+  formula serving-side in `orchestrator.py`.
+
+### Fixed — Cortex credentials (closes the listener-deaf incident class)
+
+- **`get_cortex_config` flipped to file-first** — `credentials.yaml` is now the
+  canonical store; env vars only fill fields the file lacks, and a set env value
+  that disagrees with the file is ignored with a logged warning. A stale
+  `CORTEX_API_KEY` exported into systemd-user had silently shadowed the valid
+  file key for 10 days. Hooks (`session-init`, `session-end-postflight`) now
+  resolve cortex creds via `credentials_loader` instead of raw `os.environ`.
+- **Listener: silent poll failures are now loud + surfaceable** — `content_poll`
+  raises on total-fetch failure when asked, logs HTTP codes at WARNING, and
+  writes a `listener_health_<instance>.json` heartbeat. This is what made the
+  10-day freeze diagnosable.
+
+### Fixed — epistemic-decay autoimmune bug
+
+- **`finding-log` no longer auto-decays facts/lessons on mere relatedness.**
+  Both immune-system paths fired on *relatedness*, not contradiction —
+  `decay_eidetic_by_finding` on cosine ≥ 0.85 and `decay_related_lessons` on ≥2
+  shared keywords — so a *confirmatory* finding decayed the very fact/lesson it
+  confirmed (the inverse of confirm→raise). Disabled at the call sites; the
+  machinery stays intact for a predicate-gated re-enable (decay-on-actual-
+  contradiction is the follow-up).
+
+### Fixed — session routing
+
+- **Fresh-startup CWD overrides a stale pane binding** (KNOWN_ISSUES 11.26).
+  When a new conversation reused a terminal/pane, session-init could route into
+  the previous occupant's project (the empirica-autonomy → empirica-extension
+  misroute). On `startup`, an explicit CWD that is itself a valid Empirica
+  project now wins — unless the resolved project has an open transaction, which
+  remains authoritative. Tests now exercise the shipped hook code directly
+  rather than an emulation (the drift that let the original regression slip).
+
 ## [1.10.2] — 2026-05-27
 
 ECO_COLLAB_RESCOPE Phase 4 — `empirica listener on` now discovers the
