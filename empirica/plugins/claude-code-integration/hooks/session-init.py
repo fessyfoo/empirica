@@ -753,6 +753,48 @@ def _try_cwd_adoption() -> tuple:
     return None, False
 
 
+def _prefer_cwd_on_startup(project_root, cwd_root, suffix):
+    """STARTUP EXCEPTION (ARCHITECTURE.md; KNOWN_ISSUES 11.26): on a fresh
+    'startup' event the user's CWD is explicit intent and must override a
+    stale instance-file binding left by a *different* conversation that
+    reused this terminal/pane. Without this, pane reuse silently routes the
+    new session into the previous occupant's project (the empirica-autonomy
+    -> empirica-extension misroute, 2026-05-28).
+
+    Guard: an OPEN transaction on the resolved project (this instance's
+    suffix) is authoritative — a continuing loop or compact-rotation — so CWD
+    never wins over it. Only override when CWD is itself a valid Empirica
+    project, so launching from a non-project dir keeps the last project.
+
+    Pure decision function (only side effect: reading the resolved project's
+    transaction file). Returns the project_root to use. Tested directly by
+    tests/test_open_transaction_guard.py.
+    """
+    try:
+        if Path(cwd_root).resolve() == Path(project_root).resolve():
+            return project_root  # already aligned — nothing to override
+    except Exception:
+        return project_root
+
+    tx_file = Path(project_root) / '.empirica' / f'active_transaction{suffix}.json'
+    try:
+        if tx_file.exists():
+            with open(tx_file) as f:
+                if json.load(f).get('status') == 'open':
+                    return project_root  # open tx authoritative (11.26)
+    except Exception:
+        pass
+
+    if has_valid_db(Path(cwd_root)):
+        print(
+            f"session-init: startup CWD intent overrides stale instance "
+            f"binding ({Path(project_root).name} -> {Path(cwd_root).name})",
+            file=sys.stderr,
+        )
+        return Path(cwd_root)
+    return project_root
+
+
 def _run_stale_cleanup(claude_session_id: str) -> int:
     """Opportunistic cleanup of stale instance_projects for dead tmux panes."""
     try:
@@ -1127,6 +1169,14 @@ def main():
 
     if not cwd_adopted:
         project_root = find_project_root(claude_session_id, allow_cwd_fallback=True, allow_git_root=True)
+        # STARTUP EXCEPTION (ARCHITECTURE.md; KNOWN_ISSUES 11.26): a fresh
+        # startup in a directory must override a stale instance binding left
+        # by a different conversation that reused this pane. Open transactions
+        # on the resolved project still win (guard lives in the helper).
+        if event_type == 'startup':
+            from project_resolver import _get_instance_suffix
+            project_root = _prefer_cwd_on_startup(
+                project_root, _find_git_root() or Path.cwd(), _get_instance_suffix())
 
     os.chdir(project_root)
     ai_id = os.getenv('EMPIRICA_AI_ID', 'claude-code')

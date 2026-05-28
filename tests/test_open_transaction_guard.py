@@ -15,6 +15,7 @@ These tests reproduce the original bug conditions and assert the guard holds.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import sqlite3
 import sys
@@ -207,65 +208,73 @@ class TestPathResolverGuard:
 # ---------------------------------------------------------------------------
 
 
-class TestSessionInitStartupOverrideGuard:
-    """The STARTUP OVERRIDE in session-init.py should be blocked by an open transaction.
+def _load_session_init():
+    """Load the real session-init.py hook module by path (hyphenated filename
+    is not importable normally). Exercises the shipped _prefer_cwd_on_startup
+    so the test can't drift from production logic (the 2026-05-28 regression
+    slipped through precisely because this suite used to emulate the block)."""
+    hook_path = (
+        Path(__file__).parent.parent
+        / "empirica" / "plugins" / "claude-code-integration" / "hooks" / "session-init.py"
+    )
+    spec = importlib.util.spec_from_file_location("session_init_hook", hook_path)
+    assert spec is not None and spec.loader is not None, f"cannot load {hook_path}"
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
-    We test this by importing the project_resolver lib functions directly and
-    simulating the override block's logic. Full session-init.py end-to-end is
-    too heavy for unit tests; the override block is small enough to verify in
-    isolation.
+
+class TestSessionInitStartupOverrideGuard:
+    """The STARTUP EXCEPTION in session-init.py must override a stale instance
+    binding on 'startup', UNLESS the resolved project has an open transaction.
+
+    These tests call the REAL `_prefer_cwd_on_startup` from session-init.py
+    (loaded by path), not an emulation — so a regression in the shipped block
+    fails the suite. suffix="" matches the no-suffix transaction files the
+    fixtures create.
     """
 
-    def _emulate_startup_override(self, project_root: Path, has_open_tx_in_project: bool, cwd: Path):
-        """Mirror the override block's logic from session-init.py."""
-        suffix = ""  # tests use the no-suffix transaction file
-        tx_file = project_root / ".empirica" / f"active_transaction{suffix}.json"
-        has_open_tx = False
-        if tx_file.exists():
-            with open(tx_file) as f:
-                has_open_tx = json.load(f).get("status") == "open"
-
-        if has_open_tx:
-            # Guard: don't override
-            return project_root
-
-        # Override path: prefer CWD if it has a valid DB
-        cwd_db = cwd / ".empirica" / "sessions" / "sessions.db"
-        if cwd_db.exists() and cwd.resolve() != project_root.resolve():
-            return cwd
-        return project_root
-
     def test_open_transaction_blocks_override(self, two_projects):
-        """Reproduce: project_root=active (with open tx), CWD=harness → guard wins."""
+        """project_root=active (with open tx), CWD=harness → guard wins (stay on active)."""
         active, harness = two_projects
-        result = self._emulate_startup_override(active, has_open_tx_in_project=True, cwd=harness)
-        assert result == active
+        mod = _load_session_init()
+        result = mod._prefer_cwd_on_startup(active, harness, "")
+        assert Path(result).resolve() == active.resolve()
 
     def test_no_transaction_lets_override_fire(self, tmp_path):
-        """Without an open tx, CWD-based override still works."""
+        """Without an open tx, fresh-startup CWD intent overrides the stale binding."""
         active = _create_empirica_project(tmp_path, "active_clean", with_open_tx=False)
         harness = _create_empirica_project(tmp_path, "harness_clean", with_open_tx=False)
-        result = self._emulate_startup_override(active, has_open_tx_in_project=False, cwd=harness)
-        assert result == harness
+        mod = _load_session_init()
+        result = mod._prefer_cwd_on_startup(active, harness, "")
+        assert Path(result).resolve() == harness.resolve()
 
     def test_open_transaction_file_with_closed_status_does_not_block(self, tmp_path):
-        """A status=closed transaction file should NOT trigger the guard."""
-        project = tmp_path / "proj_closed"
-        project.mkdir()
-        (project / ".empirica").mkdir()
-        (project / ".empirica" / "sessions").mkdir()
-        # closed transaction file
+        """A status=closed transaction file must NOT trigger the guard."""
+        project = _create_empirica_project(tmp_path, "proj_closed", with_open_tx=True, suffix="")
+        # downgrade the transaction to closed
         with open(project / ".empirica" / "active_transaction.json", "w") as f:
             json.dump({"status": "closed", "transaction_id": "old"}, f)
-        # valid sessions DB so the cwd path passes its check
-        sqlite3.connect(str(project / ".empirica" / "sessions" / "sessions.db")).close()
+        cwd = _create_empirica_project(tmp_path, "cwd_proj", with_open_tx=False)
 
-        cwd = tmp_path / "cwd_proj"
-        cwd.mkdir()
-        (cwd / ".empirica").mkdir()
-        (cwd / ".empirica" / "sessions").mkdir()
-        sqlite3.connect(str(cwd / ".empirica" / "sessions" / "sessions.db")).close()
-
-        result = self._emulate_startup_override(project, has_open_tx_in_project=False, cwd=cwd)
+        mod = _load_session_init()
+        result = mod._prefer_cwd_on_startup(project, cwd, "")
         # closed status → guard does not block → override fires
-        assert result == cwd
+        assert Path(result).resolve() == cwd.resolve()
+
+    def test_cwd_not_a_project_keeps_resolved(self, tmp_path):
+        """If CWD is not a valid Empirica project, keep the resolved binding
+        (launching from a random dir shouldn't lose your last project)."""
+        active = _create_empirica_project(tmp_path, "active_keep", with_open_tx=False)
+        not_a_project = tmp_path / "random_dir"
+        not_a_project.mkdir()
+        mod = _load_session_init()
+        result = mod._prefer_cwd_on_startup(active, not_a_project, "")
+        assert Path(result).resolve() == active.resolve()
+
+    def test_cwd_equals_resolved_is_noop(self, tmp_path):
+        """When CWD already equals the resolved project, return it unchanged."""
+        active = _create_empirica_project(tmp_path, "active_same", with_open_tx=False)
+        mod = _load_session_init()
+        result = mod._prefer_cwd_on_startup(active, active, "")
+        assert Path(result).resolve() == active.resolve()
