@@ -81,6 +81,7 @@ NOETIC_MCP_CORTEX = {
     'mcp__cortex__cortex_unknown_log',         # Artifact logging
     'mcp__cortex__cortex_goal_create',         # Goal creation
     'mcp__cortex__cortex_log_artifacts',       # Batch artifact logging
+    'mcp__cortex__cortex_collab',              # Phase B: noetic collab (forces collab_brief+REFLEX)
     'mcp__cortex__research',                   # Web research
     'mcp__cortex__scrape_url',                 # URL scraping
     'mcp__cortex__ingest_file',               # Knowledge ingestion

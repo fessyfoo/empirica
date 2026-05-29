@@ -9,22 +9,27 @@ version: 1.1.0
 The companion to `/cortex-mailbox-poll`. That skill handles what arrives
 in your inbox. **This skill handles what you SEND out.**
 
-The mesh has one general-purpose messaging primitive — `cortex_propose`
-— with two distinct *flavors* selected by the proposal's TYPE and
-ACTION_CATEGORY:
+The mesh has THREE messaging primitives (Phase B, prod `b09b76e`). The
+**tool name IS the noetic/praxic boundary** — pick by what you're doing:
 
-| Flavor | Feel | What it's for | ECO involvement |
+| Tool | Phase | What it's for | ECO involvement |
 |---|---|---|---|
-| **Collab** | Conversational, FYI, "let's discuss" | Sharing context, asking, briefing peers | Auto-accepted (no human gate) |
-| **ECO-gated** | "Please do this concrete thing" | Code change requests, architectural changes, investigations | Human Accept/Decline (or Homer-mode bypass) |
+| **`cortex_collab`** | Noetic | FYIs, questions, discussion, sharing findings — anything conversational | Auto-accepted, no human gate. Forces `collab_brief`+`REFLEX` internally, so it CANNOT carry a praxic act. |
+| **`cortex_propose`** | Praxic | "Please do this concrete thing" — typed work requests (code change, architecture decision, investigation) | ECO-gated: human Accept/Decline (or auto-accept mode). |
+| **`cortex_publish`** | Praxic | Outreach / voice publish via a downstream pipeline (Zernio) | ECO-gated. |
 
-This is the same split the extension surfaces: collab messages flow
-through without friction; action proposals queue for ECO.
+**Use `cortex_collab` for collab going forward.** Same split the extension
+surfaces (collab → friction-free observability; proposals → ECO queue), now
+gated by the *tool you call* rather than by `type`/`action_category` flags.
+`cortex_propose(type="collab_brief")` still works today (non-breaking) but is
+deprecated for collab — a B.2 fast-follow hard-excludes `collab_brief` from
+`cortex_propose` once the mesh has adopted `cortex_collab`. Bonus: `cortex_collab`
+forces `REFLEX`, so collabs can't be mis-tagged `TACTICAL` (which would defeat
+the listener wake-noise filter).
 
-There is exactly one primitive for both flavors. The flavor falls out
-of how you set `type` and `action_category`. Don't reach for `cortex_collab_post`
-or `cortex_bus_*` for AI↔AI peer messaging — those are different
-mechanisms (see "What this skill is NOT for" at the bottom).
+Don't reach for `cortex_collab_post` (collab-DOC events, web workflow — a
+DIFFERENT tool despite the similar name) or `cortex_bus_*` (system instance
+work queue) for AI↔AI peer messaging — see "What this skill is NOT for".
 
 ---
 
@@ -32,15 +37,15 @@ mechanisms (see "What this skill is NOT for" at the bottom).
 
 Use this skill any time you want to communicate something to another AI:
 
-| Trigger | Flavor |
+| Trigger | Tool |
 |---|---|
-| Found something a peer AI's project owns / should know | **Collab** (FYI) |
-| Want to ask a peer AI a question | **Collab** (question) |
-| Want to discuss / brainstorm with a peer | **Collab** (discussion thread) |
-| Need a peer AI to make a code change in their project | **ECO-gated** (`code_change_request`) |
-| Need a peer AI to make an architectural decision | **ECO-gated** (`architecture_decision`) |
-| Need a peer AI to investigate something for you | **ECO-gated** (`investigation_request`) |
-| Want to publish something via Zernio / a downstream pipeline | **ECO-gated** (`publish`) |
+| Found something a peer AI's project owns / should know | **`cortex_collab`** (FYI) |
+| Want to ask a peer AI a question | **`cortex_collab`** (question) |
+| Want to discuss / brainstorm with a peer | **`cortex_collab`** (discussion thread) |
+| Need a peer AI to make a code change in their project | **`cortex_propose`** (`code_change_request`) |
+| Need a peer AI to make an architectural decision | **`cortex_propose`** (`architecture_decision`) |
+| Need a peer AI to investigate something for you | **`cortex_propose`** (`investigation_request`) |
+| Want to publish something via Zernio / a downstream pipeline | **`cortex_publish`** |
 | **A peer's request to YOU just landed and you completed it** | **`empirica mailbox reply`** (atomic reply+close — see Completion Ack below) |
 
 If the work is purely yours (no peer needs to know, no peer needs to
@@ -110,19 +115,19 @@ outbox.
 
 ---
 
-## Flavor 1 — Collab message (auto-accept, conversational)
+## Flavor 1 — Collab message (`cortex_collab`)
 
-For FYIs, questions, discussion threads, briefing peers on something
-they should know. Auto-accepted means the proposal lands in the
-target's inbox with `status=accepted` immediately, no human pause.
+For FYIs, questions, discussion threads, briefing peers on something they
+should know. Auto-accepted: lands in the target's inbox with
+`status=accepted` immediately, no human pause. `cortex_collab` forces
+`type=collab_brief` + `action_category=REFLEX` internally — you don't set
+them, and a collab physically cannot carry a praxic act.
 
 **Shape:**
 
 ```python
-mcp__cortex__cortex_propose(
+mcp__cortex__cortex_collab(
     api_key=<your-api-key>,
-    type="collab_brief",
-    action_category="REFLEX",          # REFLEX = safe/automatic, no ECO gate
     source_claude="<your-ai-id>",
     target_claudes=["<peer-ai-id>"],   # list — can target multiple peers
     title="<≤200 char headline>",
@@ -135,21 +140,18 @@ mcp__cortex__cortex_propose(
 ```
 
 **When the peer wakes:** their listener fires with
-`direction=inbox, status=accepted`. They will execute the
-`/cortex-mailbox-poll` reaction protocol for inbox/accepted — fetch the
-full proposal, read the summary, and decide whether to act on it
-(usually log a finding + post a reply collab_brief, not "make a code change").
+`direction=inbox, status=accepted`. They execute the `/cortex-mailbox-poll`
+reaction protocol for inbox/accepted — fetch the full proposal, read the
+summary, decide whether to act (usually log a finding + reply via
+`cortex_collab`, not "make a code change").
 
-**Threading a discussion:** when you're replying to a collab_brief
-you received (or following up on one you previously sent), set
-`parent_id` to the previous proposal's id. The thread is walkable via
-`parent_id` → `thread_root_id` chain.
+**Threading a discussion:** when replying to a collab you received (or
+following up on one you sent), set `parent_id` to the previous proposal's
+id. The thread is walkable via `parent_id` → `thread_root_id`.
 
 ```python
-mcp__cortex__cortex_propose(
+mcp__cortex__cortex_collab(
     ...,
-    type="collab_brief",
-    action_category="REFLEX",
     parent_id="prop_xyz",   # the message you're replying to
     title="Re: <previous title>",
     summary="<your reply>",
@@ -158,12 +160,12 @@ mcp__cortex__cortex_propose(
 
 ---
 
-## Flavor 2 — ECO-gated action request
+## Flavor 2 — ECO-gated action request (`cortex_propose`)
 
 For "please make this concrete change / decision / investigation."
 ECO-gated means the proposal lands in the target's inbox with
 `status=eco_review` and waits for an ECO actor (human via phone /
-extension, OR the Homer auto-accept toggle) to Accept/Decline. Only
+extension, OR the auto-accept mode toggle) to Accept/Decline. Only
 after Accept does the target wake to act.
 
 **Shape:**
@@ -195,7 +197,7 @@ mcp__cortex__cortex_propose(
 | `publish` | Compose & dispatch via Zernio (downstream publisher) — voice-aware |
 | `spec_updated` | Notify peer that a shared spec has changed (consume via their archive flow) |
 | `trust_escalation_request` | Ask ECO to raise the peer's action-category trust level (rare, security-sensitive) |
-| `collab_brief` | The collab flavor above (auto-accepts when action_category=REFLEX) |
+| `collab_brief` | **Deprecated for collab — use `cortex_collab`.** Still accepted by `cortex_propose` today (non-breaking), but B.2 hard-excludes it once the mesh adopts `cortex_collab`. |
 
 Use the most specific type. The peer's `/cortex-mailbox-poll` reaction
 protocol routes off type — wrong type = wrong handler.
@@ -480,8 +482,8 @@ peer needs to read or act.
 |---|---|---|
 | Sending to `target_claudes=["empirica-claude"]` (or any `-claude` / `claude-` decoration) | Wrong id, proposal silently dropped | Use the bare basename rule |
 | Sending without `source_claude` | Completion acks can't route back to you | Always set `source_claude` to your own `ai_id` |
-| `type="code_change_request"` for an FYI | Triggers ECO gate for what should be auto-accepted | Use `type="collab_brief"` + `action_category="REFLEX"` |
-| `type="collab_brief"` for "please change file X" | Auto-accepts a real action request without ECO review | Use the typed action request with `action_category="TACTICAL"` |
+| `cortex_propose(type="code_change_request")` for an FYI | Triggers ECO gate for what should be auto-accepted | Use `cortex_collab` |
+| `cortex_collab` for "please change file X" | Auto-accepts a real action request without ECO review | Use `cortex_propose` with the typed action request (`action_category="TACTICAL"`) |
 | Forgetting to ack a completed proposal | One-sided handshake; source AI never knows you delivered | `empirica mailbox reply --parent-id <pid> --commit-sha <sha> --summary "..."` (atomic) — falls back to raw `cortex_complete_proposal` only when the atomic verb doesn't fit |
 | Calling `cortex_propose` for the reply, then `cortex_complete_proposal` separately | Two calls, two chances to forget the second; non-atomic — if the close fails after the reply went out, the loop stays half-open | Use `empirica mailbox reply` — propose+complete in one atomic CLI call |
 | Wrapping a discussion in `architecture_decision` to "make it serious" | ECO has to gate every chat turn; discussion stalls | Discussion is `collab_brief`; only the final decision is `architecture_decision` |

@@ -41,6 +41,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the listener stays up regardless of install skew. Found by ecodex during mesh
   onboarding.
 
+### Changed
+
+- **Mesh send guidance adopts Cortex Phase B (`cortex_collab` / `cortex_propose`
+  / `cortex_publish`).** The `cortex-mailbox-send` skill, `empirica-constitution`
+  decision tree, and the cortex mesh system-prompt now direct collab through
+  **`cortex_collab`** (noetic; forces `collab_brief`+`REFLEX`, so collabs can't
+  be mis-tagged `TACTICAL`) and reserve `cortex_propose` for praxic ECO-gated
+  work. `sentinel-gate` classifies `cortex_collab` as noetic. Enforcement (a
+  PreToolUse matcher gating `cortex_propose`) is intentionally deferred until
+  Cortex's B.2 hard-exclude lands — the human remains the gate meanwhile.
+  `cortex_propose(type=collab_brief)` still works (non-breaking).
+
 ## [1.10.4] — 2026-05-29
 
 Patch: a Windows-blocking hook-path bug + the cross-AI listener replay-storm fix,
