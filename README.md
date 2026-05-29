@@ -316,14 +316,12 @@ All read-only, all support `--output json`. Backs cross-project orchestration, C
 
 ---
 
-## What's New in 1.10.3
+## What's New in 1.10.4
 
-- **Read-time recency ranking of findings in PREFLIGHT retrieval**
-- **Impact-modulated decay** — high-impact facts resist ageing instead of
-- **`get_cortex_config` flipped to file-first** — `credentials.yaml` is now the
-- **Listener: silent poll failures are now loud + surfaceable** — `content_poll`
-- **`finding-log` no longer auto-decays facts/lessons on mere relatedness.**
-- **Fresh-startup CWD overrides a stale pane binding** (KNOWN_ISSUES 11.26).
+- **Windows: every hook failed on every event — fixed (#111)** — `setup-claude-code` now writes forward-slash hook paths (Git Bash was eating the backslashes)
+- **Listener replay storms fixed** — `loop_fires.log` rotates by rename, so the wake-Monitors stop re-firing duplicate events across the mesh
+- **`gh run`/`gh workflow` reads un-gated** in the Sentinel — CI-status checks no longer need a CHECK gate
+- **Decay recency extended to lessons + eidetic** — the read-time recency rerank now covers lessons + eidetic facts (longevity modulator), not just findings
 ---
 
 ## Privacy & Data
