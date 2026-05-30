@@ -925,3 +925,62 @@ class BreadcrumbRepository(BaseRepository):
 
         self.commit()
         return decision_id
+
+    def log_bead(
+        self,
+        project_id: str,
+        session_id: str,
+        coordination_state: str = 'open',
+        updated_at: float | None = None,
+        last_transition_actor: str | None = None,
+        beads_issue_id: str | None = None,
+        scope: str | None = None,
+        goal_id: str | None = None,
+        transaction_id: str | None = None,
+        entity_type: str | None = None,
+        entity_id: str | None = None,
+        visibility: str | None = None,
+        epistemic_source: str | None = None,
+        description: str | None = None,
+    ) -> str:
+        """Log a bead (coordination-record) to the beads table.
+
+        Beads are the FIRST mutable node type empirica carries — couriers
+        of coordination-state + references, never canonical homes of the
+        artifact they track. State machine: open ↔ in_progress ↔ blocked,
+        any → closed. `updated_at` defaults to time.time(); callers should
+        touch it on every state transition along with `last_transition_actor`.
+        See cortex BEAD_COORDINATION_RECORD.md §6 lifecycle.
+        """
+        bead_id = str(uuid.uuid4())
+
+        if not entity_type:
+            entity_type = 'project'
+        if not entity_id and entity_type == 'project':
+            entity_id = project_id
+
+        now = time.time()
+        if updated_at is None:
+            updated_at = now
+
+        visibility_tier = normalize_visibility(visibility)
+        source_tag = normalize_epistemic_source(epistemic_source)
+
+        self._execute("""
+            INSERT INTO beads (
+                id, coordination_state, updated_at, last_transition_actor,
+                beads_issue_id, scope, description,
+                entity_type, entity_id, project_id, session_id,
+                transaction_id, goal_id, created_timestamp,
+                visibility, epistemic_source
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            bead_id, coordination_state, updated_at, last_transition_actor,
+            beads_issue_id, scope, description,
+            entity_type, entity_id, project_id, session_id,
+            transaction_id, goal_id, now,
+            visibility_tier, source_tag,
+        ))
+
+        self.commit()
+        return bead_id

@@ -350,3 +350,100 @@ class TestCortexExtractTransactionGraph:
         graph = wp._cortex_extract_transaction_graph(SID)
         assert len(graph["nodes"]) == 1
         assert [e for e in graph["edges"] if e["relation"] == "addresses_goal"] == []
+
+
+# ─── beads v0 — log_bead + _create_node + graph extraction ────────────────
+# Schema language locked in graph_commands.py (b91a2b60b); 3-way HYBRID
+# converged 2026-05-30; cortex contract in BEAD_COORDINATION_RECORD.md §6+§6.5.
+
+
+class TestBeadsV0:
+    def _build_db(self, tmp_path):
+        from empirica.data.session_database import SessionDatabase
+        return SessionDatabase(db_path=str(tmp_path / "beads.db"))
+
+    def test_log_bead_basic_insert_and_defaults(self, tmp_path):
+        db = self._build_db(tmp_path)
+        bid = db.log_bead("proj", "sess",
+                          coordination_state="open",
+                          beads_issue_id="bd-a1b2",
+                          scope="local",
+                          description="track triage of remote-ops gap")
+        assert bid  # uuid returned
+        rows = db.breadcrumbs.conn.execute(
+            "SELECT coordination_state, updated_at, beads_issue_id, scope, "
+            "description, entity_type, entity_id FROM beads WHERE id = ?",
+            (bid,)).fetchall()
+        assert len(rows) == 1
+        r = rows[0]
+        assert r["coordination_state"] == "open"
+        assert r["beads_issue_id"] == "bd-a1b2"
+        assert r["scope"] == "local"
+        assert r["description"] == "track triage of remote-ops gap"
+        # entity_agnostic default
+        assert r["entity_type"] == "project"
+        assert r["entity_id"] == "proj"
+        # updated_at defaulted to ~now (not null)
+        assert r["updated_at"] is not None
+
+    def test_log_bead_rejects_invalid_coordination_state(self, tmp_path):
+        """CHECK constraint pins the four-state machine — accidental typos
+        ('inprogress' / 'doing' / etc.) fail at the DB level, not silently."""
+        import sqlite3
+        db = self._build_db(tmp_path)
+        with pytest.raises(sqlite3.IntegrityError):
+            db.log_bead("proj", "sess", coordination_state="doing")
+
+    def test_create_node_bead_path_persists(self, tmp_path):
+        """log-artifacts → _create_node('bead') now creates an actual row,
+        not the prior schema-locked stub."""
+        from empirica.cli.command_handlers.graph_commands import _create_node
+        db = self._build_db(tmp_path)
+        node = {
+            "ref": "b1", "type": "bead",
+            "data": {
+                "coordination_state": "in_progress",
+                "beads_issue_id": "bd-xyz",
+                "scope": "org",
+                "description": "graduation primitive bridge",
+            },
+        }
+        ctx = {"session_id": "sess", "project_id": "proj",
+               "transaction_id": "tx-1", "goal_id": "g1"}
+        bid = _create_node(db, node, ctx)
+        assert bid  # not None — the v0 stub used to return None
+        # tx + goal correctly threaded from context (since not in data)
+        row = db.breadcrumbs.conn.execute(
+            "SELECT coordination_state, transaction_id, goal_id "
+            "FROM beads WHERE id = ?", (bid,)).fetchone()
+        assert row["coordination_state"] == "in_progress"
+        assert row["transaction_id"] == "tx-1"
+        assert row["goal_id"] == "g1"
+
+    def test_graph_extracts_beads_with_goal_and_artifact_edges(self, tmp_path, monkeypatch):
+        """A bead logged under a transaction rides /v1/sync graph payload
+        alongside the existing 6 artifact types."""
+        from empirica.cli.command_handlers import _workflow_postflight as wp
+        db = self._build_db(tmp_path)
+        PID, SID, TX, GID = "proj", "sess", "tx-bead", "goal-bead"
+        bid = db.log_bead(PID, SID,
+                          coordination_state="open",
+                          beads_issue_id="bd-7",
+                          goal_id=GID, transaction_id=TX,
+                          description="ride the sync")
+        monkeypatch.setattr(wp.R, "transaction_read",
+                            lambda *a, **k: {"transaction_id": TX})
+        monkeypatch.setattr(wp, "_get_db_for_session", lambda _sid: db)
+        graph = wp._cortex_extract_transaction_graph(SID)
+
+        bead_nodes = [n for n in graph["nodes"] if n["type"] == "bead"]
+        assert len(bead_nodes) == 1
+        bn = bead_nodes[0]
+        assert bn["ref"] == bid
+        assert bn["data"]["coordination_state"] == "open"
+        assert bn["data"]["beads_issue_id"] == "bd-7"
+        assert bn["data"]["description"] == "ride the sync"
+        # per-artifact goal edge still emits for bead
+        assert any(e["from"] == bid and e["to"] == GID
+                   and e["relation"] == "addresses_goal"
+                   for e in graph["edges"])

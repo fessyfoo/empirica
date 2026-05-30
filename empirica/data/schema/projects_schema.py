@@ -252,10 +252,52 @@ SCHEMAS = [
     )
     """,
 
+    # Beads: coordination-records (3-way HYBRID, 2026-05-30). First MUTABLE
+    # node type — courier of coordination-state + references; never the
+    # canonical home of the artifact it tracks. `coordination_state` (not
+    # bare `state`) keeps that discipline visible. `updated_at` mandatory
+    # because triage feeds order by recency-of-change on a mutable artifact.
+    # `beads_issue_id` is the HYBRID passthrough (present iff tracks(issue)).
+    # Schema language locked in graph_commands.py NODE_REQUIRED_FIELDS
+    # (b91a2b60b); aligned with cortex BEAD_COORDINATION_RECORD.md §6.
+    """
+    CREATE TABLE IF NOT EXISTS beads (
+        id TEXT PRIMARY KEY,
+        coordination_state TEXT NOT NULL CHECK(coordination_state IN (
+            'open', 'in_progress', 'blocked', 'closed'
+        )),
+        updated_at REAL NOT NULL,
+        last_transition_actor TEXT,
+        beads_issue_id TEXT,
+        scope TEXT CHECK(scope IS NULL OR scope IN (
+            'local', 'org', 'cross_org'
+        )),
+        description TEXT,
+        entity_type TEXT NOT NULL DEFAULT 'project',
+        entity_id TEXT,
+        project_id TEXT,
+        session_id TEXT,
+        transaction_id TEXT,
+        goal_id TEXT,
+        created_by_ai TEXT,
+        created_timestamp REAL NOT NULL,
+        visibility TEXT,
+        epistemic_source TEXT,
+
+        FOREIGN KEY (project_id) REFERENCES projects(id),
+        FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+    )
+    """,
+
     # Indexes for new tables (non-migration-dependent columns only)
     "CREATE INDEX IF NOT EXISTS idx_assumptions_entity ON assumptions(entity_type, entity_id)",
     "CREATE INDEX IF NOT EXISTS idx_assumptions_status ON assumptions(status)",
     "CREATE INDEX IF NOT EXISTS idx_decisions_entity ON decisions(entity_type, entity_id)",
+    "CREATE INDEX IF NOT EXISTS idx_beads_entity ON beads(entity_type, entity_id)",
+    "CREATE INDEX IF NOT EXISTS idx_beads_project ON beads(project_id)",
+    "CREATE INDEX IF NOT EXISTS idx_beads_coordination_state ON beads(coordination_state)",
+    "CREATE INDEX IF NOT EXISTS idx_beads_beads_issue_id ON beads(beads_issue_id)",
+    "CREATE INDEX IF NOT EXISTS idx_beads_transaction ON beads(transaction_id)",
 
     # Indexes for existing tables (non-migration-dependent columns only)
     "CREATE INDEX IF NOT EXISTS idx_project_findings_project ON project_findings(project_id)",

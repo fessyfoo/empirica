@@ -331,18 +331,19 @@ def _create_node(db, node: dict, context: dict) -> str | None:
                 description=data.get('description'),
             )
         elif ntype == 'bead':
-            # v0 schema is locked (NODE_REQUIRED_FIELDS + VALID_RELATIONS above)
-            # but the bead table + db.log_bead repo function land alongside
-            # cortex's BEAD_COORDINATION_RECORD.md architecture doc. Returning
-            # None here is non-fatal — log-artifacts surfaces the unhandled
-            # node, and callers learn the contract is locked + the wiring is
-            # pending in one log line rather than a silent fallthrough.
-            logger.info(
-                "bead node creation deferred: schema locked, db wiring "
-                "pending cortex BEAD_COORDINATION_RECORD.md (ref=%s)",
-                node.get('ref'),
+            return db.log_bead(
+                project_id=project_id, session_id=session_id,
+                coordination_state=data.get('coordination_state', 'open'),
+                updated_at=data.get('updated_at'),
+                last_transition_actor=data.get('last_transition_actor'),
+                beads_issue_id=data.get('beads_issue_id'),
+                scope=data.get('scope'),
+                goal_id=goal_id,
+                transaction_id=transaction_id,
+                visibility=visibility,
+                epistemic_source=epistemic_source,
+                description=data.get('description'),
             )
-            return None
     except Exception as e:
         logger.warning(f"Failed to create {ntype} node '{node.get('ref')}': {e}")
     return None
@@ -790,6 +791,7 @@ _ARTIFACT_TABLES = {
     'assumption': ('assumptions', 'id', None),
     'decision': ('decisions', 'id', None),
     'goal': ('goals', 'id', 'goal_data'),
+    'bead': ('beads', 'id', None),
 }
 
 

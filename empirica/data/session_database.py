@@ -2831,6 +2831,43 @@ class SessionDatabase:
             visibility=visibility, epistemic_source=epistemic_source,
             description=description)
 
+    def log_bead(
+        self,
+        project_id: str,
+        session_id: str,
+        coordination_state: str = 'open',
+        updated_at: float | None = None,
+        last_transition_actor: str | None = None,
+        beads_issue_id: str | None = None,
+        scope: str | None = None,
+        goal_id: str | None = None,
+        transaction_id: str | None = None,
+        entity_type: str | None = None,
+        entity_id: str | None = None,
+        visibility: str | None = None,
+        epistemic_source: str | None = None,
+        description: str | None = None,
+    ) -> str:
+        """Log a bead coordination-record (delegates to BreadcrumbRepository).
+
+        First mutable node type — courier of coordination-state + references,
+        never canonical home. See cortex BEAD_COORDINATION_RECORD.md §6 for
+        the lifecycle and graph_commands.py NODE_REQUIRED_FIELDS for the
+        locked schema language.
+        """
+        return self.breadcrumbs.log_bead(
+            project_id, session_id,
+            coordination_state=coordination_state,
+            updated_at=updated_at,
+            last_transition_actor=last_transition_actor,
+            beads_issue_id=beads_issue_id,
+            scope=scope,
+            goal_id=goal_id,
+            transaction_id=transaction_id,
+            entity_type=entity_type, entity_id=entity_id,
+            visibility=visibility, epistemic_source=epistemic_source,
+            description=description)
+
     def log_token_saving(
         self,
         session_id: str,

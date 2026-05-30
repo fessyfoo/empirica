@@ -106,6 +106,9 @@ class ProposalEvent:
     direction: str = "inbox"  # "inbox" | "outbox" — tells AI which reaction
     commit_sha: str | None = None  # populated when status='completed'
     actionability: str = "actionable"  # "actionable" | "fyi" — wake gate
+    bead_id: str | None = None  # cortex stamps this when payload.bead_id is
+    # present (graduation contract — BEAD_COORDINATION_RECORD.md §6.5). The
+    # receiving AI uses it to look up the bead + render bridge-position.
 
     def to_log_line(self) -> str:
         """JSON line for ~/.empirica/loop_fires.log."""
@@ -124,6 +127,7 @@ class ProposalEvent:
             "change_kind": self.new_or_changed,
             "commit_sha": self.commit_sha,
             "actionability": self.actionability,
+            "bead_id": self.bead_id,
         })
 
 
@@ -345,7 +349,25 @@ def build_event(
         direction=direction,
         commit_sha=_extract_commit_sha(p) if status == "completed" else None,
         actionability=_classify_actionability(p, instance_id, direction),
+        bead_id=_extract_bead_id(p),
     )
+
+
+def _extract_bead_id(p: dict) -> str | None:
+    """Pull `bead_id` from a proposal envelope (graduation contract).
+
+    Per BEAD_COORDINATION_RECORD.md §6.5, cortex stamps `bead_id` on the
+    proposal envelope when `payload.bead_id` was present at create-time.
+    The stamp may surface at top level (current convention) or stay nested
+    under `payload` (transitional / older payloads) — read both. Returns
+    None when neither is set, so non-graduated proposals don't carry it.
+    """
+    bid = p.get("bead_id")
+    if not bid:
+        payload = p.get("payload")
+        if isinstance(payload, dict):
+            bid = payload.get("bead_id")
+    return str(bid) if bid else None
 
 
 def poll_and_diff(

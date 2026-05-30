@@ -1272,6 +1272,7 @@ ALL_MIGRATIONS: list[tuple[str, str, Callable]] = [
     ("045_assumption_decision_description", "Add description TEXT column to assumptions + decisions (markdown-first artifacts series — mirrors goals migration 043). Extension renders as prettified markdown.", lambda cursor: migration_045_assumption_decision_description(cursor)),
     ("046_refdocs_to_sources", "Migrate project_reference_docs rows into epistemic_sources with source_type='pointer'. Phase 1 of refdocs→sources unification (goal 3d6aeb08). Idempotent — skips rows already migrated by id. The old table stays in place this phase; reader+writer switch over to sources, CLI drop + table drop in a follow-up.", lambda cursor: migration_046_refdocs_to_sources(cursor)),
     ("047_drop_project_reference_docs", "Drop project_reference_docs table — Phase 3 of refdocs→sources unification (goal 3d6aeb08). All data was migrated to epistemic_sources(type='pointer') by migration 046; CLI surface was dropped in Phase 2 (no writers); reader was switched in Phase 1 (no readers). Final structural cleanup. Idempotent — skips when table doesn't exist (fresh DBs that never had it).", lambda cursor: migration_047_drop_project_reference_docs(cursor)),
+    ("048_beads_table", "Add beads table — coordination-records v0 (3-way HYBRID design with cortex + extension, 2026-05-30). First MUTABLE node type empirica carries; courier of coordination-state + references to actionables, never canonical home. Mirrors NODE_REQUIRED_FIELDS lock in graph_commands.py (b91a2b60b) + cortex BEAD_COORDINATION_RECORD.md §6 lifecycle.", lambda cursor: migration_048_beads_table(cursor)),
 ]
 
 
@@ -1835,4 +1836,66 @@ def migration_042_impact_on_dead_ends_and_mistakes(cursor: sqlite3.Cursor):
     add_column_if_missing(cursor, "mistakes_made", "impact", "REAL", "0.5")
     logger.info(
         "✅ Migration 042 complete: impact column added to project_dead_ends and mistakes_made"
+    )
+
+
+def migration_048_beads_table(cursor: sqlite3.Cursor):
+    """Add beads table — coordination-records v0 (3-way HYBRID).
+
+    First MUTABLE node type empirica's artifact-graph carries. The bead is a
+    COURIER: it tracks an actionable (goal, bd-issue, email, publish,
+    question) via the `tracks` edge in artifact_edges and carries the
+    coordination layer (state + who/about/who-works-it). It is NEVER the
+    canonical home of the artifact it tracks — that stays in goals / bd /
+    zernio. `coordination_state` (not bare `state`) keeps that discipline
+    visible at every read. `updated_at` mandatory because triage feeds order
+    by recency-of-change on a mutable artifact.
+
+    Schema language is locked in
+    `empirica/cli/command_handlers/graph_commands.py` NODE_REQUIRED_FIELDS
+    (`bead` → ['coordination_state', 'updated_at']) + VALID_RELATIONS
+    (`tracks`, `owned_by`, `about`, `worked_by`) — committed at b91a2b60b.
+    The cortex-side contract is `docs/architecture/BEAD_COORDINATION_RECORD.md`
+    in the cortex repo. Per-edge attributes (e.g. `worked_by.role`) ride
+    `artifact_edges.metadata` JSON — no schema change there.
+
+    Idempotent — CREATE TABLE IF NOT EXISTS.
+    """
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS beads (
+            id TEXT PRIMARY KEY,
+            coordination_state TEXT NOT NULL CHECK(coordination_state IN (
+                'open', 'in_progress', 'blocked', 'closed'
+            )),
+            updated_at REAL NOT NULL,
+            last_transition_actor TEXT,
+            beads_issue_id TEXT,
+            scope TEXT CHECK(scope IS NULL OR scope IN (
+                'local', 'org', 'cross_org'
+            )),
+            description TEXT,
+            entity_type TEXT NOT NULL DEFAULT 'project',
+            entity_id TEXT,
+            project_id TEXT,
+            session_id TEXT,
+            transaction_id TEXT,
+            goal_id TEXT,
+            created_by_ai TEXT,
+            created_timestamp REAL NOT NULL,
+            visibility TEXT,
+            epistemic_source TEXT,
+
+            FOREIGN KEY (project_id) REFERENCES projects(id),
+            FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+        )
+        """
+    )
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_beads_entity ON beads(entity_type, entity_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_beads_project ON beads(project_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_beads_coordination_state ON beads(coordination_state)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_beads_beads_issue_id ON beads(beads_issue_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_beads_transaction ON beads(transaction_id)")
+    logger.info(
+        "✅ Migration 048 complete: beads table created (coordination-records v0)"
     )

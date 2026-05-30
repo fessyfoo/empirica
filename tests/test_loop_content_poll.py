@@ -640,3 +640,39 @@ def test_actionability_defaults_actionable_on_log_line():
         action_category="TACTICAL", eco_actor=None, new_or_changed="new",
     )
     assert json.loads(ev.to_log_line())["actionability"] == "actionable"
+
+
+# ─── bead_id passthrough (BEAD_COORDINATION_RECORD.md §6.5) ────────────────
+# When cortex stamps `bead_id` on the proposal envelope (graduation contract),
+# content_poll plumbs it through to the wake-event JSON so the receiving AI
+# can derive bridge_position client-side from coordination_state × edge × status.
+
+
+def test_bead_id_top_level_pulled_into_event():
+    p = {"id": "p", "status": "accepted",
+         "type": "code_change_request", "title": "graduation fix",
+         "bead_id": "bd_abc"}
+    ev = build_event(p, "new", "empirica", "cortex-mailbox-poll",
+                     direction="inbox")
+    assert ev.bead_id == "bd_abc"
+    assert json.loads(ev.to_log_line())["bead_id"] == "bd_abc"
+
+
+def test_bead_id_falls_back_to_payload_for_transitional_shape():
+    """Older / in-flight payload-shaped envelopes — read both."""
+    p = {"id": "p", "status": "accepted", "type": "code_change_request",
+         "title": "graduation fix", "payload": {"bead_id": "bd_xyz"}}
+    ev = build_event(p, "new", "empirica", "cortex-mailbox-poll",
+                     direction="inbox")
+    assert ev.bead_id == "bd_xyz"
+
+
+def test_bead_id_omitted_when_not_a_graduation():
+    """Non-graduated proposals (no bead_id anywhere) carry None — the field
+    is present in the JSON for shape consistency but null."""
+    p = {"id": "p", "status": "accepted", "type": "collab_brief",
+         "title": "ordinary collab"}
+    ev = build_event(p, "new", "empirica", "cortex-mailbox-poll",
+                     direction="inbox")
+    assert ev.bead_id is None
+    assert json.loads(ev.to_log_line())["bead_id"] is None

@@ -55,6 +55,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the listener stays up regardless of install skew. Found by ecodex during mesh
   onboarding.
 
+### Added
+
+- **Bead v0 implementation — `beads` table + `db.log_bead` + real
+  `_create_node('bead')` + bead in `_CORTEX_GRAPH_SPECS` + `bead_id`
+  passthrough in `content_poll`.** The schema-language lock from
+  `b91a2b60b` is now backed by storage. Beads land in their own table
+  (project-scoped, entity-agnostic shape matching assumptions/decisions)
+  with a CHECK constraint pinning the four-state machine
+  (`open|in_progress|blocked|closed`). Migration 048 creates the table
+  on existing DBs. `log-artifacts` payloads with `type: bead` now persist
+  (previously schema-locked stub returned None). The graph-sync sender
+  ships beads alongside the 6 artifact node types at every POSTFLIGHT
+  `/v1/sync`. `proposal_event` JSON now carries `bead_id` when cortex
+  stamps it on the envelope (graduation contract,
+  BEAD_COORDINATION_RECORD.md §6.5) — receivers derive bridge-position
+  client-side from `coordination_state × tracks(proposal)-presence ×
+  proposal.status`. 7 new tests pin the lifecycle, the create-node path,
+  the graph extraction, and the `bead_id` plumbing.
+
 ### Changed
 
 - **Bead v0 schema language locked.** `bead` is now a recognized node type
