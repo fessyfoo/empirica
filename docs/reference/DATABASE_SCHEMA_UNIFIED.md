@@ -6,6 +6,13 @@
 **Every project (mapped to git repo) has its own SQLite database**
 **Last Updated:** 2026-02-11
 
+> **Note on table naming.** The `subtasks` table name predates the
+> 1.10.0 CLI rename. The CLI surface and external API use `task` since
+> 1.10.0; storage tables keep `subtasks` by deliberate CLI-vs-storage
+> boundary. See [UPGRADE_TO_1.10.md § subtask → task rename](../guides/UPGRADE_TO_1.10.md#breaking-change--subtask--task-rename)
+> for the full mapping. References below to `subtasks` are accurate
+> to the on-disk schema; the CLI never exposes that term.
+
 ---
 
 ## Table Categories

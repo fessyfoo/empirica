@@ -4,6 +4,8 @@
 
 The Completion system tracks goal and task progress with evidence mapping. It prevents infinite loops by providing clear signals when work is complete.
 
+> **Note on naming.** The CLI surface uses `task` (e.g. `goals-add-task`, `--task-id`); internal storage and Python classes keep `subtask` (`SubTask`, `completed_subtasks`, etc.) by deliberate CLI-vs-storage boundary — see [UPGRADE_TO_1.10.md § subtask → task rename](../guides/UPGRADE_TO_1.10.md#breaking-change--subtask--task-rename). The remainder of this doc uses the internal term consistently with the Python module it describes.
+
 ## Philosophy
 
 Completion requires evidence:

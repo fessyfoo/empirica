@@ -140,18 +140,18 @@ proposal-lifecycle moments:
 | Create + ECO-accept | accepted | ✅ honest flag in response | `f4c85bf` |
 | Create + auto-accept (Homer mode) | accepted | ✅ honest flag | `f4c85bf` |
 | Status transition (changed / declined) | matching status | ✅ inherited from publish helper | (pre-existing) |
-| Target AI calls `cortex_complete_proposal` | completed | ✅ source AI wakes on outbox | `91cbd2f` |
+| Target AI ack via the completion handshake | completed | ✅ source AI wakes on outbox | `91cbd2f` |
 
 All publishes carry `X-Tags: zap,orchestration_event,<source>,<targets…>`
 (`ae92166`) so the listener-side `?tags=<ai_id>` filter scopes delivery.
 
-### Companion MCP tool — `cortex_get_proposal` (`e8d3b1a`)
+### Companion fetch primitive (`e8d3b1a`)
 
-When a wake event arrives the AI has a `proposal_id`. Rather than guessing
-`target_claudes` to call `cortex_inbox_poll`, the AI calls
-`cortex_get_proposal(api_key, proposal_id)` to fetch the full envelope
-directly. Cross-tenant safe (unknown ids return 404-shape). This makes
-wake events self-sufficient — the listener-to-action path needs no
+When a wake event arrives the AI has a `proposal_id`. Rather than
+guessing `target_claudes` to scan the inbox, the AI fetches the full
+envelope directly via the Cortex MCP's get-by-id primitive. Cross-tenant
+safe (unknown ids return 404-shape). This makes wake events
+self-sufficient — the listener-to-action path needs no
 ai_id-guessing.
 
 ### Content poll — `poll_and_diff`
@@ -512,8 +512,7 @@ systemctl --user list-timers 'empirica-loop-*'
 # Should show your instance's timer firing every 30s
 ```
 
-Send a test proposal from another AI session (or a manual
-`cortex_propose` call) targeting your `ai_id`. Within ~5 seconds you
+Send a test proposal from another AI session targeting your `ai_id`. Within ~5 seconds you
 should see a `proposal_event` task-notification arrive in your chat.
 
 **Common pitfalls:**
