@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] — 2026-05-31
+
+Minor release rolling up the AI-mesh substrate work since 1.10.4: the bead
+coordination-record v0 (schema + storage + sender + cortex receiver bridge),
+the wake-noise filter that lets work-focused practitioners stay focused
+without missing substantive traffic, the listener supervisor wrapper that
+makes single-AI installs match the long-assumed systemd/launchd contract,
+the `work_type=remote-ops` path that no longer deadlocks SSH-recon, the
+silent edge-metadata drop in `log-artifacts` that was undermining the
+bead role-tier story, and a substantial mesh-skill sweep — Phase B
+adoption, bead Flavor 3, graduation discipline, lenient ai_id resolver,
+and the constitution slimmed to its deep-governance core.
+
 ### Added
 
 - **Listener wake-noise filter — `actionability` on proposal_events.**
