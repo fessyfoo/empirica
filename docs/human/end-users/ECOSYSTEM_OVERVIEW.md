@@ -190,5 +190,8 @@ outcomes. This means:
 - **First time:** [FIRST_TIME_SETUP.md](FIRST_TIME_SETUP.md)
 - **CLI basics:** [04_QUICKSTART_CLI.md](04_QUICKSTART_CLI.md)
 - **Project model:** [PROJECT_MANAGEMENT_FOR_USERS.md](PROJECT_MANAGEMENT_FOR_USERS.md)
+- **Multi-project lifecycle:** [PROJECT_LIFECYCLE.md](PROJECT_LIFECYCLE.md)
+- **Logging + finding walkthrough:** [LOGGING_AND_FINDING.md](LOGGING_AND_FINDING.md)
+- **Optional mesh layer setup:** [MESH_SETUP.md](MESH_SETUP.md)
 - **Cross-project search:** [../../reference/api/CROSS_PROJECT.md](../../reference/api/CROSS_PROJECT.md)
 - **Vocabulary:** [../../reference/TAXONOMY.md](../../reference/TAXONOMY.md)
