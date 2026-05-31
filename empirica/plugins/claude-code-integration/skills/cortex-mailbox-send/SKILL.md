@@ -68,51 +68,56 @@ content that crosses a project boundary.
 
 ## AI_ID convention — addressing peers
 
-Every peer AI is addressed by an `ai_id` derived from their project's
-basename, with the `empirica-` prefix stripped where present.
+**Canonical wire form is the full project slug.** Cortex's lenient resolver
+(`cfc83e8`, 2026-05-31) also accepts org-specific short aliases — for
+org-empirica the alias is the slug minus the `empirica-` prefix — but the
+slug is the authoritative form.
 
-| Project root | `ai_id` |
-|---|---|
-| `~/empirical-ai/empirica` | `empirica` |
-| `~/empirical-ai/empirica-cortex` | `cortex` |
-| `~/empirical-ai/empirica-outreach` | `outreach` |
-| `~/empirical-ai/empirica-extension` | `extension` |
-| `~/empirical-ai/empirica-autonomy` | `autonomy` |
-| `~/code/myproject` | `myproject` |
+| Project root | Canonical `ai_id` (slug) | Org-empirica short alias |
+|---|---|---|
+| `~/empirical-ai/empirica` | `empirica` | (same) |
+| `~/empirical-ai/empirica-cortex` | `empirica-cortex` | `cortex` |
+| `~/empirical-ai/empirica-outreach` | `empirica-outreach` | `outreach` |
+| `~/empirical-ai/empirica-extension` | `empirica-extension` | `extension` |
+| `~/empirical-ai/empirica-autonomy` | `empirica-autonomy` | `autonomy` |
+| `~/code/myproject` | `myproject` | (no alias outside org-empirica) |
+
+**Either form works on the wire.** `target_claudes=['empirica-cortex', 'empirica-extension']` and `target_claudes=['cortex', 'extension']` both route correctly within org-empirica. Cortex normalizes server-side via `find_users_for_ai_id`. Cross-tenant addressing follows the same lenient pattern (`philipp_cortex` ≡ `philipp_empirica-cortex`).
+
+**Default to the canonical full slug.** Audit logs are slightly more consistent, and the slug form generalizes — non-empirica orgs (NLE, MOD, Hinetra) get strict canonical resolution with no alias mapping. The short alias is convenience for org-empirica only; relying on it breaks the moment a cross-org thread joins.
+
+**Per-org alias conventions** live in org-specific includes (e.g. `~/.claude/empirica-org-prompt.md` for org-empirica). The canonical `empirica-system-prompt.md` is org-agnostic — it defines the slug-is-canonical rule; the per-org file describes which aliases that org's resolver accepts.
 
 **Where peers' canonical id lives:** `<their-project>/.empirica/project.yaml`
 `ai_id` field. If you have read access to their project root, that's
 the source of truth.
 
-**Before sending — verify the target id.** This is the #1 cause of silent
-mis-routing today. A proposal targeting an `ai_id` that no AI is polling
-goes into a never-read inbox. Cortex does not (yet) reject the send.
-
-Verification options, in preference order:
+**Verification options for unfamiliar peers**, in preference order:
 
 1. **Read their `.empirica/project.yaml`** (if accessible from your env):
    ```bash
    grep -E '^ai_id:' ~/empirical-ai/empirica-<peer>/.empirica/project.yaml
    ```
-2. **Use the basename rule** if you know the peer's project root:
-   `basename.removeprefix('empirica-')`.
+2. **Use the basename of their project root** — for org-empirica peers
+   the slug rule gives you both forms; non-empirica peers use the bare
+   basename only.
 3. **Check Cortex's known instances:** any recent proposal listing
-   (`cortex_inbox_poll --include-related true`) will surface peer
+   (`cortex_inbox_poll --include-related true`) surfaces peer
    `ai_id`s used in `target_claudes` of related items.
-4. **Ask David** if all three fail. Better to pause than mis-route.
+4. **Ask David** if all three fail.
 
-**Common wrong values to avoid:**
+**Mis-route safety:** if you genuinely typo an `ai_id` (`'cortx'`, `'extensoin'`), cortex's bounce-back-on-no-match (`af247e8` + the `cfc83e8` over-tightening fix) emits a `delivery_failed` wake event back to the source so you can retry. Silent drops don't happen.
+
+**Still wrong values to avoid:**
 
 | You might write | Correct value |
 |---|---|
-| `empirica-claude` | `empirica` |
-| `claude-code` | the project's basename |
-| `claude-empirica` | `empirica` |
-| `cortex-claude` | `cortex` |
-| The model name (`opus`, `sonnet`) | the project's basename |
+| `empirica-claude` | `empirica` (or `empirica` if you mean self) |
+| `claude-code` | the project's slug |
+| `cortex-claude` | `empirica-cortex` (canonical) or `cortex` (org-empirica alias) |
+| The model name (`opus`, `sonnet`) | the project's slug |
 
-The bare basename rule is mechanical and stable. The `-claude` /
-`claude-` decorations are legacy artifacts from before the rollout.
+The `-claude` / `claude-` decorations are legacy artifacts from before the rollout — they don't resolve.
 
 ---
 
@@ -524,12 +529,21 @@ summary explaining why. Closes the loop honestly.
 
 ## Recovery — what to do if a previous send mis-targeted
 
-You sent a proposal with the wrong `target_claudes` and the intended
-peer never received it (silent drop — their inbox poll doesn't see
-proposals not addressed to their `ai_id`).
+Two scenarios with different signals:
 
-**Today's pattern (workaround):** emit a new `collab_brief` with the
-correct target_claudes, referencing the original via `parent_id`:
+**Scenario 1 — total typo (`'cortx'`, `'extensoin'`):** cortex's
+bounce-back-on-no-match (`af247e8`, post-`cfc83e8` regression fix)
+emits a `delivery_failed` wake event back to you almost immediately.
+The proposal status lands `failed` with audit_log carrying
+`action='delivery_failed'` and `failed_targets=[...]`. Re-send with
+the corrected `ai_id`; no need to thread the original.
+
+**Scenario 2 — wrong-but-resolvable target** (you addressed a real AI
+but not the one you meant — `target_claudes=['cortex']` when you meant
+`['outreach']`): cortex routes successfully so no bounce fires; the
+proposal lands in the wrong inbox. Recovery is the wrapper pattern
+below — emit a new `cortex_collab` with the correct targets, link via
+`parent_id`:
 
 ```python
 mcp__cortex__cortex_propose(
@@ -679,7 +693,8 @@ peer needs to read or act.
 
 | Pattern | Problem | Fix |
 |---|---|---|
-| Sending to `target_claudes=["empirica-claude"]` (or any `-claude` / `claude-` decoration) | Wrong id, proposal silently dropped | Use the bare basename rule |
+| Sending to `target_claudes=["empirica-claude"]` (or any `-claude` / `claude-` decoration) | Wrong id, cortex bounce-back fires `delivery_failed` back to you | Use the canonical project slug (e.g. `empirica-cortex`) — org-empirica short alias (`cortex`) also resolves via cfc83e8 lenient resolver |
+| Stripping the `empirica-` prefix when you don't know the target's org | Works in org-empirica (alias resolves), silently fails cross-org if a non-empirica org doesn't have an alias mapping | Default to the canonical full slug (`empirica-cortex`, `empirica-extension`, etc.) — generalizes across orgs |
 | Sending without `source_claude` | Completion acks can't route back to you | Always set `source_claude` to your own `ai_id` |
 | `cortex_propose(type="code_change_request")` for an FYI | Triggers ECO gate for what should be auto-accepted | Use `cortex_collab` |
 | `cortex_collab` for "please change file X" | Auto-accepts a real action request without ECO review | Use `cortex_propose` with the typed action request (`action_category="TACTICAL"`) |
