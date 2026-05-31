@@ -38,8 +38,8 @@ AI coding agents today have no self-awareness about what they know:
 | **Shows confidence in real-time** | Live statusline in your terminal: `[empirica] ⚡94% ↕70% │ 🎯3 │ POST 🔍92% │ K:95% C:92%` |
 | **Calibrates against reality** | Three-vector model: self-assessed, observed (from deterministic checks), and AI-reasoned grounded state with rationale. Domain compliance loops iterate until all checks pass |
 | **Tracks your codebase** | Temporal entity model auto-extracts functions, classes, and imports from every file edit — the AI knows what's alive and what's stale |
-| **Coordinates with peer AIs** | Cross-Claude mesh via Cortex — peer AIs propose work, ECO accepts/declines, completion handshakes carry commit SHAs. A persistent listener wakes idle sessions on inbox events |
 | **Works through natural language** | You describe tasks normally. The AI operates the measurement system automatically |
+| **Optional: coordinates with peer AIs** | Cross-Claude mesh via Cortex (opt-in) — peer AIs propose work, ECO accepts/declines, completion handshakes carry commit SHAs. A persistent listener wakes idle sessions on inbox events. **Empirica core works standalone without this** — see [Cross-AI Mesh](#cross-ai-mesh) below for the ecosystem layer |
 
 ---
 
@@ -228,9 +228,11 @@ The result: Claude Code's native capabilities, enhanced with measurement, gating
 
 ---
 
-## Cross-AI Mesh
+## Cross-AI Mesh (Optional Ecosystem Layer)
 
-Empirica isn't just per-session measurement — multiple Claude sessions across projects can coordinate as peers. The mesh runs on top of [Empirica Cortex](https://getempirica.com) (proprietary serving layer):
+**This section describes an optional layer.** Empirica core — measurement, calibration, artifacts, goals, project-search, sentinel gating — works fully standalone. The mesh is an opt-in capability for users who run multiple Claude sessions across projects and want them to coordinate as peers. If you only use one AI in one repo, skip this section.
+
+The mesh runs on top of [Empirica Cortex](https://getempirica.com) (proprietary serving layer) plus an optional [browser extension](https://getempirica.com) for ECO triage:
 
 ```
 empirica AI ──cortex_propose──► ECO Accept/Decline ──► outreach AI wakes

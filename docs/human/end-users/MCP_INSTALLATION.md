@@ -6,6 +6,17 @@ For most CLI-driven workflows (Claude Code, terminal-based AI agents),
 **use the Empirica CLI directly — it's faster and simpler**. MCP is for
 GUI clients that don't shell out.
 
+> **`empirica-mcp` vs cortex MCP.** This doc covers **`empirica-mcp`** —
+> the MCP server for Empirica's local CLI surface (preflight/check/
+> postflight, finding-log, goals, project-search, etc.). It is **NOT**
+> the cortex MCP server, which exposes `cortex_*` tools
+> (`cortex_propose`, `cortex_collab`, `cortex_inbox_poll`, etc.) for
+> cross-AI mesh coordination. Cortex MCP is a **separate** package
+> configured separately and only relevant if you've opted into the
+> mesh layer — see [`docs/architecture/EVENT_LISTENER.md`](../../architecture/EVENT_LISTENER.md)
+> for that path. The two servers can coexist in your client config
+> under different names.
+
 ---
 
 ## Install
@@ -83,19 +94,29 @@ registers it in `~/.claude/mcp.json` for you.
 
 ## Tools Available
 
-`empirica-mcp` mirrors the CLI surface. Major tool families:
+`empirica-mcp` mirrors a subset of the CLI surface, with the names
+adjusted for MCP convention (verb-first, snake_case). Major tool families:
 
 | Family | Examples |
 |---|---|
-| **Lifecycle** | `cortex_session_init`, `preflight_submit`, `check_submit`, `postflight_submit` |
-| **Artifacts** | `finding_log`, `unknown_log`, `decision_log`, `assumption_log`, `deadend_log`, `mistake_log`, `source_add`, `log_artifacts` |
-| **Goals** | `goals_create`, `goals_add_task`, `goals_complete_task`, `goals_complete`, `goals_list`, `goals_ready` |
-| **Search/Inspect** | `project_search`, `investigate`, `commit_context`, `calibration_report` |
-| **Compliance** | `compliance_report`, `release_ready`, `docs_assess`, `docs_link_check` |
-| **Mesh** | `cortex_propose`, `cortex_inbox_poll`, `cortex_complete_proposal`, `cortex_collab_post` |
+| **Core Workflow** | `submit_preflight_assessment`, `submit_check_assessment`, `submit_postflight_assessment` |
+| **Session Management** | `session_create`, `resume_previous_session`, `get_epistemic_state`, `get_session_summary`, `get_calibration_report` |
+| **Goal Management** | `create_goal`, `add_task`, `complete_task`, `get_goal_progress`, `list_goals` |
+| **Cross-AI Coordination** | `discover_goals`, `resume_goal` (pick up work surfaced by peer AIs through shared artifacts) |
+| **Checkpoints** | `create_git_checkpoint`, `load_git_checkpoint` |
+| **Handoff Reports** | `create_handoff_report`, `query_handoff_reports` |
+| **Guidance** | `get_empirica_introduction`, `get_workflow_guidance`, `cli_help` |
 
-Run `empirica mcp-list-tools` to see the full registered set against
-your installed version.
+Run `empirica mcp-list-tools` to see the **exact** registered set against
+your installed version — the names and grouping above can drift between
+releases. The `mcp-list-tools` output is the source of truth.
+
+> **What's NOT in `empirica-mcp`.** The `cortex_*` mesh tools
+> (`cortex_propose`, `cortex_collab`, `cortex_inbox_poll`,
+> `cortex_complete_proposal`, `cortex_collab_post`, etc.) come from the
+> separate cortex MCP server. If you need those, configure cortex MCP
+> in addition to `empirica-mcp` — they live alongside each other under
+> different names in the same client config.
 
 ---
 

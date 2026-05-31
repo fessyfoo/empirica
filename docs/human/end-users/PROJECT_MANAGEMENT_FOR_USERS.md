@@ -19,8 +19,9 @@ Every Empirica project owns:
 | Git-notes-anchored artifacts | `.git/refs/notes/empirica_*` | ✅ in `.git/`, not pushed by default |
 
 The repo-level `~/.empirica/` directory holds user-tenant config that's
-shared across all projects: cortex creds, ntfy creds, the local-daemon
-registry, and the workspace database.
+shared across all projects: cortex creds (optional, for mesh layer),
+ntfy creds (optional, for push wake), the local-daemon registry, and
+the workspace database.
 
 ---
 
@@ -66,8 +67,13 @@ empirica daemon-list
 # Walk the filesystem for projects with .empirica/project.yaml
 empirica projects-discover
 
-# Bulk-register discovered projects on Cortex (requires CORTEX_API_KEY)
+# Bulk-register discovered projects on Cortex (optional — only if you
+# want cross-project search via the cortex serving layer; requires
+# CORTEX_API_KEY). Empirica stays fully usable per-project without this.
 empirica projects-bulk-register
+
+# OR the single-verb pipeline (discover + register in one) — also optional:
+empirica projects-sync
 ```
 
 ### Update project metadata
@@ -158,9 +164,10 @@ git push origin 'refs/notes/empirica_*:refs/notes/empirica_*'
 git fetch origin 'refs/notes/empirica_*:refs/notes/empirica_*'
 ```
 
-For cross-AI orchestration (proposals, completion handshakes), see
-`docs/architecture/EVENT_LISTENER.md` — cortex + ntfy mediate that
-layer, not git.
+For cross-AI orchestration (proposals, completion handshakes) — an
+**optional** layer that empirica core doesn't require — see
+`docs/architecture/EVENT_LISTENER.md`. Cortex + ntfy mediate that layer,
+not git; both are opt-in when you want peer-AI mesh coordination.
 
 ---
 

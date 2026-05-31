@@ -85,13 +85,23 @@ server in `~/.claude/mcp.json`.
 
 It also runs an **interactive credentials wizard** if you don't already
 have `~/.empirica/credentials.yaml`. The wizard prompts for:
-- **Cortex** (orchestration API) — URL + `ctx_…` API key
-- **ntfy** (push wake bridge) — URL + topic + auth token
+- **Cortex** (orchestration API) — URL + `ctx_…` API key — **optional**
+- **ntfy** (push wake bridge) — URL + topic + auth token — **optional**
 
-After the api_key prompt, the wizard fetches `/v1/tenant/me` and persists
-`{org_id, tenant_slug, mesh_id_prefix}` to your project.yaml so your AI
-gets fully-qualified mesh addressing on first run. Skip the wizard with
-`--skip-credentials` if you already have creds in env vars or files.
+**Both creds are optional.** Empirica core (artifacts, goals,
+calibration, project-search, sentinel gating) works fully without them.
+You only need cortex+ntfy if you're opting into the cross-AI mesh layer
+(peer-AI coordination, push-wake on inbox events, the browser
+extension's ECO triage). If you skip the wizard, mesh features stay
+inert; everything local still works. You can always re-run
+`empirica setup-claude-code --force` later to add the creds when you
+want them.
+
+After the api_key prompt (if you supply one), the wizard fetches
+`/v1/tenant/me` and persists `{org_id, tenant_slug, mesh_id_prefix}` to
+your project.yaml so your AI gets fully-qualified mesh addressing on
+first run. Skip the wizard with `--skip-credentials` if you already
+have creds in env vars or files — or to stay fully local.
 
 ### 4. Diagnose
 

@@ -41,7 +41,7 @@ the epistemic trail with teammates.
 **Where:** `~/.empirica/`
 
 Contains things that span every project under your user identity:
-- `credentials.yaml` — cortex + ntfy creds (or use env vars)
+- `credentials.yaml` — cortex + ntfy creds (**optional** — only needed for the mesh layer below; or use env vars)
 - `workspace/workspace.db` — registry of every project Empirica has seen
 - `registry.yaml` — the daemon's served project set
 - `tty_sessions/` — TTY → claude_session_id mapping (transient)
