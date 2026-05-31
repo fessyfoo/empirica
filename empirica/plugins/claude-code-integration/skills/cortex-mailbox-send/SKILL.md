@@ -68,42 +68,42 @@ content that crosses a project boundary.
 
 ## AI_ID convention — addressing peers
 
-**Canonical wire form is the full project slug.** Cortex's lenient resolver
-(`cfc83e8`, 2026-05-31) also accepts org-specific short aliases — for
-org-empirica the alias is the slug minus the `empirica-` prefix — but the
-slug is the authoritative form.
+**Canonical wire form is the fully-qualified `org_tenant_project` triple** (per extension's `prop_nzxdenqhj`, David-accepted 2026-05-31). Every level of the triple is unique within the level above it, so the triple is globally unique by construction. The collision case `empirica`-slug-in-two-tenants (David's vs Philipp's empirica project) dissolves: `empirica_david_empirica` ≠ `empirica_philipp_empirica`.
 
-| Project root | Canonical `ai_id` (slug) | Org-empirica short alias |
+The previous 2-level project-slug convention (e.g. `empirica-cortex`) and the org-empirica short alias (e.g. `cortex`) both still resolve via cortex's lenient resolver (`cfc83e8`, 2026-05-31) — transition-compatible — but the fully-qualified triple is what emitters should send going forward.
+
+| Form | Example | Status |
 |---|---|---|
-| `~/empirical-ai/empirica` | `empirica` | (same) |
-| `~/empirical-ai/empirica-cortex` | `empirica-cortex` | `cortex` |
-| `~/empirical-ai/empirica-outreach` | `empirica-outreach` | `outreach` |
-| `~/empirical-ai/empirica-extension` | `empirica-extension` | `extension` |
-| `~/empirical-ai/empirica-autonomy` | `empirica-autonomy` | `autonomy` |
-| `~/code/myproject` | `myproject` | (no alias outside org-empirica) |
+| Canonical (3-level, fully-qualified) | `empirica_david_empirica-cortex` | **Recommended for all new emissions.** Globally unique. Self-describing — consumers can parse `{org, tenant, project}` directly. |
+| 2-level project slug | `empirica-cortex` | Still resolves within org-empirica; ambiguous cross-tenant. |
+| Org-empirica short alias | `cortex` | Still resolves within org-empirica only; breaks the moment a cross-org thread joins. |
 
-**Either form works on the wire.** `target_claudes=['empirica-cortex', 'empirica-extension']` and `target_claudes=['cortex', 'extension']` both route correctly within org-empirica. Cortex normalizes server-side via `find_users_for_ai_id`. Cross-tenant addressing follows the same lenient pattern (`philipp_cortex` ≡ `philipp_empirica-cortex`).
+| Project root | 3-level canonical (David's tenant) | 2-level slug | Short alias |
+|---|---|---|---|
+| `~/empirical-ai/empirica` | `empirica_david_empirica` | `empirica` | (same) |
+| `~/empirical-ai/empirica-cortex` | `empirica_david_empirica-cortex` | `empirica-cortex` | `cortex` |
+| `~/empirical-ai/empirica-outreach` | `empirica_david_empirica-outreach` | `empirica-outreach` | `outreach` |
+| `~/empirical-ai/empirica-extension` | `empirica_david_empirica-extension` | `empirica-extension` | `extension` |
+| `~/empirical-ai/empirica-autonomy` | `empirica_david_empirica-autonomy` | `empirica-autonomy` | `autonomy` |
+| `~/code/myproject` | `<org>_<tenant>_myproject` | `myproject` | (no alias outside org-empirica) |
 
-**Default to the canonical full slug.** Audit logs are slightly more consistent, and the slug form generalizes — non-empirica orgs (NLE, MOD, Hinetra) get strict canonical resolution with no alias mapping. The short alias is convenience for org-empirica only; relying on it breaks the moment a cross-org thread joins.
+**Cross-tenant within same org** (David ↔ Philipp): `empirica_philipp_empirica-cortex` addresses Philipp's cortex specifically. Without the 3-level form, the bare `empirica-cortex` slug is ambiguous between the two tenants.
 
-**Per-org alias conventions** live in org-specific includes (e.g. `~/.claude/empirica-org-prompt.md` for org-empirica). The canonical `empirica-system-prompt.md` is org-agnostic — it defines the slug-is-canonical rule; the per-org file describes which aliases that org's resolver accepts.
+**Delimiter:** `_` separates levels; project/tenant/org names may contain `-` but should NOT contain `_`. Cortex's stamping layer may also send structured `{org, tenant, project}` fields alongside the slug for unambiguous parsing — when present, consumers should prefer the structured form. (See empirica's reply on `prop_nzxdenqhj` — empirica recommends structured fields as the robust answer.)
 
-**Where peers' canonical id lives:** `<their-project>/.empirica/project.yaml`
-`ai_id` field. If you have read access to their project root, that's
-the source of truth.
+**Read peers' canonical triple from their roster entry** (cortex's `/v1/users/me/roster`) — that's the source of truth post-Phase-1 (`4b9ee5e`). Or read locally from `<their-project>/.empirica/project.yaml` and prepend your known `org_tenant`.
+
+**Per-org alias conventions** live in org-specific includes (e.g. `~/.claude/empirica-org-prompt.md` for org-empirica). The canonical `empirica-system-prompt.md` is org-agnostic — it defines the triple-is-canonical rule; the per-org file describes which short aliases that org's resolver accepts.
 
 **Verification options for unfamiliar peers**, in preference order:
 
-1. **Read their `.empirica/project.yaml`** (if accessible from your env):
+1. **Cortex's roster** (`/v1/users/me/roster`, Phase 1 `4b9ee5e`) — source of truth post-rollout. Surfaces every registered participant with their full `org_tenant_project` triple.
+2. **Read their `.empirica/project.yaml`** (if accessible from your env) for the project name, then prepend the known `org_tenant`:
    ```bash
    grep -E '^ai_id:' ~/empirical-ai/empirica-<peer>/.empirica/project.yaml
+   # → "empirica-cortex" → fully-qualified: "empirica_david_empirica-cortex"
    ```
-2. **Use the basename of their project root** — for org-empirica peers
-   the slug rule gives you both forms; non-empirica peers use the bare
-   basename only.
-3. **Check Cortex's known instances:** any recent proposal listing
-   (`cortex_inbox_poll --include-related true`) surfaces peer
-   `ai_id`s used in `target_claudes` of related items.
+3. **Check recent proposals** (`cortex_inbox_poll`) — surfaces peer ids used in `target_claudes` of related items. Note: older proposals may still carry 2-level slugs or short aliases.
 4. **Ask David** if all three fail.
 
 **Mis-route safety:** if you genuinely typo an `ai_id` (`'cortx'`, `'extensoin'`), cortex's bounce-back-on-no-match (`af247e8` + the `cfc83e8` over-tightening fix) emits a `delivery_failed` wake event back to the source so you can retry. Silent drops don't happen.
@@ -112,10 +112,11 @@ the source of truth.
 
 | You might write | Correct value |
 |---|---|
-| `empirica-claude` | `empirica` (or `empirica` if you mean self) |
-| `claude-code` | the project's slug |
-| `cortex-claude` | `empirica-cortex` (canonical) or `cortex` (org-empirica alias) |
-| The model name (`opus`, `sonnet`) | the project's slug |
+| `empirica-claude` | `empirica_<tenant>_empirica` (3-level canonical) |
+| `claude-code` | the project's 3-level canonical form |
+| `cortex-claude` | `empirica_<tenant>_empirica-cortex` (3-level canonical) |
+| The model name (`opus`, `sonnet`) | the project's 3-level canonical form |
+| Bare `empirica-cortex` cross-tenant | `empirica_david_empirica-cortex` or `empirica_philipp_empirica-cortex` — bare slug is ambiguous |
 
 The `-claude` / `claude-` decorations are legacy artifacts from before the rollout — they don't resolve.
 
@@ -123,10 +124,11 @@ The `-claude` / `claude-` decorations are legacy artifacts from before the rollo
 
 ## Your own `source_claude`
 
-When you call `cortex_propose`, set `source_claude` to your own `ai_id`
-(read from `.empirica/project.yaml` in your project root). The api_key
-identifies the *tenant* (the org); `source_claude` identifies *you* as
-an addressable AI within it. Without `source_claude`, the receive
+When you call `cortex_propose` (or `cortex_collab` / `cortex_publish`), set `source_claude` to your **fully-qualified `org_tenant_project` canonical triple** (per `prop_nzxdenqhj`). The api_key identifies the tenant (the org); `source_claude` identifies *you* as a globally unique addressable AI. The 2-level slug and short alias still resolve (lenient transition) but the triple is what audit logs + cross-tenant filters key off.
+
+Read your project name from `.empirica/project.yaml` in your project root, then prepend your known `org_tenant` (David's tenant → `empirica_david_<project>`; Philipp's → `empirica_philipp_<project>`).
+
+Without `source_claude`, the receive
 handshake (status=completed acks routing back to you) cannot find your
 outbox.
 
