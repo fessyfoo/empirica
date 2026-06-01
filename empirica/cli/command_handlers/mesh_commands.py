@@ -42,11 +42,18 @@ from empirica.core.loop_scheduler.persistent_listener import (
 )
 
 LOOP_FIRES_LOG = Path.home() / ".empirica" / "loop_fires.log"
+LISTENER_LOG_DIR = Path.home() / ".empirica" / "logs"
 CREDENTIALS_YAML = Path.home() / ".empirica" / "credentials.yaml"
 
 # Threshold past which a cortex-bridged instance with no fires is suspected
 # zombie. Tuned to be above the normal idle gap between cortex polls.
 ZOMBIE_THRESHOLD_SECONDS = 1800  # 30 min
+
+# How many recent lines of the listener log to scan for backoff-state markers.
+# Only the last few entries matter for "what state is this listener in right
+# now?" — scanning the whole file would over-report old backoff windows that
+# already lifted.
+_BACKOFF_SCAN_TAIL_LINES = 80
 
 
 class MeshInstanceState(NamedTuple):
@@ -60,6 +67,7 @@ class MeshInstanceState(NamedTuple):
     fires_last_hour: int
     cortex_configured: bool
     loops_registered: int
+    backoff_state: str | None  # None | "rate_limit" | "auth_fail"
     health_color: str  # green | yellow | red
     health_reason: str
 
@@ -153,6 +161,47 @@ def _last_fire_for(ai_id: str) -> tuple[datetime | None, int]:
     return last_ts, fires_last_hour
 
 
+def _detect_backoff_state(ai_id: str) -> str | None:
+    """Read the recent tail of the listener log to detect whether the
+    listener is currently in a backoff window (curl intentionally killed
+    + sleeping) vs. genuinely broken curl.
+
+    Returns "rate_limit" if the most recent backoff marker is the ntfy
+    HTTP 429 path, "auth_fail" for 4xx/5xx generic backoff, or None if
+    no recent backoff marker (curl absence means something else).
+
+    The "most recent" wins because the listener emits the backoff log
+    line at the START of each backoff window — if a newer "subscribing
+    to" or "ntfy event arrived" line appears after the last backoff
+    marker, the window already lifted.
+    """
+    log_path = LISTENER_LOG_DIR / f"listener-{ai_id}.log"
+    if not log_path.exists():
+        return None
+    try:
+        with log_path.open(errors="replace") as f:
+            try:
+                f.seek(0, 2)
+                size = f.tell()
+                f.seek(max(0, size - 32_768))
+                tail = f.read().splitlines()[-_BACKOFF_SCAN_TAIL_LINES:]
+            except (OSError, ValueError):
+                tail = f.read().splitlines()[-_BACKOFF_SCAN_TAIL_LINES:]
+    except OSError:
+        return None
+    state: str | None = None
+    for line in tail:
+        if "ntfy rate limit (429)" in line:
+            state = "rate_limit"
+        elif "applying error backoff" in line and "429" not in line:
+            state = "auth_fail"
+        elif "ntfy event arrived" in line or "subscribing to" in line:
+            # A fresh subscribe or event clears the prior backoff marker —
+            # the listener has moved past that window.
+            state = None
+    return state
+
+
 def _compute_health(s: dict, cortex_configured: bool) -> tuple[str, str]:
     if not s["service_installed"]:
         return "yellow", "service not installed"
@@ -163,6 +212,13 @@ def _compute_health(s: dict, cortex_configured: bool) -> tuple[str, str]:
     if not cortex_configured:
         return "green", "local-only (cortex bridge not configured)"
     if s["curl_subprocess_pid"] is None:
+        # Distinguish "curl killed during backoff (sleeping intentionally)"
+        # from "curl can't spawn (real outage)".
+        backoff = s.get("backoff_state")
+        if backoff == "rate_limit":
+            return "yellow", "rate-limited — curl absent during 30-min backoff; catch-up poll still running"
+        if backoff == "auth_fail":
+            return "yellow", "auth/HTTP backoff — curl absent during 5-min backoff; catch-up poll still running"
         return "red", "curl subscription dead — cortex bridge broken"
     last = s["last_fire_at_utc"]
     if last is None:
@@ -193,6 +249,7 @@ def _gather_state(ai_id: str, cortex_configured: bool) -> MeshInstanceState:
         loops_count = len(list_active_loops_for_instance(ai_id) or [])
     except Exception:
         pass
+    backoff_state = _detect_backoff_state(ai_id) if curl_pid is None else None
     s = {
         "ai_id": ai_id,
         "backend": svc.backend,
@@ -204,6 +261,7 @@ def _gather_state(ai_id: str, cortex_configured: bool) -> MeshInstanceState:
         "fires_last_hour": fires_last_hour,
         "cortex_configured": cortex_configured,
         "loops_registered": loops_count,
+        "backoff_state": backoff_state,
     }
     color, reason = _compute_health(s, cortex_configured)
     return MeshInstanceState(**s, health_color=color, health_reason=reason)
