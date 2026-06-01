@@ -1009,8 +1009,8 @@ Example:
     goals_create_parser.add_argument('--constraints', help='Constraints as JSON object')
     goals_create_parser.add_argument('--metadata', help='Metadata as JSON object')
     goals_create_parser.add_argument('--use-beads', action='store_true', help='Create BEADS issue and link to goal')
-    goals_create_parser.add_argument('--status', choices=['planned', 'in_progress'], default='in_progress',
-        help="Initial status: 'planned' (logged, not started) or 'in_progress' (active, default)")
+    goals_create_parser.add_argument('--status', choices=['planned', 'in_progress', 'blocked'], default='in_progress',
+        help="Initial status: 'planned' (logged, not started), 'in_progress' (active, default), or 'blocked' (waiting on external dependency)")
     goals_create_parser.add_argument('--force', action='store_true', help='Create goal even if similar goal exists')
     goals_create_parser.add_argument('--output', choices=['human', 'json'], default='human', help='Output format')
     goals_create_parser.add_argument('--verbose', action='store_true', help='Show detailed operation info')
@@ -1116,7 +1116,7 @@ Example:
     goals_list_parser.add_argument('--scope-coordination-max', type=float, help='Filter by maximum coordination (0.0-1.0)')
     goals_list_parser.add_argument('--completed', action='store_true', help='Show completed goals (default: active). Use --status for finer filtering.')
     goals_list_parser.add_argument('--status',
-        choices=['planned', 'in_progress', 'completed', 'all', 'drift'],
+        choices=['planned', 'in_progress', 'blocked', 'completed', 'all', 'drift'],
         help='Filter by lifecycle status. Takes precedence over --completed. "drift" surfaces rows where status text disagrees with is_completed (canonical).')
     goals_list_parser.add_argument('--limit', type=int, default=20, help='Max results (default: 20)')
     goals_list_parser.add_argument('--output', choices=['human', 'json'], default='human', help='Output format')

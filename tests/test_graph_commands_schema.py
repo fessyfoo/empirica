@@ -177,43 +177,42 @@ def test_validation_error_response_includes_schema_hint(monkeypatch, capsys):
     assert "'id'" in captured.out  # mentions the common pitfall
 
 
-# ─── bead v0 schema lock (2026-05-30, 3-way HYBRID convergence) ───────────
-# These tests lock the public-contract names so extension + cortex can spec
-# against them without coordination drift. Bead is the first MUTABLE node
-# type (courier of coordination-state); table wiring + db.log_bead repo
-# function follow with cortex's BEAD_COORDINATION_RECORD.md architecture
-# doc — but the names ARE the contract and they're locked here.
+# ─── bead retirement (2026-06-02) ─────────────────────────────────────────
+# Bead v0 was retired three-way (cortex/empirica/extension) on 2026-06-01.
+# Cross-practitioner coordination state moved to cortex-resident SER
+# (Shared Epistemic Record). The v0 bead node type + 4 net-new edges
+# (tracks/owned_by/about/worked_by) are gone from empirica's graph schema;
+# cortex's EDGE_RELATIONS no longer accepts them either. These tests assert
+# the retirement is complete on empirica's side so the schema can't drift
+# back in without an intentional revert.
 
 
-def test_bead_in_node_required_fields():
-    """`bead` is a recognized node type with the v0 required data fields."""
-    assert 'bead' in gc.NODE_REQUIRED_FIELDS
-    required = gc.NODE_REQUIRED_FIELDS['bead']
-    # `coordination_state` (not bare `state`) keeps the courier-discipline
-    # visible at every read; `updated_at` is mandatory because bead is mutable.
-    assert 'coordination_state' in required
-    assert 'updated_at' in required
+def test_bead_node_type_retired():
+    """`bead` is NOT in NODE_REQUIRED_FIELDS — retired post-SER convergence."""
+    assert 'bead' not in gc.NODE_REQUIRED_FIELDS
 
 
-def test_bead_v0_edge_relations_in_valid_relations():
-    """The 4 net-new bead edges: tracks + the entity triple."""
+def test_bead_v0_edges_retired():
+    """The 4 bead-courier edges are out of VALID_RELATIONS.
+
+    Pre-existing relations stay; cross-practitioner role semantics now live
+    on cortex's SER participants table, not as edge metadata on bead nodes.
+    """
     for rel in ('tracks', 'owned_by', 'about', 'worked_by'):
-        assert rel in gc.VALID_RELATIONS, f"missing bead v0 relation: {rel}"
+        assert rel not in gc.VALID_RELATIONS, f"bead v0 relation still present: {rel}"
     # Pre-existing relations untouched.
     for rel in ('attached_to', 'sourced_from', 'evidence'):
         assert rel in gc.VALID_RELATIONS
 
 
-def test_bead_in_creation_order_last():
-    """Bead is last in CREATION_ORDER — its edges reach the other types,
-    so they create first."""
-    assert 'bead' in gc.CREATION_ORDER
-    assert gc.CREATION_ORDER[-1] == 'bead'
+def test_bead_out_of_creation_order():
+    """Bead retired from CREATION_ORDER."""
+    assert 'bead' not in gc.CREATION_ORDER
 
 
-def test_log_artifacts_schema_mentions_bead_and_new_relations():
-    """The printable schema (--schema output) advertises the new names."""
+def test_log_artifacts_schema_no_longer_advertises_bead():
+    """The printable schema (--schema output) doesn't advertise bead."""
     schema_str = str(gc.LOG_ARTIFACTS_SCHEMA)
-    assert 'bead' in schema_str
+    assert 'bead' not in schema_str
     for rel in ('tracks', 'owned_by', 'about', 'worked_by'):
-        assert rel in schema_str
+        assert rel not in schema_str

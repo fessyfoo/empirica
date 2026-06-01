@@ -105,13 +105,6 @@ class ProposalEvent:
     new_or_changed: str  # "new" | "status_changed"
     direction: str = "inbox"  # "inbox" | "outbox" — tells AI which reaction
     commit_sha: str | None = None  # populated when status='completed'
-    bead_id: str | None = None  # cortex stamps this when payload.bead_id is
-    # present (graduation contract — BEAD_COORDINATION_RECORD.md §6.5). The
-    # receiving AI uses it to look up the bead + render bridge-position.
-    bridge_position: str | None = None  # cortex stamps this for post-
-    # graduation states (BEAD_COORDINATION_RECORD.md §6.5 amendment, doc
-    # 6629265). Server-computed from proposal.status; pre-graduation states
-    # (noetic / needs-graduation) are client-derived and absent here.
 
     def to_log_line(self) -> str:
         """JSON line for ~/.empirica/loop_fires.log."""
@@ -129,8 +122,6 @@ class ProposalEvent:
             "eco_actor": self.eco_actor,
             "change_kind": self.new_or_changed,
             "commit_sha": self.commit_sha,
-            "bead_id": self.bead_id,
-            "bridge_position": self.bridge_position,
         })
 
 
@@ -302,39 +293,7 @@ def build_event(
         new_or_changed=change_kind,
         direction=direction,
         commit_sha=_extract_commit_sha(p) if status == "completed" else None,
-        bead_id=_extract_bead_id(p),
-        bridge_position=_extract_bridge_position(p),
     )
-
-
-def _extract_bridge_position(p: dict) -> str | None:
-    """Pull `bridge_position` from a proposal envelope.
-
-    Per BEAD_COORDINATION_RECORD.md §6.5 amendment (cortex doc 6629265),
-    cortex computes the proposal's bridge-position label from `proposal.status`
-    and stamps it as a top-level field on the envelope for post-graduation
-    states. Pre-graduation labels (`noetic` / `needs-graduation`) are
-    client-derived and absent from the envelope.
-    """
-    bp = p.get("bridge_position")
-    return str(bp) if bp else None
-
-
-def _extract_bead_id(p: dict) -> str | None:
-    """Pull `bead_id` from a proposal envelope (graduation contract).
-
-    Per BEAD_COORDINATION_RECORD.md §6.5, cortex stamps `bead_id` on the
-    proposal envelope when `payload.bead_id` was present at create-time.
-    The stamp may surface at top level (current convention) or stay nested
-    under `payload` (transitional / older payloads) — read both. Returns
-    None when neither is set, so non-graduated proposals don't carry it.
-    """
-    bid = p.get("bead_id")
-    if not bid:
-        payload = p.get("payload")
-        if isinstance(payload, dict):
-            bid = payload.get("bead_id")
-    return str(bid) if bid else None
 
 
 def poll_and_diff(

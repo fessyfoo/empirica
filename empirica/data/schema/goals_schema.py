@@ -19,7 +19,7 @@ SCHEMAS = [
                     completed_timestamp REAL,
                     is_completed BOOLEAN DEFAULT 0,
                     goal_data TEXT NOT NULL,
-                    status TEXT DEFAULT 'in_progress',  -- 'planned' | 'in_progress' | 'completed'
+                    status TEXT DEFAULT 'in_progress',  -- 'planned' | 'in_progress' | 'blocked' | 'completed'
                     beads_issue_id TEXT,  -- Optional: Link to BEADS issue tracker (e.g., bd-a1b2)
                     project_id TEXT,
                     transaction_id TEXT,

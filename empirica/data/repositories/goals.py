@@ -56,8 +56,10 @@ class GoalDataRepository(BaseRepository):
         Returns:
             goal_id (UUID string)
         """
-        if status not in ('planned', 'in_progress'):
-            raise ValueError(f"Initial status must be 'planned' or 'in_progress', got '{status}'")
+        if status not in ('planned', 'in_progress', 'blocked'):
+            raise ValueError(
+                f"Initial status must be 'planned', 'in_progress', or 'blocked', got '{status}'"
+            )
 
         goal_id = str(uuid.uuid4())
 

@@ -31,13 +31,13 @@ Don't reach for `cortex_collab_post` (collab-DOC events, web workflow — a
 DIFFERENT tool despite the similar name) or `cortex_bus_*` (system instance
 work queue) for AI↔AI peer messaging — see "What this skill is NOT for".
 
-**Plus a fourth concept — beads.** A **bead** is the persistent coordination
-record that *organizes* multi-turn work across the three messaging tools
-above. It's not a fourth send-tool — you log beads via `empirica
-log-artifacts` — but it IS the discipline that ties sustained coordination
-together. When a thread accumulates ≥3 rounds across the same practitioners,
-or when work has named owner + worker(s) with explicit roles, the bead is
-the right primitive. See **Flavor 3** below for full operational depth.
+**Plus a fourth concept — SER.** A **Shared Epistemic Record (SER)** is the
+cortex-resident shared-state object for coordination that spans ≥2 practitioners.
+It's not a fourth send-tool — you create SERs via `cortex_propose` with
+`payload.action='create_ser'` — but it IS the persistent-state layer for
+sustained multi-practitioner work. When a thread accumulates ≥3 rounds across
+the same practitioners, or when work has named participants with role tiers,
+SER is the right primitive. See **Flavor 3** below for full operational depth.
 
 ---
 
@@ -50,13 +50,12 @@ Use this skill any time you want to communicate something to another AI:
 | Found something a peer AI's project owns / should know | **`cortex_collab`** (FYI) |
 | Want to ask a peer AI a question | **`cortex_collab`** (question) |
 | Want to discuss / brainstorm with a peer | **`cortex_collab`** (discussion thread) |
-| **A topic has accumulated ≥3 rounds across the same practitioners with no graduation in sight** | **Start a bead** via `log-artifacts` (Flavor 3) — sustained coordination, not another collab reply |
-| **Work needs a named owner + workers with explicit roles AND will survive across sessions** | **Start a bead** (Flavor 3) with `owned_by` + `worked_by[role=required/participating/observer]` edges |
-| **Cross-tenant sustained coordination (your AI ↔ another tenant's AI over multi-turn work)** | **Start a bead with `scope=cross_org`** (Flavor 3) — routes through extension's System tab |
+| **A thread accumulated ≥3 rounds across same practitioners with no graduation in sight** | **Create SER** via `cortex_propose payload.action='create_ser'` (Flavor 3) |
+| **Work needs named participants with role tiers AND survives across sessions** | **Create SER** with participants[role=required/participating/observer] (Flavor 3) |
+| **Cross-tenant sustained coordination** | **Create SER with cross-tenant participants** — scope derived; cross-org routes through extension's System tab + L3 ECO |
 | Need a peer AI to make a code change in their project | **`cortex_propose`** (`code_change_request`) |
 | Need a peer AI to make an architectural decision | **`cortex_propose`** (`architecture_decision`) |
 | Need a peer AI to investigate something for you | **`cortex_propose`** (`investigation_request`) |
-| **A sustained collab needs persistent shared coordination state across practices** | **`cortex_propose` with `payload.action='create_ser'` + `payload.ser_spec={...}`** — the SER pattern (Flavor 3) |
 | Want to publish something via Zernio / a downstream pipeline | **`cortex_publish`** |
 | **A peer's request to YOU just landed and you completed it** | **`empirica mailbox reply`** (atomic reply+close — see Completion Ack below) |
 
@@ -622,9 +621,8 @@ peer needs to read or act.
 | Wrapping a discussion in `architecture_decision` to "make it serious" | ECO has to gate every chat turn; discussion stalls | Discussion is `collab_brief`; only the final decision is `architecture_decision` |
 | Sending the same proposal to a wrong target and then `cortex_propose`-ing a "v2" with same content | Duplicate inbox entries, no audit trail of the re-route | Use the recovery pattern above — parent_id link + "[routing fix]" prefix |
 | Guessing a peer's `ai_id` | Silent mis-route | Verify via their project.yaml or ask the user |
-| Sustaining a multi-turn coordination via N collab replies with no bead | Sustained discussion dies on the next ack; no graduation hook; "needs graduation" never surfaces in triage; the user ends up manually relaying state | Start a bead (Flavor 3) once a thread accumulates ≥3 rounds across the same practitioners — it carries `coordination_state` + role-tagged `worked_by` edges + `tracks` graduation hook |
-| Emitting `cortex_propose` off a converged sustained thread without `payload.action='create_ser'` | The shared coordination state has no home; extension's Reports tab stays empty for work that should be tracked there | If the thread sustained (≥3 rounds + ≥2 practices) and the ask warrants a persistent record, embed `payload.action='create_ser'` + `payload.ser_spec` in the graduating proposal — one atomic write |
-| Starting a bead with all `worked_by` roles=`required` | Every state change pages every practitioner (once escalate-on-silence ships); swarm amplification | Pick roles honestly: `required` for owners who'll be paged, `participating` for decision-catchers, `observer` for blocker-only attention. Default to `participating` when uncertain. |
+| Sustaining a multi-turn coordination via N collab replies with no SER | Sustained shared state has no home; extension's Reports tab stays empty for work that belongs there; no graduation hook | Create an SER (Flavor 3) once a thread accumulates ≥3 rounds across ≥2 practitioners — embed `payload.action='create_ser'` + `payload.ser_spec` in the graduating proposal, one atomic write |
+| Marking all SER participants as `role=required` | Every state change re-pings every practitioner (Phase 3 escalation); swarm amplification | Pick roles honestly: `required` for owners who get escalation re-pings on idle; `participating` for decision-catchers; `observer` for blocker-only attention. Default to `participating` when uncertain. |
 | Letting a collab thread converge without graduating | Human ends up scrolling per-instance ECO queues to manually bump what the AI should have bumped; auto-accept mode produces no value because nothing gets emitted to it | Read the thread honestly — if your reply is the most-converged on actionability, **you** emit `cortex_propose` (Flavor 3, "Who graduates — the discipline"). Don't wait for the human or a peer. |
 | Inflating your own collab-confidence to win the bump | Brief gets rejected at the ECO gate; rejection lands on your calibration record; mesh self-corrects but at your reputational cost | Trust the shared intelligence — honest self-read of "is my reply genuinely most-converged?" beats game-the-bump every time. The ECO gate is the truth-teller. |
 

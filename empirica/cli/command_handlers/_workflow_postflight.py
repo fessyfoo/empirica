@@ -1099,16 +1099,10 @@ _CORTEX_GRAPH_SPECS = (
     ("decisions", "decision",
      (("choice", "choice"), ("rationale", "rationale"),
       ("alternatives", "alternatives"), ("reversibility", "reversibility"))),
-    # Bead coordination-records — first mutable node type. Schema language
-    # locked in graph_commands.py NODE_REQUIRED_FIELDS (b91a2b60b); fields
-    # match cortex BEAD_COORDINATION_RECORD.md §3 read shape + §6 lifecycle.
-    ("beads", "bead",
-     (("coordination_state", "coordination_state"),
-      ("updated_at", "updated_at"),
-      ("last_transition_actor", "last_transition_actor"),
-      ("beads_issue_id", "beads_issue_id"),
-      ("scope", "scope"),
-      ("description", "description"))),
+    # bead removed 2026-06-02 — cortex retired the artifact-graph bead node
+    # type three-way 2026-06-01; coordination state lives in cortex-side SER
+    # (Shared Epistemic Record) primitive now. See cortex b6071ff + empirica
+    # 1.11.0 docs/human/end-users/MESH_CONCEPTS.md for the migration story.
 )
 
 _CORTEX_GRAPH_PER_TYPE_CAP = 20

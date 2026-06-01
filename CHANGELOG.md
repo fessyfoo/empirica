@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.2] — 2026-06-02
+
+Code-side cleanup completing the bead-v0 retirement. Cortex shipped its lane on 2026-06-01 (`b6071ff` — see SER spec at empirica-cortex `85e5e46`); this release retires the remaining empirica-side bead surface so residual emits don't get silently dropped by cortex's stricter validation.
+
+### Removed
+
+- **`bead` node type from `graph_commands.py`** — `NODE_REQUIRED_FIELDS['bead']`, schema docs, `CREATION_ORDER` entry, the `db.log_bead` invocation path, and the `beads` node-table mapping. Cortex's `EDGE_RELATIONS` now rejects bead nodes at validation — any residual local emits would have silently failed at the sync boundary; this commit ensures empirica can't produce them in the first place.
+- **v0 bead edge relations** (`tracks`, `owned_by`, `about`, `worked_by`) from `VALID_RELATIONS`. Cross-practitioner role semantics now live on cortex's SER `participants` table, not as edge metadata on artifact-graph nodes. Tests inverted to assert the retirement is complete.
+- **`beads` group from `_workflow_postflight._CORTEX_GRAPH_SPECS`** — `/v1/sync` no longer ships bead artifacts to cortex.
+- **`bead_id` + `bridge_position` fields from listener wake events** (`content_poll.py:ProposalEvent`). The padding produced `"bead_id": null, "bridge_position": null` on every push event; cortex stopped stamping these in `b6071ff`, so the empty fields were dead weight. Removed from the dataclass, the `to_log_line` JSON shape, and the `_extract_bead_id` / `_extract_bridge_position` helpers.
+
+### Added
+
+- **`'blocked'` to `goal.status` enum** — `goals_schema.py` (schema comment), `repositories/goals.py` (initial-status validation), and CLI flags on `goals-create --status` + `goals-list --status`. Per the SER spec §migration: a per-practitioner goal can now mark itself as blocked when waiting on a peer / external dependency, without needing cross-practitioner coordination state (that lives in cortex's SER).
+
+### Changed
+
+- **`/cortex-mailbox-send` skill final bead vocab residuals** — the intro "Plus a fourth concept — beads" paragraph and three When-to-Use table rows that still pointed to `log-artifacts`-based bead creation are now SER-keyed. Anti-pattern table rows about bead-graduation collapsed into the existing `payload.action='create_ser'` pattern.
+
+### Note (cortex / mesh-support side, separate repos)
+
+- Cortex shipped `b6071ff` retiring `/v1/beads` endpoint, the artifact-graph bead schema, the `bead_receipts` table, and `bead_escalation` module — total ~1100 LOC removed.
+- ntfy server-side rate-limit bump (per-IP → per-token, 30→100 subscriptions, 60→300 burst, 12→60 req/min) shipping in parallel for the unrelated fleet-wide 429 storm that surfaced post-1.11.1; verified 0/min curl 429s post-restart per cortex's `prop_7ds4xvcphz`.
+
 ## [1.11.1] — 2026-06-01
 
 Hotfix for a misleading diagnostic that surfaced 90 minutes after 1.11.0 shipped: `mesh status` and `mesh diagnose` reported "curl subscription dead" for listeners that were intentionally in a 30-min ntfy 429 backoff window (curl killed by the Track 5 rate-limit handler from 1.11.0, sleeping until the limit lifts, catch-up poll still flowing). mesh-support's escalation interpreted the misleading status as a watchdog gap, but the watchdog handles a different failure mode (alive-but-stale curl); the actual issue was UX, not behavior.
