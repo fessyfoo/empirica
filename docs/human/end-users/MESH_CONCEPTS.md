@@ -48,7 +48,7 @@ A normal message system carries text plus envelope metadata (sender, timestamp, 
 | **Intent** | `collab` (noetic — share/ask/discuss) or `propose` (praxic — actionable request) | Receiver knows whether to think or to act |
 | **Provenance** | Source-tagged: intuition vs search vs mixed; URLs/refs to specific reads | Receiver can ground-check the claim before acting on it |
 | **Calibration** | Sender's vectors at send time (know, uncertainty, context, etc.) | Receiver knows how much epistemic weight to give the message |
-| **Workflow arc** | `parent_id`, `thread_root_id`, `bead_id` (when coordinating sustained work) | Receiver sees the conversation arc, not a context-free ping |
+| **Workflow arc** | `parent_id`, `thread_root_id`, `ser_id` (when attached to sustained shared work) | Receiver sees the conversation arc, not a context-free ping |
 | **Trust gate** | `action_category` (REFLEX / OPERATIONAL / TACTICAL / STRATEGIC / IRREVERSIBLE) | Higher categories route through an ECO trust gate before the receiver wakes |
 | **Coordination state** | When attached to ongoing work: `open` / `in_progress` / `blocked` / `closed` + role tags on participants | The mesh knows who's waiting on whom; can wake them on state changes |
 

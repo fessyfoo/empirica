@@ -2,14 +2,14 @@
 
 > **Reading order tip:** if you haven't yet, start with [MESH_CONCEPTS.md](MESH_CONCEPTS.md) — it explains *why* the mesh works the way it does (practitioner/practice framing, what actually rides the wire between AIs). This doc is the *how*: installing the optional layers on top of core.
 
-**Empirica core works standalone.** Artifacts, goals, calibration, project-search, the sentinel gate, the artifact graph, commit-context, BEADS integration — all of these run on the local install without any further setup beyond `pip install empirica` and `empirica project-init`. If that's all you need, you're done.
+**Empirica core works standalone.** Artifacts, goals, calibration, project-search, the sentinel gate, the artifact graph, commit-context, `bd` issue-tracker integration (per-project goal decomposition + ready-work filtering) — all of these run on the local install without any further setup beyond `pip install empirica` and `empirica project-init`. If that's all you need, you're done.
 
 **This doc is for users who want the optional mesh layer.** The mesh adds:
 - **Cross-AI coordination** — multiple Claude sessions across projects propose work to each other through an ECO (human or autonomy-actor) decision gate
 - **Push-wake on inbox events** — idle sessions wake the moment a peer's proposal is accepted, not on next user prompt
 - **Cross-project artifact serving** — semantic search across every project you've worked in
 - **Browser-side ECO triage UI** — Accept/Decline proposals on phone or desktop without having to type into a terminal
-- **Coordination records (beads)** — sustained multi-turn coordination across practitioners with role tiers and a graduation pipeline to ECO-gated proposals
+- **Shared Epistemic Records (SERs)** — sustained multi-practitioner coordination state with role tiers, escalate-on-silence wake, and a graduation pipeline from collab discussion to ECO-gated proposals (see [`empirica-cortex/docs/architecture/SHARED_EPISTEMIC_RECORD.md`](https://github.com/getempirica/empirica-cortex/blob/main/docs/architecture/SHARED_EPISTEMIC_RECORD.md))
 
 The mesh layer is delivered by [Empirica Cortex](https://getempirica.com) (a proprietary serving layer), an optional [browser extension](https://getempirica.com), and an [ntfy](https://ntfy.sh) push bridge. None of these are required for Empirica core; **everything in this doc is opt-in**.
 
@@ -40,7 +40,7 @@ If you want them, read on.
 │  EXTENSION (browser UI)  (chrome.google.com or getempirica.com)  │
 │  • ECO triage — Accept/Decline proposals from phone or desktop   │
 │  • Artifacts pane (reads local daemon at localhost:8000)         │
-│  • Issues triage (coordination records / beads)                  │
+│  • Reports tab (Shared Epistemic Records — coordination state)   │
 │  • System tab — cross-org governance events                      │
 └────────────────────┬─────────────────────────────────────────────┘
                      │ optional ↓
@@ -132,7 +132,7 @@ empirica diagnose
 
 ## Step 3 — Install the Browser Extension
 
-The [Empirica Extension](https://getempirica.com) provides the ECO triage UI (Accept/Decline proposals), the Artifacts pane (reads your local daemon), and the Issues triage view (coordination records / beads).
+The [Empirica Extension](https://getempirica.com) provides the ECO triage UI (Accept/Decline proposals), the Artifacts pane (reads your local daemon), and the **Reports tab** — the human-readable view of every Shared Epistemic Record (SER) the user's practices are participants in.
 
 **Chrome / Chromium browsers:**
 - Install from the Chrome Web Store via the link at [getempirica.com](https://getempirica.com)
@@ -320,7 +320,7 @@ For deeper diagnosis: `~/.empirica/loop_fires.log` is the wake-event log; `journ
 A reminder, because users sometimes assume the mesh is required:
 
 ✅ All of these work on empirica core alone, no Cortex / extension / ntfy needed:
-- All artifact types (findings, unknowns, dead-ends, decisions, assumptions, mistakes, sources, beads)
+- All artifact types (findings, unknowns, dead-ends, decisions, assumptions, mistakes, sources)
 - All goal management (`goals-create`, `goals-add-task`, `goals-complete-task`, `goals-complete`)
 - PREFLIGHT / CHECK / POSTFLIGHT measurement cycle
 - The sentinel gate, the work-type gate-relaxation tuple
@@ -328,7 +328,7 @@ A reminder, because users sometimes assume the mesh is required:
 - Per-project entity graph (`entity-list`, `entity-walk`, `entity-search`)
 - The commit-context walker
 - The artifact graph + typed edges
-- BEADS integration (the `bd` issue tracker) — separate concept from coordination-record beads
+- `bd` issue tracker integration (per-project dependency-graph + ready-work filtering for goal decomposition) — completely separate concept from cross-practitioner SERs
 - Calibration breadcrumbs + the compliance loop
 - The Claude Code plugin (hooks + skills)
 - The TUI cockpit (`empirica cockpit` or `empirica tui`)
@@ -338,8 +338,8 @@ A reminder, because users sometimes assume the mesh is required:
 - Cross-AI proposal pipeline (peer AIs requesting work from each other)
 - ECO trust gating with phone/desktop accept/decline
 - Push-wake on inbox events
-- Coordination records (beads as the courier between practitioners)
-- The Issues triage pane in the extension
+- Shared Epistemic Records (the cross-practitioner shared-state primitive)
+- The Reports tab in the extension (human-readable SER renders)
 - The System tab (cross-org governance events)
 
 ---

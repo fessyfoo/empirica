@@ -58,40 +58,29 @@ Five existing user-facing docs got their mesh-vs-core framing sharpened (README,
 
 If you skipped 1.10.5 + 1.10.6 patches and are jumping straight from 1.10.4, you pick up the rolled-up patch content. (If you've already been running 1.10.6 these are review only.)
 
-### Bead v0 — coordination records as a new mesh primitive (1.10.5)
+### Bead v0 → Shared Epistemic Record (SER) — coordination concept relocated (1.10.5 ship → 1.11 retire)
 
-Beads are persistent, mutable coordination records that sit between single-turn collab (one-off discussion) and graduated proposals (typed praxic action). A bead carries `coordination_state` (`open` / `in_progress` / `blocked` / `closed`), `worked_by` edges with per-AI `role` metadata (`required` / `participating` / `observer`), `tracks` edges to actionables (proposals / goals / issues), and an optional cross-org scope flag.
+**Short version:** the v0 `bead` artifact type that landed in 1.10.5 has been retired. Its replacement — the **Shared Epistemic Record (SER)** — lives at the cortex layer, not in the empirica artifact graph. If you're not running mesh, nothing changes. If you are, see below.
 
-**For AI-mesh users**: beads are the structured-coordination primitive your AIs should start when a thread sustains beyond 3 rounds across the same practitioners, or when work has a named owner + workers with explicit roles. The `/cortex-mailbox-send` skill's **Flavor 3** section walks the discipline end-to-end including the graduation contract (bead → typed proposal).
+**What happened.** 1.10.5 shipped a `beads` table + a `bead` artifact type with `coordination_state` + 4 new edge relations (`owned_by` / `worked_by` / `tracks` / `about`) as the v0 design for cross-practitioner coordination. Three-way review across cortex / empirica / extension surfaced two problems with that shape:
 
-**For non-mesh users**: beads are invisible. The schema lands (migration 048 adds the `beads` table) but `bead` artifacts are only emitted through the mesh sync path; if you're not running mesh, nothing changes.
+1. It put cross-practitioner shared state inside per-project empirica DBs — but the only place every participating practice can read AND write is the cortex layer, not their individual project DBs
+2. The word "bead" collided with `bd` (the external dependency-graph issue tracker that empirica has integrated since 1.0) — every reader had to disambiguate constantly
 
-Sample `log-artifacts` payload to create a bead with the full edge set:
+The retirement decision and new design landed in [`empirica-cortex/docs/architecture/SHARED_EPISTEMIC_RECORD.md`](https://github.com/getempirica/empirica-cortex/blob/main/docs/architecture/SHARED_EPISTEMIC_RECORD.md). The v0 design is preserved at the same repo under `docs/archive/BEAD_COORDINATION_RECORD_v0.md` for historical reference.
 
-```bash
-NOW=$(date +%s.%N)
-empirica log-artifacts - << EOF
-{
-  "nodes": [
-    {"ref": "b1", "type": "bead",
-     "data": {
-       "coordination_state": "open",
-       "updated_at": $NOW,
-       "scope": "local",
-       "summary": "Sustained coordination on <topic>"
-     }}
-  ],
-  "edges": [
-    {"from": "b1", "to": "<empirica-practice-uuid>", "relation": "owned_by"},
-    {"from": "b1", "to": "<empirica-practice-uuid>", "relation": "worked_by",
-     "metadata": {"role": "required"}},
-    {"from": "b1", "to": "<tracked-actionable-uuid>", "relation": "tracks"}
-  ]
-}
-EOF
-```
+**What stays in empirica.** The `beads` table from migration 048 is left in place — non-destructive. Any v0 beads you emitted during the 1.10.5 window stay readable. No further `bead` artifacts get emitted from any current code path. Cleanup of the unused table is deferred until v1.12+.
 
-See [`MESH_SETUP.md`](../human/end-users/MESH_SETUP.md) + the `/cortex-mailbox-send` skill (Flavor 3) for the operational depth.
+**What you do.**
+
+| If you are… | Action |
+|---|---|
+| Not running mesh | Nothing. The bead concept was invisible to you in 1.10.5 and stays invisible |
+| Running mesh, never emitted a v0 bead | Nothing. SER lives in cortex; the next mailbox-skill update wires your AIs into it |
+| Emitted v0 beads during 1.10.5 | The rows stay readable. Don't re-emit. The SER spec is the new direction — your future coordination state lives in cortex, not in your empirica graph |
+| Building against the v0 bead API (custom code) | Migrate to the SER actions (`ser_create` / `ser_set_state` / `ser_ack`) once cortex ships them. SER v1 minimal spec is locked; v1 build is on cortex side |
+
+**Why this matters for the 1.11 conceptual story.** SER is the cross-practitioner primitive; **goals** stay the per-practitioner work primitive. They live at different altitudes and don't compete. See [`MESH_CONCEPTS.md`](../human/end-users/MESH_CONCEPTS.md) for the full framing of why this split is intentional and what each layer carries.
 
 ### Phase B mesh — noetic / praxic primitive split (1.10.5)
 
@@ -107,9 +96,9 @@ This is a discipline update in the skill; nothing to install separately. Loaded 
 
 ### Edge metadata persistence fix (1.10.5)
 
-A real bug in `log-artifacts` was silently dropping per-edge `metadata` JSON. Code path: `_wire_edges` called `_store_edge(db, from_id, to_id, relation)` without passing `edge.get('metadata')`, so payloads carrying `{"role": "required"}` on a `worked_by` edge landed with `metadata=NULL` in `artifact_edges`. Affected every artifact edge with metadata, not just beads.
+A real bug in `log-artifacts` was silently dropping per-edge `metadata` JSON. Code path: `_wire_edges` called `_store_edge(db, from_id, to_id, relation)` without passing `edge.get('metadata')`, so payloads carrying e.g. `{"role": "required"}` on a `worked_by` edge landed with `metadata=NULL` in `artifact_edges`. Affected every artifact edge with metadata.
 
-Pre-fix beads have NULL `worked_by` metadata even when emitted with role. Post-fix beads carry it correctly. If you emitted beads on 1.10.4 with role metadata and want the role tier to surface (for escalate-on-silence wake routing, for example), re-emit them post-upgrade.
+The fix stands on its own — `log-artifacts` now persists edge metadata correctly for all artifact relations. (The v0 bead use case that motivated the fix is retired; the underlying bug fix is independently useful for any artifact edge that carries metadata.)
 
 ### Listener stability cluster (1.10.5 + 1.10.6)
 
@@ -134,11 +123,10 @@ The empirica skill update is purely documentation — no behaviour change beyond
 - [ ] `empirica setup-claude-code --force` (refresh hooks + plugin skills)
 - [ ] `empirica diagnose` — green = ready
 - [ ] If you run a persistent listener, restart it (see Quick Upgrade above)
-- [ ] **If you emitted beads pre-1.10.5 with role metadata** and want the role tier visible, re-emit them post-upgrade (see [Edge metadata persistence fix](#edge-metadata-persistence-fix-1105))
+- [ ] **Mesh users who emitted v0 beads in the 1.10.5 window**: nothing to migrate — those rows stay readable, no further bead emissions happen, SER replaces the concept at the cortex layer (see [Bead v0 → SER](#bead-v0--shared-epistemic-record-ser--coordination-concept-relocated-1105-ship--111-retire))
 - [ ] **Multi-project users**: skim [`PROJECT_LIFECYCLE.md`](../human/end-users/PROJECT_LIFECYCLE.md) — covers the new `projects-sync` master verb and the selective `--include`/`--exclude` filters
-- [ ] **Mesh users**: skim [`MESH_SETUP.md`](../human/end-users/MESH_SETUP.md) — covers the post-1.10.6 listener arming pattern + the Contract 2 wake-noise simplification
+- [ ] **Mesh users**: skim [`MESH_SETUP.md`](../human/end-users/MESH_SETUP.md) — covers the post-1.10.6 listener arming pattern + the Contract 2 wake-noise simplification. New to the conceptual story: read [`MESH_CONCEPTS.md`](../human/end-users/MESH_CONCEPTS.md) first
 - [ ] **New to the discovery side**: walk through [`LOGGING_AND_FINDING.md`](../human/end-users/LOGGING_AND_FINDING.md) — the OAuth2 worked example threads search + entity-walk + commit-context together
-- [ ] (Optional, for completeness) Verify the bead schema migration ran: `sqlite3 .empirica/sessions/sessions.db '.tables' | grep beads` — should show `beads`
 
 ---
 
