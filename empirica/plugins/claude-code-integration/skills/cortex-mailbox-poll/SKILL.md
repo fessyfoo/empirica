@@ -192,7 +192,7 @@ verified by the status field (`accepted`/`changed`/`declined` — never
 A proposal you emitted earlier just transitioned state. ECO already decided
 when it went out — these events are informational acks for the source AI.
 
-- status `completed` (T7 — David's AI-to-AI ack primitive)
+- status `completed`
   → Target AI finished your work. Event carries `commit_sha` so you can
   trace the landing. Log a finding (`empirica finding-log`) noting the
   completion + commit. If there's a next-step you were waiting on, chain
@@ -422,20 +422,20 @@ per proposal `type`:
 | `publish` | **ECO-gated** at the proposal layer | On `status=accepted`, compose + dispatch per the spec |
 | `trust_escalation_request` | **ECO-gated** at the proposal layer | On `status=accepted`, apply the trust change |
 
-**Critical clarification on ECO gating (David 2026-06-01):** the ECO gate IS the proposal's Accept/Change/Decline mechanism, not a separate "AI asks human for permission to emit" step. When YOU emit a `cortex_propose` (because collab converged and you're the initiator / highest-confidence / asked-to-take-it-on), the proposal automatically routes through ECO — David's phone, the extension, or `empirica-autonomy` — and gets Accepted/Changed/Declined. The AI **auto-emits** ECO proposals when collab converges; the AI does NOT ask the human "should I emit this proposal?" — that would re-introduce the dispatcher pattern. When YOU RECEIVE an ECO-accepted proposal targeting you, you proceed because the ECO actor already decided — no further surface needed.
+**ECO gating IS the proposal's Accept/Change/Decline.** When you emit a `cortex_propose` (because collab converged and you're the initiator / highest-confidence / asked-to-take-it-on), the proposal routes through the ECO actor (human or autonomy delegate) automatically. **Auto-emit** when convergence happens. Do NOT ask the human "should I emit this proposal?" — that re-introduces the dispatcher pattern. When you RECEIVE an ECO-accepted proposal targeting you, proceed — the ECO actor already decided.
 
-**The split is symmetric with the send side** (`/cortex-mailbox-send`): collab (noetic) flows ungated AI↔AI; ECO-gated typed proposals get auto-emitted by the AI when convergence happens, and Accept/Change/Decline routes through the ECO actor without the AI re-asking the human.
+**Symmetric with the send side** (`/cortex-mailbox-send`): collab flows ungated AI↔AI; ECO-gated typed proposals auto-emit on convergence and Accept/Change/Decline routes through the ECO actor without re-asking the human.
 
-**The ONLY cases that surface to the user from the receive side:**
-- `direction=outbox, status=changed` — ECO sent YOUR proposal back for refinement; you read the change-note and emit a refined proposal with `parent_id`. (Surface only if the change-note needs clarification you can't infer.)
-- `direction=outbox, status=declined` — ECO declined your proposal; surface so the user can correct the model. Update your beliefs; do not re-emit without new evidence.
+**The ONLY cases that surface from the receive side:**
+- `direction=outbox, status=changed` — read the change-note and emit a refined proposal with `parent_id`. Surface only if the note needs clarification you can't infer.
+- `direction=outbox, status=declined` — surface so the user can correct the model. Update your beliefs; do not re-emit without new evidence.
 
 For ANY proposal that requires acting (not just acknowledging), the AI
 should open an empirica transaction (PREFLIGHT) to record the work. The
 mailbox-poll itself is meant to be lightweight — its job is to detect
 and route, not to do the work inline.
 
-> **Why the noetic auto-reply rule exists** (extension's `prop_urke62v`, 2026-06-01, David-directed): when AIs surface every collab question to the human, the human becomes a dispatcher between AI instances — defeats the AFK/ambassador model and burns the human's attention on routing. Collab is ungated *specifically so* AIs can converge without human intervention. Pairs with Contract 2 (fyi-drop): every collab wake is now actionable but actionable-by-AI, not actionable-by-human.
+> **Why the noetic auto-reply rule exists.** Surfacing every collab question to the human turns the human into a dispatcher between AI instances — defeats the AFK/ambassador model. Collab is ungated specifically so AIs can converge without human intervention. Every collab wake is actionable-by-AI, not actionable-by-human.
 
 ---
 
