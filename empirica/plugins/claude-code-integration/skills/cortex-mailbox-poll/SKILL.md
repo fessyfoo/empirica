@@ -416,13 +416,19 @@ per proposal `type`:
 |---|---|---|
 | `collab_brief` | **None (noetic, ungated)** | **Auto-react**: read payload, log finding-log, post a reply via `empirica mailbox reply --parent-id <pid> --result shipped` (atomic propose+complete). If the collab asks a question, answer it; if it shares context, ack/integrate it; if it converges, graduate to `cortex_propose` per the send-side discipline. **Do NOT surface-and-wait** — the human-as-dispatcher pattern breaks the AFK/ambassador model. |
 | `spec_updated` | None | Read spec at `payload.path`, log finding-log "consumed spec X", archive via `cortex_archive_proposal` |
-| `architecture_decision` | **ECO-gated** | Surface to user — needs explicit human Accept/Decline before action |
-| `code_change_request` | **ECO-gated** | Surface to user — same as above. Tiny mechanical changes can act-and-follow-up only if you're confident the user would auto-accept. |
+| `architecture_decision` | **ECO-gated** at the proposal layer | This is an inbound typed proposal targeting YOU as an executor. You DO the work after ECO accepts; ECO's Accept/Decline IS the gate, not a separate "ask the human if I can act" step. If `status=accepted` and you're in `target_claudes`, the human already authorized you — proceed. |
+| `code_change_request` | **ECO-gated** at the proposal layer | Same: ECO already gated it. On `status=accepted`, do the code work + ack via `empirica mailbox reply`. |
 | `investigation_request` | None (auto-reflex) | Run the investigation via `cortex_research` or local tools, post results via reply collab_brief |
-| `publish` | **ECO-gated** | Surface to user — never auto-publish |
-| `trust_escalation_request` | **ECO-gated** | Always surface to user — never auto-act on trust changes |
+| `publish` | **ECO-gated** at the proposal layer | On `status=accepted`, compose + dispatch per the spec |
+| `trust_escalation_request` | **ECO-gated** at the proposal layer | On `status=accepted`, apply the trust change |
 
-**The split is symmetric with the send side** (`/cortex-mailbox-send`): collab (noetic) flows ungated AI↔AI; ECO-gated typed proposals (`architecture_decision` / `code_change_request` / `publish` / `trust_escalation_request`) need the human gate. **Outbox state changes you receive** (`direction=outbox, status=changed/declined`) also surface to the user — those mean your own proposal needs human-aware refinement.
+**Critical clarification on ECO gating (David 2026-06-01):** the ECO gate IS the proposal's Accept/Change/Decline mechanism, not a separate "AI asks human for permission to emit" step. When YOU emit a `cortex_propose` (because collab converged and you're the initiator / highest-confidence / asked-to-take-it-on), the proposal automatically routes through ECO — David's phone, the extension, or `empirica-autonomy` — and gets Accepted/Changed/Declined. The AI **auto-emits** ECO proposals when collab converges; the AI does NOT ask the human "should I emit this proposal?" — that would re-introduce the dispatcher pattern. When YOU RECEIVE an ECO-accepted proposal targeting you, you proceed because the ECO actor already decided — no further surface needed.
+
+**The split is symmetric with the send side** (`/cortex-mailbox-send`): collab (noetic) flows ungated AI↔AI; ECO-gated typed proposals get auto-emitted by the AI when convergence happens, and Accept/Change/Decline routes through the ECO actor without the AI re-asking the human.
+
+**The ONLY cases that surface to the user from the receive side:**
+- `direction=outbox, status=changed` — ECO sent YOUR proposal back for refinement; you read the change-note and emit a refined proposal with `parent_id`. (Surface only if the change-note needs clarification you can't infer.)
+- `direction=outbox, status=declined` — ECO declined your proposal; surface so the user can correct the model. Update your beliefs; do not re-emit without new evidence.
 
 For ANY proposal that requires acting (not just acknowledging), the AI
 should open an empirica transaction (PREFLIGHT) to record the work. The
