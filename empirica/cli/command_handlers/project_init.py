@@ -130,7 +130,49 @@ def _collect_project_config_from_args(args, git_root) -> dict:
     }
 
 
-def _ensure_git_root(interactive, output_format):
+def _report_git_init_failure(exc, output_format):
+    """Surface an actionable error when 'git init' fails.
+
+    Sandboxed harnesses (e.g. ecodex) sometimes pre-mount .git/ read-only,
+    so `git init` cannot write HEAD/config. The recovery is either to make
+    the mount writable, or skip git as the anchor by passing --project-id
+    (caller already has a workspace identity from prior provisioning).
+    """
+    cwd = Path.cwd()
+    git_dir = cwd / '.git'
+    likely_readonly_mount = git_dir.exists() and not os.access(git_dir, os.W_OK)
+
+    stderr_raw = getattr(exc, 'stderr', None) or ''
+    if isinstance(stderr_raw, bytes):
+        stderr_raw = stderr_raw.decode('utf-8', errors='replace')
+    stderr = stderr_raw.strip()
+
+    recovery = [
+        "Supply --project-id <existing-uuid> to skip git init and use cwd as the anchor",
+        "Make .git/ writable (fix the sandbox mount)",
+        "Run project-init from a directory where git can create .git/",
+    ]
+
+    if output_format == 'json':
+        print(json.dumps({
+            "ok": False,
+            "error": "git init failed",
+            "stderr": stderr,
+            "likely_cause": "read-only .git/ mount (sandboxed harness)" if likely_readonly_mount else "git init failed",
+            "recovery": recovery,
+        }, indent=2))
+    else:
+        print("❌ Failed to initialize git repository")
+        if stderr:
+            print(f"   git error: {stderr}")
+        if likely_readonly_mount:
+            print("\n   .git/ exists but is not writable — likely a sandboxed harness with a read-only mount.")
+        print("\n   Recovery options:")
+        for i, hint in enumerate(recovery, 1):
+            print(f"   {i}. {hint}")
+
+
+def _ensure_git_root(interactive, output_format, args=None):
     """Ensure we're in a git repo, optionally initializing one. Returns git_root or None."""
     from empirica.config.path_resolver import get_git_root
 
@@ -138,16 +180,31 @@ def _ensure_git_root(interactive, output_format):
     if git_root:
         return git_root
 
+    # Alternative path: --project-id supplied → caller has a workspace identity
+    # from prior provisioning. Skip the git init dance and use cwd as the anchor.
+    # Lets sandboxed harnesses (read-only .git mounts, etc.) bootstrap without
+    # depending on local git writability.
+    explicit_project_id = getattr(args, 'project_id', None) if args else None
+    if explicit_project_id:
+        cwd = Path.cwd()
+        if output_format != 'json':
+            print(f"   ⊙ No git root detected, but --project-id supplied — using cwd as anchor: {cwd}")
+        return cwd
+
     import subprocess
     explicit_non_interactive = not interactive
-    if interactive:
-        response = input("Not in a git repository. Initialize one? [Y/n]: ").strip().lower()
-        if response in ('n', 'no'):
-            print("Aborted. Run 'git init' manually, then try again.")
-            return None
-        subprocess.run(['git', 'init'], check=True)
-    elif output_format == 'json' or explicit_non_interactive:
-        subprocess.run(['git', 'init'], capture_output=True, check=True)
+    try:
+        if interactive:
+            response = input("Not in a git repository. Initialize one? [Y/n]: ").strip().lower()
+            if response in ('n', 'no'):
+                print("Aborted. Run 'git init' manually, then try again.")
+                return None
+            subprocess.run(['git', 'init'], check=True)
+        elif output_format == 'json' or explicit_non_interactive:
+            subprocess.run(['git', 'init'], capture_output=True, check=True)
+    except subprocess.CalledProcessError as exc:
+        _report_git_init_failure(exc, output_format)
+        return None
 
     git_root = get_git_root()
     if not git_root:
@@ -338,7 +395,7 @@ def handle_project_init_command(args):
         output_format = getattr(args, 'output', 'default')
         interactive = not explicit_non_interactive and has_tty and output_format != 'json'
 
-        git_root = _ensure_git_root(interactive, output_format)
+        git_root = _ensure_git_root(interactive, output_format, args)
         if not git_root:
             return None
 
