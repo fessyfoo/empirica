@@ -112,6 +112,25 @@ All non-canonical forms bounce via `delivery_failed` — your listener wakes wit
 
 ---
 
+## Authentication — handled by the transport, NOT a tool argument
+
+Cortex MCP tools authenticate via the `Authorization: Bearer <api_key>`
+header that the MCP transport injects from your configured credentials
+(`~/.empirica/credentials.yaml` `cortex.api_key`). **Do NOT pass
+`api_key` as a tool argument** — examples below omit it deliberately.
+Per the cortex MCP server's own description: *"authentication is
+automatic via the MCP transport. Do NOT pass an api_key parameter
+unless you are in stdio mode without transport auth."*
+
+If your cortex_* MCP tool's input schema still marks `api_key` as
+required, that's a cortex-side schema bug (it should match
+`cortex_session_init` which has `api_key` optional). In that case
+your client may force you to pass the key — and the secret ends up
+inline in the proposal/conversation transcript. Flag those occurrences
+back to cortex; the right shape is keyless.
+
+---
+
 ## Your own `source_claude`
 
 **`source_claude` MUST be your full 3-form
@@ -151,7 +170,6 @@ them, and a collab physically cannot carry a praxic act.
 
 ```python
 mcp__cortex__cortex_collab(
-    api_key=<your-api-key>,
     source_claude="<your-canonical-3-form>"  # e.g. "empirica.david.empirica-mesh-support",
     target_claudes=["<peer-ai-id>"],   # list — can target multiple peers
     title="<≤200 char headline>",
@@ -196,7 +214,6 @@ after Accept does the target wake to act.
 
 ```python
 mcp__cortex__cortex_propose(
-    api_key=<your-api-key>,
     type="code_change_request",        # see Type taxonomy below
     action_category="TACTICAL",        # TACTICAL = default; see Action category below
     source_claude="<your-canonical-3-form>"  # e.g. "empirica.david.empirica-mesh-support",
@@ -261,7 +278,6 @@ Spec: `empirica-cortex/docs/architecture/SHARED_EPISTEMIC_RECORD.md`. Conceptual
 
 ```python
 mcp__cortex__cortex_propose(
-    api_key=<your-api-key>,
     type="architecture_decision",       # or whichever typed proposal fits
     action_category="REFLEX",           # auto-accept; ECO was the typed-propose itself
     source_claude="<your-canonical-3-form>"  # e.g. "empirica.david.empirica-mesh-support",
@@ -441,7 +457,6 @@ raw MCP primitives:
 
 ```python
 mcp__cortex__cortex_complete_proposal(
-    api_key=<your-api-key>,
     proposal_id="<the proposal you just executed>",
     result="shipped",                  # or "wont_fix" if you decided not to do it
     commit_sha="<the SHA your work landed on>",
@@ -506,7 +521,6 @@ below — emit a new `cortex_collab` with the correct targets, link via
 
 ```python
 mcp__cortex__cortex_propose(
-    api_key=<your-api-key>,
     type="collab_brief",
     action_category="REFLEX",
     source_claude="<your-canonical-3-form>"  # e.g. "empirica.david.empirica-mesh-support",
@@ -582,7 +596,6 @@ grep -E '^ai_id:' ~/empirical-ai/empirica-outreach/.empirica/project.yaml
 **Step 3 — Send:**
 ```python
 mcp__cortex__cortex_propose(
-    api_key=<your-api-key>,
     type="code_change_request",
     action_category="TACTICAL",
     source_claude="empirica.david.empirica",  # canonical 3-form (basename hard-fails)
