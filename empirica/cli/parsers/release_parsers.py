@@ -153,6 +153,38 @@ def add_release_parsers(subparsers):
         help='Output format (default: human table; json for autonomy / scripting).',
     )
 
+    # Mesh sharing agreements mirror — cortex authoritative, empirica mirrors
+    mesh_agr_parser = subparsers.add_parser(
+        'mesh-agreements',
+        help='Mesh sharing agreement mirror — sync / list cortex agreements locally',
+        description=(
+            "Empirica's derived-state mirror of cortex's authoritative "
+            "mesh_sharing_agreements table. Stored as entity_type="
+            "'mesh_sharing_agreement' rows in workspace.db's entity_registry. "
+            "See docs/architecture/MESH_SHARING_AGREEMENTS.md."
+        ),
+    )
+    mesh_agr_sub = mesh_agr_parser.add_subparsers(dest='action', required=True)
+
+    mesh_agr_sync = mesh_agr_sub.add_parser(
+        'sync',
+        help='Pull GET /v1/orgs/me/mesh_sharing_agreements; upsert into entity_registry',
+    )
+    mesh_agr_sync.add_argument('--cortex-url', default=None,
+                               help='Cortex base URL override.')
+    mesh_agr_sync.add_argument('--api-key', default=None,
+                               help='Cortex API key override.')
+    mesh_agr_sync.add_argument('--output', choices=['human', 'json'], default='human')
+
+    mesh_agr_list = mesh_agr_sub.add_parser(
+        'list', help='List mirrored mesh sharing agreements',
+    )
+    mesh_agr_list.add_argument('--status',
+                               choices=['active', 'proposed', 'suspended', 'revoked', 'all'],
+                               default='active')
+    mesh_agr_list.add_argument('--limit', type=int, default=100)
+    mesh_agr_list.add_argument('--output', choices=['human', 'json'], default='human')
+
     # Docs link check — broken-link integrity for tech docs
     link_parser = subparsers.add_parser(
         'docs-link-check',

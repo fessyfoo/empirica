@@ -157,6 +157,7 @@ from .command_handlers.memory_commands import (
     handle_pattern_check_command,
     handle_session_rollup_command,
 )
+from .command_handlers.mesh_agreements_commands import handle_mesh_agreements_group_command
 from .command_handlers.mesh_commands import handle_mesh_group_command
 from .command_handlers.message_commands import (
     handle_message_channels_command,
@@ -711,6 +712,7 @@ def main(args=None):
             'docs-link-check': handle_docs_link_check_command,
             'bootstrap-context': handle_bootstrap_context_command,
             'practice-context': handle_practice_context_command,
+            'mesh-agreements': handle_mesh_agreements_group_command,
 
             # Lesson commands (Epistemic Procedural Knowledge)
             'lesson-create': handle_lesson_create_command,

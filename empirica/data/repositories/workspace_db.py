@@ -536,6 +536,70 @@ class WorkspaceDBRepository(BaseRepository):
                 return dict(rows[0])
         return None
 
+    def upsert_entity(
+        self,
+        entity_type: str,
+        entity_id: str,
+        display_name: str,
+        source_db: str,
+        source_table: str,
+        description: str | None = None,
+        emoji_state: str | None = None,
+        status: str = 'active',
+        metadata: str | None = None,
+    ) -> None:
+        """Insert or update an entity_registry row by (entity_type, entity_id).
+
+        Used by sync paths that mirror authoritative data from external
+        systems (e.g. cortex's mesh_sharing_agreements → entity_registry).
+        Idempotent: calling twice with the same values is a no-op on the
+        second call other than the updated_at timestamp.
+        """
+        now = time.time()
+        self._execute(
+            """
+            INSERT INTO entity_registry
+                (entity_type, entity_id, display_name, description, source_db,
+                 source_table, emoji_state, status, created_at, updated_at, metadata)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(entity_type, entity_id) DO UPDATE SET
+                display_name = excluded.display_name,
+                description = excluded.description,
+                source_db = excluded.source_db,
+                source_table = excluded.source_table,
+                emoji_state = excluded.emoji_state,
+                status = excluded.status,
+                updated_at = excluded.updated_at,
+                metadata = excluded.metadata
+            """,
+            (
+                entity_type, entity_id, display_name, description,
+                source_db, source_table, emoji_state, status,
+                now, now, metadata,
+            ),
+        )
+        self.commit()
+
+    def mark_entity_status(
+        self,
+        entity_type: str,
+        entity_id: str,
+        status: str,
+    ) -> bool:
+        """Set the status field on an entity_registry row. Returns True if a
+        row was updated, False if no matching row existed.
+
+        Used for soft-state transitions like 'agreement no longer in cortex
+        response → mark revoked locally' without rewriting the metadata.
+        """
+        cursor = self._execute(
+            "UPDATE entity_registry SET status = ?, updated_at = ? "
+            "WHERE entity_type = ? AND entity_id = ?",
+            (status, time.time(), entity_type, entity_id),
+        )
+        self.commit()
+        return cursor.rowcount > 0
+
     def search_entities(
         self,
         query: str,
