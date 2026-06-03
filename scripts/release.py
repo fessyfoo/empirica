@@ -547,6 +547,42 @@ class ReleaseManager:
     # there as we discover them — that's a noticed-and-corrected miss, not a
     # silent false-history rewrite.
 
+    def regenerate_cli_docs(self):
+        """Regenerate CLI_COMMANDS_UNIFIED.md so the 'Framework version' header
+        reflects the freshly-bumped __version__.
+
+        The generator reads `empirica.__version__` (already bumped by
+        update_version_strings); without this step the doc lags releases by
+        one version and gets surfaced via cockpit / statusline / `empirica
+        --help`. Non-fatal: a generator error is logged as a warning,
+        release continues.
+        """
+        log("\n" + "="*60)
+        log("📚 Regenerating CLI_COMMANDS_UNIFIED.md")
+        log("="*60)
+
+        generator = self.repo_root / "scripts" / "generate_cli_docs.py"
+        if not generator.exists():
+            warning("scripts/generate_cli_docs.py not found, skipping CLI docs regen")
+            return
+
+        if self.dry_run:
+            info(f"[DRY RUN] Would run: python {generator}")
+            return
+
+        try:
+            result = subprocess.run(
+                ["python", str(generator)],
+                cwd=str(self.repo_root),
+                capture_output=True, text=True, timeout=60, check=False,
+            )
+            if result.returncode != 0:
+                warning(f"CLI docs regen exited {result.returncode}: {result.stderr.strip()[:200]}")
+            else:
+                success("CLI_COMMANDS_UNIFIED.md regenerated")
+        except Exception as exc:
+            warning(f"CLI docs regen failed: {exc}")
+
     def sync_readme_whats_new(self):
         """Sync README 'What's New' section from CHANGELOG.
 
@@ -1170,6 +1206,9 @@ brew install empirica
 
             # Sync README What's New from CHANGELOG
             self.sync_readme_whats_new()
+
+            # Regenerate CLI docs (CLI_COMMANDS_UNIFIED.md picks up __version__)
+            self.regenerate_cli_docs()
 
             # Build packages
             self.build_package()

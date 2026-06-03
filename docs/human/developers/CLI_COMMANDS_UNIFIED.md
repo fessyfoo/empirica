@@ -22,9 +22,9 @@
 > `empirica/cli/cli_core.py` — adding a new category means editing that
 > dictionary, then running this script.
 
-**Framework version:** 1.11.3
-**Generated:** 2026-06-02 23:13:44 UTC
-**Total commands:** 232 (across 26 categories)
+**Framework version:** 1.11.6
+**Generated:** 2026-06-03 14:50:03 UTC
+**Total commands:** 233 (across 26 categories)
 
 For the most up-to-date detail on any single command, prefer
 `empirica <command> --help` — the generator extracts the same `help`
@@ -66,7 +66,7 @@ require `--session-id` (`project-bootstrap`, `sessions-show`,
 | [workflow](#workflow) | 4 | `preflight-submit`, `check`, `check-submit`, … |
 | [goals](#goals) | 16 | `goals-create`, `goals-list`, `goals-search`, … |
 | [logging](#logging) | 20 | `finding-log`, `unknown-log`, `unknown-list`, … |
-| [project](#project) | 17 | `project-init`, `project-update`, `project-create`, … |
+| [project](#project) | 18 | `project-init`, `project-update`, `project-create`, … |
 | [workspace](#workspace) | 13 | `workspace-init`, `workspace-map`, `workspace-list`, … |
 | [checkpoint](#checkpoint) | 7 | `checkpoint-create`, `checkpoint-load`, `checkpoint-list`, … |
 | [sync](#sync) | 6 | `sync-config`, `sync-push`, `sync-pull`, … |
@@ -1565,6 +1565,29 @@ List discovered local Empirica projects.
   Per-request timeout in seconds (default: 10).
 - `--output` — optional · type=`choice` · choices={human, json} · default=`human`
   Output format for the summary (default: human).
+
+#### `empirica projects-unregister`
+
+Unregister a project from Cortex (soft archive by default; --purge to hard-delete).
+
+**Arguments:**
+
+- `--project-id` — optional
+  Cortex project UUID. Mutually exclusive with --slug; one of them or .empirica/project.yaml required.
+- `--slug` — optional
+  Project slug (resolves on the cortex side against caller's projects).
+- `--purge` — optional · flag
+  Hard-delete instead of soft-archive. Cascade-deletes proposals + SERs + artifacts. Requires --confirm.
+- `--confirm` — optional · flag
+  Required with --purge — acknowledge the destructive operation.
+- `--cortex-url` — optional
+  Override Cortex base URL.
+- `--api-key` — optional
+  Override Cortex API key.
+- `--timeout` — optional · type=`float` · default=`10.0`
+  HTTP timeout in seconds (default: 10).
+- `--output` — optional · type=`choice` · choices={human, json} · default=`human`
+  Output format (default: human).
 
 ---
 
