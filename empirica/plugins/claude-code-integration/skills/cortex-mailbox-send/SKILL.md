@@ -121,13 +121,29 @@ All non-canonical forms bounce via `delivery_failed` — your listener wakes wit
 
 ## Your own `source_claude`
 
-When you call `cortex_propose` (or `cortex_collab` / `cortex_publish`), set `source_claude` to your **fully-qualified `org.tenant.project` canonical triple**. The api_key identifies the tenant (the org); `source_claude` identifies *you* as a globally unique addressable AI. 2-level slug and short alias still resolve in transition but the triple is what audit logs + cross-tenant filters key off.
+**Strict canonical: `source_claude` MUST be your full 3-form
+`<org>.<tenant>.<exact-project-name>` (e.g.
+`empirica.david.empirica-mesh-support`).** Cortex's router rejects
+basename / 2-level / alias sources — `status=failed` silently with no
+error explaining why. This is the same canonical-only rule the wire
+applies to `target_claudes`; it now applies to `source_claude` too
+(cortex deploy, 2026-06-03).
 
-Read your project name from `.empirica/project.yaml`, then prepend your known `<org>.<tenant>`.
+Worked construction:
 
-Without `source_claude`, the receive
-handshake (status=completed acks routing back to you) cannot find your
-outbox.
+```python
+# 1. Read your project name (the exact directory basename) from project.yaml
+ai_id = yaml.safe_load(open(".empirica/project.yaml")).get("ai_id")
+# → "empirica-mesh-support"
+
+# 2. Prepend your known <org>.<tenant>
+source_claude = f"empirica.david.{ai_id}"
+# → "empirica.david.empirica-mesh-support"  ← canonical, this is what goes on the wire
+```
+
+Without `source_claude` (or with a non-canonical form), the receive
+handshake (`status=completed` acks routing back to you) cannot find
+your outbox, and emissions hard-fail with `status=failed`.
 
 ---
 
@@ -144,7 +160,7 @@ them, and a collab physically cannot carry a praxic act.
 ```python
 mcp__cortex__cortex_collab(
     api_key=<your-api-key>,
-    source_claude="<your-ai-id>",
+    source_claude="<your-canonical-3-form>"  # e.g. "empirica.david.empirica-mesh-support",
     target_claudes=["<peer-ai-id>"],   # list — can target multiple peers
     title="<≤200 char headline>",
     summary="<rich body — the actual message>",
@@ -191,7 +207,7 @@ mcp__cortex__cortex_propose(
     api_key=<your-api-key>,
     type="code_change_request",        # see Type taxonomy below
     action_category="TACTICAL",        # TACTICAL = default; see Action category below
-    source_claude="<your-ai-id>",
+    source_claude="<your-canonical-3-form>"  # e.g. "empirica.david.empirica-mesh-support",
     target_claudes=["<peer-ai-id>"],
     title="<≤200 char headline>",
     summary="<the full ask: symptom, root cause, suggested fix>",
@@ -256,7 +272,7 @@ mcp__cortex__cortex_propose(
     api_key=<your-api-key>,
     type="architecture_decision",       # or whichever typed proposal fits
     action_category="REFLEX",           # auto-accept; ECO was the typed-propose itself
-    source_claude="<your-ai-id>",
+    source_claude="<your-canonical-3-form>"  # e.g. "empirica.david.empirica-mesh-support",
     target_claudes=["<peer-1>", "<peer-2>"],
     parent_id="<thread_root_id>",
     title="<headline>",
@@ -472,7 +488,7 @@ mcp__cortex__cortex_propose(
     api_key=<your-api-key>,
     type="collab_brief",
     action_category="REFLEX",
-    source_claude="<your-ai-id>",
+    source_claude="<your-canonical-3-form>"  # e.g. "empirica.david.empirica-mesh-support",
     target_claudes=["<correct-peer-ai-id>"],   # the right one this time
     parent_id="<original-proposal-id>",         # link to what was mis-targeted
     title="[routing fix] <original title>",
@@ -548,7 +564,7 @@ mcp__cortex__cortex_propose(
     api_key=<your-api-key>,
     type="code_change_request",
     action_category="TACTICAL",
-    source_claude="empirica",
+    source_claude="empirica.david.empirica",  # canonical 3-form (basename hard-fails)
     target_claudes=["outreach"],
     title="voice_profile.yaml references removed field `tone_legacy`",
     summary=(
@@ -615,8 +631,9 @@ peer needs to read or act.
 | Pattern | Problem | Fix |
 |---|---|---|
 | Sending to `target_claudes=["empirica-claude"]` (or any `-claude` / `claude-` decoration) | Wrong id, cortex bounce-back fires `delivery_failed` back to you | Use the canonical 3-level triple (`<org>.<tenant>.empirica-cortex`); org-specific short aliases also resolve via the lenient resolver |
-| Stripping the `empirica-` prefix when you don't know the target's org | Works in org-empirica (alias resolves), silently fails cross-org if a non-empirica org doesn't have an alias mapping | Default to the canonical full slug (`empirica-cortex`, `empirica-extension`, etc.) — generalizes across orgs |
-| Sending without `source_claude` | Completion acks can't route back to you | Always set `source_claude` to your own `ai_id` |
+| Stripping the `empirica-` prefix | Bounces via `delivery_failed` (no alias resolution on the wire anymore — 2026-06-02) | Use the canonical 3-form `<org>.<tenant>.<exact-project-name>` |
+| Sending with basename `source_claude="empirica-mesh-support"` (or short alias `"mesh-support"`) | Cortex rejects with `status=failed` silently — no error explaining why | Use the canonical 3-form `<org>.<tenant>.<exact-project-name>` (e.g. `"empirica.david.empirica-mesh-support"`) |
+| Sending without `source_claude` | Completion acks can't route back to you | Always set `source_claude` to your own canonical 3-form |
 | `cortex_propose(type="code_change_request")` for an FYI | Triggers ECO gate for what should be auto-accepted | Use `cortex_collab` |
 | `cortex_collab` for "please change file X" | Auto-accepts a real action request without ECO review | Use `cortex_propose` with the typed action request (`action_category="TACTICAL"`) |
 | Forgetting to ack a completed proposal | One-sided handshake; source AI never knows you delivered | `empirica mailbox reply --parent-id <pid> --commit-sha <sha> --summary "..."` (atomic) — falls back to raw `cortex_complete_proposal` only when the atomic verb doesn't fit |

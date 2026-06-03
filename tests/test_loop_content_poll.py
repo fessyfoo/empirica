@@ -552,6 +552,7 @@ class TestCanonicalResolver:
 
     def _mock_roster_response(self, monkeypatch, body):
         from unittest.mock import MagicMock
+
         from empirica.core.loop_scheduler import content_poll
         # Reset cache for clean tests
         content_poll._CANONICAL_AI_ID_CACHE.clear()
@@ -648,8 +649,9 @@ class TestCanonicalResolver:
 
     def test_cached_after_first_resolution(self, monkeypatch):
         """Second call doesn't hit roster again."""
-        from empirica.core.loop_scheduler import content_poll
         from unittest.mock import MagicMock
+
+        from empirica.core.loop_scheduler import content_poll
 
         content_poll._CANONICAL_AI_ID_CACHE.clear()
 

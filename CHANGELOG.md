@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.5] — 2026-06-03
+
+A follow-up patch (third in one day) addressing the source-side companion to 1.11.4's target-side fix. Cortex's router now also requires `source_claude` to be the canonical 3-form — basename / 2-level / alias sources hard-fail silently with `status=failed` and no error explanation. The `/cortex-mailbox-send` skill still taught basename `source_claude` in its examples + anti-pattern table. Updated to match the strict-canonical rule already applied to `target_claudes` in 1.11.4.
+
+### Changed
+
+- **`/cortex-mailbox-send` skill: `source_claude` strict-canonical guidance**:
+  - "Your own `source_claude`" section rewritten: was "set source_claude to your fully-qualified org.tenant.project canonical triple" but soft about consequences ("2-level slug and short alias still resolve in transition"); now explicit that cortex's router rejects non-canonical sources with `status=failed` silently. Worked construction example added: read project.yaml, prepend `<org>.<tenant>`.
+  - All `source_claude=<your-ai-id>` placeholders → `source_claude="<your-canonical-3-form>"  # e.g. "empirica.david.empirica-mesh-support"`.
+  - Concrete example `source_claude="empirica"` → `source_claude="empirica.david.empirica"`.
+  - Anti-pattern table: added a new row for basename / short-alias `source_claude` showing the silent-fail mode + correct canonical form. Stripping-prefix row updated to reflect strict canonical (was "works in org-empirica alias resolves, silently fails cross-org" — now "bounces via `delivery_failed` always").
+- **Plugin mirror** at `~/.claude/plugins/local/empirica/skills/cortex-mailbox-send/` synced.
+
+### Note
+
+Surfaced by mesh-support during cross-tenant addressing work: their first sends to Philipp failed with `status=failed` (no surface), then succeeded after switching `source_claude` from `"mesh-support"` to `"empirica.david.empirica-mesh-support"`. Same silent-break pattern as the listener fix in 1.11.4 — diagnosable only by comparing a succeeding peer's send to a failing one.
+
 ## [1.11.4] — 2026-06-03
 
 A critical-bugfix patch shipping the same day as 1.11.3. **Recommend immediate upgrade for any user running a persistent listener** — fleet-wide silent wake-event break since the cortex strict-canonical addressing rollout (commit `629bb29`, 2026-06-02). Also rolls up a system-prompt / skill consistency pass surfaced by mesh-support's `prop_l4behx3jl` while debugging cross-tenant addressing.
