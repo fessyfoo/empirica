@@ -183,3 +183,73 @@ def test_real_lean_template_renders_without_placeholders_remaining(tmp_path):
     # And the version actually appears in the header
     from empirica import __version__
     assert __version__ in text
+
+
+# ---------------------------------------------------------------------------
+# Conditional cortex guidance (goal 4eeb394e — 2026-06-03)
+# ---------------------------------------------------------------------------
+
+
+def test_cortex_off_strips_conditional_blocks(tmp_path):
+    """With cortex disabled, `{% if cortex %}…{% endif %}` blocks are
+    removed from the rendered output, tags-and-all."""
+    src = tmp_path / "src.md"
+    src.write_text(
+        "before\n"
+        "{% if cortex %}cortex-only guidance{% endif %}\n"
+        "after\n",
+        encoding="utf-8",
+    )
+    dst = tmp_path / "out.md"
+    _render_versioned_template(src, dst, cortex_enabled=False)
+    text = dst.read_text(encoding="utf-8")
+    assert "cortex-only guidance" not in text
+    assert "{% if cortex %}" not in text
+    assert "{% endif %}" not in text
+    assert "before" in text
+    assert "after" in text
+
+
+def test_cortex_on_keeps_block_content_strips_tags(tmp_path):
+    """With cortex enabled, the block content is kept but the tags are
+    stripped (so the rendered prompt reads cleanly)."""
+    src = tmp_path / "src.md"
+    src.write_text(
+        "before\n"
+        "{% if cortex %}cortex-only guidance{% endif %}\n"
+        "after\n",
+        encoding="utf-8",
+    )
+    dst = tmp_path / "out.md"
+    _render_versioned_template(src, dst, cortex_enabled=True)
+    text = dst.read_text(encoding="utf-8")
+    assert "cortex-only guidance" in text
+    assert "{% if cortex %}" not in text
+    assert "{% endif %}" not in text
+
+
+def test_real_lean_template_strips_mesh_precondition_when_cortex_off(tmp_path):
+    """End-to-end: the real lean template's Mesh-active precondition + the
+    cortex-mailbox skill rows disappear when cortex is off."""
+    template = _project_template_path("empirica-system-prompt-lean.md")
+    dst = tmp_path / "rendered.md"
+    _render_versioned_template(template, dst, cortex_enabled=False)
+    text = dst.read_text(encoding="utf-8")
+    assert "Mesh-active precondition" not in text
+    assert "/cortex-mailbox-poll" not in text
+    assert "/cortex-mailbox-send" not in text
+    # Practice-model + epistemic substrate stays
+    assert "epistemic" in text.lower()
+    assert "PREFLIGHT" in text
+
+
+def test_real_lean_template_includes_mesh_precondition_when_cortex_on(tmp_path):
+    """Inverse: with cortex on, the mesh-active precondition + the mailbox
+    skill loading rows appear."""
+    template = _project_template_path("empirica-system-prompt-lean.md")
+    dst = tmp_path / "rendered.md"
+    _render_versioned_template(template, dst, cortex_enabled=True)
+    text = dst.read_text(encoding="utf-8")
+    assert "Mesh-active precondition" in text
+    assert "/cortex-mailbox-poll" in text
+    assert "/cortex-mailbox-send" in text
