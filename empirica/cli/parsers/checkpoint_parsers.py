@@ -468,6 +468,21 @@ def add_checkpoint_parsers(subparsers):
     workspace_list_parser.add_argument('--output', choices=['human', 'json'], default='human', help='Output format')
     workspace_list_parser.add_argument('--verbose', action='store_true', help='Show detailed operation info')
 
+    # Workspace backfill entities — populate entity_registry for existing global_projects
+    workspace_backfill_entities_parser = subparsers.add_parser(
+        'workspace-backfill-entities',
+        help=(
+            'Backfill workspace.db.entity_registry with entity_type=project rows '
+            "for every existing global_projects row. Closes the gap where projects "
+            "registered before the dual-write path don't appear in the Practice "
+            'Model surface (extension dashboard, entity-list/-show/-walk). '
+            'Idempotent.'
+        ),
+    )
+    workspace_backfill_entities_parser.add_argument('--dry-run', action='store_true', help='Preview what would change without writing')
+    workspace_backfill_entities_parser.add_argument('--output', choices=['human', 'json'], default='human', help='Output format')
+    workspace_backfill_entities_parser.add_argument('--verbose', action='store_true', help='Show detailed operation info')
+
     # Ecosystem check command - analyze cross-project dependencies and impact
     ecosystem_check_parser = subparsers.add_parser(
         'ecosystem-check',

@@ -261,6 +261,7 @@ from .workflow_commands import (
     handle_preflight_submit_command,
 )
 from .workspace_commands import (
+    handle_workspace_backfill_entities_command,
     handle_workspace_list_command,
     handle_workspace_map_command,
     handle_workspace_overview_command,
@@ -484,6 +485,7 @@ __all__ = [  # noqa: RUF022
     'handle_voice_list_command',
     'handle_voice_show_command',
     'handle_workflow_patterns_command',
+    'handle_workspace_backfill_entities_command',
     'handle_workspace_init_command',
     'handle_workspace_list_command',
     'handle_workspace_map_command',

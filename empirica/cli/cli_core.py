@@ -588,6 +588,7 @@ def main(args=None):
             'workspace-overview': handle_workspace_overview_command,
             'workspace-map': handle_workspace_map_command,
             'workspace-list': handle_workspace_list_command,
+            'workspace-backfill-entities': handle_workspace_backfill_entities_command,
             'workspace-init': handle_workspace_init_command,
             'ecosystem-check': handle_ecosystem_check_command,
             'workspace-search': handle_workspace_search_command,

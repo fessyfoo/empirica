@@ -128,6 +128,46 @@ def ensure_workspace_schema(conn) -> None:
         CREATE INDEX IF NOT EXISTS idx_entity_artifacts_entity
         ON entity_artifacts(entity_type, entity_id)
     """)
+    # Entity registry — Practice Model surface (project, contact, organization,
+    # engagement, user, …). Backs entity-list/-show/-walk + the extension's
+    # dashboard. Mirrors workspace_db.py:_ensure_workspace_schema exactly so
+    # both schema-bootstrap paths stay in lockstep.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS entity_registry (
+            entity_type TEXT NOT NULL,
+            entity_id TEXT NOT NULL,
+            display_name TEXT NOT NULL,
+            description TEXT,
+            source_db TEXT NOT NULL,
+            source_table TEXT NOT NULL,
+            emoji_state TEXT,
+            status TEXT DEFAULT 'active',
+            created_at REAL NOT NULL,
+            updated_at REAL,
+            metadata TEXT,
+            PRIMARY KEY (entity_type, entity_id)
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_entity_registry_type ON entity_registry(entity_type)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_entity_registry_status ON entity_registry(status)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_entity_registry_emoji ON entity_registry(emoji_state)")
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS entity_memberships (
+            entity_type TEXT NOT NULL,
+            entity_id TEXT NOT NULL,
+            group_type TEXT NOT NULL,
+            group_id TEXT NOT NULL,
+            role TEXT,
+            joined_at REAL NOT NULL,
+            left_at REAL,
+            created_at REAL NOT NULL,
+            notes TEXT,
+            PRIMARY KEY (entity_type, entity_id, group_type, group_id)
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_entity_memberships_member ON entity_memberships(entity_type, entity_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_entity_memberships_group ON entity_memberships(group_type, group_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_entity_memberships_active ON entity_memberships(left_at)")
     conn.commit()
 
 

@@ -530,3 +530,87 @@ def _display_project_tree(projects):
     for root in roots:
         print_tree(root)
         print()
+
+
+def handle_workspace_backfill_entities_command(args):
+    """Walk workspace.db.global_projects and upsert matching entity_registry rows.
+
+    Closes the gap surfaced by mesh-support's SER ser_542199e3 audit
+    (prop_houwq47gu): existing projects were registered into global_projects
+    before workspace_init started dual-writing entity_registry, so the
+    Practice Model surface (extension dashboard, entity-list/-show/-walk)
+    shows them as missing.
+
+    Idempotent — re-running over already-mirrored rows is a no-op (UPDATE
+    only refreshes updated_at). Use --dry-run to preview without writing.
+    """
+    import json as _json
+
+    try:
+        from empirica.data.repositories.workspace_db import WorkspaceDBRepository
+
+        output_format = getattr(args, 'output', 'human')
+        dry_run = getattr(args, 'dry_run', False)
+
+        with WorkspaceDBRepository.open(ensure_schema=True) as repo:
+            projects = repo.list_projects(status='active')
+            added = 0
+            updated = 0
+            results = []
+
+            for p in projects:
+                pid = p['id']
+                name = p['name']
+                existing = repo.get_entity('project', pid)
+                action = 'update' if existing else 'add'
+
+                if not dry_run:
+                    metadata = _json.dumps({
+                        'trajectory_path': p.get('trajectory_path'),
+                        'git_remote_url': p.get('git_remote_url'),
+                        'project_type': p.get('project_type'),
+                    })
+                    repo.upsert_entity(
+                        entity_type='project',
+                        entity_id=pid,
+                        display_name=name,
+                        description=p.get('description'),
+                        source_db='workspace',
+                        source_table='global_projects',
+                        status='active',
+                        metadata=metadata,
+                    )
+
+                if action == 'add':
+                    added += 1
+                else:
+                    updated += 1
+                results.append({
+                    'project_id': pid,
+                    'name': name,
+                    'action': action,
+                })
+
+        if output_format == 'json':
+            print(_json.dumps({
+                'ok': True,
+                'dry_run': dry_run,
+                'scanned': len(projects),
+                'added': added,
+                'updated': updated,
+                'rows': results,
+            }, indent=2))
+        else:
+            tag = '🧪 DRY RUN' if dry_run else '✅'
+            print(f"{tag} Backfilled entity_registry from global_projects")
+            print(f"   Scanned:  {len(projects)}")
+            print(f"   Added:    {added}")
+            print(f"   Updated:  {updated}")
+            if dry_run and (added or updated):
+                print("\n   Run without --dry-run to apply.")
+
+        return {'ok': True, 'added': added, 'updated': updated, 'scanned': len(projects)}
+
+    except Exception as e:
+        handle_cli_error(e, "Workspace backfill entities", getattr(args, 'verbose', False))
+        return None

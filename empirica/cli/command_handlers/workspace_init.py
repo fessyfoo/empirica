@@ -634,10 +634,20 @@ def _register_in_workspace_db(
     metadata: str | None = None,
 ) -> bool:
     """
-    Register a project in workspace.db's global_projects table.
+    Register a project in workspace.db.
 
-    This uses the EXISTING project UUID from per-project sessions.db,
-    ensuring proper linkage between workspace registry and project data.
+    Dual-writes two tables on the same connection (atomic per commit):
+      • global_projects — legacy registry, keyed by UUID + trajectory_path.
+      • entity_registry — Practice Model surface used by the extension and
+        the entity-list/-show/-walk CLI verbs. Keyed by
+        (entity_type='project', entity_id=project_id).
+
+    Both rows carry the SAME project UUID minted by per-project sessions.db,
+    so workspace.db, the Practice Model surface, and the extension all agree
+    on identity. Closes the gap surfaced by mesh-support's SER ser_542199e3
+    audit (prop_houwq47gu): entity_registry was never populated for projects
+    even though global_projects was — the extension rendered missing rows
+    where it should have shown the practice.
 
     Args:
         project_id: UUID from per-project sessions.db (source of truth)
@@ -692,6 +702,26 @@ def _register_in_workspace_db(
                     status, project_type, metadata, created_timestamp, updated_timestamp
                 ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?)
             """, (project_id, name, description, trajectory_path, git_remote_url, project_type, metadata, now, now))
+
+        # Mirror into entity_registry so the Practice Model surface
+        # (entity-list/-show/-walk + extension) sees this project.
+        entity_metadata = json.dumps({
+            'trajectory_path': trajectory_path,
+            'git_remote_url': git_remote_url,
+            'project_type': project_type,
+        })
+        cursor.execute("""
+            INSERT INTO entity_registry (
+                entity_type, entity_id, display_name, description,
+                source_db, source_table, status, created_at, updated_at, metadata
+            ) VALUES ('project', ?, ?, ?, 'workspace', 'global_projects', 'active', ?, ?, ?)
+            ON CONFLICT(entity_type, entity_id) DO UPDATE SET
+                display_name = excluded.display_name,
+                description = excluded.description,
+                status = excluded.status,
+                updated_at = excluded.updated_at,
+                metadata = excluded.metadata
+        """, (project_id, name, description, now, now, entity_metadata))
 
         conn.commit()
         conn.close()
