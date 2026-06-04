@@ -55,10 +55,28 @@ exceptions, no inheritance." A cross-tenant pair starts at CONTROLLER
 outcome history accumulates. The L2-no-history → CONTROLLER fallback is
 the policy working as designed; it is not a gap.
 
-L3 always-escalate is a **hard floor**: earned trust caps but does not
-auto-accept until an admin decision + track record explicitly lifts the
-floor. Cross-org ingress NEVER auto-accepts regardless of earned trust
-in V1.
+L3 has a **hard floor** AND a **two-way ratification mechanic**, per
+David's 2026-06-04 org-org lock-in:
+
+> **autonomies negotiate, leader-ECOs ratify.**
+
+The two-stage admission becomes a **2-way digital-sign handshake** for
+cross-org traffic:
+
+1. Both sides' autonomies negotiate a proposed trust LIFT (e.g. a
+   counterparty pair earning their way toward ADVISORY).
+2. Both sides' leader-ECOs counter-sign the proposed LIFT.
+
+**Every LIFT requires a fresh 2-way counter-sign — it's a recurring
+ratify gate, not a one-time admission.** Earned trust accumulates the
+proposed-LIFT signal; the counter-sign is the gate every time it
+matters. Without both leader-ECO signatures, the lift doesn't apply
+and the L3 pair stays at its current trust level (initially
+CONTROLLER, with admin + proof needed to lift).
+
+In V1 this means L3 ingress NEVER auto-accepts on the strength of
+autonomy alone — the ECO counter-sign is required for every trust
+movement.
 
 ## entity_registry shape
 
@@ -148,13 +166,14 @@ authoritatively) but never fail-closed-wrong.
 ## On the SER
 
 The mesh-sharing thread is part of `ser_4272` (the membrane SER,
-extension-led). Empirica is currently a **participating** member. Upgrading
-to **required** participant (so admission decisions can't move forward
-without an empirica ack on substrate readiness) requires the SER transition
-primitive (`ser_ack`/`transition_ser`), which is proposed but not yet live
-(cortex `prop_daatz6xl`). Until that ships, empirica stays participating;
-substrate work (this doc, the mirror module, the sync verb) lands without
-requiring SER role changes.
+extension-led, David-ratified as `create_ser`). The SER transition
+primitive (`ser_ack` / `transition_ser`) is **LIVE** since
+`orchestration_tool.py:210-244` — autonomy verified end-to-end on
+2026-06-03/04. Empirica `ser_ack`s `ser_4272` as a **required**
+participant: substrate work (this doc, the mirror module, the sync
+verb) is the empirica-side substrate that admission decisions
+depend on, so empirica must keep `last_ack_at` current on every
+transition.
 
 ## Out of scope (for the v1 mirror)
 

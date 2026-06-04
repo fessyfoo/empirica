@@ -111,7 +111,16 @@ def _find_listener_pids(ai_id: str) -> tuple[int | None, int | None]:
     listener_pid = None
     curl_pid = None
     listen_needle = f"loop listen --instance {ai_id}"
-    curl_needle = f"tags={ai_id}"
+    # Post-3-form migration (1.11.x strict-canonical), the listener
+    # subscribes via _resolve_canonical_ai_id, so the curl cmdline
+    # carries `tags=<org>.<tenant>.<ai_id>` (e.g.
+    # `tags=empirica.david.empirica-cortex`) rather than the bare
+    # basename `tags={ai_id}`. Match either: legacy `tags={ai_id}` for
+    # back-compat, or `.{ai_id}` as a suffix of the canonical 3-form.
+    # Closing-delimiter set (`"&'` + whitespace) prevents prefix
+    # confusion (e.g. `tags=empirica` matching `tags=empirica-cortex`).
+    legacy_needle = f"tags={ai_id}"
+    canonical_suffix = f".{ai_id}"
     for line in ps_out.splitlines()[1:]:
         parts = line.strip().split(None, 1)
         if len(parts) != 2:
@@ -123,9 +132,28 @@ def _find_listener_pids(ai_id: str) -> tuple[int | None, int | None]:
             continue
         if listen_needle in cmd and "loop listen" in cmd:
             listener_pid = pid
-        elif "orchestration-events" in cmd and curl_needle in cmd:
+        elif "orchestration-events" in cmd and (
+            _tag_matches(cmd, legacy_needle) or _tag_matches(cmd, canonical_suffix)
+        ):
             curl_pid = pid
     return listener_pid, curl_pid
+
+
+def _tag_matches(cmd: str, needle: str) -> bool:
+    """Match needle as a tag token in the curl cmdline.
+
+    Ensures the next character after the needle is a tag-terminating
+    delimiter (`&"',` or whitespace or end-of-string) so that e.g.
+    `tags=empirica` does not falsely match a cmdline containing
+    `tags=empirica-cortex`.
+    """
+    idx = cmd.find(needle)
+    if idx == -1:
+        return False
+    end = idx + len(needle)
+    if end == len(cmd):
+        return True
+    return cmd[end] in '&"\',; \t'
 
 
 def _last_fire_for(ai_id: str) -> tuple[datetime | None, int]:
@@ -211,22 +239,43 @@ def _compute_health(s: dict, cortex_configured: bool) -> tuple[str, str]:
         return "red", "listener process not found despite active service"
     if not cortex_configured:
         return "green", "local-only (cortex bridge not configured)"
+
+    # Fire-flow is the AUTHORITATIVE liveness signal — fires are what we
+    # actually care about. Curl-pid detection (next block) is a
+    # diagnostic refinement, not a primary signal. Pre-1.11.8 this
+    # order was inverted (curl-pid-missing → red BEFORE checking fires),
+    # which made every cortex instance show red post-3-form-migration
+    # because the curl needle was looking for the basename while the
+    # listener now subscribes with the canonical tag. The fire path
+    # was structurally unreachable. Mesh-support prop_po4nyp3xzb.
+    last = s["last_fire_at_utc"]
+    now = datetime.now(tz=timezone.utc)
+    if last is not None:
+        idle_seconds = (now - last).total_seconds()
+        if idle_seconds <= ZOMBIE_THRESHOLD_SECONDS:
+            # Fires are flowing — bridge is healthy regardless of whether
+            # our curl-pid detection found a match.
+            return "green", f"last fire {_fmt_age(idle_seconds)} ago"
+        # Fires went silent — escalate using curl-pid + backoff signals.
+        if s["curl_subprocess_pid"] is None:
+            backoff = s.get("backoff_state")
+            if backoff == "rate_limit":
+                return "yellow", "rate-limited — curl absent during 30-min backoff; catch-up poll still running"
+            if backoff == "auth_fail":
+                return "yellow", "auth/HTTP backoff — curl absent during 5-min backoff; catch-up poll still running"
+            return "red", "curl subscription dead — cortex bridge broken"
+        return "red", f"zombie suspected: no fires in {int(idle_seconds // 60)} min"
+
+    # No fires recorded yet — fall through to the curl-pid + backoff
+    # diagnostic since we have no fire-flow signal to lean on.
     if s["curl_subprocess_pid"] is None:
-        # Distinguish "curl killed during backoff (sleeping intentionally)"
-        # from "curl can't spawn (real outage)".
         backoff = s.get("backoff_state")
         if backoff == "rate_limit":
             return "yellow", "rate-limited — curl absent during 30-min backoff; catch-up poll still running"
         if backoff == "auth_fail":
             return "yellow", "auth/HTTP backoff — curl absent during 5-min backoff; catch-up poll still running"
         return "red", "curl subscription dead — cortex bridge broken"
-    last = s["last_fire_at_utc"]
-    if last is None:
-        return "yellow", "no fires recorded yet (cold start ok if recent install)"
-    idle_seconds = (datetime.now(tz=timezone.utc) - last).total_seconds()
-    if idle_seconds > ZOMBIE_THRESHOLD_SECONDS:
-        return "red", f"zombie suspected: no fires in {int(idle_seconds // 60)} min"
-    return "green", f"last fire {_fmt_age(idle_seconds)} ago"
+    return "yellow", "no fires recorded yet (cold start ok if recent install)"
 
 
 def _fmt_age(seconds: float) -> str:

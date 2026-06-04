@@ -209,7 +209,7 @@ when it went out — these events are informational acks for the source AI.
 Outbox `accepted` is NEVER surfaced (informational — target will act on
 the next tick of their inbox poll). Saves chat noise.
 
-### `event=ser_escalation` — SER re-ping (cortex Phase 3, env-gated)
+### `event=ser_escalation` — SER re-ping (LIVE; env-gated)
 
 A separate wake shape rides the same `proposal_event` channel when an
 SER you're a `required`-tier participant of has been idle past its

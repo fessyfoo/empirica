@@ -356,16 +356,64 @@ Returns projection: `{ser_id, coordination_state, title, summary, participants[r
 
 Session bootstrap: query without `thread_id` to load all your active SERs (`state ∈ {open, in_progress, blocked}`).
 
+### SER ack — stamping `last_ack_at`
+
+Required-tier participants MUST `ser_ack` to silence the escalation
+tick. Without an ack within `escalation_seconds` of the last
+transition, cortex re-pings via the escalation surface. ack is the
+canonical "I'm current on this SER" signal.
+
+```python
+mcp__cortex__cortex_propose(
+    type="architecture_decision",
+    action_category="REFLEX",
+    source_claude="<your-canonical-3-form>",
+    target_claudes=["<ser-participants-or-thread-root>"],
+    parent_id="<thread_root_id>",
+    title="ser_ack <ser_id_prefix> — <one-line note>",
+    summary="<what you've absorbed / status confirmation>",
+    payload={
+        "action": "ser_ack",
+        "ser_id": "<ser_...>",
+    },
+)
+```
+
+Response stamps `last_ack_at` on your participant row + returns
+`ser_state_verified=true` when the projection round-trips. Idempotent
+within a transition window — re-acking re-stamps the timestamp without
+duplicating side effects.
+
+### Transition — moving SER through its lifecycle
+
+```python
+mcp__cortex__cortex_propose(
+    type="architecture_decision",
+    action_category="REFLEX",
+    source_claude="<your-canonical-3-form>",
+    target_claudes=["<ser-participants>"],
+    parent_id="<thread_root_id>",
+    title="transition_ser <ser_id_prefix> — <new_state>",
+    summary="<rationale>",
+    payload={
+        "action": "transition_ser",
+        "ser_id": "<ser_...>",
+        "to_state": "in_progress",  # or "blocked" / "closed"
+    },
+)
+```
+
+Transitions update `coordination_state` + re-wake required participants
++ reset the escalation timer.
+
 ### Phase status
 
 | Phase | Action | Status |
 |---|---|---|
 | 1a | `GET /v1/sers` read | LIVE |
 | 1b | `payload.action='create_ser'` | LIVE |
-| 2 | `payload.action='transition_ser'` + `'ser_ack'` | PENDING |
-| 3 | Escalation tick scheduler | PENDING |
-
-Don't emit Phase 2/3 actions until status flips to LIVE.
+| 2 | `payload.action='transition_ser'` + `'ser_ack'` | LIVE |
+| 3 | Escalation tick scheduler | LIVE |
 
 ---
 
