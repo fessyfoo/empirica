@@ -185,6 +185,45 @@ def _backfill_calibration_weights():
         logger.debug(f"Calibration weight backfill skipped: {e}")
 
 
+def _sync_mesh_sharing_agreements() -> None:
+    """Refresh workspace.db.entity_registry mirror of mesh-sharing-agreements
+    from cortex. Non-fatal — any failure (no creds, cortex unreachable,
+    transport error) downgrades to a debug log and the cached mirror keeps
+    serving the visibility ladders check.
+
+    Implements trigger #1 of the
+    ``docs/architecture/MESH_SHARING_AGREEMENTS.md`` sync contract.
+    Trigger #2 (ntfy push subscriber on ``<org>-mesh-sharing-changed``) is
+    tracked separately under goal b22d506d task B.5.
+
+    Cortex side LIVE since 45e1227 (2026-06-03). The check runs once per
+    project-bootstrap — which fires on every session start — so the mirror
+    refreshes at session-start cadence by default.
+    """
+    try:
+        from empirica.config.credentials_loader import get_credentials_loader
+        from empirica.core.mesh_sharing import sync_from_cortex
+        from empirica.data.repositories.workspace_db import WorkspaceDBRepository
+
+        creds = get_credentials_loader().get_cortex_config()
+        url, key = creds.get("url"), creds.get("api_key")
+        if not (url and key):
+            logger.debug("mesh-agreements sync skipped — cortex creds missing")
+            return
+
+        with WorkspaceDBRepository.open(ensure_schema=True) as repo:
+            result = sync_from_cortex(repo, url, key)
+        if result.error:
+            logger.debug(f"mesh-agreements bootstrap sync: {result.error}")
+        else:
+            logger.info(
+                f"mesh-agreements bootstrap sync: {result.added} added, "
+                f"{result.updated} updated, {result.marked_revoked} marked-revoked"
+            )
+    except Exception as e:
+        logger.debug(f"mesh-agreements bootstrap sync skipped: {e}")
+
+
 def _load_mco_config(session_id, ai_id):
     """Load MCO config from latest pre_summary snapshot or fresh from files.
 
@@ -393,6 +432,7 @@ def handle_project_bootstrap_command(args):
         db = SessionDatabase()
 
         _backfill_calibration_weights()
+        _sync_mesh_sharing_agreements()
 
         # Get new parameters
         session_id = getattr(args, 'session_id', None)

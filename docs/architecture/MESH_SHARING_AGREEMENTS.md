@@ -172,8 +172,12 @@ empirica mesh-agreements sync [--cortex-url <url>] [--api-key <key>]
 
 Sync triggers:
 
-1. **Session-bootstrap**: `project-bootstrap` runs sync as a non-fatal step
-   (matches the cortex remote-sync pattern in session-init).
+1. **Session-bootstrap** (LIVE): `project-bootstrap` calls
+   `_sync_mesh_sharing_agreements()` as a non-fatal step before the
+   epistemic-state retrieval (matches the cortex remote-sync pattern in
+   session-init). Wires `empirica.core.mesh_sharing.sync_from_cortex`
+   against `workspace.db.entity_registry`. Refreshes at session-start
+   cadence — every new session starts on a fresh mirror.
 2. **`<org>-mesh-sharing-changed` ntfy event**: listener invalidates cache
    and triggers fresh sync (mirrors the `<org>-roster-changed` pattern).
    **LIVE since cortex 45e1227** (2026-06-03): topic wire shape ratified —
