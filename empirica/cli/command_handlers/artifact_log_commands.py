@@ -290,7 +290,15 @@ def _parse_config_input(args):
 
 
 def _extract_scalar_fields(config_data, args):
-    """Extract common scalar fields from config dict or CLI args."""
+    """Extract common scalar fields from config dict or CLI args.
+
+    Also runs the visibility ladders-into-agreement check (write-time
+    advisory). If ``--visibility shared/public`` is requested but the local
+    mesh-sharing-agreement mirror has no agreement at the required layer,
+    the visibility is downgraded with a stderr warning. Fails-open when the
+    mirror is unbootstrapped — cortex enforces authoritatively on the
+    consumer side. See ``empirica/core/visibility.py``.
+    """
     output_format = 'json' if config_data else getattr(args, 'output', 'json')
     session_id = (config_data or {}).get('session_id') or getattr(args, 'session_id', None)
     project_id = (config_data or {}).get('project_id') or getattr(args, 'project_id', None)
@@ -299,7 +307,13 @@ def _extract_scalar_fields(config_data, args):
     # internal artifact field name. Both routes land in the same internal variable.
     subtask_id = (config_data or {}).get('subtask_id') or getattr(args, 'task_id', None)
     impact = (config_data or {}).get('impact') or getattr(args, 'impact', None)
-    visibility = (config_data or {}).get('visibility') or getattr(args, 'visibility', None)
+    intended_visibility = (config_data or {}).get('visibility') or getattr(args, 'visibility', None)
+
+    from empirica.core.visibility import resolve_visibility_with_agreement
+    visibility, warning = resolve_visibility_with_agreement(intended_visibility)
+    if warning:
+        print(warning, file=sys.stderr)
+
     return output_format, session_id, project_id, goal_id, subtask_id, impact, visibility
 
 

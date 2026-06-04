@@ -122,14 +122,34 @@ entity_type that allows cross-tenant reads; all others stay tenant-strict.
 ## --visibility composition
 
 Artifact log commands carry `--visibility {local|shared|public}` as the
-user's INTENT. Resolution happens at the consumer surface (query/poll), not
-at write time. The agreement check is the enforcement gate:
+user's INTENT. Two-stage resolution:
+
+1. **Write-time advisory check** (live since `empirica/core/visibility.py`,
+   wired into `artifact_log_commands._extract_scalar_fields`). At every
+   `*-log` invocation, the resolver walks the local
+   `entity_registry`-backed mirror and downgrades the intent if no
+   agreement exists at the required layer. Emitted to stderr; the artifact
+   still writes at the downgraded tier.
+2. **Consumer-side enforcement** (cortex authoritative). Router, inbox
+   poll, outbox poll terminate at the cortex agreement check. The local
+   mirror MAY be stale or empty (unbootstrapped); cortex enforces correctly
+   regardless.
+
+The agreement check resolution table:
 
 | `--visibility` | L1 (local) | L2 (cross-tenant intra-org) | L3 (cross-org) |
 |---|---|---|---|
 | `local` (default) | ✓ no check | n/a | n/a |
 | `shared` | n/a (degrades to local) | requires active L2 agreement; fails-closed = stays local + warns | n/a (degrades to shared) |
 | `public` | n/a | n/a (use shared) | requires active L3 agreement AND `eco_always=true`; fails-closed = stays shared (or local if no L2) + warns |
+
+**Fail-open semantics on empty mirror:** when the mirror has NO agreements
+at all (zero rows across all states), the resolver treats this as
+"unbootstrapped" and keeps the caller's intent without warning. Cortex
+enforces authoritatively on the consumer side anyway, so a too-permissive
+write-time check is safe; a too-restrictive one would break the first-run
+UX. A populated mirror with only revoked rows IS treated as "no active
+agreement" and triggers downgrade — that's a real state, not unbootstrapped.
 
 We never silently elevate visibility; we silently **downgrade with a
 warning** (same shape as the praxic-attempt-without-CHECK → stays-noetic
@@ -156,12 +176,34 @@ Sync triggers:
    (matches the cortex remote-sync pattern in session-init).
 2. **`<org>-mesh-sharing-changed` ntfy event**: listener invalidates cache
    and triggers fresh sync (mirrors the `<org>-roster-changed` pattern).
+   **LIVE since cortex 45e1227** (2026-06-03): topic wire shape ratified —
+   payload `{event:mesh_sharing_changed, org_id, agreement_id, action,
+   scope, ts}`, fires on create/activate/accept/revoke. Per-user read-only
+   ACL + cortex publisher RW grants in place. Subscriber wiring on the
+   empirica side ships as a follow-up substrate task (multi-tag systemd-user
+   / launchd integration; tracked under goal b22d506d).
 3. **Manual**: `empirica mesh-agreements sync` for admin diagnostics.
 
 Both 1 and 2 are best-effort; sync failure logs to stderr and the local
 mirror stays at whatever it had. Stale mirrors degrade gracefully — admission
 checks against a stale agreement may fail-open (cortex still enforces
 authoritatively) but never fail-closed-wrong.
+
+## Policy fields — cortex's lane (deferred)
+
+The mirror today is **identity + lifecycle centric** (matches cortex's
+LAYER 1 row shape, commit e54025c): `{id, scope, party_a, party_b, state,
+activated_at, revoked_at, ...}`. The membrane design also calls for
+**policy fields** — `permitted_classes`, `direction`, `gate`, `expiry`
+on each agreement.
+
+Per extension's `prop_phtal3svmj`: policy fields are **cortex's call** on
+schema shape (extra columns on `mesh_sharing_agreements` vs sibling
+`agreement_policies` table keyed on `agreement_id`). Empirica's mirror
+extends the same row when cortex's schema lands; no parallel record is
+spec'd here. Today's mirror tolerates missing policy keys gracefully via
+sensible defaults (`surfaces=['collab']`, `direction='bidirectional'`,
+`eco_always=False` on L1/L2, `True` on L3).
 
 ## On the SER
 
