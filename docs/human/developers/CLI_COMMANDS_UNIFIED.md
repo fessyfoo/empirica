@@ -22,9 +22,9 @@
 > `empirica/cli/cli_core.py` — adding a new category means editing that
 > dictionary, then running this script.
 
-**Framework version:** 1.11.8
-**Generated:** 2026-06-03 16:29:37 UTC
-**Total commands:** 233 (across 26 categories)
+**Framework version:** 1.11.9
+**Generated:** 2026-06-05 18:11:18 UTC
+**Total commands:** 236 (across 26 categories)
 
 For the most up-to-date detail on any single command, prefer
 `empirica <command> --help` — the generator extracts the same `help`
@@ -1521,10 +1521,10 @@ Walk filesystem for .empirica/ directories and emit a manifest.
   Output format (default: yaml).
 - `--manifest` — optional
   Write manifest to this path (default: ~/.empirica/discovered_projects.yaml). Use '-' to write to stdout only.
-- `--register` — optional · flag
-  After scanning, upsert each discovered project into ~/.empirica/registry.yaml (the daemon's served set). Idempotent — matches on project_id. (v1.9.6+)
+- `--register` — optional
+  After scanning, upsert each discovered project into ~/.empirica/registry.yaml (the daemon's served set). Idempotent — matches on project_id. Pass NAME to register a single project by directory basename or project.yaml name (e.g. `--register empirica-mesh-support`); pass no value to register all discovered projects. (v1.9.6+)
 - `--prune` — optional · flag
-  Only with --register: also remove registry entries whose path no longer exists or no longer contains .empirica/.
+  Only with --register (no NAME): also remove registry entries whose path no longer exists or no longer contains .empirica/.
 
 #### `empirica projects-list`
 
@@ -4659,6 +4659,36 @@ Live tail loop_fires.log filtered by instance(s)
   ai_id (default: tail all installed instances)
 
 
+#### `empirica mesh-agreements`
+
+Mesh sharing agreement mirror — sync / list cortex agreements locally
+
+**Subcommands:**
+
+##### `empirica mesh-agreements sync`
+
+Pull GET /v1/orgs/me/mesh_sharing_agreements; upsert into entity_registry
+
+**Arguments:**
+
+- `--cortex-url` — optional
+  Cortex base URL override.
+- `--api-key` — optional
+  Cortex API key override.
+- `--output` — optional · type=`choice` · choices={human, json} · default=`human`
+
+
+##### `empirica mesh-agreements list`
+
+List mirrored mesh sharing agreements
+
+**Arguments:**
+
+- `--status` — optional · type=`choice` · choices={active, proposed, suspended, revoked, all} · default=`active`
+- `--limit` — optional · type=`int` · default=`100`
+- `--output` — optional · type=`choice` · choices={human, json} · default=`human`
+
+
 #### `empirica message-channels`
 
 List channels with message counts
@@ -4811,6 +4841,29 @@ Analyze performance or run benchmarks
   Show detailed metrics
 - `--verbose` — optional · flag
   Show detailed results
+
+#### `empirica project-register`
+
+Atomic single-project register: read .empirica/project.yaml at PATH, dual-write workspace.db (global_projects + entity_registry), upsert ~/.empirica/registry.yaml, POST to cortex with the local project_id. Replaces the chained 'projects-discover --register NAME && projects-bulk-register --include NAME' with one verb for the AI-as-CLI-user / copy-prompt UX (extension's Discover/Register surface).
+
+**Arguments:**
+
+- `path` — **required** · default=`.`
+  Project root path (default: current directory)
+- `--no-cortex` — optional · flag
+  Stop after local writes (workspace.db + registry.yaml). Use offline-first or when cortex is down.
+- `--skip-user-link` — optional · flag
+  Skip the defensive POST /v1/users/me/projects after register.
+- `--force-metadata-update` — optional · flag
+  Carry force_metadata_update:true so cortex refreshes name/repo_url on an existing row.
+- `--cortex-url` — optional
+  Override cortex URL (default: ~/.empirica/credentials.yaml)
+- `--api-key` — optional
+  Override cortex API key (default: ~/.empirica/credentials.yaml)
+- `--timeout` — optional · type=`float` · default=`10.0`
+  Cortex POST timeout in seconds (default: 10)
+- `--output` — optional · type=`choice` · choices={human, json} · default=`human`
+  Output format
 
 #### `empirica qdrant-cleanup`
 
@@ -5133,5 +5186,18 @@ Print structured AI guidance for adopting a voice in a register
 - `--output` — optional · type=`choice` · choices={json, human} · default=`human`
   Output format (default: human)
 
+
+#### `empirica workspace-backfill-entities`
+
+Backfill workspace.db.entity_registry with entity_type=project rows for every existing global_projects row. Closes the gap where projects registered before the dual-write path don't appear in the Practice Model surface (extension dashboard, entity-list/-show/-walk). Idempotent.
+
+**Arguments:**
+
+- `--dry-run` — optional · flag
+  Preview what would change without writing
+- `--output` — optional · type=`choice` · choices={human, json} · default=`human`
+  Output format
+- `--verbose` — optional · flag
+  Show detailed operation info
 
 ---
