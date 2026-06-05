@@ -328,6 +328,113 @@ curl 'http://localhost:8000/api/v1/assumptions?confidence_min=0.7'
 
 ---
 
+## Source Content (`GET /api/v1/sources/{source_id}/content`)
+
+Companion to `GET /api/v1/sources` (metadata-only): returns the actual content
+behind a single source row, so a UI viewer can render inline. Added to close
+the source-viewer gap surfaced by extension `prop_fzb63fnlx5` + `prop_bcsecxo2rr`
+— the daemon previously served metadata only, so viewers rendered empty when a
+user clicked through.
+
+### Response shapes (client branches on `kind`)
+
+**URL source (`source_url` starts with `http://` or `https://`):**
+
+```json
+{
+  "source_id": "<uuid>",
+  "kind": "url",
+  "url": "https://example.com/spec",
+  "title": "RFC 7519",
+  "source_type": "url"
+}
+```
+
+Client fetches the URL directly. The daemon deliberately does NOT proxy — keeps
+CORS-on-localhost simple and avoids streaming arbitrary remote bodies through
+the daemon.
+
+**File source (`source_url` is a path):**
+
+```json
+{
+  "source_id": "<uuid>",
+  "kind": "file",
+  "path": "docs/spec.md",
+  "content": "# Spec\n\n…",
+  "size_bytes": 1234,
+  "encoding": "utf-8",
+  "title": "…",
+  "source_type": "doc"
+}
+```
+
+- `path` is always rendered project-root-relative for display.
+- `encoding` is `"utf-8"` for text, `"base64"` for files that don't decode as
+  UTF-8 (binary, PDFs, images). Client base64-decodes before rendering.
+- Content cap: **10 MB**. Larger files return a truncation marker instead of
+  inline content (see below).
+
+### Path resolution
+
+`source_url` may be relative, absolute-inside-tree, or a bare filename. The
+endpoint walks fallback prefixes against the project root, first match wins:
+
+1. `""` (bare path, relative to project root)
+2. `.empirica/sources/` (well-known sources dir)
+3. `docs/`
+4. `docs/sources/`
+
+Absolute paths are accepted only when they resolve inside the project tree
+(defense-in-depth containment check on every candidate).
+
+### Error contract
+
+| Status | Detail | When |
+|--------|--------|------|
+| `404` | `"source_id … not found in project …"` | source id absent from `epistemic_sources` for the resolved project |
+| `404` | `"file source … not found on disk … tried prefixes …"` | source row found but the path doesn't resolve under any fallback prefix |
+| `422` | `"… resolves outside project root …"` | candidate path escapes the project tree (refused even if the target exists — defense in depth against `../` traversal) |
+| `503` | `"Daemon not bound to a project …"` | no `?project_id`, no `?path`, no daemon-cached project |
+
+### Truncation marker (oversized file)
+
+```json
+{
+  "source_id": "<uuid>",
+  "kind": "file",
+  "path": "docs/big.md",
+  "size_bytes": 25000000,
+  "truncated": true,
+  "content": null,
+  "title": "…",
+  "source_type": "doc",
+  "hint": "file exceeds 10485760 byte cap; open it directly in an editor"
+}
+```
+
+Lets the viewer branch to "open in editor" UX rather than materialize a 25 MB
+JSON response.
+
+### Example
+
+```bash
+# URL source — viewer follows the URL directly
+curl 'http://localhost:8000/api/v1/sources/d6626173-…/content?path=/home/me/project'
+
+# File source — content returned inline
+curl 'http://localhost:8000/api/v1/sources/92145785-…/content?path=/home/me/project' \
+  | jq -r .content
+```
+
+### Companion: List endpoint
+
+`GET /api/v1/sources` returns the metadata batch (no content). The
+content endpoint is the per-source drill-down. List + drill is the intended
+UI pattern: list to browse, content for the viewer.
+
+---
+
 ## Single-Artifact CRUD (v0.5+)
 
 Four endpoints for one-at-a-time UI actions. Polymorphic ID resolution — the
