@@ -141,6 +141,11 @@ def create_serve_app() -> FastAPI:
     from empirica.api.routes.artifacts import router as artifacts_router
     app.include_router(artifacts_router)
 
+    # Credential-grant flow (UI-prompted token, goal 167fc8d4) —
+    # extracted into its own router so create_serve_app stays simple.
+    from empirica.api.routes.credentials import router as credentials_router
+    app.include_router(credentials_router)
+
     @app.get("/api/v1/health", response_model=HealthResponse)
     async def health():  # pyright: ignore[reportUnusedFunction]
         """Health check — reports integrations, active project info, and

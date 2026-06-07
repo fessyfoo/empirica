@@ -346,7 +346,7 @@ _HELP_CATEGORIES = {
     'issue': ['issue-list', 'issue-show', 'issue-handoff', 'issue-resolve', 'issue-export', 'issue-stats'],
     'investigation': ['investigate', 'investigate-create-branch', 'investigate-checkpoint-branch', 'investigate-merge-branches', 'investigate-multi'],
     'monitoring': ['monitor', 'assess-state', 'trajectory-project', 'efficiency-report', 'workflow-patterns', 'calibration-report', 'commit-context', 'compact-analysis', 'compliance-report'],
-    'cockpit': ['status', 'tui', 'sentinel', 'loop', 'listener', 'instance', 'mailbox', 'cockpit', 'daemon-list', 'notify'],
+    'cockpit': ['status', 'tui', 'sentinel', 'loop', 'listener', 'instance', 'mailbox', 'cockpit', 'daemon-list', 'daemon-grant', 'daemon-deny', 'daemon-grants-list', 'notify'],
     'skills': ['skill-suggest', 'skill-fetch', 'skill-extract'],
     'architecture': ['assess-component', 'assess-compare', 'assess-directory'],
     'agents': ['agent-spawn', 'agent-report', 'agent-aggregate', 'agent-parallel', 'agent-export', 'agent-import', 'agent-discover'],
@@ -610,6 +610,9 @@ def main(args=None):
             'projects-unregister': handle_projects_unregister_command,
             'project-register': handle_project_register_command,
             'daemon-list': handle_daemon_list_command,
+            'daemon-grant': handle_daemon_grant_command,
+            'daemon-deny': handle_daemon_deny_command,
+            'daemon-grants-list': handle_daemon_grants_list_command,
 
             # Finding/unknown/deadend/assumption/decision logging
             'finding-log': handle_finding_log_command,

@@ -192,6 +192,9 @@ from .project_search import (
 )
 from .project_update import handle_project_update_command
 from .projects_commands import (
+    handle_daemon_deny_command,
+    handle_daemon_grant_command,
+    handle_daemon_grants_list_command,
     handle_daemon_list_command,
     handle_project_register_command,
     handle_projects_bulk_register_command,
@@ -418,6 +421,9 @@ __all__ = [  # noqa: RUF022
     'handle_project_search_command',
     'handle_project_switch_command',
     'handle_project_update_command',
+    'handle_daemon_deny_command',
+    'handle_daemon_grant_command',
+    'handle_daemon_grants_list_command',
     'handle_daemon_list_command',
     'handle_projects_bulk_register_command',
     'handle_projects_discover_command',

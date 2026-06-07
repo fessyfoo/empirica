@@ -507,6 +507,159 @@ def handle_daemon_list_command(args) -> None:
         handle_cli_error(e, "daemon-list")
 
 
+def handle_daemon_grant_command(args) -> None:
+    """Approve a pending credential grant requested by the extension.
+
+    UI-prompted-token consent flow (goal 167fc8d4 / prop_b4si26t7c5):
+      1. Extension POSTs /api/v1/credentials/grant/request → daemon
+         prints a user_code to its stdout.
+      2. User runs `empirica daemon-grant <user_code>` (THIS verb).
+      3. Extension polls /api/v1/credentials/grant/poll → receives
+         the credentials snapshot exactly once.
+
+    Approve snapshots the current Cortex credentials from
+    credentials.yaml into the grant record. Past-expiry / unknown
+    user_code / already-decided grants all surface as errors.
+    """
+    user_code = getattr(args, "user_code", None)
+    output_format = getattr(args, "output", "human")
+    if not user_code:
+        _emit_grant_error(
+            "user_code required (positional)",
+            output_format,
+        )
+        return
+    try:
+        from empirica.api import daemon_grants
+        from empirica.config.credentials_loader import CredentialsLoader
+        # Snapshot what the extension will receive on its next poll.
+        cortex_cfg = CredentialsLoader().get_cortex_config()
+        credentials_snapshot = {"cortex": cortex_cfg}
+        record = daemon_grants.approve_grant(
+            user_code=user_code,
+            credentials=credentials_snapshot,
+        )
+        if record is None:
+            _emit_grant_error(
+                f"No pending grant for user_code={user_code!r} "
+                "(unknown, expired, or already approved/denied)",
+                output_format,
+            )
+            return
+        payload = {
+            "ok": True,
+            "user_code": record.user_code,
+            "device_code_prefix": record.device_code[:8],
+            "requesting_app": record.requesting_app,
+            "approved_at": record.approved_at,
+            "expires_at": record.expires_at,
+        }
+        if output_format == "json":
+            sys.stdout.write(json.dumps(payload, indent=2) + "\n")
+        else:
+            sys.stdout.write(
+                f"✅ Grant approved for {record.requesting_app!r} "
+                f"(user_code={record.user_code}).\n"
+                f"   The extension's next poll will receive the credentials.\n"
+            )
+    except Exception as e:
+        handle_cli_error(e, "daemon-grant")
+
+
+def handle_daemon_deny_command(args) -> None:
+    """Deny a pending credential grant requested by the extension."""
+    user_code = getattr(args, "user_code", None)
+    output_format = getattr(args, "output", "human")
+    if not user_code:
+        _emit_grant_error(
+            "user_code required (positional)",
+            output_format,
+        )
+        return
+    try:
+        from empirica.api import daemon_grants
+        record = daemon_grants.deny_grant(user_code=user_code)
+        if record is None:
+            _emit_grant_error(
+                f"No pending grant for user_code={user_code!r}",
+                output_format,
+            )
+            return
+        payload = {
+            "ok": True,
+            "user_code": record.user_code,
+            "device_code_prefix": record.device_code[:8],
+            "requesting_app": record.requesting_app,
+            "denied_at": record.denied_at,
+        }
+        if output_format == "json":
+            sys.stdout.write(json.dumps(payload, indent=2) + "\n")
+        else:
+            sys.stdout.write(
+                f"🚫 Grant denied for {record.requesting_app!r} "
+                f"(user_code={record.user_code}).\n"
+            )
+    except Exception as e:
+        handle_cli_error(e, "daemon-deny")
+
+
+def handle_daemon_grants_list_command(args) -> None:
+    """List current credential grant records on disk.
+
+    Reaps expired records first so the listing matches what the
+    extension's next poll would see.
+    """
+    output_format = getattr(args, "output", "table")
+    try:
+        from empirica.api import daemon_grants
+        daemon_grants.reap_expired()
+        records = daemon_grants.list_records()
+        payload = {
+            "ok": True,
+            "grants": [
+                {
+                    "user_code": r.user_code,
+                    "device_code_prefix": r.device_code[:8],
+                    "requesting_app": r.requesting_app,
+                    "status": r.status,
+                    "created_at": r.created_at,
+                    "expires_at": r.expires_at,
+                }
+                for r in records
+            ],
+        }
+        if output_format == "json":
+            sys.stdout.write(json.dumps(payload, indent=2) + "\n")
+            return
+        if not records:
+            sys.stdout.write("# No pending credential grants.\n")
+            return
+        sys.stdout.write(
+            f"{'USER_CODE':<11}  {'STATUS':<10}  {'REQUESTING_APP':<18}  "
+            f"DEVICE_CODE_PREFIX  EXPIRES_IN_SEC\n"
+        )
+        sys.stdout.write("-" * 80 + "\n")
+        import time as _time
+        now = _time.time()
+        for r in records:
+            ttl = max(0, int(r.expires_at - now))
+            sys.stdout.write(
+                f"{r.user_code:<11}  {r.status:<10}  "
+                f"{r.requesting_app:<18}  {r.device_code[:8]}            "
+                f"{ttl}\n"
+            )
+    except Exception as e:
+        handle_cli_error(e, "daemon-grants-list")
+
+
+def _emit_grant_error(message: str, output_format: str) -> None:
+    """Shared error surface for the daemon-grant family."""
+    if output_format == "json":
+        sys.stdout.write(json.dumps({"ok": False, "error": message}) + "\n")
+    else:
+        sys.stderr.write(f"error: {message}\n")
+
+
 def handle_projects_sync_command(args) -> None:
     """Master sync verb: discover → registry → Cortex POST, one shot.
 

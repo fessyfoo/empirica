@@ -98,6 +98,62 @@ def add_projects_parsers(subparsers) -> None:
         help="Output format (default: table).",
     )
 
+    # ── daemon-grant / daemon-deny / daemon-grants-list ────────────────
+    # UI-prompted-token credential grant flow (goal 167fc8d4). The
+    # extension calls /api/v1/credentials/grant/request and shows the
+    # user the printed user_code; the user approves out-of-band via
+    # these verbs.
+    daemon_grant = subparsers.add_parser(
+        "daemon-grant",
+        help="Approve a pending credential grant requested by the extension.",
+        description=(
+            "Approve a pending /api/v1/credentials/grant/request by user_code. "
+            "The extension's next poll will receive the credentials snapshot "
+            "exactly once. Pair with the daemon's stdout — `empirica serve` "
+            "prints the user_code when the extension begins the grant flow."
+        ),
+    )
+    daemon_grant.add_argument(
+        "user_code",
+        help="The short code printed by `empirica serve` (e.g. AB23-CDEF).",
+    )
+    daemon_grant.add_argument(
+        "--output", choices=["human", "json"], default="human",
+        help="Output format (default: human).",
+    )
+
+    daemon_deny = subparsers.add_parser(
+        "daemon-deny",
+        help="Deny a pending credential grant requested by the extension.",
+        description=(
+            "Deny a pending /api/v1/credentials/grant/request by user_code. "
+            "The extension's next poll will see status=denied; the grant "
+            "record is then consumed (one-shot)."
+        ),
+    )
+    daemon_deny.add_argument(
+        "user_code",
+        help="The short code printed by `empirica serve`.",
+    )
+    daemon_deny.add_argument(
+        "--output", choices=["human", "json"], default="human",
+        help="Output format (default: human).",
+    )
+
+    daemon_grants_list = subparsers.add_parser(
+        "daemon-grants-list",
+        help="List current daemon credential grant records on disk.",
+        description=(
+            "Show pending and recently-decided credential grant records "
+            "under ~/.empirica/daemon_grants/. Useful for forensics after "
+            "an unfamiliar prompt appeared in the daemon's stdout."
+        ),
+    )
+    daemon_grants_list.add_argument(
+        "--output", choices=["table", "json"], default="table",
+        help="Output format (default: table).",
+    )
+
     # ── projects-list ──────────────────────────────────────────────────
     listing = subparsers.add_parser(
         "projects-list",
