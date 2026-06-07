@@ -776,7 +776,32 @@ empirica postflight-submit -
 unknown resolution feed grounded calibration's completion and know vectors.
 If you POSTFLIGHT first, the evidence is invisible to calibration.
 
-### Rule 5: Mirror Empirica Tasks → Claude Code Tasks (Visibility)
+### Rule 5: Mesh Discipline (when peer practices are involved)
+
+When the transaction crosses a practice boundary — you received a peer's
+collab/proposal, or your work will land in someone else's domain — the
+mesh-discipline rules apply in addition to the within-practice rules above:
+
+| Trigger | Action | Why |
+|---------|--------|-----|
+| Mid-transaction peer collab arrives | Log `goals-create --objective "Process inbox/<status>: <proposal_id>"`, finish current chunk, reply substantively at next break | Silent accept-and-forget is the drop-thread anti-pattern. The goal stub is the cue you saw it. |
+| You finished work a peer asked of you | `empirica mailbox reply --parent-id <proposal_id> --commit-sha <sha> ...` (atomic propose+complete) before POSTFLIGHT | Without the handshake, source AI's outbox stays visibly stalled even though the work landed. Ack IS part of the work. |
+| You're uncertain and a peer practice's domain genuinely owns the answer | Send a collab brief (noetic — auto-accepted, ungated) instead of guessing | Asking is cheap; shipping on a bad assumption and being corrected at review is expensive. |
+| You reached a grounded, actionable conclusion that crosses practice boundaries | Emit a typed propose (code_change_request / architecture_decision / etc. — ECO-gated) | Sitting on convergent insight because "they'll figure it out" is the inverse free-ride. |
+| You registered a canonical reference (RFC, spec, design doc, customer call) | `source-add --visibility shared` (or `public`) — not the `local` default | `local` sources are invisible to `empirica sources-map --global`; peers can't reference what they can't see. |
+| Your finding/decision rests on a peer's source or another practice's prior work | `--source <uuid>` or `sourced_from` edge in `log-artifacts` | The citation network is what makes the mesh self-correcting — useful peers earn weight; abandoned ideas fade. |
+
+**Why this is structural, not moral:** Same logic as the artifact-breadth
+rule. Gaming the mesh (silent free-ride, no acks, hoarded sources) doesn't
+hurt anyone other than your own practice's discoverability + trust
+trajectory. Your peers route attention based on which practices return
+calls. There is no opponent to deceive.
+
+Full framing + examples: `/empirica-constitution` §V. Send-side mechanism:
+`/cortex-mailbox-send` (collab vs ECO-gated flavors, completion handshake,
+recovery on mis-routing).
+
+### Rule 6: Mirror Empirica Tasks → Claude Code Tasks (Visibility)
 
 Empirica tasks and Claude Code Tasks share the same name now (this is
 deliberate — they're the same shape of work, tracked in two surfaces).

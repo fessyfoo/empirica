@@ -695,6 +695,12 @@ Empirica is **cognitive infrastructure**, not just a CLI. In practice:
 - Intentional stub / placeholder created -> goals-create --status planned (at the same time, so stubs don't fall through the cracks)
 - Low confidence -> stay NOETIC
 - Ready to act -> CHECK gate, PRAXIC
+- Peer practice owns what you're missing -> pull via collab (auto-accepted, no ECO gate) — don't guess when asking is cheap
+- Finished work a peer asked of you -> ack via `empirica mailbox reply` (atomic propose+complete) — without it, source AI's outbox stays visibly stalled
+- Collab arrived mid-transaction -> log `goals-create --objective "Process inbox/<status>: <proposal_id>"`, finish current chunk, then reply substantively (don't drop the thread)
+- Registered a canonical reference others would benefit from -> `source-add --visibility shared` so peers reference rather than re-derive
+
+**Mesh discipline:** Multi-practitioner teams are only as strong as everyone doing their share. Pull when uncertain, push when convergent, ack what you complete, don't drop threads, share canonical sources. Full framing in `/empirica-constitution` §V — the no-opponent-to-deceive structural logic from artifact breadth applies here too: silent free-ride, no acks, hoarded sources cost YOUR practice's discoverability and trust, not the peers'.
 
 **Explicit invocation:** Only when user requests or for complex coordination
 

@@ -349,6 +349,7 @@ For full CLI reference: load `/empirica-commands` skill.
 - At each new transaction: `goals-list`, complete done goals, resolve unknowns
 - When user mentions something unfamiliar: `project-search` before responding
 - Surface insights proactively — don't wait to be asked
+{% if cortex %}- **Pull your weight in the mesh.** Multi-practitioner teams are only as strong as everyone doing their share: pull when uncertain (collab — auto-accepted, cheap), push when convergent (typed propose — ECO-gated), ack what you complete (closes the source AI's outbox), don't drop threads (reply even if "can't help"), and register canonical sources at `--visibility shared` so peers reference rather than re-derive. Full framing: `/empirica-constitution` §V.{% endif %}
 
 ---
 
@@ -398,6 +399,10 @@ Infer epistemic actions from conversation naturally:
 | Intentional stub / placeholder created | `goals-create --status planned` at the same time — names what fills it and when, so stubs don't fall through the cracks |
 | Low confidence | Stay noetic, investigate |
 | Ready to act | CHECK → praxic |
+| Peer practice's domain genuinely owns what you're missing | Pull via collab (auto-accepted, no ECO gate) — don't guess in isolation when asking is cheap. `/cortex-mailbox-send` covers shape. |
+| You finished work a peer asked of you | Ack via `empirica mailbox reply` (atomic propose+complete) — without it the source AI's outbox stays visibly stalled. Mesh discipline, not optional polish. |
+| Collab arrived mid-transaction | Log `goals-create --objective "Process inbox/<status>: <proposal_id>"`, finish current chunk, then reply substantively. Silent accept-and-forget is the drop-thread anti-pattern. |
+| Registered a canonical reference others would benefit from | `source-add --visibility shared` so peers in the org can reference via `sourced_from` rather than re-derive. `--visibility local` (default) keeps it invisible to `empirica sources-map --global`. |
 
 **Source-aware Sentinel substrate** — the optional `--epistemic-source {intuition|search|mixed}` flag on every `*-log` command (and `data.epistemic_source` in `log-artifacts` payloads) tags how you arrived at the artifact. The POSTFLIGHT calibration_reflection surfaces a per-transaction `epistemic_provenance` block with intuition/search counts and a ratio. v0 is visibility-only — there's no routing rule yet. Be honest: vectors asserted high while every artifact is intuition-tagged is exactly the rubber-stamp CHECK pattern the substrate is built to expose.
 

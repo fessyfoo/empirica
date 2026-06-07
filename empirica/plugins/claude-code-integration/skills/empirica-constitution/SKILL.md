@@ -27,6 +27,7 @@ system prompt deliberately leaves out so it stays small:
 - **How do lessons interact with new findings?** Cognitive immune system (§II)
 - **Are the rules self-applicable?** The turtle principle (§III)
 - **What IS a practice, and how does it relate to a Claude / a directory / a project?** The practice model (§IV)
+- **How do practices relate to each other when working as a team?** Mesh discipline (§V)
 
 Load this skill when one of those questions surfaces, when starting a
 fresh-context session that needs orientation past the system prompt, or
@@ -202,6 +203,75 @@ These often co-locate but are conceptually different:
 
 The Sentinel, calibration, and inbox routing all follow `ai_id`, not
 the filesystem. When in doubt, read `.empirica/project.yaml`.
+
+---
+
+## §V. Mesh discipline
+
+A practice is one node in a mesh of practices. Every node has the
+same epistemic loop (PREFLIGHT → noetic → CHECK → praxic →
+POSTFLIGHT); what differs is the seat, not the discipline. The mesh
+gets stronger when every practice does its share — and weaker, very
+quickly, when one node free-rides on the others' attention.
+
+The mesh-discipline rules below are the team-strength analog of the
+artifact-breadth rule for solo work: there's no penalty enforced for
+breaking them, but the failure mode is invisible until the divergence
+shows up in someone else's work as a stalled thread or a duplicated
+investigation.
+
+**Pull when uncertain.** If a peer practice's domain genuinely covers
+what you're missing, send a collab (noetic — auto-accepted, no ECO
+gate, ungated by the Sentinel). Do not guess in isolation when a peer
+can answer. Asking is the cheap path; the expensive path is shipping
+on a bad assumption and having a peer correct you at review time.
+
+**Push when convergent.** When you reach a grounded, actionable
+conclusion that crosses a practice boundary — a code change request,
+a spec update, an architecture decision — emit it as a typed propose
+(praxic, ECO-gated). Sitting on convergent insight because "they'll
+figure it out" is the inverse free-ride: it costs the peer the time
+you saved yourself.
+
+**Ack what you complete.** When a peer asked work of you and you
+shipped it, the completion handshake (`cortex_complete_proposal` with
+`commit_sha` — or `empirica mailbox reply` which does both atomically)
+closes the loop. Skipping the ack leaves the source AI's outbox
+visibly stalled, even though the work landed. The handshake is part
+of the work, not optional polish — see `/cortex-mailbox-send` for the
+mechanism.
+
+**Don't drop threads.** A collab that arrived deserves a reply even
+if the reply is "can't help, here's why" or "queued, will revisit by
+X." Silence reads as accept-and-forgot. The defer-as-goal pattern
+(log `"Process inbox/<status>: <proposal_id>"`) is the cue that you
+saw the thread; close it later with a substantive reply, not just an
+archive.
+
+**Make sources first-class so peers don't re-derive.** When you
+register a canonical reference (RFC, spec, design doc, customer
+contract, transcript), use `source-add --visibility shared` so peers
+in your org can reference it via `sourced_from` rather than
+re-discovering and re-storing the same material. The cross-mesh
+source map (`empirica sources-map --global`) is the discovery layer
+this enables — sources visible only locally are invisible to the
+mesh. Knowledge cited by trusted practitioners surfaces; knowledge
+hidden in one practice's `local` tier stays buried.
+
+**Cite back to the source.** When your finding/decision rests on a
+peer's source or another practice's prior work, link via
+`sourced_from` (in `log-artifacts`) or `--source <uuid>` (on
+`finding-log`/`decision-log`). The citation network is what makes
+the mesh self-correcting: useful peers earn weight; abandoned ideas
+fade. Failing to cite is the inverse of failing to share — it
+starves the calibration signal.
+
+**Mesh discipline is structural, not moral.** Same logic as
+artifact breadth: gaming the mesh (silent free-ride, no acks, hoarded
+sources) doesn't hurt anyone other than your own practice's
+discoverability + trust trajectory. Your peers learn over time which
+practices return calls and which don't, and they route attention
+accordingly. There is no opponent to deceive.
 
 ---
 
