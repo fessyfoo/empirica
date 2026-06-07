@@ -15,6 +15,9 @@ from empirica.api.registry import (
     save_registry,
     upsert_project,
 )
+from empirica.api.registry import (
+    dedupe_registry as _dedupe_registry,
+)
 
 # ─── load / save round-trip ────────────────────────────────────────────
 
@@ -220,3 +223,151 @@ def test_saved_yaml_is_human_readable(tmp_path: Path):
     # Round-trip through yaml.safe_load to verify it parses
     parsed = yaml.safe_load(text)
     assert parsed["version"] == 1
+
+
+# ─── dual-key dedup (auto-self-heal on load) ────────────────────────────
+
+
+
+
+def _entry(*, project_id: str, slug: str, path: str, last_seen: str = "") -> dict:
+    return {
+        "project_id": project_id,
+        "slug": slug,
+        "name": slug,
+        "path": path,
+        "repo_url": None,
+        "last_seen": last_seen,
+    }
+
+
+def test_dedupe_keeps_uuid_drops_slug_on_same_path():
+    """Two entries, same path: UUID-keyed wins, slug-keyed dropped."""
+    uuid_id = "d0317d3b-1234-4567-89ab-cdef01234567"
+    registry = {
+        "version": 1,
+        "projects": [
+            _entry(project_id="empirica-cortex", slug="empirica-cortex",
+                   path="/home/me/empirica-cortex"),
+            _entry(project_id=uuid_id, slug="empirica-cortex",
+                   path="/home/me/empirica-cortex"),
+        ],
+    }
+    deduped, removed = _dedupe_registry(registry)
+    assert len(deduped["projects"]) == 1
+    assert deduped["projects"][0]["project_id"] == uuid_id
+    assert len(removed) == 1
+    assert removed[0]["project_id"] == "empirica-cortex"
+
+
+def test_dedupe_leaves_distinct_paths_alone():
+    """Different paths are not the dedup target — stale data is prune-stale's
+    job, not dedup's."""
+    registry = {
+        "version": 1,
+        "projects": [
+            _entry(project_id="empirica", slug="empirica",
+                   path="/home/me/empirica_back_2_4_26"),
+            _entry(project_id="748a81a2-1234-4567-89ab-cdef01234567",
+                   slug="empirica", path="/home/me/empirica"),
+        ],
+    }
+    deduped, removed = _dedupe_registry(registry)
+    assert len(deduped["projects"]) == 2
+    assert removed == []
+
+
+def test_dedupe_skips_uuid_conflict():
+    """Two UUID-keyed entries at the same path = genuine conflict; keep both
+    + warn rather than silently drop one."""
+    registry = {
+        "version": 1,
+        "projects": [
+            _entry(project_id="aaaaaaaa-1111-4222-8333-444444444444",
+                   slug="proj", path="/home/me/proj"),
+            _entry(project_id="bbbbbbbb-1111-4222-8333-444444444444",
+                   slug="proj", path="/home/me/proj"),
+        ],
+    }
+    deduped, removed = _dedupe_registry(registry)
+    assert len(deduped["projects"]) == 2  # both kept
+    assert removed == []
+
+
+def test_dedupe_all_legacy_keeps_most_recent():
+    """No UUID entries in the group — keep the one with the latest
+    `last_seen`."""
+    registry = {
+        "version": 1,
+        "projects": [
+            _entry(project_id="old-slug", slug="proj", path="/home/me/proj",
+                   last_seen="2025-01-01T00:00:00"),
+            _entry(project_id="newer-slug", slug="proj", path="/home/me/proj",
+                   last_seen="2026-06-07T00:00:00"),
+        ],
+    }
+    deduped, removed = _dedupe_registry(registry)
+    assert len(deduped["projects"]) == 1
+    assert deduped["projects"][0]["project_id"] == "newer-slug"
+    assert len(removed) == 1
+
+
+def test_dedupe_passes_through_pathless_entries():
+    """Entries missing a path are malformed but not dedup's target — keep
+    them untouched."""
+    uuid_id = "12345678-1234-4567-89ab-cdef01234567"
+    registry = {
+        "version": 1,
+        "projects": [
+            {"project_id": uuid_id, "slug": "ok", "name": "ok",
+             "path": "/home/me/ok", "repo_url": None, "last_seen": ""},
+            {"project_id": "no-path", "slug": "broken", "name": "broken",
+             "path": "", "repo_url": None, "last_seen": ""},
+        ],
+    }
+    deduped, removed = _dedupe_registry(registry)
+    assert len(deduped["projects"]) == 2
+    assert removed == []
+
+
+def test_dedupe_six_paths_doubled_realistic_load(tmp_path: Path):
+    """End-to-end: write a registry resembling David's actual broken
+    state (6 paths doubled), load_registry auto-dedupes + persists, the
+    file on disk shrinks correspondingly."""
+    six = ["ecodex", "empirica-autonomy", "empirica-cortex",
+           "empirica-extension", "empirica-outreach", "empirica-workspace"]
+    projects = []
+    for i, name in enumerate(six):
+        uuid_id = f"{i:08}-1111-4222-8333-444444444444"
+        path = f"/home/me/{name}"
+        projects.append(_entry(project_id=name, slug=name, path=path))
+        projects.append(_entry(project_id=uuid_id, slug=name, path=path))
+    p = tmp_path / "registry.yaml"
+    save_registry({"version": 1, "projects": projects}, p)
+
+    reg = load_registry(p)  # auto_dedupe=True default
+    assert len(reg["projects"]) == 6
+    for entry in reg["projects"]:
+        # All survivors are UUID-keyed
+        assert "-" in entry["project_id"]
+        assert len(entry["project_id"]) == 36
+
+    # File on disk persists the dedup
+    reread = yaml.safe_load(p.read_text())
+    assert len(reread["projects"]) == 6
+
+
+def test_load_with_auto_dedupe_false_returns_raw(tmp_path: Path):
+    """Inspection paths can disable auto-dedupe to see the raw state."""
+    uuid_id = "abcdef01-1234-4567-89ab-cdef01234567"
+    registry = {
+        "version": 1,
+        "projects": [
+            _entry(project_id="slug-id", slug="proj", path="/p"),
+            _entry(project_id=uuid_id, slug="proj", path="/p"),
+        ],
+    }
+    p = tmp_path / "registry.yaml"
+    save_registry(registry, p)
+    reg = load_registry(p, auto_dedupe=False)
+    assert len(reg["projects"]) == 2  # raw, no dedup

@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -41,10 +42,17 @@ REGISTRY_VERSION = 1
 DEFAULT_REGISTRY_PATH = Path.home() / ".empirica" / "registry.yaml"
 
 
-def load_registry(path: Path | None = None) -> dict[str, Any]:
+def load_registry(path: Path | None = None, *, auto_dedupe: bool = True) -> dict[str, Any]:
     """Load the registry. Returns an empty registry if missing or unparseable.
 
     Empty shape: {"version": 1, "projects": []}.
+
+    Auto-dedupe: when two entries share the same filesystem `path`, prefer the
+    canonical-UUID-keyed entry over the legacy-slug-keyed entry and rewrite
+    the registry. Same-path duplication comes from registrations across the
+    legacy slug-as-id era and the canonical UUID-as-id era both surviving in
+    the file. Disable with ``auto_dedupe=False`` for test paths that want to
+    inspect raw state.
     """
     p = path or DEFAULT_REGISTRY_PATH
     if not p.exists():
@@ -62,10 +70,28 @@ def load_registry(path: Path | None = None) -> dict[str, Any]:
 
     raw_projects = data.get("projects")
     projects = raw_projects if isinstance(raw_projects, list) else []
-    return {
+    registry: dict[str, Any] = {
         "version": data.get("version", REGISTRY_VERSION),
         "projects": [entry for entry in projects if isinstance(entry, dict)],
     }
+
+    if auto_dedupe:
+        deduped, removed = dedupe_registry(registry)
+        if removed:
+            logger.info(
+                f"registry: auto-deduped {len(removed)} legacy slug-keyed "
+                f"entries (canonical UUID-keyed wins on same-path collision)"
+            )
+            registry = deduped
+            try:
+                save_registry(registry, path=p)
+            except Exception as e:
+                # Non-fatal: in-memory dedup still applied; persistence retried
+                # on next mutating verb. Don't let a disk write failure poison
+                # the daemon read path.
+                logger.warning(f"registry: dedup persist failed (non-fatal): {e}")
+
+    return registry
 
 
 def save_registry(registry: dict[str, Any], path: Path | None = None) -> None:
@@ -105,6 +131,97 @@ def find_by_project_id(registry: dict[str, Any], project_id: str) -> dict[str, A
         if entry.get("project_id") == project_id:
             return entry
     return None
+
+
+# Loose UUID matcher — accepts canonical 8-4-4-4-12 hex form. Anything else
+# (slug, name, or partial id) is treated as a legacy non-UUID key.
+_UUID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+
+
+def _is_canonical_uuid(value: Any) -> bool:
+    """True iff value is a string matching the canonical UUID form."""
+    return isinstance(value, str) and bool(_UUID_RE.match(value))
+
+
+def dedupe_registry(
+    registry: dict[str, Any],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Collapse same-path dual-key duplication. Returns (deduped, removed).
+
+    Two entries sharing the same filesystem ``path`` are a legacy artifact
+    from the era when ``project_id`` was a slug; modern entries use the
+    canonical UUID. Per the SER ser_542199e3 canonical-identity lock
+    (UUID-internal / 3-form-wire / name-display), UUID-keyed entries WIN.
+
+    Behaviour per same-path group:
+      - Exactly one UUID-keyed entry → keep it, drop all others. Removed
+        entries' identifying fields (project_id, slug, path) are returned so
+        callers can log what changed.
+      - Multiple UUID-keyed entries → genuine conflict (two real projects
+        sharing one path? unlikely but possible). Keep both; logged warning.
+        Same path with multiple UUIDs is a state we shouldn't try to resolve
+        silently — surfacing is safer than guessing.
+      - Zero UUID-keyed entries → all-legacy. Keep the most recently seen
+        (by ``last_seen``) entry; drop the others. Best-effort.
+
+    Entries with no ``path`` field are passed through untouched — they're
+    malformed but not the dedup target.
+    """
+    projects = list(registry.get("projects", []))
+    if not projects:
+        return registry, []
+
+    by_path: dict[str, list[dict[str, Any]]] = {}
+    pathless: list[dict[str, Any]] = []
+    for entry in projects:
+        raw_path = entry.get("path")
+        if not raw_path or not isinstance(raw_path, str):
+            pathless.append(entry)
+            continue
+        by_path.setdefault(raw_path, []).append(entry)
+
+    kept: list[dict[str, Any]] = list(pathless)
+    removed: list[dict[str, Any]] = []
+    for raw_path, group in by_path.items():
+        if len(group) == 1:
+            kept.append(group[0])
+            continue
+
+        uuid_keyed = [e for e in group if _is_canonical_uuid(e.get("project_id"))]
+        legacy = [e for e in group if not _is_canonical_uuid(e.get("project_id"))]
+
+        if len(uuid_keyed) == 1:
+            kept.append(uuid_keyed[0])
+            removed.extend(legacy)
+            continue
+
+        if len(uuid_keyed) > 1:
+            logger.warning(
+                f"registry: dedup skipping conflict at {raw_path!r} — "
+                f"{len(uuid_keyed)} UUID-keyed entries; not auto-resolving"
+            )
+            kept.extend(group)
+            continue
+
+        # Zero UUID-keyed entries — all legacy. Keep most recently seen.
+        survivor = max(group, key=lambda e: e.get("last_seen") or "")
+        kept.append(survivor)
+        for e in group:
+            if e is not survivor:
+                removed.append(e)
+                logger.info(
+                    f"registry: legacy-only group at {raw_path!r}, kept "
+                    f"{survivor.get('project_id')!r} by last_seen"
+                )
+
+    deduped = {
+        "version": registry.get("version", REGISTRY_VERSION),
+        "projects": kept,
+    }
+    return deduped, removed
 
 
 def upsert_project(
