@@ -135,13 +135,17 @@ def test_hook_emits_empty_when_no_instance_id(monkeypatch):
     assert result["parsed"] == {}
 
 
-def test_hook_emits_empty_when_no_loops_AND_no_persistent_service(monkeypatch):
+def test_hook_emits_empty_when_no_loops_AND_no_persistent_service(monkeypatch, tmp_path):
     """No wake source at all → no Monitor to arm, hook stays silent.
 
     Phase-3 fix: the OR condition (loops OR persistent service) replaced
-    the loops-only check. When BOTH are absent, the hook correctly
-    emits nothing — there's nothing to wake the session for.
+    the loops-only check. Prop_72polrcugn fix added a third signal
+    (listener_active_*.json on disk). When ALL THREE are absent, the
+    hook correctly emits nothing — there's nothing to wake the session
+    for. Pin Path.home() to a clean tmp_path so the prior-intent check
+    can't see real listener_active_* files leftover on the runner box.
     """
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     result = _run_hook(monkeypatch, instance_id="cortex", active_loops=[])
     assert result["rc"] == 0
     assert result["parsed"] == {}
@@ -415,6 +419,99 @@ def test_hook_emits_tail_monitor_block_when_cli_reports_persistent(monkeypatch):
     assert "tail -F" in ctx
     assert "loop_fires.log" in ctx
     assert "LOG-TAIL" in ctx
+
+
+# ── Prior-intent wake source (prop_72polrcugnbwxmpl3dxxvio6rq fix) ─────
+
+
+def test_has_active_listener_intent_finds_file(tmp_path, monkeypatch):
+    """Helper returns True when a listener_active_<instance>_*.json exists."""
+    mod = _load_hook_module()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    d = tmp_path / ".empirica"
+    d.mkdir()
+    (d / "listener_active_empirica-extension_empirica-extension-inbox.json").write_text("{}")
+    assert mod._has_active_listener_intent("empirica-extension") is True
+
+
+def test_has_active_listener_intent_returns_false_for_other_instance(tmp_path, monkeypatch):
+    """File for a DIFFERENT instance doesn't count — strict prefix match."""
+    mod = _load_hook_module()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    d = tmp_path / ".empirica"
+    d.mkdir()
+    (d / "listener_active_other-instance_other-inbox.json").write_text("{}")
+    assert mod._has_active_listener_intent("empirica-extension") is False
+
+
+def test_has_active_listener_intent_returns_false_when_no_empirica_dir(tmp_path, monkeypatch):
+    """Fresh install / no ~/.empirica/ at all → False, no exception."""
+    mod = _load_hook_module()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    # Don't create the .empirica dir
+    assert mod._has_active_listener_intent("anything") is False
+
+
+def test_hook_emits_arm_block_when_prior_intent_exists(monkeypatch, tmp_path):
+    """The fix per prop_72polrcugnbwxmpl3dxxvio6rq: when a previous CC
+    session armed a listener for this instance, the durable
+    listener_active_*.json file is on disk. Monitor died with that
+    session, persistent service isn't running, no canonical loops
+    registered. Pre-fix: hook bailed → user deaf after restart. Post-fix:
+    the file is a third wake-source signal → hook emits arm block."""
+    mod = _load_hook_module()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    d = tmp_path / ".empirica"
+    d.mkdir()
+    (d / "listener_active_empirica-extension_empirica-extension-inbox.json").write_text(
+        '{"monitor_task_id": null, "armed_at": 1234567890.0}'
+    )
+    monkeypatch.setattr(mod.InstanceResolver, "instance_id",
+                        classmethod(lambda cls: "empirica-extension"))
+    monkeypatch.setattr(mod.InstanceResolver, "ai_id",
+                        classmethod(lambda cls, *a, **k: "empirica-extension"))
+    monkeypatch.setattr(mod, "list_active_loops_for_instance", lambda iid: [])
+    monkeypatch.setattr(mod, "is_listener_running", lambda iid: False)
+    # _query_listener_on returns None (CLI unavailable) → fallback rendering
+    monkeypatch.setattr(mod, "_query_listener_on", lambda iid: None)
+
+    from io import StringIO
+    captured = StringIO()
+    monkeypatch.setattr(sys, "stdout", captured)
+    rc = mod.main()
+    assert rc == 0
+    output = captured.getvalue().strip()
+    parsed = json.loads(output) if output else {}
+    # Hook must NOT bail — output must carry the arm block
+    assert parsed != {}, "hook bailed despite prior-armed listener on disk"
+    ctx = parsed["hookSpecificOutput"]["additionalContext"]
+    assert "Monitor(" in ctx
+    # Wake-source language must reference the prior-armed evidence
+    assert "prior-armed" in ctx or "listener_active_" in ctx
+
+
+def test_hook_still_bails_when_no_signals_at_all(monkeypatch, tmp_path):
+    """Sanity check: a fresh instance with no loops, no service, no prior
+    intent must still bail. The fix doesn't break the legitimate empty-
+    wake-source case."""
+    mod = _load_hook_module()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    # No ~/.empirica/ directory at all
+    monkeypatch.setattr(mod.InstanceResolver, "instance_id",
+                        classmethod(lambda cls: "brand-new-instance"))
+    monkeypatch.setattr(mod.InstanceResolver, "ai_id",
+                        classmethod(lambda cls, *a, **k: "brand-new-instance"))
+    monkeypatch.setattr(mod, "list_active_loops_for_instance", lambda iid: [])
+    monkeypatch.setattr(mod, "is_listener_running", lambda iid: False)
+
+    from io import StringIO
+    captured = StringIO()
+    monkeypatch.setattr(sys, "stdout", captured)
+    rc = mod.main()
+    assert rc == 0
+    output = captured.getvalue().strip()
+    parsed = json.loads(output) if output else {}
+    assert parsed == {}, "hook should bail when ALL three signals are false"
 
 
 def test_hook_requires_both_mesh_skills_when_listener_armed(monkeypatch):
