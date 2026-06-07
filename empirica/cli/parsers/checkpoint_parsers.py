@@ -826,6 +826,8 @@ def add_checkpoint_parsers(subparsers):
         help='Source created — output produced by action (source OUT)')
     source_add_parser.add_argument('--confidence', type=float, default=0.7,
         help='Confidence in source quality (0.0-1.0, default: 0.7)')
+    source_add_parser.add_argument('--visibility', choices=['public', 'shared', 'local'],
+        help='Visibility tier (default: shared). public=world-shareable, shared=team-private, local=machine-only. Required for cross-mesh source-map participation.')
     source_add_parser.add_argument('--session-id', help='Session ID (auto-derived from transaction)')
     source_add_parser.add_argument('--project-id', help='Project ID (auto-derived from context)')
     _add_entity_flags(source_add_parser)

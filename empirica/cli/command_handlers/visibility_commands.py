@@ -25,6 +25,7 @@ _ARTIFACT_TABLES: dict[str, tuple[str, str]] = {
     'assumption': ('assumptions', 'assumption'),
     'decision': ('decisions', 'choice'),
     'goal': ('goals', 'objective'),
+    'source': ('epistemic_sources', 'title'),
 }
 
 

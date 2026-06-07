@@ -1273,6 +1273,7 @@ ALL_MIGRATIONS: list[tuple[str, str, Callable]] = [
     ("046_refdocs_to_sources", "Migrate project_reference_docs rows into epistemic_sources with source_type='pointer'. Phase 1 of refdocs→sources unification (goal 3d6aeb08). Idempotent — skips rows already migrated by id. The old table stays in place this phase; reader+writer switch over to sources, CLI drop + table drop in a follow-up.", lambda cursor: migration_046_refdocs_to_sources(cursor)),
     ("047_drop_project_reference_docs", "Drop project_reference_docs table — Phase 3 of refdocs→sources unification (goal 3d6aeb08). All data was migrated to epistemic_sources(type='pointer') by migration 046; CLI surface was dropped in Phase 2 (no writers); reader was switched in Phase 1 (no readers). Final structural cleanup. Idempotent — skips when table doesn't exist (fresh DBs that never had it).", lambda cursor: migration_047_drop_project_reference_docs(cursor)),
     ("048_beads_table", "Add beads v0 coordination-records table (HISTORICAL — the v0 bead concept retired 2026-06-02 / empirica 1.11.2; cross-practitioner coordination state lives in cortex-resident SER now per empirica-cortex SHARED_EPISTEMIC_RECORD.md). Table kept intact for legacy-row readability; no current code path writes to it.", lambda cursor: migration_048_beads_table(cursor)),
+    ("049_source_visibility", "Add visibility tier column to epistemic_sources (substrate prereq for cross-mesh epistemic source map). Sources missed migration 039's visibility wave because source-add uses a hand-rolled INSERT rather than the breadcrumbs repo path. Default 'shared' matches the artifact-table invariant.", lambda cursor: migration_049_source_visibility(cursor)),
 ]
 
 
@@ -1757,6 +1758,38 @@ def migration_045_assumption_decision_description(cursor: sqlite3.Cursor):
     add_column_if_missing(cursor, "decisions", "description", "TEXT", "NULL")
     logger.info(
         "✅ Migration 045 complete: description column added to assumptions + decisions"
+    )
+
+
+def migration_049_source_visibility(cursor: sqlite3.Cursor):
+    """Add visibility tier column to epistemic_sources.
+
+    Sources missed migration 039 (artifact_visibility) because source-add
+    uses a hand-rolled INSERT into epistemic_sources rather than the
+    breadcrumbs repo path that the other artifact types go through. This
+    migration closes the gap so sources participate in the same
+    visibility ladder as findings, unknowns, etc.
+
+    Tiers (per data/visibility.py):
+      - 'public':  publicly shareable
+      - 'shared':  team-private, co-versioned (default — safe invariant)
+      - 'local':   machine-local, never shared
+
+    Substrate prereq for the cross-mesh epistemic source map (goal
+    74d35435): a source can only be a cross-mesh reference if its
+    visibility tier authorises it to leave the local project.
+
+    Idempotent via add_column_if_missing.
+    """
+    add_column_if_missing(
+        cursor, "epistemic_sources", "visibility", "TEXT", "'shared'"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_epistemic_sources_visibility "
+        "ON epistemic_sources(visibility)"
+    )
+    logger.info(
+        "✅ Migration 049 complete: visibility column added to epistemic_sources"
     )
 
 

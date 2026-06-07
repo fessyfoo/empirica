@@ -1759,6 +1759,7 @@ def handle_source_add_command(args):
         import uuid
 
         from empirica.data.session_database import SessionDatabase
+        from empirica.data.visibility import normalize_visibility
 
         title = args.title
         description = getattr(args, 'description', None)
@@ -1767,6 +1768,11 @@ def handle_source_add_command(args):
         source_url = getattr(args, 'url', None)
         confidence = getattr(args, 'confidence', 0.7)
         direction = 'noetic' if getattr(args, 'noetic', False) else 'praxic'
+        # Normalize visibility once at the CLI boundary so the INSERT carries
+        # the canonical tier. None → 'shared' (the default + safe invariant);
+        # bogus values also collapse to 'shared' rather than silently promoting
+        # to 'public' (see data/visibility.py).
+        visibility = normalize_visibility(getattr(args, 'visibility', None))
         session_id = getattr(args, 'session_id', None)
         project_id = getattr(args, 'project_id', None)
         output_format = getattr(args, 'output', 'human')
@@ -1816,14 +1822,14 @@ def handle_source_add_command(args):
                 id, project_id, session_id, source_type, source_url,
                 title, description, confidence, epistemic_layer,
                 discovered_by_ai, discovered_at, source_metadata,
-                entity_type, entity_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                entity_type, entity_id, visibility
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             source_id, project_id, session_id, source_type,
             source_url or doc_path,
             title, description, confidence, direction,
             'claude-code', time.time(), json.dumps(metadata),
-            resolved_entity_type, resolved_entity_id
+            resolved_entity_type, resolved_entity_id, visibility
         ))
         db.conn.commit()
 
@@ -1853,6 +1859,7 @@ def handle_source_add_command(args):
                 "ok": True, "source_id": source_id, "project_id": project_id,
                 "session_id": session_id, "transaction_id": transaction_id,
                 "direction": direction, "title": title,
+                "visibility": visibility,
                 "git_stored": git_stored, "embedded": embedded,
                 "message": f"Source added ({direction})"
             }, indent=2))
@@ -1863,6 +1870,7 @@ def handle_source_add_command(args):
             print(f"   Title: {title}")
             print(f"   Type: {source_type}")
             print(f"   Direction: {direction} ({'evidence IN' if direction == 'noetic' else 'output OUT'})")
+            print(f"   Visibility: {visibility}")
             if doc_path:
                 print(f"   Path: {doc_path}")
             if source_url:

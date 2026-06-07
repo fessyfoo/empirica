@@ -187,6 +187,11 @@ SCHEMAS = [
                     archived_at REAL,               -- epoch
                     lifecycle_audit_log TEXT,       -- JSON list of state-transition events
 
+                    -- Visibility (added in migration 049 — sources joined the artifact_visibility ladder
+                    -- late because source-add uses hand-rolled INSERT, not the breadcrumbs repo path
+                    -- that took the migration 039 default).
+                    visibility TEXT DEFAULT 'shared',
+
                     FOREIGN KEY (project_id) REFERENCES projects(id),
                     FOREIGN KEY (session_id) REFERENCES sessions(session_id)
                 )
