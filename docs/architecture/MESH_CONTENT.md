@@ -35,7 +35,7 @@ The goal is to encode the contract once so the next mesh primitive doesn't re-li
 | Aspect | Source | SER | Shared (MeshContent) |
 |---|---|---|---|
 | Storage | empirica `<project>/.empirica/sessions/sessions.db`, table `epistemic_sources` | cortex storage (multi-tenant) | — (storage stays primitive-specific) |
-| ID | UUID | UUID | **Both: canonical address `<org>.<tenant>.<practice>#<type>_<uuid>`** |
+| ID | UUID | UUID | **Both: canonical address `<org>.<tenant>.<practice>~<type>_<uuid>`** |
 | Created at | `discovered_at` | `created_at` | **Standard timestamp field** |
 | Title | `title` (≤256) | `title` (≤200) | **Standard short headline** |
 | Body | `description` (markdown) | `summary` (markdown) | **Standard markdown body** |
@@ -57,13 +57,15 @@ The boundary is sharp:
 
 ### 3.1. Canonical address
 
-**Defer to active thread `prop_w7q24hdurnhfnasf2ahiq5gvte`.** Once cortex + extension lock the format, MeshContent inherits it. The proposed shape from that thread:
+**Defer to active thread `prop_w7q24hdurnhfnasf2ahiq5gvte`.** Once cortex + extension lock the wider format, MeshContent inherits it. Current empirica+cortex convergence (per cortex's `prop_kxpvlgc65n` transport-safety analysis):
 
 ```
-<org>.<tenant>.<practice>#<type>_<uuid>
+<org>.<tenant>.<practice>~<type>_<uuid>
 ```
 
 Where `<type>` is the primitive name: `src`, `ser`, future `dec` for shared decisions, etc.
+
+**Separator `~` chosen over `#`/`::`/`@`/underscore.** Cortex's pushback on `#`: HTTP fragment semantics get dropped by browser caches, ntfy payloads, some HTTP clients — fragile in transport. `::` collides with mesh-wire formats. `@` carries email-syntax ambiguity. Underscore is parseable but ambiguous against slug parts. `~` is transport-clean. Single character, swap-replaceable if a better answer emerges from the wider thread.
 
 **Resolution contract:** every implementing primitive MUST provide a function from `(internal_id) → canonical_address` and a function from `canonical_address → (owning_practice, internal_id, type)`. Storage of the canonical address is **not** required (it's derivable). What's required is consistent derivation.
 
@@ -175,7 +177,7 @@ Cortex-side helpers should mirror the empirica-side names and signatures so the 
 
 To make progress without waiting for the canonical-address thread to land, ship:
 
-1. **`empirica.core.mesh_content` module** — placeholder for the substrate. Initially exports `normalize_visibility` (re-export from `empirica.data.visibility` so future imports don't have to know the original location) + `RenderResult` dataclass + a stub `canonical_address()` function that returns the current best guess (`<practice>#src_<uuid>`) and gets updated once §3.1 lands.
+1. **`empirica.core.mesh_content` module** — placeholder for the substrate. Initially exports `normalize_visibility` (re-export from `empirica.data.visibility` so future imports don't have to know the original location) + `RenderResult` dataclass + `canonical_address()` function returning `<practice>~<type>_<uuid>` (separator per cortex convergence; updates if §3.1 lands on something different).
 
 2. **Source-side shim** — add a thin `MeshContentSource` wrapper around the existing `epistemic_sources` row that exposes the contract methods (`canonical_address()`, `visibility()`, `render()`, `audit_log()`). Existing source-add/source-list/sources-map continue to work unchanged; the wrapper is opt-in for callers that want the substrate view.
 

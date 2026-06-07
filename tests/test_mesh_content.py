@@ -51,8 +51,19 @@ def test_canonical_address_round_trip():
     practice = "empirica.david.empirica"
     uuid_str = "11111111-2222-3333-4444-555555555555"
     addr = canonical_address(practice, "src", uuid_str)
-    assert addr == f"{practice}#src_{uuid_str}"
+    assert addr == f"{practice}~src_{uuid_str}"
     assert parse_canonical_address(addr) == (practice, "src", uuid_str)
+
+
+def test_canonical_address_uses_tilde_separator():
+    """Locks `~` as the cross-mesh separator (transport-safe per cortex's
+    pushback on `#`/`::`/etc. — see CANONICAL_SEPARATOR docstring)."""
+    from empirica.core.mesh_content import CANONICAL_SEPARATOR
+    assert CANONICAL_SEPARATOR == "~"
+    addr = canonical_address("org.tenant.proj", "src", "abc")
+    assert "~" in addr
+    assert "#" not in addr
+    assert "::" not in addr
 
 
 def test_canonical_address_rejects_empty_practice():
@@ -84,11 +95,11 @@ def test_canonical_address_accepts_all_registered_types():
     [
         "",
         "no-hash",
-        "practice#no-underscore",
-        "#src_abc",         # empty practice before #
-        "practice#_abc",    # empty type
-        "practice#src_",    # empty uuid
-        "practice#bogus_abc",  # unknown type
+        "practice~no-underscore",
+        "~src_abc",         # empty practice before separator
+        "practice~_abc",    # empty type
+        "practice~src_",    # empty uuid
+        "practice~bogus_abc",  # unknown type
     ],
 )
 def test_parse_rejects_malformed(bad):
@@ -216,7 +227,7 @@ def test_canonical_address_composition():
         practice_canonical="empirica.david.empirica",
         title="T",
     )
-    assert mcs.canonical_address() == "empirica.david.empirica#src_abc-123"
+    assert mcs.canonical_address() == "empirica.david.empirica~src_abc-123"
 
 
 @pytest.mark.parametrize("tier,expected", [
@@ -248,7 +259,7 @@ def test_render_emits_markdown_with_address_and_visibility():
     assert result.content_type.startswith("text/markdown")
     assert "Test source" in payload
     assert "Body content here" in payload
-    assert "empirica.david.empirica#src_abc-123" in payload
+    assert "empirica.david.empirica~src_abc-123" in payload
     assert "Visibility:** shared" in payload
     assert "https://example.com" in payload
     assert result.sha256  # auto-computed

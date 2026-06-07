@@ -111,10 +111,11 @@ class MeshContentSource:
     def canonical_address(self) -> str:
         """The cross-mesh address for this source.
 
-        Format: `<practice>#src_<uuid>` (pending format lock —
-        `prop_w7q24hdurnhfnasf2ahiq5gvte`). When the format changes,
-        only `empirica.core.mesh_content.canonical_address` updates;
-        this wrapper is unchanged.
+        Format: `<practice>~src_<uuid>` (separator `~` per cortex's
+        transport-safety analysis; see `mesh_content.CANONICAL_SEPARATOR`).
+        When the wider format thread locks any change, only
+        `empirica.core.mesh_content.canonical_address` updates; this
+        wrapper is unchanged.
         """
         return canonical_address(
             practice=self.practice_canonical,

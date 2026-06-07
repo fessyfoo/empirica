@@ -4,10 +4,11 @@ Per `docs/architecture/MESH_CONTENT.md`. This module is the empirica-side
 home for the helpers + contract that every mesh-citizen primitive
 (Source today, SER and future types tomorrow) implements:
 
-1. **Canonical address** — `<org>.<tenant>.<practice>#<type>_<uuid>`.
-   Final format pending `prop_w7q24hdurnhfnasf2ahiq5gvte`; the current
-   shape is a best-guess placeholder that will be updated once cortex
-   + extension lock it.
+1. **Canonical address** — `<org>.<tenant>.<practice>~<type>_<uuid>`.
+   Separator `~` chosen per cortex's pushback on `#` (HTTP fragment
+   semantics get dropped by browser caches / ntfy / some HTTP clients
+   — fragile in transport). Final format on prop_w7q24hdurnhfnasf2ahiq5gvte
+   thread; `~` is the current convergence between empirica + cortex.
 2. **Visibility tier** — re-exported from `empirica.data.visibility`
    so substrate consumers have one import surface.
 3. **Render pipeline** — `RenderResult` dataclass for the canonical
@@ -35,6 +36,7 @@ from empirica.data.visibility import (
 )
 
 __all__ = [
+    "CANONICAL_SEPARATOR",
     "DEFAULT_RENDER_SIZE_CAP",
     "DEFAULT_VISIBILITY",
     "MESH_CONTENT_TYPES",
@@ -66,20 +68,33 @@ DEFAULT_RENDER_SIZE_CAP = 10 * 1024 * 1024  # 10 MB
 # ── Canonical address ─────────────────────────────────────────────────
 
 
+CANONICAL_SEPARATOR = "~"
+"""Separator between the practice id and the type-prefixed uuid.
+
+`~` chosen over `#`/`::`/`@`/underscore per cortex's transport-safety
+analysis (prop_kxpvlgc65n on the canonical-source thread):
+
+  - `#` is fragile — HTTP fragment semantics get dropped by clients,
+    browser caches, ntfy payloads
+  - `::` collides with mesh-wire formats
+  - `@` carries email-syntax ambiguity (low-risk but present)
+  - underscore is parseable but ambiguous against slug parts
+  - `~` is transport-clean, reads cleanly, no semantic baggage
+
+Until the wider design thread locks an even-more-canonical answer,
+`~` is the empirica+cortex convergence.
+"""
+
+
 def canonical_address(practice: str, content_type: str, uuid_str: str) -> str:
     """Derive the canonical mesh address for a piece of MeshContent.
 
-    Format: ``<practice>#<type>_<uuid>``
+    Format: ``<practice><~><type>_<uuid>``
 
     Where ``<practice>`` is the 3-level canonical practice id
     (``<org>.<tenant>.<project>``, e.g. ``empirica.david.empirica``).
 
-    **Pending format lock:** the final separator (``#`` vs ``/`` vs
-    ``::``) is under discussion in ``prop_w7q24hdurnhfnasf2ahiq5gvte``.
-    This implementation uses ``#`` as the current best-guess per the
-    reply on ``prop_3u54utxe`` (collision-safe with the dot-separated
-    practice id). When cortex + extension lock the format, this
-    function changes; everything downstream stays stable.
+    Example: ``empirica.david.empirica-extension~src_abc123``
 
     Raises:
         ValueError: if ``content_type`` is not in ``MESH_CONTENT_TYPES``,
@@ -94,7 +109,7 @@ def canonical_address(practice: str, content_type: str, uuid_str: str) -> str:
             f"unknown content_type {content_type!r}; "
             f"expected one of {MESH_CONTENT_TYPES}"
         )
-    return f"{practice}#{content_type}_{uuid_str}"
+    return f"{practice}{CANONICAL_SEPARATOR}{content_type}_{uuid_str}"
 
 
 def parse_canonical_address(addr: str) -> tuple[str, str, str]:
@@ -103,9 +118,9 @@ def parse_canonical_address(addr: str) -> tuple[str, str, str]:
     Raises:
         ValueError: if the address doesn't match the expected shape.
     """
-    if not addr or "#" not in addr:
+    if not addr or CANONICAL_SEPARATOR not in addr:
         raise ValueError(f"not a canonical address: {addr!r}")
-    practice, _, rest = addr.partition("#")
+    practice, _, rest = addr.partition(CANONICAL_SEPARATOR)
     if not practice or not rest or "_" not in rest:
         raise ValueError(f"malformed canonical address: {addr!r}")
     content_type, _, uuid_str = rest.partition("_")
