@@ -458,6 +458,15 @@ def _add_listener_group(subparsers):
     _add_instance(off_p)
     _add_output(off_p)
 
+    gc_p = listener_subs.add_parser('gc',
+        help='Garbage-collect stale ~/.empirica/listener_active_*.json files. '
+             'Dry-run by default; pass --apply to actually remove.')
+    gc_p.add_argument('--apply', action='store_true',
+        help='Actually remove the stale files (default: dry-run shows what would be removed)')
+    gc_p.add_argument('--age-days', type=int, default=7,
+        help='Age threshold in days for the stale criterion (default: 7). Files older than this with no recent wake activity are pruned.')
+    _add_output(gc_p)
+
 
 def _add_status_command(subparsers):
     status = subparsers.add_parser(

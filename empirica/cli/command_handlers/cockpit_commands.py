@@ -1845,6 +1845,202 @@ def handle_listener_off_command(args) -> int:
     return _emit(args, payload, summary)
 
 
+def handle_listener_gc_command(args) -> int:
+    """Garbage-collect stale ~/.empirica/listener_active_*.json files.
+
+    Three prune criteria, OR'd:
+
+      1. **legacy_topic** — file's `topic` field references the retired
+         bare `orchestration-events` (no `<org>-` prefix) or a per-org
+         pre-T16/T17 topic (no `-<tenant>-` segment); cortex stopped
+         emitting to those topics, so any listener still pinned to them
+         receives zero traffic.
+
+      2. **no_service_or_health** — the corresponding persistent
+         `empirica-listener-<ai_id>.service` (or launchd plist) does
+         NOT exist on disk AND no recent (< 5 min) `listener_health_<ai_id>.json`
+         marker is on disk. Together these mean nothing is keeping the
+         active file relevant.
+
+      3. **stale** — file's `armed_at` is older than `--age-days N`
+         (default 7) AND no `last_wake_at` OR `last_wake_at` is also
+         older than that threshold.
+
+    Monitor task id liveness is **not** checked — Monitor ids are
+    Claude-session-scoped, so cross-session liveness can't be
+    determined from a CLI invocation. The age / topic / service
+    checks cover the practical fleet-wide cleanup case.
+
+    Dry-run by default. Pass `--apply` to actually remove. Per-file
+    decision rationale is included in both the JSON payload and the
+    human render so audits can see why each file was flagged.
+
+    Closes goal d75f2b7c (extension's listener_active GC ask).
+    """
+    import time as _time
+    apply = bool(getattr(args, 'apply', False))
+    age_days = int(getattr(args, 'age_days', 7))
+
+    home = Path.home()
+    empirica_dir = home / '.empirica'
+    if not empirica_dir.is_dir():
+        return _emit(
+            args, {'ok': True, 'dry_run': not apply, 'pruned': [], 'kept': []},
+            f'No ~/.empirica/ directory — nothing to GC.',
+        )
+
+    age_threshold_sec = age_days * 24 * 60 * 60
+    now = _time.time()
+
+    # Inventory of services on disk for the no_service check (one read
+    # rather than per-file fanout).
+    systemd_unit_dir = home / '.config' / 'systemd' / 'user'
+    launchd_dir = home / 'Library' / 'LaunchAgents'
+    installed_service_ai_ids: set[str] = set()
+    try:
+        for unit in systemd_unit_dir.glob('empirica-listener-*.service'):
+            installed_service_ai_ids.add(unit.stem.removeprefix('empirica-listener-'))
+    except OSError:
+        pass
+    try:
+        for plist in launchd_dir.glob('com.empirica.listener.*.plist'):
+            installed_service_ai_ids.add(
+                plist.stem.removeprefix('com.empirica.listener.')
+            )
+    except OSError:
+        pass
+
+    pruned: list[dict] = []
+    kept: list[dict] = []
+
+    for active_file in sorted(empirica_dir.glob('listener_active_*.json')):
+        try:
+            data = _json.loads(active_file.read_text(encoding='utf-8'))
+        except (OSError, _json.JSONDecodeError) as e:
+            # Unreadable → prune candidate (corrupt). Always-safe.
+            entry = {
+                'file': str(active_file),
+                'reasons': [f'unreadable: {e}'],
+                'removed': False,
+            }
+            if apply:
+                try:
+                    active_file.unlink()
+                    entry['removed'] = True
+                except OSError as rm_err:
+                    entry['error'] = str(rm_err)
+            pruned.append(entry)
+            continue
+
+        ai_id = data.get('ai_id') or ''
+        topic = data.get('topic') or ''
+        armed_at = float(data.get('armed_at') or 0)
+        last_wake_at = float(data.get('last_wake_at') or 0)
+
+        reasons: list[str] = []
+
+        # Criterion 1: legacy topic
+        # Retired patterns: bare `orchestration-events` (no `<org>-` prefix)
+        # OR per-org without `-<tenant>-` segment.
+        if topic:
+            stripped = topic.replace('ntfy:', '', 1).split('?', 1)[0]
+            if stripped == 'orchestration-events':
+                reasons.append('legacy_topic: bare orchestration-events (retired)')
+            elif 'orchestration-events' in stripped and stripped.count('-') < 3:
+                # Per-org pattern like `empirica-orchestration-events`
+                # has 2 dashes; per-tenant `empirica-orchestration-events-david`
+                # has 3+. Below 3 dashes → pre-T16/T17 per-org form.
+                reasons.append(
+                    f'legacy_topic: pre-tenant per-org form {stripped!r}'
+                )
+
+        # Criterion 2: no_service_or_health
+        if ai_id and ai_id not in installed_service_ai_ids:
+            health_file = empirica_dir / f'listener_health_{ai_id}.json'
+            health_fresh = False
+            if health_file.exists():
+                try:
+                    age = now - health_file.stat().st_mtime
+                    health_fresh = age <= 300  # 5 min
+                except OSError:
+                    pass
+            if not health_fresh:
+                reasons.append(
+                    f'no_service_or_health: no empirica-listener-{ai_id}.service '
+                    f'and no recent health marker'
+                )
+
+        # Criterion 3: stale
+        # Pruneable when both armed_at and last_wake_at are older than the
+        # age threshold (or last_wake_at is unset and armed_at is stale).
+        armed_age_sec = (now - armed_at) if armed_at else float('inf')
+        if armed_age_sec > age_threshold_sec:
+            if last_wake_at == 0 or (now - last_wake_at) > age_threshold_sec:
+                reasons.append(
+                    f'stale: armed {int(armed_age_sec // 86400)}d ago, '
+                    f'no recent wake activity (threshold {age_days}d)'
+                )
+
+        if not reasons:
+            kept.append({
+                'file': str(active_file),
+                'ai_id': ai_id,
+                'topic': topic,
+                'armed_at': armed_at,
+            })
+            continue
+
+        entry = {
+            'file': str(active_file),
+            'ai_id': ai_id,
+            'topic': topic,
+            'armed_at': armed_at,
+            'reasons': reasons,
+            'removed': False,
+        }
+        if apply:
+            try:
+                active_file.unlink()
+                entry['removed'] = True
+            except OSError as e:
+                entry['error'] = str(e)
+        pruned.append(entry)
+
+    summary_lines = [
+        f'listener gc — {"APPLIED" if apply else "DRY RUN"} '
+        f'(age threshold: {age_days}d)',
+        f'  Pruned: {len(pruned)}',
+        f'  Kept:   {len(kept)}',
+    ]
+    if pruned:
+        summary_lines.append('')
+        for entry in pruned[:20]:
+            tag = '✓ removed' if entry.get('removed') else (
+                '(would remove)' if not apply else f'! error: {entry.get("error")}'
+            )
+            reasons = '; '.join(entry.get('reasons', []))
+            summary_lines.append(
+                f'  - {Path(entry["file"]).name}  {tag}\n'
+                f'      reasons: {reasons}'
+            )
+        if len(pruned) > 20:
+            summary_lines.append(f'  … and {len(pruned) - 20} more')
+    if not apply and pruned:
+        summary_lines.append('')
+        summary_lines.append('  Run with --apply to actually remove.')
+
+    payload = {
+        'ok': True,
+        'dry_run': not apply,
+        'age_days': age_days,
+        'pruned_count': len(pruned),
+        'kept_count': len(kept),
+        'pruned': pruned,
+        'kept': kept,
+    }
+    return _emit(args, payload, '\n'.join(summary_lines))
+
+
 _LISTENER_DISPATCH = {
     'register': handle_listener_register_command,
     'unregister': handle_listener_unregister_command,
@@ -1859,6 +2055,7 @@ _LISTENER_DISPATCH = {
     'on': handle_listener_on_command,
     'arm': handle_listener_arm_command,
     'off': handle_listener_off_command,
+    'gc': handle_listener_gc_command,
 }
 
 
