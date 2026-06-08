@@ -99,6 +99,33 @@ class CortexCredentialsResponse(BaseModel):
     error: str | None = None
 
 
+class NtfyCredentialsRequest(BaseModel):
+    """Set ntfy creds via the daemon. At least one of url/token required.
+
+    Mirrors CortexCredentialsRequest. Extension flow: user enters
+    ntfyUrl + ntfyToken in Settings (Notifications tab "Also save to CLI"
+    toggle), extension POSTs here, daemon merges into the `ntfy:` block
+    of ~/.empirica/credentials.yaml. `topic` is INTENTIONALLY not on this
+    request shape — extension doesn't own the topic (cortex's channels
+    endpoint dictates it), so partial-updates from this endpoint must
+    preserve any existing `topic` key without clobbering."""
+    url: str | None = None
+    token: str | None = None
+
+
+class NtfyCredentialsResponse(BaseModel):
+    """ntfy creds GET/POST response. NEVER returns the full token over
+    the wire — `token_preview` is last-4-chars only, same threat model
+    as CortexCredentialsResponse."""
+    ok: bool
+    url: str | None = None
+    topic: str | None = None
+    token_set: bool = False
+    token_preview: str | None = None
+    written_path: str | None = None
+    error: str | None = None
+
+
 class ProfileStatusResponse(BaseModel):
     """Matches extension's ProfileStatus interface."""
     ok: bool = True
@@ -198,6 +225,21 @@ def create_serve_app() -> FastAPI:
             logger.error(f"Profile sync failed: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e)) from e
 
+    _register_credentials_routes(app)
+
+    return app
+
+
+def _register_credentials_routes(app: FastAPI) -> None:
+    """Register the cortex + ntfy credentials read/write endpoints.
+
+    Extracted out of create_serve_app() to keep the parent function
+    under the C901 complexity ceiling. Same threat model across both
+    pairs: NEVER return the full secret over the wire — only a last-4
+    preview — so even if CORS loosens later, the secret doesn't leak
+    via a GET. Atomic write at the loader layer (tempfile + rename).
+    """
+
     @app.post("/api/v1/credentials/cortex", response_model=CortexCredentialsResponse)
     async def set_cortex_credentials(  # pyright: ignore[reportUnusedFunction]
         req: CortexCredentialsRequest,
@@ -255,7 +297,70 @@ def create_serve_app() -> FastAPI:
             logger.error(f"get_cortex_credentials failed: {e}", exc_info=True)
             return CortexCredentialsResponse(ok=False, error=str(e))
 
-    return app
+    @app.post("/api/v1/credentials/ntfy", response_model=NtfyCredentialsResponse)
+    async def set_ntfy_credentials(  # pyright: ignore[reportUnusedFunction]
+        req: NtfyCredentialsRequest,
+    ) -> NtfyCredentialsResponse:
+        """Write ntfy {url, token} into ~/.empirica/credentials.yaml.
+
+        Mirror of /credentials/cortex closing extension's round-trip
+        credential model — extension's "Also save to CLI" toggle on the
+        Notifications tab POSTs the user's ntfy bearer here, daemon
+        merges into the existing `ntfy:` block via
+        CredentialsLoader.save_ntfy_config (atomic tempfile+rename,
+        preserves `topic` and other untouched keys).
+
+        At least one of url/token must be provided. Topic is NOT on
+        the request shape — cortex's channels endpoint owns topic
+        derivation; this endpoint never touches it."""
+        if not req.url and not req.token:
+            return NtfyCredentialsResponse(
+                ok=False, error="url or token required",
+            )
+        try:
+            from empirica.config.credentials_loader import CredentialsLoader
+            loader = CredentialsLoader()
+            path = loader.save_ntfy_config(url=req.url, token=req.token)
+            cfg = loader.get_ntfy_config()
+            token_val = cfg.get("token") or ""
+            return NtfyCredentialsResponse(
+                ok=True,
+                url=cfg.get("url"),
+                topic=cfg.get("topic"),
+                token_set=bool(token_val),
+                token_preview=(
+                    f"...{token_val[-4:]}" if len(token_val) >= 4 else None
+                ),
+                written_path=str(path),
+            )
+        except Exception as e:
+            logger.error(f"set_ntfy_credentials failed: {e}", exc_info=True)
+            return NtfyCredentialsResponse(ok=False, error=str(e))
+
+    @app.get("/api/v1/credentials/ntfy", response_model=NtfyCredentialsResponse)
+    async def get_ntfy_credentials() -> NtfyCredentialsResponse:  # pyright: ignore[reportUnusedFunction]
+        """Read current ntfy creds from credentials.yaml (or env).
+
+        Returns url + topic + token-set flag + last-4-chars preview.
+        NEVER returns the full token — same exfiltration-risk threat
+        model as the cortex creds endpoint. Use for drift detection on
+        the extension side."""
+        try:
+            from empirica.config.credentials_loader import CredentialsLoader
+            cfg = CredentialsLoader().get_ntfy_config()
+            token_val = cfg.get("token") or ""
+            return NtfyCredentialsResponse(
+                ok=True,
+                url=cfg.get("url"),
+                topic=cfg.get("topic"),
+                token_set=bool(token_val),
+                token_preview=(
+                    f"...{token_val[-4:]}" if len(token_val) >= 4 else None
+                ),
+            )
+        except Exception as e:
+            logger.error(f"get_ntfy_credentials failed: {e}", exc_info=True)
+            return NtfyCredentialsResponse(ok=False, error=str(e))
 
 
 # ── Internal Handlers ────────────────────────────────────────────────
