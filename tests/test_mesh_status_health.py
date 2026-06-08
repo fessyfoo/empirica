@@ -121,8 +121,17 @@ def test_silent_fires_with_curl_dead_returns_red():
     assert "curl subscription dead" in msg
 
 
-def test_silent_fires_with_curl_alive_returns_red_zombie():
-    """Curl alive but fires silent = real zombie."""
+def test_silent_fires_with_curl_alive_returns_red_zombie(monkeypatch, tmp_path):
+    """Curl alive but fires silent AND no fresh health marker = real zombie.
+
+    Isolates HOME to tmp_path so the watchdog cross-reference doesn't
+    pick up the host's real ~/.empirica/listener_health_cortex.json —
+    on a dev box with the cortex listener running, the liveness probe
+    keeps that marker fresh, which would correctly resolve this state
+    to 'green (quiet but healthy)'. The 4 marker-state-specific tests
+    below cover {fresh, stale, degraded, missing} variants explicitly.
+    """
+    monkeypatch.setenv("HOME", str(tmp_path))
     silent = _now_utc() - timedelta(seconds=ZOMBIE_THRESHOLD_SECONDS + 60)
     s = _state(curl_pid=5678, last_fire=silent)
     color, msg = _compute_health(s, cortex_configured=True)
