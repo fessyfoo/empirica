@@ -514,8 +514,13 @@ def _run_cortex_panel(ai_id: str, peer: str | None):
         )
         return None
     # ntfy block lives at top level of credentials.yaml; reload to pick it up.
+    # Forward user/password too so the ntfy.read_grant probe authenticates
+    # against basic-auth tenants (closes cortex's prop_m7ns4zq3eva6rpeqcdemifksvu
+    # false-negative on philipp's box).
     ntfy_url = None
     ntfy_token = None
+    ntfy_user = None
+    ntfy_password = None
     try:
         import yaml
         with CREDENTIALS_YAML.open() as f:
@@ -523,12 +528,15 @@ def _run_cortex_panel(ai_id: str, peer: str | None):
         ntfy_block = full.get("ntfy") or {}
         ntfy_url = ntfy_block.get("url")
         ntfy_token = ntfy_block.get("token")
+        ntfy_user = ntfy_block.get("user")
+        ntfy_password = ntfy_block.get("password")
     except Exception:
         pass
     from ._mesh_diagnose_cortex import run_cortex_checks
     return run_cortex_checks(
         ai_id, cortex_url=cortex_url, api_key=api_key,
-        ntfy_url=ntfy_url, ntfy_token=ntfy_token, peer=peer,
+        ntfy_url=ntfy_url, ntfy_token=ntfy_token,
+        ntfy_user=ntfy_user, ntfy_password=ntfy_password, peer=peer,
     )
 
 

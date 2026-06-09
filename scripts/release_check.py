@@ -18,12 +18,11 @@ Flags:
     --test      Run quick test suite
 """
 
+import re
 import subprocess
 import sys
-import json
 import zipfile
 from pathlib import Path
-import re
 
 # Colors
 GREEN = '\033[92m'
@@ -69,7 +68,7 @@ class ReleaseChecker:
         # Check consistency
         unique_versions = set(versions.values())
         if len(unique_versions) == 1:
-            ok(f"Version consistent: {list(unique_versions)[0]}")
+            ok(f"Version consistent: {next(iter(unique_versions))}")
             return True
         else:
             fail(f"Version mismatch: {versions}")
@@ -143,11 +142,19 @@ class ReleaseChecker:
             if test_files:
                 problems.append(f"Test files in wheel: {test_files[:3]}")
 
-            # Check for sensitive patterns
+            # Check for sensitive patterns. The heuristic is meant to catch
+            # data files (.env, secrets.json, etc.) being bundled into the
+            # wheel by mistake — NOT Python source files that legitimately
+            # implement credential APIs (e.g. empirica/api/routes/credentials.py
+            # for the daemon's credentials endpoints, empirica/config/
+            # credentials_loader.py for the YAML loader). Skip .py files so
+            # the check stays focused on its actual target.
             sensitive_patterns = ['.env', 'secret', 'password', 'private_key', 'credential']
             for name in names:
+                if name.endswith('.py'):
+                    continue
                 for pattern in sensitive_patterns:
-                    if pattern in name.lower() and 'loader' not in name.lower():
+                    if pattern in name.lower():
                         problems.append(f"Potentially sensitive: {name}")
 
             # Check for dev-only files

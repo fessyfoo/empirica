@@ -76,14 +76,32 @@ def _http_get_json(url: str, *, api_key: str | None = None,
         return json.loads(raw)
 
 
-def _http_head(url: str, *, bearer: str | None = None, timeout: float = 4.0) -> int:
+def _http_head(
+    url: str, *, bearer: str | None = None,
+    user: str | None = None, password: str | None = None,
+    timeout: float = 4.0,
+) -> int:
     """Probe returning HTTP status code. Uses GET (ntfy doesn't reliably
     support HEAD on poll endpoints), reads minimum bytes then closes.
     Caller handles exceptions.
+
+    Auth precedence (matches the listener's `_ntfy_auth_header`):
+    `bearer` token wins when set (revocable + preferred path); falls
+    through to basic-auth `user:password` when bearer is absent. Tenants
+    on basic-auth (philipp's box: ntfy.user + ntfy.password in
+    credentials.yaml, no bearer token) were getting false-negative 403s
+    when the probe defaulted to no-auth — fix per cortex's
+    `prop_m7ns4zq3eva6rpeqcdemifksvu`.
     """
+    import base64 as _base64
     req = urllib.request.Request(url, method="GET")
     if bearer:
         req.add_header("Authorization", f"Bearer {bearer}")
+    elif user or password:
+        encoded = _base64.b64encode(
+            f"{user or ''}:{password or ''}".encode()
+        ).decode("ascii")
+        req.add_header("Authorization", f"Basic {encoded}")
     ctx = ssl.create_default_context()
     with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
         # Read up to 1 byte just to keep the connection clean.
@@ -243,11 +261,18 @@ def check_listener_subscription_matches(
 
 
 def check_ntfy_acl(topic: str | None, ntfy_url: str | None,
-                   ntfy_token: str | None) -> CheckResult:
+                   ntfy_token: str | None,
+                   ntfy_user: str | None = None,
+                   ntfy_password: str | None = None) -> CheckResult:
     """HEAD probe of ntfy poll endpoint to confirm READ grant.
 
     403 = missing grant (publish-philipp pattern). 200 = grant present.
     Other codes = ntfy itself is unhappy; surface as warn.
+
+    Auth precedence matches the listener: bearer wins; falls through to
+    basic-auth user/password. Tenants on basic-auth (no token in
+    credentials.yaml) were getting false-negative 403s when the probe
+    defaulted to no-auth (cortex's `prop_m7ns4zq3eva6rpeqcdemifksvu`).
     """
     name = "ntfy.read_grant"
     if not topic:
@@ -257,7 +282,11 @@ def check_ntfy_acl(topic: str | None, ntfy_url: str | None,
     base = topic.split("?", 1)[0]
     probe_url = f"{ntfy_url.rstrip('/')}/{base}/json?poll=1"
     try:
-        status = _http_head(probe_url, bearer=ntfy_token, timeout=4.0)
+        status = _http_head(
+            probe_url, bearer=ntfy_token,
+            user=ntfy_user, password=ntfy_password,
+            timeout=4.0,
+        )
     except urllib.error.HTTPError as e:
         if e.code == 403:
             return _fail(
@@ -329,6 +358,7 @@ def check_mesh_agreement(
 def run_cortex_checks(
     ai_id: str, *, cortex_url: str, api_key: str,
     ntfy_url: str | None = None, ntfy_token: str | None = None,
+    ntfy_user: str | None = None, ntfy_password: str | None = None,
     peer: str | None = None,
 ) -> list[CheckResult]:
     """Run all read-only cortex-participation checks in order.
@@ -342,7 +372,10 @@ def run_cortex_checks(
     channels_result, expected_topic = check_channels_endpoint(cortex_url, api_key)
     results.append(channels_result)
     results.append(check_listener_subscription_matches(ai_id, expected_topic))
-    results.append(check_ntfy_acl(expected_topic, ntfy_url, ntfy_token))
+    results.append(check_ntfy_acl(
+        expected_topic, ntfy_url, ntfy_token,
+        ntfy_user=ntfy_user, ntfy_password=ntfy_password,
+    ))
     if peer:
         results.append(check_mesh_agreement(peer, cortex_url, api_key))
     return results

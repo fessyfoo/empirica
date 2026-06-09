@@ -366,3 +366,108 @@ def test_render_human_shows_glyphs_and_fixes():
     assert "a.b" in out
     assert "broken" in out
     assert "restart" in out
+
+
+# ── ntfy.read_grant basic-auth path (cortex prop_m7ns4zq3eva6rpeqcdemifksvu) ───
+#
+# False-negative regression: tenants whose credentials.yaml carries
+# `ntfy.user` + `ntfy.password` (basic auth — listener's actual path)
+# used to pass `ntfy_token=None` to check_ntfy_acl, which then probed
+# no-auth and got 403 from ntfy → false-negative red flag. Fix: probe
+# with basic-auth when bearer is absent.
+
+
+def test_ntfy_acl_uses_basic_auth_when_no_bearer():
+    from empirica.cli.command_handlers import _mesh_diagnose_cortex as mdx
+    captured = {}
+
+    def fake_head(url, *, bearer=None, user=None, password=None, timeout=4.0):
+        captured["bearer"] = bearer
+        captured["user"] = user
+        captured["password"] = password
+        return 200
+
+    with patch.object(mdx, "_http_head", side_effect=fake_head):
+        r = mdx.check_ntfy_acl(
+            "empirica-orchestration-events-philipp",
+            "https://ntfy.test",
+            None,  # no bearer
+            ntfy_user="philipp",
+            ntfy_password="pw",  # noqa: S106
+        )
+    assert r.status == "pass"
+    assert captured["bearer"] is None
+    assert captured["user"] == "philipp"
+    assert captured["password"] == "pw"  # noqa: S105
+
+
+def test_ntfy_acl_prefers_bearer_over_basic_when_both_set():
+    from empirica.cli.command_handlers import _mesh_diagnose_cortex as mdx
+    captured = {}
+
+    def fake_head(url, *, bearer=None, user=None, password=None, timeout=4.0):
+        captured["bearer"] = bearer
+        captured["user"] = user
+        captured["password"] = password
+        return 200
+
+    with patch.object(mdx, "_http_head", side_effect=fake_head):
+        mdx.check_ntfy_acl(
+            "empirica-orchestration-events-david",
+            "https://ntfy.test",
+            "tk_token",
+            ntfy_user="david",
+            ntfy_password="pw",  # noqa: S106
+        )
+    assert captured["bearer"] == "tk_token"
+
+
+def test_http_head_emits_basic_auth_header_when_no_bearer():
+    """The actual urllib path — verify the Authorization header is built."""
+    from empirica.cli.command_handlers import _mesh_diagnose_cortex as mdx
+    captured_header = {}
+
+    class _FakeResp:
+        status = 200
+        def read(self, _n=None): return b""
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def fake_urlopen(req, timeout, context):
+        captured_header["auth"] = req.get_header("Authorization")
+        return _FakeResp()
+
+    import urllib.request as _ur
+    orig = _ur.urlopen
+    _ur.urlopen = fake_urlopen
+    try:
+        mdx._http_head("https://ntfy.test/topic/json?poll=1",
+                       user="philipp", password="pw")  # noqa: S106
+    finally:
+        _ur.urlopen = orig
+    # `philipp:pw` base64 = cGhpbGlwcDpwdw==
+    assert captured_header["auth"] == "Basic cGhpbGlwcDpwdw=="
+
+
+def test_http_head_emits_bearer_when_token_present():
+    from empirica.cli.command_handlers import _mesh_diagnose_cortex as mdx
+    captured_header = {}
+
+    class _FakeResp:
+        status = 200
+        def read(self, _n=None): return b""
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def fake_urlopen(req, timeout, context):
+        captured_header["auth"] = req.get_header("Authorization")
+        return _FakeResp()
+
+    import urllib.request as _ur
+    orig = _ur.urlopen
+    _ur.urlopen = fake_urlopen
+    try:
+        mdx._http_head("https://ntfy.test/topic/json?poll=1", bearer="tk_test")
+    finally:
+        _ur.urlopen = orig
+    assert captured_header["auth"] == "Bearer tk_test"
