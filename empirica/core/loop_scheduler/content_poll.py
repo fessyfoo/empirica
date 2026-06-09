@@ -478,20 +478,36 @@ def poll_and_diff(
         events.append(build_event(p, kind, instance_id, loop_name, direction="outbox"))
 
     # Update state — single proposals map covers both directions (UUIDs unique).
-    new_proposals_map = {}
+    #
+    # CRITICAL: MERGE into the existing last_seen, never REPLACE.
+    # The bug fixed by merging here (extension prop_e76zksrp7za5tpx3jst2kf2sau,
+    # 2026-06-09): if cortex returns empty for both inbox+outbox on one poll
+    # (transient empty response — different from BOTH-failed which we already
+    # guard above), the rebuilt map would be `{}` and `save_state` would wipe
+    # every previously-seen proposal. On the next non-empty poll, every
+    # returned proposal would look "new" to `diff_proposals` because the
+    # last_seen map was empty — triggering a flood of wake events for old
+    # proposals that the AI already acted on and (often) archived. Cortex
+    # may still return archived proposals as `accepted` in the inbox; that's
+    # OK on our side as long as we remember we already saw them.
+    #
+    # Merging preserves last_seen across transient empty responses + tolerates
+    # cortex's inbox not filtering archived. Status changes still emit
+    # correctly (diff_proposals compares status, not membership).
+    merged_proposals_map = dict(last_seen) if isinstance(last_seen, dict) else {}
     for source_list, direction in ((inbox, "inbox"), (outbox, "outbox")):
         for p in source_list:
             pid = _proposal_id(p)
             if not pid:
                 continue
-            new_proposals_map[pid] = {
+            merged_proposals_map[pid] = {
                 "status": _proposal_status(p),
                 "direction": direction,
                 "seen_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
             }
     save_state(state_path, {
         "last_poll_ts": _dt.datetime.now(_dt.timezone.utc).isoformat(),
-        "proposals": new_proposals_map,
+        "proposals": merged_proposals_map,
         "bootstrap_completed": True,
     })
     return events

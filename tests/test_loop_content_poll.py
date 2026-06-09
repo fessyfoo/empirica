@@ -680,3 +680,177 @@ class TestCanonicalResolver:
         assert content_poll._resolve_canonical_ai_id("https://c.test", "k", "empirica") == \
             "empirica.david.empirica"
         kaboom.assert_not_called()
+
+
+# ── Stale-replay regression (2026-06-09 extension prop_e76zksrp7za5tpx3jst2kf2sau) ───
+#
+# Symptom: ~6 old (06-02/03) proposals being re-emitted as live wakes on
+# 06-09 in extension's listener; reproduced live in empirica's listener
+# during the same window. Root cause: poll_and_diff was rebuilding the
+# `proposals` map from scratch each poll instead of merging into the
+# existing last_seen. When cortex returned an empty inbox+outbox response
+# transiently (a no-op poll, not BOTH-failed), the state file would get
+# wiped to `proposals: {}`. The next non-empty poll then saw EVERY
+# returned proposal as "new" because last_seen was empty, flooding the
+# AI with wake events for proposals it had already acted on (and often
+# already archived).
+
+
+def test_state_merges_across_polls_does_not_lose_old_proposals(tmp_path):
+    """Two polls in sequence: first records prop A, second sees a NEW
+    proposal B alongside A. State must remember both."""
+    state_path = tmp_path / "state.json"
+    a = {"id": "propA", "status": "accepted"}
+    b = {"id": "propB", "status": "accepted"}
+
+    def inbox_a(url, key, ai_id):
+        return [a]
+
+    def inbox_ab(url, key, ai_id):
+        return [a, b]
+
+    def outbox_empty(url, key, ai_id):
+        return []
+
+    # First poll: A is new
+    events1 = poll_and_diff("empirica", "cortex-mailbox-poll",
+                            "https://c.test", "k",
+                            state_path=state_path,
+                            inbox_fetch_fn=inbox_a,
+                            outbox_fetch_fn=outbox_empty)
+    assert len(events1) == 1
+    assert events1[0].proposal_id == "propA"
+
+    # Second poll: A + B. Only B should emit.
+    events2 = poll_and_diff("empirica", "cortex-mailbox-poll",
+                            "https://c.test", "k",
+                            state_path=state_path,
+                            inbox_fetch_fn=inbox_ab,
+                            outbox_fetch_fn=outbox_empty)
+    assert len(events2) == 1
+    assert events2[0].proposal_id == "propB"
+
+    # Both A and B in state.
+    state = load_state(state_path)
+    assert "propA" in state["proposals"]
+    assert "propB" in state["proposals"]
+
+
+def test_transient_empty_response_does_not_wipe_state(tmp_path):
+    """The bug fix: when cortex returns empty inbox+outbox on one poll
+    (not BOTH-failed — both succeed with []), the previous last_seen map
+    must be preserved. Otherwise the next non-empty poll re-emits every
+    returned proposal as 'new'.
+    """
+    state_path = tmp_path / "state.json"
+    a = {"id": "propA", "status": "accepted"}
+
+    def inbox_a(url, key, ai_id):
+        return [a]
+
+    def fetch_empty(url, key, ai_id):
+        return []
+
+    # First poll: A is new, recorded in state.
+    poll_and_diff("empirica", "cortex-mailbox-poll",
+                  "https://c.test", "k",
+                  state_path=state_path,
+                  inbox_fetch_fn=inbox_a,
+                  outbox_fetch_fn=fetch_empty)
+    assert "propA" in load_state(state_path)["proposals"]
+
+    # Second poll: cortex returns empty for both directions (transient).
+    # State must NOT be wiped.
+    events_empty = poll_and_diff("empirica", "cortex-mailbox-poll",
+                                  "https://c.test", "k",
+                                  state_path=state_path,
+                                  inbox_fetch_fn=fetch_empty,
+                                  outbox_fetch_fn=fetch_empty)
+    assert events_empty == []
+    assert "propA" in load_state(state_path)["proposals"], (
+        "transient empty response must not wipe last_seen — "
+        "otherwise next non-empty poll re-emits old proposals"
+    )
+
+    # Third poll: A is still in inbox (cortex isn't filtering archived,
+    # or A's status hasn't changed). With merge: NO emit because last_seen
+    # still has A. Without merge: A would re-emit as "new".
+    events_third = poll_and_diff("empirica", "cortex-mailbox-poll",
+                                  "https://c.test", "k",
+                                  state_path=state_path,
+                                  inbox_fetch_fn=inbox_a,
+                                  outbox_fetch_fn=fetch_empty)
+    assert events_third == [], (
+        "proposal already in last_seen with same status must not re-emit"
+    )
+
+
+def test_old_proposal_dropped_from_response_is_still_remembered(tmp_path):
+    """Cortex sometimes filters archived from inbox on later polls.
+    The proposal then disappears from the current response. We must
+    remember we already saw it — otherwise if it ever reappears (e.g.
+    cortex returns it again on a different poll cycle), it would look
+    new.
+    """
+    state_path = tmp_path / "state.json"
+    a = {"id": "propA", "status": "accepted"}
+
+    def inbox_with_a(url, key, ai_id):
+        return [a]
+
+    def inbox_without_a(url, key, ai_id):
+        return []
+
+    def outbox_empty(url, key, ai_id):
+        return []
+
+    # Poll 1: see A.
+    poll_and_diff("empirica", "cortex-mailbox-poll", "https://c.test", "k",
+                  state_path=state_path,
+                  inbox_fetch_fn=inbox_with_a, outbox_fetch_fn=outbox_empty)
+
+    # Poll 2: cortex no longer returns A. We must still remember it.
+    poll_and_diff("empirica", "cortex-mailbox-poll", "https://c.test", "k",
+                  state_path=state_path,
+                  inbox_fetch_fn=inbox_without_a, outbox_fetch_fn=outbox_empty)
+    assert "propA" in load_state(state_path)["proposals"]
+
+    # Poll 3: cortex returns A again. Must NOT emit (already seen).
+    events = poll_and_diff("empirica", "cortex-mailbox-poll", "https://c.test", "k",
+                           state_path=state_path,
+                           inbox_fetch_fn=inbox_with_a, outbox_fetch_fn=outbox_empty)
+    assert events == []
+
+
+def test_status_change_still_emits_after_merge(tmp_path):
+    """Sanity: merge mustn't break status-change emissions. A proposal
+    seen earlier as `accepted`, then returned as `completed`, must emit
+    a status_changed event."""
+    state_path = tmp_path / "state.json"
+
+    def inbox_accepted(url, key, ai_id):
+        return [{"id": "propX", "status": "accepted"}]
+
+    def outbox_completed(url, key, ai_id):
+        # Same proposal_id, now in outbox as completed (status_changed).
+        return [{"id": "propX", "status": "completed",
+                 "audit_log": [{"action": "completed",
+                                "details": {"commit_sha": "abc123"}}]}]
+
+    def fetch_empty(url, key, ai_id):
+        return []
+
+    # Poll 1: accepted on inbox.
+    poll_and_diff("empirica", "cortex-mailbox-poll", "https://c.test", "k",
+                  state_path=state_path,
+                  inbox_fetch_fn=inbox_accepted,
+                  outbox_fetch_fn=fetch_empty)
+
+    # Poll 2: same proposal now completed on outbox.
+    events = poll_and_diff("empirica", "cortex-mailbox-poll", "https://c.test", "k",
+                           state_path=state_path,
+                           inbox_fetch_fn=fetch_empty,
+                           outbox_fetch_fn=outbox_completed)
+    assert len(events) == 1
+    assert events[0].proposal_id == "propX"
+    assert events[0].new_or_changed == "status_changed"
