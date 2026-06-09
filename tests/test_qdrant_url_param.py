@@ -15,9 +15,12 @@ Surface tested:
 
 from __future__ import annotations
 
+import inspect
 from unittest.mock import MagicMock, patch
 
 from empirica.core.qdrant import connection as conn_mod
+from empirica.core.qdrant import intent_layer as intent_mod
+from empirica.core.qdrant import memory as memory_mod
 
 # ── _get_qdrant_client ────────────────────────────────────────────────
 
@@ -168,11 +171,6 @@ def test_omitting_qdrant_url_is_byte_for_byte_legacy_behavior(monkeypatch):
 # the base URL. These tests pin that all 10 functions in memory.py +
 # intent_layer.py forward qdrant_url to BOTH the availability check and the
 # client factory.
-
-import inspect
-
-from empirica.core.qdrant import intent_layer as intent_mod
-from empirica.core.qdrant import memory as memory_mod
 
 _MEMORY_FNS = ["embed_single_memory_item", "upsert_docs", "upsert_memory", "search"]
 _INTENT_FNS = [
