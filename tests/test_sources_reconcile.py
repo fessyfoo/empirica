@@ -166,6 +166,28 @@ def test_discovery_degrades_on_http_error():
     assert status == "unavailable_http_404"
 
 
+def test_discovery_chunks_to_server_cap():
+    """>500 hashed rows → multiple catalogue calls, results merged."""
+    rows = [{"content_hash": f"sha256:{i:04d}"} for i in range(750)]
+    calls = []
+
+    def fake_http(url, key, method="GET", payload=None, timeout=15.0):
+        calls.append(len(payload["content_hashes"]))
+        return {"sources": [
+            {"id": f"cat-{h}", "content_hash": h}
+            for h in payload["content_hashes"][:2]
+        ]}
+
+    with patch(
+        "empirica.cli.command_handlers.sources_reconcile_commands._http_json",
+        side_effect=fake_http,
+    ):
+        candidates, status = _discover_candidates("https://c.test", "k", rows)
+    assert status == "ok"
+    assert calls == [500, 250]
+    assert len(candidates) == 4  # 2 merged from each chunk
+
+
 def test_discovery_returns_candidates_by_hash():
     rows = [{"content_hash": "sha256:ab"}]
     with patch(

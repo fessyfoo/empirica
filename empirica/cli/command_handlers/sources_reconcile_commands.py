@@ -193,33 +193,40 @@ def _doc_path_from_metadata(row: dict) -> str | None:
         return None
 
 
+# Catalogue lookup accepts at most this many hashes per call (server-side
+# cap in the pinned contract). Larger practices get chunked requests.
+CATALOGUE_LOOKUP_BATCH = 500
+
+
 def _discover_candidates(
     cortex_url: str | None, api_key: str | None, rows: list[dict],
 ) -> tuple[dict[str, dict], str]:
-    """Look up catalogue rows by content_hash.
+    """Look up catalogue rows by content_hash, chunked to the server cap.
 
-    Returns ({content_hash: catalogue_row}, status). The lookup endpoint
-    is not yet pinned in the cross-component contract — connection
-    errors and 404s degrade to an empty candidate set with an honest
-    status so the verb stays useful (backfill still ran).
+    Returns ({content_hash: catalogue_row}, status). Hashes with no
+    catalogue match are simply absent from the response. Connection
+    errors degrade to an empty candidate set with an honest status so
+    the verb stays useful (backfill still ran).
     """
     if not cortex_url or not api_key:
         return {}, "skipped_no_cortex_config"
     hashes = sorted({r["content_hash"] for r in rows if r["content_hash"]})
     if not hashes:
         return {}, "skipped_no_hashed_rows"
+    candidates: dict[str, dict] = {}
     try:
-        body = _http_json(
-            f"{cortex_url}{CATALOGUE_LOOKUP_PATH}",
-            api_key,
-            method="POST",
-            payload={"content_hashes": hashes},
-        )
-        candidates = {
-            c["content_hash"]: c
-            for c in body.get("sources", [])
-            if c.get("content_hash") and c.get("id")
-        }
+        for i in range(0, len(hashes), CATALOGUE_LOOKUP_BATCH):
+            body = _http_json(
+                f"{cortex_url}{CATALOGUE_LOOKUP_PATH}",
+                api_key,
+                method="POST",
+                payload={"content_hashes": hashes[i:i + CATALOGUE_LOOKUP_BATCH]},
+            )
+            candidates.update({
+                c["content_hash"]: c
+                for c in body.get("sources", [])
+                if c.get("content_hash") and c.get("id")
+            })
         return candidates, "ok"
     except urllib.error.HTTPError as e:
         return {}, f"unavailable_http_{e.code}"
