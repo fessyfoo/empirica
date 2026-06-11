@@ -5,6 +5,8 @@ Commands:
 - serve: Start FastAPI daemon on localhost for extension communication
 """
 
+import os
+
 
 def add_serve_parsers(subparsers):
     """Add serve command parser."""
@@ -17,8 +19,10 @@ def add_serve_parsers(subparsers):
                     'Runs on http://localhost:8000 by default.',
     )
     serve_parser.add_argument(
-        '--port', type=int, default=8000,
-        help='Port to listen on (default: 8000)'
+        '--port', type=int,
+        default=int(os.getenv('EMPIRICA_SERVE_PORT', '8000')),
+        help='Port to listen on (default: 8000, or EMPIRICA_SERVE_PORT env; '
+             'the explicit flag wins over the env var)'
     )
     serve_parser.add_argument(
         '--host', default='127.0.0.1',

@@ -190,3 +190,33 @@ def test_http_endpoint_rejects_non_contact():
     client = TestClient(app)
     r = client.post("/api/v1/entities", json={"type": "project", "name": "x"})
     assert r.status_code == 422
+
+
+# ── Daemon deployment env support (per-org instances) ─────────────────
+
+
+def test_workspace_db_path_env_override(monkeypatch, tmp_path):
+    from empirica.data.repositories.workspace_db import _get_workspace_db_path
+
+    monkeypatch.delenv("EMPIRICA_WORKSPACE_DB", raising=False)
+    assert _get_workspace_db_path().name == "workspace.db"
+    assert ".empirica" in str(_get_workspace_db_path())
+
+    custom = tmp_path / "org-nle" / "workspace.db"
+    monkeypatch.setenv("EMPIRICA_WORKSPACE_DB", str(custom))
+    assert _get_workspace_db_path() == custom
+
+
+def test_serve_port_env_default(monkeypatch):
+    import argparse
+
+    from empirica.cli.parsers.serve_parsers import add_serve_parsers
+
+    monkeypatch.setenv("EMPIRICA_SERVE_PORT", "8766")
+    parser = argparse.ArgumentParser()
+    add_serve_parsers(parser.add_subparsers(dest="command"))
+    args = parser.parse_args(["serve"])
+    assert args.port == 8766
+    # Explicit flag wins over env
+    args = parser.parse_args(["serve", "--port", "9000"])
+    assert args.port == 9000

@@ -14,6 +14,7 @@ Usage:
 """
 
 import logging
+import os
 import sqlite3
 import time
 from pathlib import Path
@@ -25,7 +26,15 @@ logger = logging.getLogger(__name__)
 
 
 def _get_workspace_db_path() -> Path:
-    """Get path to workspace database."""
+    """Get path to workspace database.
+
+    `EMPIRICA_WORKSPACE_DB` overrides the default HOME-derived location —
+    used by per-org daemon deployments where one box runs N isolated
+    `empirica serve` instances, each rooted in its own workspace.db.
+    """
+    override = os.getenv('EMPIRICA_WORKSPACE_DB')
+    if override:
+        return Path(override).expanduser()
     return Path.home() / '.empirica' / 'workspace' / 'workspace.db'
 
 
