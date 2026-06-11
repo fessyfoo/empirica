@@ -72,6 +72,12 @@ def _build_context_usage_output(claude_session_id):
     """Read context window usage from statusline state file.
 
     Returns a hook output dict with context percentage info, or empty dict.
+
+    The number is labeled unambiguously as USED (it grows toward 100%) —
+    practitioners have repeatedly misread a bare "context: 42%" as
+    remaining and rushed/deferred work off a miscalibrated budget feeling.
+    At high usage the message carries the lossless-compaction reminder so
+    self-assessment tracks the actual recovery model, not compaction fear.
     """
     import time as _time
 
@@ -88,7 +94,16 @@ def _build_context_usage_output(claude_session_id):
         if state_age >= 60 or used_pct <= 0:
             return {}
 
-        ctx_msg = f"context: {int(used_pct)}%"
+        ctx_msg = f"context: {int(used_pct)}% used"
+
+        # High usage: compaction may be near — reinforce that it is lossless
+        # under empirica discipline so the practitioner doesn't degrade work.
+        if used_pct > 80:
+            ctx_msg += (
+                " | compaction (if it comes) is lossless — goals/artifacts/"
+                "git-notes persist + bootstrap re-grounds. Do NOT truncate, "
+                "rush, or defer work; keep logging + committing as normal."
+            )
 
         # At >85% context, advise auto-switching to CWD project
         # if CWD differs from active transaction project

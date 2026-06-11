@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """
-Empirica PostCompact Hook - Phase-Aware Recovery
+Empirica PostCompact Hook - Phase-Aware Re-grounding
 
-After memory compaction, the AI has only a summary - not real knowledge.
-This hook detects the transaction phase state and routes appropriately:
+Compaction is routine and lossless under empirica discipline: the
+conversation gets summarized, while the knowledge that matters lives in
+the durable layer (goals, artifacts, breadcrumbs, git notes) and is
+re-loaded here via bootstrap. This hook detects the transaction phase
+state and routes appropriately:
 
 1. If old session is COMPLETE (has POSTFLIGHT) → New session + PREFLIGHT
 2. If old session is INCOMPLETE (mid-work) → CHECK gate on old session
 
 Key insight: Compact can happen at ANY point in the transaction cycle.
-The recovery action depends on WHERE in the cycle compact occurred.
+The re-grounding action depends on WHERE in the cycle compact occurred.
 """
 
 import json
@@ -961,13 +964,16 @@ def _generate_new_session_prompt(pre_vectors: dict, dynamic_context: dict, old_s
         return f"""
 ## POST-COMPACT: SESSION CREATED, PREFLIGHT REQUIRED
 
-Your context was just compacted. The previous session ({old_session_id[:8]}...) was **COMPLETE**
-(had POSTFLIGHT).
+Your context was just compacted — a routine, lossless event under empirica
+discipline: goals, artifacts, breadcrumbs, and git notes all persist, and the
+bootstrap context below re-grounds you. Do NOT truncate, rush, or defer work
+because compaction happened. The previous session ({old_session_id[:8]}...)
+was **COMPLETE** (had POSTFLIGHT).
 
 **✅ Session created:** `{new_session_id}`
 **✅ Project context loaded via bootstrap**
 
-**Pre-compact vectors (NOW INVALID):** know={pre_know}, uncertainty={pre_unc}
+**Pre-compact vectors (historical — that session closed):** know={pre_know}, uncertainty={pre_unc}
 {last_task_section}{temporal_trail}
 {epistemic_focus}{calibration_section}
 
@@ -1002,10 +1008,12 @@ This makes the PREFLIGHT→POSTFLIGHT delta meaningful.
     return f"""
 ## POST-COMPACT: NEW SESSION REQUIRED
 
-Your context was just compacted. The previous session ({old_session_id[:8]}...) was **COMPLETE**
+Your context was just compacted — routine and lossless under empirica
+discipline (goals, artifacts, breadcrumbs, git notes persist; the steps below
+re-ground you). The previous session ({old_session_id[:8]}...) was **COMPLETE**
 (had POSTFLIGHT), so you need a NEW session with fresh PREFLIGHT baseline.
 
-**Pre-compact vectors (NOW INVALID):** know={pre_know}, uncertainty={pre_unc}
+**Pre-compact vectors (historical — that session closed):** know={pre_know}, uncertainty={pre_unc}
 {last_task_section}{temporal_trail}
 {epistemic_focus}{calibration_section}
 
@@ -1042,7 +1050,9 @@ empirica preflight-submit - << 'EOF'
 EOF
 ```
 
-**Key principle:** Be HONEST about reduced knowledge. This is a FRESH START, not a continuation.
+**Key principle:** Assess your state AFTER loading context in Step 2 — the
+durable layer carries forward what matters, so calibrate against what the
+bootstrap actually gave you, not against what the summary omitted.
 """
 
 
@@ -1184,8 +1194,10 @@ def _generate_transaction_continue_prompt(pre_vectors: dict, dynamic_context: di
 
     return f"""## TRANSACTION CONTINUES
 
-Your context was compacted but your **transaction is still open**.
-No new PREFLIGHT or CHECK needed - just continue where you left off.
+Your context was compacted but your **transaction is still open** — for an
+open transaction, compaction is a non-event. No new PREFLIGHT or CHECK
+needed - just continue where you left off at full quality (no truncating,
+rushing, or deferring).
 
 **⚡ ACTIVE TRANSACTION:**
    Transaction: {tx_id}... | Session: {tx_session}... | Project: {tx_project}
@@ -1272,10 +1284,12 @@ def _generate_check_prompt(pre_vectors: dict, pre_reasoning: str, dynamic_contex
     prompt = f"""
 ## POST-COMPACT CHECK GATE
 
-Your context was just compacted. Your previous vectors (know={pre_know}, uncertainty={pre_unc})
-are NO LONGER VALID - they reflected knowledge you had in full context.
-
-**You now have only a summary. Run CHECK to validate readiness before proceeding.**
+Your context was just compacted — routine and lossless under empirica
+discipline: goals, artifacts, breadcrumbs, and git notes persist, and the
+re-grounding steps below restore working context. Do NOT truncate, rush, or
+defer work because compaction happened. Your previous vectors
+(know={pre_know}, uncertainty={pre_unc}) reflect pre-compact context —
+re-ground first, then CHECK with fresh values.
 {tx_context}{last_task_section}{temporal_trail}
 {epistemic_focus}{calibration_section}
 
