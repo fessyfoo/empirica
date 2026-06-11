@@ -192,6 +192,15 @@ SCHEMAS = [
                     -- that took the migration 039 default).
                     visibility TEXT DEFAULT 'shared',
 
+                    -- Content identity (added in migration 050 — unified source identity:
+                    -- catalogue dedupe + reconcile key on (canonical_path, content_hash);
+                    -- size_bytes drives sync-when-small; canonical_path ends the
+                    -- source_url path/URL overload behind the title-in-url bug class).
+                    content_hash TEXT,              -- 'sha256:<hex>' of the file body
+                    size_bytes INTEGER,
+                    canonical_path TEXT,            -- resolved absolute path for file-backed sources
+                    mime_type TEXT,
+
                     FOREIGN KEY (project_id) REFERENCES projects(id),
                     FOREIGN KEY (session_id) REFERENCES sessions(session_id)
                 )

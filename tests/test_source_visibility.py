@@ -217,7 +217,11 @@ def fake_db(tmp_path, monkeypatch):
             lifecycle_audit_log TEXT,
             entity_type TEXT,
             entity_id TEXT,
-            visibility TEXT DEFAULT 'shared'
+            visibility TEXT DEFAULT 'shared',
+            content_hash TEXT,
+            size_bytes INTEGER,
+            canonical_path TEXT,
+            mime_type TEXT
         )
     """)
     conn.commit()

@@ -1747,6 +1747,43 @@ def _source_persist_git_and_qdrant(source_id, project_id, session_id, title,
     return git_stored, embedded
 
 
+def _compute_content_identity(doc_path: str | None) -> dict:
+    """Best-effort content identity for a file-backed source.
+
+    Returns {canonical_path, content_hash, size_bytes, mime_type} — all
+    None when doc_path is absent, unresolvable, or unreadable. Never
+    raises: source-add must not fail because the file moved.
+
+    content_hash is algorithm-prefixed ('sha256:<hex>') — the shared
+    catalogue dedupe + reconcile key, so the format must match what the
+    catalogue stores.
+    """
+    identity: dict = {
+        "canonical_path": None, "content_hash": None,
+        "size_bytes": None, "mime_type": None,
+    }
+    if not doc_path:
+        return identity
+    try:
+        import hashlib
+        import mimetypes
+        from pathlib import Path
+
+        p = Path(doc_path).expanduser()
+        if not p.is_absolute():
+            p = Path.cwd() / p
+        p = p.resolve()
+        identity["canonical_path"] = str(p)
+        if p.is_file():
+            data = p.read_bytes()
+            identity["content_hash"] = f"sha256:{hashlib.sha256(data).hexdigest()}"
+            identity["size_bytes"] = len(data)
+            identity["mime_type"] = mimetypes.guess_type(p.name)[0]
+    except Exception:
+        pass
+    return identity
+
+
 def handle_source_add_command(args):
     """Handle source-add command — entity-agnostic epistemic source logging.
 
@@ -1816,20 +1853,24 @@ def handle_source_add_command(args):
                      "source_url": source_url, "transaction_id": transaction_id}
         resolved_entity_type = entity_type or 'project'
         resolved_entity_id = entity_id or (project_id if resolved_entity_type == 'project' else None)
+        identity = _compute_content_identity(doc_path)
 
         db.conn.execute("""
             INSERT INTO epistemic_sources (
                 id, project_id, session_id, source_type, source_url,
                 title, description, confidence, epistemic_layer,
                 discovered_by_ai, discovered_at, source_metadata,
-                entity_type, entity_id, visibility
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                entity_type, entity_id, visibility,
+                content_hash, size_bytes, canonical_path, mime_type
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             source_id, project_id, session_id, source_type,
             source_url or doc_path,
             title, description, confidence, direction,
             'claude-code', time.time(), json.dumps(metadata),
-            resolved_entity_type, resolved_entity_id, visibility
+            resolved_entity_type, resolved_entity_id, visibility,
+            identity["content_hash"], identity["size_bytes"],
+            identity["canonical_path"], identity["mime_type"]
         ))
         db.conn.commit()
 
