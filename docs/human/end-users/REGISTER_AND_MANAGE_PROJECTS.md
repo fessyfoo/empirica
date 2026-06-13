@@ -56,15 +56,17 @@ When there's no repo on the machine (Desktop/Cowork seats, bursty practices),
 register directly in Cortex via the MCP tool — no CLI install needed:
 
 ```
-cortex_project_register(name="<display name>", slug="<tenant-scoped slug>")
+cortex_project_register(name="<display name>", slug="<tenant-scoped slug>"[, project_id="<existing-uuid>"])
 ```
 
-Cortex mints the id and returns it prominently. **If that project later gains a
-local repo, write the returned id into `.empirica/project.yaml`** (downward
-adoption) rather than re-initialising — keeps the one-id-per-project guarantee.
+A client-supplied `project_id` wins on first create (no shadow id). If you omit
+it, Cortex mints the id and returns it with `downward_adopt: true`. **If that
+project later gains a local repo, write the returned id into
+`.empirica/project.yaml`** rather than re-initialising — keeps the
+one-id-per-project guarantee. (There's also a no-MCP path: the Desktop
+"+ Create a project" door, which registers via the same server endpoint.)
 
-> Availability: the `cortex_project_register` tool ships with Cortex's
-> registration-model update. Blocks 1 and 2 are live today.
+> All three blocks are live today.
 
 ---
 
