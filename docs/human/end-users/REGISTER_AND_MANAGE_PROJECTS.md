@@ -64,7 +64,7 @@ local repo, write the returned id into `.empirica/project.yaml`** (downward
 adoption) rather than re-initialising — keeps the one-id-per-project guarantee.
 
 > Availability: the `cortex_project_register` tool ships with Cortex's
-> registration-model slice (SER `ser_c10ae794`). Blocks 1 and 2 are live today.
+> registration-model update. Blocks 1 and 2 are live today.
 
 ---
 
