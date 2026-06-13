@@ -1,0 +1,204 @@
+"""Tests for the slug→UUID project identity migration (1.12 single-UUID model).
+
+The migration engine is project.yaml-authoritative: a UUID yaml wins; a slug
+yaml is resolved (workspace.db → cortex → mint) and the legacy slug is re-keyed
+across every project-local db so history doesn't orphan. Unresolvable cases
+return an actionable message rather than guessing.
+"""
+
+from __future__ import annotations
+
+import sqlite3
+from pathlib import Path
+
+import yaml
+
+from empirica.core.identity_migration import (
+    is_uuid,
+    migrate_project_to_uuid,
+    rekey_project_id_in_db,
+    rekey_project_local_dbs,
+    resolve_canonical_uuid,
+)
+
+_UUID_A = "11111111-2222-3333-4444-555555555555"
+_UUID_B = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+
+
+def _make_project(tmp_path: Path, project_id: str, *, name: str = "empirica-outreach") -> Path:
+    """A project root with .empirica/project.yaml carrying the given id."""
+    root = tmp_path / name
+    (root / ".empirica").mkdir(parents=True)
+    (root / ".empirica" / "project.yaml").write_text(
+        yaml.safe_dump({"project_id": project_id, "ai_id": name}, sort_keys=False)
+    )
+    return root
+
+
+def _seed_sessions_db(root: Path, project_id: str) -> Path:
+    """A project-local sessions.db with two project_id-bearing tables seeded."""
+    db = root / ".empirica" / "sessions" / "sessions.db"
+    db.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db))
+    conn.execute("CREATE TABLE sessions (session_id TEXT, project_id TEXT)")
+    conn.execute("CREATE TABLE findings (id TEXT, project_id TEXT, finding TEXT)")
+    conn.execute("CREATE TABLE unrelated (id TEXT, note TEXT)")  # no project_id
+    conn.execute("INSERT INTO sessions VALUES ('s1', ?)", (project_id,))
+    conn.execute("INSERT INTO findings VALUES ('f1', ?, 'hi')", (project_id,))
+    conn.execute("INSERT INTO findings VALUES ('f2', 'other-project', 'no')")
+    conn.commit()
+    conn.close()
+    return db
+
+
+# ── is_uuid ─────────────────────────────────────────────────────────────
+
+
+def test_is_uuid():
+    assert is_uuid(_UUID_A)
+    assert is_uuid(_UUID_A.upper())
+    assert not is_uuid("empirica-outreach")
+    assert not is_uuid("empirica")
+    assert not is_uuid("")
+    assert not is_uuid(None)
+
+
+# ── resolve_canonical_uuid ──────────────────────────────────────────────
+
+
+def test_resolve_yaml_uuid_wins(tmp_path):
+    root = _make_project(tmp_path, _UUID_A)
+    uuid, source = resolve_canonical_uuid(root)
+    assert uuid == _UUID_A
+    assert source == "yaml"
+
+
+def test_resolve_from_workspace(tmp_path):
+    root = _make_project(tmp_path, "empirica-outreach")
+    ws = tmp_path / "workspace.db"
+    conn = sqlite3.connect(str(ws))
+    conn.execute("CREATE TABLE global_projects (id TEXT, trajectory_path TEXT)")
+    conn.execute(
+        "INSERT INTO global_projects VALUES (?, ?)",
+        (_UUID_A, str(root / ".empirica")),
+    )
+    conn.commit()
+    conn.close()
+    uuid, source = resolve_canonical_uuid(root, workspace_db=ws)
+    assert uuid == _UUID_A
+    assert source == "workspace"
+
+
+def test_resolve_from_cortex_when_no_workspace(tmp_path):
+    root = _make_project(tmp_path, "empirica-outreach")
+    calls = {}
+
+    def fake_cortex(slug, tenant):
+        calls["slug"], calls["tenant"] = slug, tenant
+        return _UUID_B
+
+    uuid, source = resolve_canonical_uuid(
+        root, workspace_db=tmp_path / "nope.db", cortex_resolver=fake_cortex, tenant="david"
+    )
+    assert uuid == _UUID_B
+    assert source == "cortex"
+    assert calls == {"slug": "empirica-outreach", "tenant": "david"}
+
+
+def test_resolve_unresolved(tmp_path):
+    root = _make_project(tmp_path, "empirica-outreach")
+    uuid, source = resolve_canonical_uuid(root, workspace_db=tmp_path / "nope.db")
+    assert uuid is None and source is None
+
+
+# ── re-key ──────────────────────────────────────────────────────────────
+
+
+def test_rekey_updates_all_matching_tables(tmp_path):
+    root = _make_project(tmp_path, "empirica-outreach")
+    db = _seed_sessions_db(root, "empirica-outreach")
+    touched = rekey_project_id_in_db(db, "empirica-outreach", _UUID_A)
+    assert touched == {"sessions": 1, "findings": 1}  # not the 'other-project' row
+
+    conn = sqlite3.connect(str(db))
+    assert conn.execute("SELECT project_id FROM sessions").fetchone()[0] == _UUID_A
+    assert conn.execute(
+        "SELECT project_id FROM findings WHERE id='f1'"
+    ).fetchone()[0] == _UUID_A
+    # the unrelated project's row is untouched
+    assert conn.execute(
+        "SELECT project_id FROM findings WHERE id='f2'"
+    ).fetchone()[0] == "other-project"
+    conn.close()
+
+
+def test_rekey_noop_when_same(tmp_path):
+    root = _make_project(tmp_path, _UUID_A)
+    db = _seed_sessions_db(root, _UUID_A)
+    assert rekey_project_id_in_db(db, _UUID_A, _UUID_A) == {}
+
+
+def test_rekey_local_dbs_walks_empirica_dir(tmp_path):
+    root = _make_project(tmp_path, "empirica-outreach")
+    _seed_sessions_db(root, "empirica-outreach")
+    out = rekey_project_local_dbs(root, "empirica-outreach", _UUID_A)
+    assert "sessions/sessions.db" in out
+    assert out["sessions/sessions.db"] == {"sessions": 1, "findings": 1}
+
+
+# ── migrate_project_to_uuid ─────────────────────────────────────────────
+
+
+def test_migrate_no_project(tmp_path):
+    result = migrate_project_to_uuid(tmp_path / "empty")
+    assert result["status"] == "no_project"
+
+
+def test_migrate_already_uuid_is_noop(tmp_path):
+    root = _make_project(tmp_path, _UUID_A)
+    result = migrate_project_to_uuid(root)
+    assert result["status"] == "already_uuid"
+    assert result["project_id"] == _UUID_A
+
+
+def test_migrate_slug_via_cortex_rekeys_and_rewrites_yaml(tmp_path):
+    root = _make_project(tmp_path, "empirica-outreach")
+    _seed_sessions_db(root, "empirica-outreach")
+
+    result = migrate_project_to_uuid(
+        root,
+        workspace_db=tmp_path / "nope.db",
+        cortex_resolver=lambda slug, tenant: _UUID_B,
+        tenant="david",
+    )
+    assert result["status"] == "migrated"
+    assert result["source"] == "cortex"
+    assert result["project_id"] == _UUID_B
+    assert result["yaml_updated"] is True
+    assert result["rekeyed"]["sessions/sessions.db"] == {"sessions": 1, "findings": 1}
+
+    # yaml now carries the UUID
+    cfg = yaml.safe_load((root / ".empirica" / "project.yaml").read_text())
+    assert cfg["project_id"] == _UUID_B
+    assert cfg["ai_id"] == "empirica-outreach"  # name/practice identity preserved
+
+
+def test_migrate_slug_via_mint(tmp_path):
+    root = _make_project(tmp_path, "empirica-outreach")
+    result = migrate_project_to_uuid(
+        root, workspace_db=tmp_path / "nope.db", mint=lambda: _UUID_A
+    )
+    assert result["status"] == "migrated"
+    assert result["source"] == "minted"
+    assert result["project_id"] == _UUID_A
+
+
+def test_migrate_unresolved_leaves_yaml_untouched(tmp_path):
+    root = _make_project(tmp_path, "empirica-outreach")
+    result = migrate_project_to_uuid(root, workspace_db=tmp_path / "nope.db")
+    assert result["status"] == "unresolved"
+    assert result["slug"] == "empirica-outreach"
+    assert "project-register" in result["message"]
+    # yaml is NOT guessed/rewritten
+    cfg = yaml.safe_load((root / ".empirica" / "project.yaml").read_text())
+    assert cfg["project_id"] == "empirica-outreach"
