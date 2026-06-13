@@ -19,6 +19,7 @@ from empirica.core.identity_migration import (
     rekey_project_id_in_db,
     rekey_project_local_dbs,
     resolve_canonical_uuid,
+    run_force_migration,
 )
 
 _UUID_A = "11111111-2222-3333-4444-555555555555"
@@ -202,3 +203,59 @@ def test_migrate_unresolved_leaves_yaml_untouched(tmp_path):
     # yaml is NOT guessed/rewritten
     cfg = yaml.safe_load((root / ".empirica" / "project.yaml").read_text())
     assert cfg["project_id"] == "empirica-outreach"
+
+
+# ── run_force_migration (cortex-gated policy) ───────────────────────────
+
+
+def test_force_no_cortex_mints_locally(tmp_path):
+    """No Cortex installed → purely local → minting a UUID is safe."""
+    root = _make_project(tmp_path, "empirica-outreach")
+    _seed_sessions_db(root, "empirica-outreach")
+    result = run_force_migration(
+        root,
+        cortex_installed_fn=lambda: False,
+        mint=lambda: _UUID_A,
+    )
+    assert result["cortex_installed"] is False
+    assert result["status"] == "migrated"
+    assert result["source"] == "minted"
+    assert result["project_id"] == _UUID_A
+    assert result["rekeyed"]["sessions/sessions.db"] == {"sessions": 1, "findings": 1}
+
+
+def test_force_cortex_installed_never_mints_routes_to_register(tmp_path):
+    """Cortex installed + unresolvable → never mint (fork risk); route to register."""
+    root = _make_project(tmp_path, "empirica-outreach")
+    minted = []
+    result = run_force_migration(
+        root,
+        cortex_installed_fn=lambda: True,
+        cortex_resolver=None,  # endpoint not yet available
+        mint=lambda: minted.append(1) or _UUID_A,  # must NOT be called
+    )
+    assert result["cortex_installed"] is True
+    assert result["status"] == "unresolved"
+    assert "project-register" in result["message"]
+    assert minted == []  # mint was not invoked
+
+
+def test_force_cortex_installed_resolves_via_cortex(tmp_path):
+    """Cortex installed → the injected resolver supplies the canonical UUID."""
+    root = _make_project(tmp_path, "empirica-outreach")
+    _seed_sessions_db(root, "empirica-outreach")
+    result = run_force_migration(
+        root,
+        cortex_installed_fn=lambda: True,
+        cortex_resolver=lambda slug, tenant: _UUID_B,
+    )
+    assert result["cortex_installed"] is True
+    assert result["status"] == "migrated"
+    assert result["source"] == "cortex"
+    assert result["project_id"] == _UUID_B
+
+
+def test_force_already_uuid_is_noop(tmp_path):
+    root = _make_project(tmp_path, _UUID_A)
+    result = run_force_migration(root, cortex_installed_fn=lambda: False)
+    assert result["status"] == "already_uuid"

@@ -270,3 +270,70 @@ def migrate_project_to_uuid(
         "yaml_updated": yaml_updated,
         "rekeyed": rekeyed,
     }
+
+
+def _cortex_installed() -> bool:
+    """True when Cortex is configured locally (a cortex api_key in
+    ~/.empirica/credentials.yaml). Mirrors the codebase convention
+    (liveness_probe / loop_scheduler read the same shape).
+
+    The signal matters for the migration's mint policy: registering a project
+    in Cortex always requires this key, so its presence means the project may
+    already have a canonical Cortex UUID — minting a fresh one would *fork* the
+    identity. Its absence (public-facing / no-mesh) means the project is purely
+    local, so minting is safe.
+    """
+    try:
+        import yaml
+
+        cred = Path.home() / ".empirica" / "credentials.yaml"
+        if not cred.exists():
+            return False
+        data = yaml.safe_load(cred.read_text(encoding="utf-8")) or {}
+        cortex = data.get("cortex") or {}
+        return bool(cortex.get("api_key"))
+    except Exception:
+        return False
+
+
+def run_force_migration(
+    project_root: str | Path,
+    *,
+    cortex_installed_fn: Callable[[], bool] = _cortex_installed,
+    cortex_resolver: CortexResolver | None = None,
+    mint: Callable[[], str] | None = None,
+    tenant: str | None = None,
+) -> dict:
+    """Migrate one project to a single canonical UUID, choosing the resolution
+    policy by whether Cortex is installed (David's 1.12 rule).
+
+    - **Cortex installed** → the project may be Cortex-registered, so resolve
+      the canonical UUID (workspace.db, then the injected Cortex resolver) and
+      **never mint** — an unresolvable case routes the user to
+      ``project-register`` (the one correct adopt-or-mint path).
+    - **Cortex not installed** (public-facing / no-mesh) → no remote identity
+      exists, so **minting locally is safe**.
+
+    The Cortex slug→UUID ``cortex_resolver`` is dependency-injected: a
+    ``GET project by slug+tenant`` endpoint is the forward-looking follow-on
+    (existing Cortex users on a CLI harness expanding to multi-project). Until
+    it lands the resolver is ``None`` and that case routes to ``project-register``.
+    """
+    import uuid
+
+    installed = cortex_installed_fn()
+    if installed:
+        resolver = cortex_resolver  # may be None until the endpoint ships
+        mint_fn = None  # never fork a possibly-registered identity
+    else:
+        resolver = None
+        mint_fn = mint or (lambda: str(uuid.uuid4()))  # safe: purely local
+
+    result = migrate_project_to_uuid(
+        project_root,
+        cortex_resolver=resolver,
+        mint=mint_fn,
+        tenant=tenant,
+    )
+    result["cortex_installed"] = installed
+    return result

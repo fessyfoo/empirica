@@ -1333,6 +1333,41 @@ def _run_credentials_wizard(state: dict, output_format: str) -> dict:
     return state
 
 
+def _migrate_legacy_project_identity(force, output_format):
+    """Stage 6.8 (--force only): migrate a legacy slug-shaped ``project_id`` in
+    the CWD project to a single canonical UUID (the 1.12 model — see
+    ``empirica.core.identity_migration``).
+
+    The cortex-installed-or-not policy lives in ``run_force_migration``: cortex
+    present → resolve + route unresolvable cases to ``project-register`` (never
+    fork); cortex absent (public-facing) → safe local mint. Non-fatal and a
+    clean no-op when not --force, not in a project, or already a UUID.
+    """
+    if not force:
+        return None
+    try:
+        from empirica.core.identity_migration import run_force_migration
+
+        result = run_force_migration(os.getcwd())
+        if output_format != 'json':
+            status = result.get("status")
+            if status == "migrated":
+                print(
+                    f"   --force: migrated project_id '{result['slug']}' → "
+                    f"{result['project_id'][:8]}… (source: {result['source']})"
+                )
+            elif status == "unresolved":
+                print(f"   --force: legacy project_id needs a UUID — {result['message']}")
+        return result
+    except Exception as e:
+        if output_format != 'json':
+            print(
+                f"   --force: project identity migration skipped "
+                f"({type(e).__name__}: {e})"
+            )
+        return {"status": "error", "message": str(e)}
+
+
 def handle_setup_claude_code_command(args):
     """Handle setup-claude-code command"""
     try:
@@ -1418,6 +1453,12 @@ def handle_setup_claude_code_command(args):
             args, output_format, skip=skip_listener_service,
         )
 
+        # Stage 6.8: Legacy project_id → UUID migration (--force only).
+        # 1.12 kills slug-as-id; on the --force upgrade ritual, opportunistically
+        # migrate the CWD project's identity to a single canonical UUID and
+        # re-key its local history. Non-fatal.
+        identity_migration_result = _migrate_legacy_project_identity(force, output_format)
+
         # Stage 7: Output
         if output_format == 'json':
             return {
@@ -1434,6 +1475,7 @@ def handle_setup_claude_code_command(args):
                 },
                 "tenant_metadata": tenant_metadata,
                 "listener_service": listener_service_result,
+                "identity_migration": identity_migration_result,
                 "hooks_configured": [
                     "PreToolUse (Sentinel)",
                     "PreCompact",
