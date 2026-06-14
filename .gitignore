@@ -147,3 +147,8 @@ specs/
 .claude/
 .claude-backup/
 claude-safe
+
+# Proprietary mesh-layer specs — relocated out of the public repo (managed by
+# autonomy/mesh-support). Kept locally, never tracked here.
+docs/architecture/MESH_CONTENT.md
+docs/architecture/MESH_SHARING_AGREEMENTS.md

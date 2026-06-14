@@ -51,8 +51,6 @@ Read these when you're actually working in the area. Grouped by concern.
 | Doc | Surface |
 |---|---|
 | [`EVENT_LISTENER.md`](EVENT_LISTENER.md) | Push-primary wake bridge — `empirica loop listen`, ntfy stream, supervisor pattern. |
-| [`MESH_CONTENT.md`](MESH_CONTENT.md) | MeshContent v0.1 substrate — common contract for Source + SER. |
-| [`MESH_SHARING_AGREEMENTS.md`](MESH_SHARING_AGREEMENTS.md) | Cross-tenant `mesh_sharing_agreement` table. Two-stage resolution: write-time advisory + cortex consumer-side enforcement. |
 | [`MULTI_PROJECT_STORAGE.md`](MULTI_PROJECT_STORAGE.md) | Workspace + per-project SQLite. `global_projects` + `entity_registry` mirrors. |
 | [`DISPATCH_BUS.md`](DISPATCH_BUS.md) | Typed cross-instance protocol (terminal / desktop / cortex coordination). |
 
