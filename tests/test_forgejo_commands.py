@@ -15,7 +15,9 @@ import yaml
 from empirica.cli.command_handlers import forgejo_commands as fc
 
 _UUID = "a0e24049-d159-4834-afcb-930ba64d0e2b"
-_FORGEJO_URL = "git@git.getempirica.com:david/empirica-mesh-support.git"
+_FORGEJO_URL = "https://git.getempirica.com/david/empirica-mesh-support.git"
+_TOKEN = "tok_sha1secret"  # noqa: S105 — fake test fixture, not a real secret
+_TOKEN_USER = "proj-a0e24049"  # noqa: S105 — fake test fixture
 _REFSPECS = [
     "+refs/heads/*:refs/heads/*",
     "+refs/tags/*:refs/tags/*",
@@ -50,15 +52,30 @@ def test_resolve_project_missing(tmp_path):
     assert fc._resolve_project(tmp_path / "nope") == (None, None)
 
 
-# ── _write_deploy_key ───────────────────────────────────────────────────
+# ── _write_token / _compose_push_url ────────────────────────────────────
 
 
-def test_write_deploy_key_0600_and_newline(tmp_path, monkeypatch):
+def test_write_token_0600(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-    p = fc._write_deploy_key(_UUID, "-----BEGIN OPENSSH PRIVATE KEY-----\nx")
-    assert p.read_text().endswith("\n")
+    p = fc._write_token(_UUID, _TOKEN)
+    assert p.read_text() == _TOKEN
     assert (p.stat().st_mode & 0o777) == 0o600
-    assert p.parent == tmp_path / ".config" / "empirica" / "forgejo-keys"
+    assert p.parent == tmp_path / ".config" / "empirica" / "forgejo-tokens"
+
+
+def test_compose_push_url_inserts_creds():
+    assert fc._compose_push_url(_FORGEJO_URL, _TOKEN_USER, _TOKEN) == (
+        f"https://{_TOKEN_USER}:{_TOKEN}@git.getempirica.com/david/empirica-mesh-support.git"
+    )
+
+
+def test_compose_push_url_url_encodes_special_chars():
+    out = fc._compose_push_url("https://h/r.git", "u@x", "t/s+e")
+    assert out == "https://u%40x:t%2Fs%2Be@h/r.git"
+
+
+def test_compose_push_url_passes_through_non_https():
+    assert fc._compose_push_url("ssh://x/y.git", "u", "t") == "ssh://x/y.git"
 
 
 # ── _set_forgejo_remote: add vs set-url, never touches origin ────────────
@@ -101,16 +118,17 @@ def test_publish_happy_path_pushes_all_refspecs(tmp_path, monkeypatch, capsys):
 
     pushes = []
 
-    def fake_git(path, *args, key_path=None, **kw):
+    def fake_git(path, *args, **kw):
         if args and args[0] == "push":
-            pushes.append((args[2], key_path))
+            pushes.append((args[1], args[2]))  # (push_url, refspec)
             return _proc(returncode=0)
         return _proc(stdout="origin\n")
 
     with patch.object(fc, "_resolve_cortex_config", lambda: ("https://cortex.example", "ctx_k")), \
          patch.object(fc, "_forgejo_publish_post", lambda *a, **k: (200, {
              "forgejo_repo_url": _FORGEJO_URL,
-             "deploy_key_private": "-----BEGIN OPENSSH PRIVATE KEY-----\nkey",
+             "forgejo_token": _TOKEN,
+             "forgejo_token_user": _TOKEN_USER,
              "refspecs": _REFSPECS,
          })), \
          patch.object(fc, "_git", fake_git):
@@ -118,9 +136,9 @@ def test_publish_happy_path_pushes_all_refspecs(tmp_path, monkeypatch, capsys):
         code = fc.handle_forgejo_publish_command(args)
 
     assert code == 0
-    # all three refspecs pushed, each with the written deploy key
-    assert {p[0] for p in pushes} == set(_REFSPECS)
-    assert all(p[1] is not None for p in pushes)  # key_path passed to push
+    # all three refspecs pushed, each to the credentialed composed URL (not a remote name)
+    assert {p[1] for p in pushes} == set(_REFSPECS)
+    assert all(p[0].startswith(f"https://{_TOKEN_USER}:{_TOKEN}@") for p in pushes)
 
 
 def test_publish_already_published_no_key_is_ok_with_note(tmp_path, monkeypatch):

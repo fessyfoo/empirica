@@ -6,12 +6,13 @@ git remote for the project and the local repo is pushed up. That's the right
 mode for a project with **no existing remote** (e.g. empirica-mesh-support) —
 Forgejo's managed pull-mirror can't apply when there's no origin to pull from.
 
-Flow:
+Flow (cortex G12 HTTPS+token contract):
   1. POST /v1/projects/{id}/forgejo-publish (cortex, owner-scoped) → returns
-     {forgejo_repo_url, deploy_key_private (once), refspecs[], ...}
-  2. Write deploy_key_private 0600 to ~/.config/empirica/forgejo-keys/<uuid>
-  3. `git remote add forgejo <url>` (or set-url if it already exists)
-  4. Push each cortex-supplied refspec via GIT_SSH_COMMAND using the deploy key
+     {forgejo_repo_url (https), forgejo_token (once), forgejo_token_user, refspecs[], ...}
+  2. Stash forgejo_token 0600 to ~/.config/empirica/forgejo-tokens/<uuid>
+  3. `git remote add forgejo <clean-https-url>` (or set-url if it already exists)
+  4. Push each refspec to https://<user>:<token>@host/... composed at push-time
+     (over :443; the credentialed URL is never persisted)
 
 repo_url stays pinned to `origin`: adding the `forgejo` remote must NOT become
 the project's canonical repo_url (that's live-read from origin elsewhere).
@@ -20,7 +21,6 @@ the project's canonical repo_url (that's live-read from origin elsewhere).
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import urllib.error
 import urllib.request
@@ -85,30 +85,40 @@ def _forgejo_publish_post(
         return -1, {"error": f"{type(e).__name__}: {e}"}
 
 
-def _write_deploy_key(project_uuid: str, key_material: str) -> Path:
-    """Write the deploy key 0600 under ~/.config/empirica/forgejo-keys/<uuid>."""
-    key_dir = Path.home() / ".config" / "empirica" / "forgejo-keys"
-    key_dir.mkdir(parents=True, exist_ok=True)
-    key_path = key_dir / project_uuid
-    # ssh requires a trailing newline on the private key file.
-    text = key_material if key_material.endswith("\n") else key_material + "\n"
-    key_path.write_text(text)
-    key_path.chmod(0o600)
-    return key_path
+def _write_token(project_uuid: str, token: str) -> Path:
+    """Stash the Forgejo access token 0600 under ~/.config/empirica/forgejo-tokens/<uuid>.
+
+    Enables offline-replayable pushes (re-push without a fresh cortex round-trip).
+    Only the bare token is stored — the credential-composed push URL is NEVER
+    persisted.
+    """
+    tok_dir = Path.home() / ".config" / "empirica" / "forgejo-tokens"
+    tok_dir.mkdir(parents=True, exist_ok=True)
+    tok_path = tok_dir / project_uuid
+    tok_path.write_text(token)
+    tok_path.chmod(0o600)
+    return tok_path
 
 
-def _git(project_path: Path, *args: str, key_path: Path | None = None,
-         timeout: int = 120) -> subprocess.CompletedProcess:
-    """Run git in `project_path`, optionally pinning the ssh key for pushes."""
-    env = dict(os.environ)
-    if key_path is not None:
-        env["GIT_SSH_COMMAND"] = (
-            f"ssh -i {key_path} -o IdentitiesOnly=yes "
-            "-o StrictHostKeyChecking=accept-new"
-        )
+def _compose_push_url(repo_url: str, token_user: str, token: str) -> str:
+    """Insert credentials into an https repo URL for an ephemeral push.
+
+    Returns https://<user>:<token>@host/path. Used ONLY as a push-time argument;
+    never written to git config or persisted (the `forgejo` remote keeps the
+    credential-free URL).
+    """
+    from urllib.parse import quote
+    if not repo_url.startswith("https://"):
+        return repo_url
+    rest = repo_url[len("https://"):]
+    return f"https://{quote(token_user, safe='')}:{quote(token, safe='')}@{rest}"
+
+
+def _git(project_path: Path, *args: str, timeout: int = 180) -> subprocess.CompletedProcess:
+    """Run git in `project_path` (HTTPS push carries creds in the URL arg)."""
     return subprocess.run(
         ["git", "-C", str(project_path), *args],
-        capture_output=True, text=True, timeout=timeout, env=env, check=False,
+        capture_output=True, text=True, timeout=timeout, check=False,
     )
 
 
@@ -138,8 +148,8 @@ def handle_forgejo_publish_command(args) -> int:
                 print(f"✅ Forgejo provisioned: {payload.get('forgejo_repo_url')}")
                 for ref, ok in (payload.get("push_results") or {}).items():
                     print(f"   {'✓' if ok else '✗'} {ref}")
-                if payload.get("key_path"):
-                    print(f"   deploy key: {payload['key_path']} (0600)")
+                if payload.get("token_path"):
+                    print(f"   token: {payload['token_path']} (0600)")
             else:
                 print(f"❌ forgejo-publish: {payload.get('error') or payload.get('reason')}")
         return code
@@ -162,27 +172,33 @@ def handle_forgejo_publish_command(args) -> int:
 
     forgejo_url = body.get("forgejo_repo_url")
     refspecs = body.get("refspecs") or []
-    key_material = body.get("deploy_key_private")
+    token = body.get("forgejo_token")
+    token_user = body.get("forgejo_token_user")
     if not forgejo_url:
         return _emit({"ok": False, "reason": "cortex response missing forgejo_repo_url", "body": body}, 1)
 
-    # Idempotent re-call without rotate returns no key — can't (re)push without one.
-    if not key_material:
+    # Idempotent re-call without rotate returns no token (unrecoverable) — can't push.
+    if not (token and token_user):
         return _emit({
             "ok": True, "forgejo_repo_url": forgejo_url,
             "already_published": bool(body.get("already_published")),
-            "note": "no deploy key returned (already published) — re-run with --rotate to mint a fresh key and re-push",
+            "note": "no token returned (already published) — re-run with --rotate to mint a fresh token and re-push",
         }, 0)
 
-    key_path = _write_deploy_key(project_id, key_material)
-    _set_forgejo_remote(project_path, forgejo_url)
+    tok_path = _write_token(project_id, token)
+    _set_forgejo_remote(project_path, forgejo_url)  # clean URL — credentials never persisted
+    push_url = _compose_push_url(forgejo_url, token_user, token)
 
     push_results: dict[str, bool] = {}
     for spec in refspecs:
-        r = _git(project_path, "push", FORGEJO_REMOTE_NAME, spec, key_path=key_path)
+        # Push to the credentialed URL directly so the `forgejo` remote + git
+        # config stay secret-free (the composed form is never persisted).
+        r = _git(project_path, "push", push_url, spec)
         push_results[spec] = r.returncode == 0
         if r.returncode != 0 and not output_json:
-            print(f"   ✗ push {spec}: {(r.stderr or '').strip()[:200]}")
+            # Scrub the token from any error echo.
+            err = (r.stderr or "").strip().replace(token, "***")[:200]
+            print(f"   ✗ push {spec}: {err}")
 
     ok = all(push_results.values()) if push_results else True
     return _emit({
@@ -190,5 +206,5 @@ def handle_forgejo_publish_command(args) -> int:
         "forgejo_repo_url": forgejo_url,
         "refspecs": refspecs,
         "push_results": push_results,
-        "key_path": str(key_path),
+        "token_path": str(tok_path),
     }, 0 if ok else 1)
