@@ -5,6 +5,21 @@ All notable changes to Empirica will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.1] — 2026-06-16
+
+A managed-Forgejo publishing path for projects with no public remote, the compliance-report diagnostics emit (an account-gated free funnel into Cortex's System │ Diagnostics surface), plus a sentinel-gating correctness fix and two listener/hook reliability fixes.
+
+### Added
+
+- **`empirica forgejo-publish`** — provision a managed Forgejo remote for a project and push it up (`empirica/cli/command_handlers/forgejo_commands.py`). The operator / self-hosting provisioning verb for a project with no existing origin (Forgejo's managed pull-mirror can't apply without one to pull from): Cortex mints a per-project, owner-scoped bot token over HTTPS; the token is stashed `0600` under `~/.config/empirica/forgejo-tokens/<uuid>`; a credential-free `forgejo` remote is added (the canonical `origin` repo_url is never touched); and each refspec is pushed to a credentialed URL composed only at push-time and never persisted to git config. Notes-ref wildcards are enumerated and pushed in batches of 250 — a single RPC carrying thousands of note refs 504s at the gateway. 16 tests in `tests/test_forgejo_commands.py`.
+- **`empirica compliance-report --emit`** — emit the compliance assessment as a `diagnostics` system event to Cortex (`POST /v1/system/event`), surfacing in the System │ Diagnostics view (`empirica/cli/command_handlers/system_event.py`, `compliance_report_commands.py`). Account-gated free diagnostics: the EU AI Act / GDPR / ISO check results become a shareable, queryable record. 9 tests in `tests/test_system_event.py`.
+
+### Fixed
+
+- **Sentinel no longer over-gates newline-separated `empirica` command chains** (`plugins/claude-code-integration/hooks/sentinel-gate.py`). A multi-line Bash block of individually-noetic `empirica` calls was being classified off its first segment alone; the classifier now splits on newlines (heredoc-guarded so `<< EOF` blocks aren't shredded) and routes each segment independently. The same pass closes a firewall over-allow where a piped `empirica goals-list | sh` slipped through as noetic — pipe segments now route through the pipe-chain classifier. 10 new regression tests.
+- **Listener liveness detection decoupled from the launchd plist-file location** — macOS launchd reparents supervised services, so liveness now derives from the running process rather than the plist path, ending a class of false orphan-classification on launchd-managed installs.
+- **Hooks resolve the canonical `ai_id`** instead of hardcoding `claude-code`, so per-practice wake routing addresses the correct practitioner.
+
 ## [1.12.0] — 2026-06-14
 
 Project identity becomes a single canonical UUID, and project registration + onboarding get a clean, copy-pastable model that the extension's Register UI mirrors. Plus an idempotent contact-mint primitive, the `sources-reconcile` verb (canonical source identity), per-org daemon env support, and listener-GC hardening.

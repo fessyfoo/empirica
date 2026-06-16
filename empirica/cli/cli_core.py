@@ -610,6 +610,7 @@ def main(args=None):
             'projects-bulk-register': handle_projects_bulk_register_command,
             'projects-unregister': handle_projects_unregister_command,
             'project-register': handle_project_register_command,
+            'forgejo-publish': handle_forgejo_publish_command,
             'daemon-list': handle_daemon_list_command,
             'daemon-grant': handle_daemon_grant_command,
             'daemon-deny': handle_daemon_deny_command,

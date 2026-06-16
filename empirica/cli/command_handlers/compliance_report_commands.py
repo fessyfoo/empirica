@@ -1323,7 +1323,41 @@ def handle_compliance_report_command(args) -> None:
     except Exception:
         pass
 
+    if getattr(args, "emit", False):
+        _emit_compliance_to_system_events(report, quiet=(output_format == "json"))
+
     if output_format == "json":
         print(json.dumps(report, indent=2))
     else:
         _print_human_report(report)
+
+
+def _emit_compliance_to_system_events(report: dict[str, Any], *, quiet: bool = False) -> None:
+    """Emit the compliance result to cortex's G11 system-events surface (--emit).
+
+    Account-gated: needs a cortex api_key. Never raises — emission is best-effort
+    and must not fail the report itself.
+    """
+    try:
+        from datetime import datetime, timezone
+
+        from empirica.cli.command_handlers.system_event import (
+            compliance_report_to_event,
+            emit_system_event,
+        )
+        from empirica.utils.session_resolver import InstanceResolver as R
+
+        ran_by = R.ai_id() or "empirica"
+        ran_at = datetime.now(timezone.utc).isoformat()
+        envelope = compliance_report_to_event(
+            report, ran_by=ran_by, ran_at=ran_at, suite="empirica-compliance",
+        )
+        status, body = emit_system_event(envelope)
+        if not quiet:
+            if status == 200:
+                print(f"  📡 emitted to System│Diagnostics ({envelope['event_type']})")
+            else:
+                print(f"  ⚠ emit failed ({status}): {body.get('error')}")
+    except Exception as e:
+        if not quiet:
+            print(f"  ⚠ emit skipped: {type(e).__name__}: {e}")

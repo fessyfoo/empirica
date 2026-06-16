@@ -306,7 +306,10 @@ def _get_dynamic_thresholds(db) -> tuple:
     """
     try:
         from empirica.core.post_test.dynamic_thresholds import compute_dynamic_thresholds
-        dt_result = compute_dynamic_thresholds(ai_id="claude-code", db=db)
+        from empirica.utils.session_resolver import InstanceResolver as R
+        # Brier thresholds are per-practice — resolve the canonical ai_id so a
+        # multi-practice machine doesn't read 'claude-code' calibration for all.
+        dt_result = compute_dynamic_thresholds(ai_id=R.ai_id() or "claude-code", db=db)
         if dt_result.get("source") == "dynamic":
             noetic = dt_result.get("noetic", {})
             if noetic.get("brier_score") is not None:
@@ -1197,6 +1200,11 @@ def _is_segment_safe(segment: str) -> bool:
     # 4. Original safe forms.
     if stripped.startswith('cd '):
         return True
+    # A piped segment (`empirica goals-list | tail`) must be validated
+    # stage-by-stage — the trailing pipe can otherwise smuggle an executor
+    # (`empirica goals-list | sh`) past the bare empirica-prefix match.
+    if _contains_outside_quotes(stripped, '|'):
+        return is_safe_pipe_chain(stripped)
     if is_safe_empirica_command(stripped):
         return True
     if stripped.startswith(('ssh ', 'rsync ', 'scp ', 'ssh-')):
@@ -1268,6 +1276,27 @@ def _maybe_nudge_remote_ops(cmd: str) -> None:
     )
 
 
+def _classify_chain(command: str) -> bool | None:
+    """Classify a multi-segment shell chain.
+
+    Returns True/False if `command` is a chain joined by &&/||/;/newline
+    (outside quotes) — True iff EVERY segment is safe. Returns None when it
+    isn't a chain (caller continues with single-command classification).
+
+    Newline counts as a separator (a multi-line payload of planning verbs is a
+    chain), EXCEPT when a heredoc (`<<`) is present — its body legitimately
+    spans lines, and splitting on those newlines would shred it.
+    """
+    chain_ops: tuple[str, ...] = ('&&', '||', ';')
+    if '<<' not in command:
+        chain_ops = (*chain_ops, '\n')
+    for chain_op in chain_ops:
+        if _contains_outside_quotes(command, chain_op):
+            segments = [s.strip() for s in _split_outside_quotes(command, chain_op)]
+            return all(_is_segment_safe(s) for s in segments)
+    return None
+
+
 def is_safe_bash_command(tool_input: dict) -> bool:
     """Check if a Bash command is in the safe (noetic) whitelist.
 
@@ -1279,17 +1308,18 @@ def is_safe_bash_command(tool_input: dict) -> bool:
     if not command:
         return False
 
-    # Chain commands (&&, ||, ;) first — safe ONLY if ALL segments are safe.
-    # This MUST happen before the single-command shortcuts below, otherwise
-    # `empirica goals-list && rm -rf /` slips through because the whole
-    # command starts with a safe empirica prefix. Quoted occurrences (e.g.,
-    # echo 'a;b') don't count as chain operators.
-    for chain_op in ('&&', '||', ';'):
-        if _contains_outside_quotes(command, chain_op):
-            segments = [s.strip() for s in _split_outside_quotes(command, chain_op)]
-            return all(_is_segment_safe(s) for s in segments)
+    # Chain commands (&&, ||, ;, newline) — safe ONLY if ALL segments are
+    # safe. MUST run before the single-command shortcuts, otherwise
+    # `empirica goals-list && rm -rf /` slips through on the leading safe
+    # prefix. See _classify_chain (handles the heredoc + newline nuances).
+    chain_result = _classify_chain(command)
+    if chain_result is not None:
+        return chain_result
 
-    if is_safe_empirica_command(command):
+    # Single command. A trailing pipe can smuggle an executor
+    # (`empirica goals-list | sh`), so a piped command is NOT safe on the bare
+    # empirica-prefix match — it goes through the pipe-chain check below.
+    if not _contains_outside_quotes(command, '|') and is_safe_empirica_command(command):
         return True
 
     # Work-type expansion: infra/config/debug/remote-ops get broader safe
@@ -2664,7 +2694,14 @@ def _resolve_session(tx_session_id: str | None, claude_session_id: str | None,
             pass
 
     if not session_id:
-        respond("allow", f"WARNING: No session found. Run: empirica session-create --ai-id claude-code && empirica preflight-submit -{env_annotation}")
+        # Name the canonical practice in the suggested command, not a generic
+        # 'claude-code' the user would then have to correct by hand.
+        try:
+            from empirica.utils.session_resolver import InstanceResolver as R
+            hint_ai_id = R.ai_id() or 'claude-code'
+        except Exception:
+            hint_ai_id = 'claude-code'
+        respond("allow", f"WARNING: No session found. Run: empirica session-create --ai-id {hint_ai_id} && empirica preflight-submit -{env_annotation}")
         sys.exit(0)
 
     return session_id

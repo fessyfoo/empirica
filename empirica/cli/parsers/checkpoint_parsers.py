@@ -390,6 +390,24 @@ def add_checkpoint_parsers(subparsers):
     project_register_parser.add_argument('--timeout', type=float, default=10.0, help='Cortex POST timeout in seconds (default: 10)')
     project_register_parser.add_argument('--output', choices=['human', 'json'], default='human', help='Output format')
 
+    # Forgejo provisioning (operator / self-hosting power-user PUSH mode)
+    forgejo_publish_parser = subparsers.add_parser(
+        'forgejo-publish',
+        help=(
+            "Provision a managed Forgejo remote for a project (operator / "
+            "self-hosting power-user tool, not an end-user default): POST "
+            "/v1/projects/{id}/forgejo-publish, write the deploy key 0600, add "
+            "the 'forgejo' git remote, and push the cortex-supplied refspecs. "
+            "This is the PUSH mode for projects with no existing remote — "
+            "distinct from the managed pull-mirror path. Leaves 'origin' "
+            "(repo_url) untouched."
+        ),
+    )
+    forgejo_publish_parser.add_argument('path', nargs='?', default='.', help='Project root path (default: current directory)')
+    forgejo_publish_parser.add_argument('--rotate', action='store_true', help='Mint a fresh deploy key (revokes the prior) — also the way to re-push an already-published project.')
+    forgejo_publish_parser.add_argument('--description', help='Optional Forgejo repo description.')
+    forgejo_publish_parser.add_argument('--output', choices=['human', 'json'], default='human', help='Output format')
+
     # Workspace overview command
     workspace_overview_parser = subparsers.add_parser(
         'workspace-overview',

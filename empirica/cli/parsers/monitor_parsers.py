@@ -186,6 +186,8 @@ Mapped frameworks: EU AI Act, GDPR, ISO/IEC 42001
         """)
     compliance_parser.add_argument('--tests', action='store_true',
         help='Include test suite execution (slow)')
+    compliance_parser.add_argument('--emit', action='store_true',
+        help='Emit the result to cortex System│Diagnostics (POST /v1/system/event; needs a cortex api_key)')
     compliance_parser.add_argument('--dep-audit', action='store_true',
         help='Include dependency CVE audit')
     compliance_parser.add_argument('--security', action='store_true',

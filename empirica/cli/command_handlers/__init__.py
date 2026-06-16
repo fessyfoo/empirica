@@ -94,6 +94,7 @@ from .epistemics_commands import (
 from .epp_commands import (
     handle_epp_activate_command,
 )
+from .forgejo_commands import handle_forgejo_publish_command
 from .git_commands import handle_history_command, handle_save_command
 from .goal_commands import (
     handle_goals_activate_command,
@@ -333,6 +334,7 @@ __all__ = [  # noqa: RUF022
     'handle_epistemics_stats_command',
     'handle_epp_activate_command',
     'handle_finding_log_command',
+    'handle_forgejo_publish_command',
     'handle_goals_activate_command',    # Activate planned goal → in_progress
     'handle_goals_add_dependency_command',
     'handle_goals_add_task_command',
