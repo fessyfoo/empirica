@@ -358,3 +358,59 @@ class TestRemoteOpsGateRelaxation:
         # a representative member).
         if any(p.startswith('docker') for p in gate.INFRA_SAFE_PREFIXES):
             assert gate.is_safe_bash_command({'command': 'docker ps'})
+
+
+class TestNewlineChainAndPipeOverAllow:
+    """Newline-separated planning-verb chains are safe (David-flagged
+    prop_7eswxsax over-gating bug); the fix must NOT widen the pipe over-allow
+    (`empirica goals-list | sh`) and must NOT shred heredocs."""
+
+    # ── the flagged over-gating repro: now ALLOWED ──────────────────────
+    def test_newline_chain_of_planning_verbs_allowed(self, gate):
+        cmd = (
+            "GOAL_ID=abc\n"
+            "empirica goals-add-task --goal-id $GOAL_ID --description 'one' 2>&1 | tail -2\n"
+            "empirica goals-add-task --goal-id $GOAL_ID --description 'two' 2>&1 | tail -2"
+        )
+        assert gate.is_safe_bash_command({'command': cmd}) is True
+
+    def test_newline_chain_plain_planning_verbs_allowed(self, gate):
+        cmd = "empirica goals-create --objective 'a'\nempirica unknown-log --unknown 'b'"
+        assert gate.is_safe_bash_command({'command': cmd}) is True
+
+    def test_single_goals_add_task_markdown_pipe_description_allowed(self, gate):
+        # `|` (markdown table) and newline live INSIDE the quoted description —
+        # not chain/pipe operators. Must stay allowed (the rich-markdown case).
+        cmd = ('empirica goals-add-task --goal-id X '
+               '--description "## T\n| col | col |\n| a | b |"')
+        assert gate.is_safe_bash_command({'command': cmd}) is True
+
+    # ── security: the fix must NOT over-allow ───────────────────────────
+    def test_newline_chain_with_rm_blocked(self, gate):
+        cmd = "empirica goals-add-task --goal-id X --description 'a'\nrm -rf /tmp/foo"
+        assert gate.is_safe_bash_command({'command': cmd}) is False
+
+    def test_empirica_chained_to_rm_still_blocked(self, gate):
+        assert gate.is_safe_bash_command({'command': 'empirica goals-list && rm -rf /'}) is False
+
+    def test_empirica_piped_to_sh_blocked(self, gate):
+        # The pre-existing over-allow this fix closes: trailing pipe to an
+        # executor must not pass on the bare empirica-prefix match.
+        assert gate.is_safe_bash_command({'command': 'empirica goals-list | sh'}) is False
+
+    def test_empirica_piped_to_bash_blocked(self, gate):
+        assert gate.is_safe_bash_command({'command': 'empirica goals-list | bash'}) is False
+
+    def test_newline_chain_with_piped_executor_blocked(self, gate):
+        cmd = "empirica goals-add-task --goal-id X --description 'a'\nempirica goals-list | sh"
+        assert gate.is_safe_bash_command({'command': cmd}) is False
+
+    # ── still-allowed read-only pipes + heredocs (no regression) ────────
+    def test_empirica_piped_to_tail_allowed(self, gate):
+        assert gate.is_safe_bash_command({'command': 'empirica goals-list | tail -2'}) is True
+
+    def test_heredoc_preflight_not_shredded(self, gate):
+        # `<<` present → newline-splitting is skipped so the multi-line JSON
+        # body isn't shredded into bogus segments.
+        cmd = "empirica preflight-submit - << 'EOF'\n{\"vectors\": {}}\nEOF"
+        assert gate.is_safe_bash_command({'command': cmd}) is True
