@@ -7,15 +7,20 @@ created=false. The returned id is the canonical contact_id that external
 consumers (e.g. a CRM MCP server on the same box) carry as their FK and
 that the knowledge-graph traversal resolves.
 
-The daemon binds localhost-only; no bearer auth is enforced (consistent
-with the other /api/v1 routes — transport security is the loopback
-boundary).
+On a loopback daemon no bearer auth is enforced (transport security is the
+loopback boundary, consistent with the other /api/v1 routes). When the per-org
+daemon binds non-loopback (the hosted deployment), the route is guarded by a
+service-token bearer — see ``empirica.api.entity_mint_auth``. The guard is a
+route dependency, so the mint contract body is unchanged; auth rides the
+``Authorization`` header (401 on missing/invalid token).
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+
+from empirica.api.entity_mint_auth import verify_mint_bearer
 
 router = APIRouter(prefix="/api/v1", tags=["entities"])
 
@@ -33,7 +38,7 @@ class EntityCreateRequest(BaseModel):
     )
 
 
-@router.post("/entities")
+@router.post("/entities", dependencies=[Depends(verify_mint_bearer)])
 async def create_entity(req: EntityCreateRequest):
     """Idempotent contact mint. Returns the canonical entity_id.
 

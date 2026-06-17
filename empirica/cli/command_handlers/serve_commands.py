@@ -19,6 +19,15 @@ def handle_serve_command(args):
         print("Error: uvicorn not installed. Run: pip install 'empirica[api]'")
         return 1
 
+    # Fail-closed: never expose the entity-mint endpoint unauthenticated. A
+    # non-loopback bind requires a configured service-token set.
+    from empirica.api.entity_mint_auth import assert_bind_safe
+    try:
+        assert_bind_safe(host)
+    except RuntimeError as e:
+        print(f"Error: {e}")
+        return 1
+
     print(f"Starting Empirica serve daemon on http://{host}:{port}")
     print(f"  Health:  http://{host}:{port}/api/v1/health")
     print(f"  Import:  POST http://{host}:{port}/api/v1/artifacts/import")
