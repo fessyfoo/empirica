@@ -16,26 +16,36 @@ from empirica.api import serve_app as sa
 
 def test_resolve_ollama_env_wins(monkeypatch):
     monkeypatch.setenv("EMPIRICA_OLLAMA_URL", "http://halo-strix:11434")
-    with patch("empirica.core.qdrant.embeddings._load_config_file", return_value={"ollama_url": "http://cfg:11434"}):
+    with patch.object(sa, "_config_ollama_url", return_value="http://cfg:11434"):
         assert sa._resolve_ollama_url() == "http://halo-strix:11434"
 
 
 def test_resolve_ollama_config_when_no_env(monkeypatch):
     monkeypatch.delenv("EMPIRICA_OLLAMA_URL", raising=False)
-    with patch("empirica.core.qdrant.embeddings._load_config_file", return_value={"ollama_url": "http://empirica-server:11434/"}):
+    with patch.object(sa, "_config_ollama_url", return_value="http://empirica-server:11434/"):
         assert sa._resolve_ollama_url() == "http://empirica-server:11434"  # trailing slash stripped
 
 
 def test_resolve_ollama_localhost_fallback(monkeypatch):
     monkeypatch.delenv("EMPIRICA_OLLAMA_URL", raising=False)
-    with patch("empirica.core.qdrant.embeddings._load_config_file", return_value={}):
+    with patch.object(sa, "_config_ollama_url", return_value=None):
         assert sa._resolve_ollama_url() == "http://localhost:11434"
 
 
-def test_resolve_ollama_survives_config_load_error(monkeypatch):
+def test_config_ollama_url_none_when_no_config(tmp_path, monkeypatch):
+    # _config_ollama_url reads ~/.empirica/config.yaml directly (no heavy import)
+    monkeypatch.setenv("HOME", str(tmp_path))  # empty home → no config.yaml
+    assert sa._config_ollama_url() is None
+
+
+def test_resolve_ollama_does_not_import_embeddings(monkeypatch):
+    # The /health hot path must NOT import the heavy embeddings/openai module.
+    import sys
     monkeypatch.delenv("EMPIRICA_OLLAMA_URL", raising=False)
-    with patch("empirica.core.qdrant.embeddings._load_config_file", side_effect=OSError("boom")):
-        assert sa._resolve_ollama_url() == "http://localhost:11434"
+    sys.modules.pop("empirica.core.qdrant.embeddings", None)
+    with patch.object(sa, "_config_ollama_url", return_value=None):
+        sa._resolve_ollama_url()
+    assert "empirica.core.qdrant.embeddings" not in sys.modules
 
 
 # ── qdrant URL resolution (EMPIRICA_QDRANT_URL > localhost) ──

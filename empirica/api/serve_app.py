@@ -371,17 +371,35 @@ def _register_credentials_routes(app: FastAPI) -> None:
 
 # ── Internal Handlers ────────────────────────────────────────────────
 
+def _config_ollama_url() -> str | None:
+    """Read `embeddings.ollama_url` from ~/.empirica/config.yaml DIRECTLY.
+
+    Deliberately does NOT import empirica.core.qdrant.embeddings — that module
+    pulls in the openai SDK (~0.5s+ import) and this runs in the /health request
+    hot path (the daemon must answer health fast, e.g. for the extension's poll
+    + the e2e startup probe). Mirrors the embeddings resolver's config read
+    (env-over-config is applied by the caller).
+    """
+    try:
+        import yaml
+        cfg_path = os.path.expanduser("~/.empirica/config.yaml")
+        if not os.path.exists(cfg_path):
+            return None
+        with open(cfg_path, encoding="utf-8") as f:
+            full = yaml.safe_load(f) or {}
+        return (full.get("embeddings") or {}).get("ollama_url")
+    except Exception:
+        return None
+
+
 def _resolve_ollama_url() -> str:
     """Ollama URL the same way embeddings resolves it: env > config.yaml
     embeddings.ollama_url > localhost. So serve health reflects the ACTUAL
     configured backend instead of false-negating on a remote-Ollama setup.
     """
-    try:
-        from empirica.core.qdrant.embeddings import _load_config_file
-        file_default = _load_config_file().get("ollama_url", "http://localhost:11434")
-    except Exception:
-        file_default = "http://localhost:11434"
-    return os.environ.get("EMPIRICA_OLLAMA_URL", file_default).rstrip("/")
+    return os.environ.get(
+        "EMPIRICA_OLLAMA_URL", _config_ollama_url() or "http://localhost:11434",
+    ).rstrip("/")
 
 
 def _resolve_qdrant_url() -> str:
