@@ -15,6 +15,7 @@ API contract matches empirica-extension/src/api/empirica-client.ts:
 """
 
 import logging
+import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -370,11 +371,32 @@ def _register_credentials_routes(app: FastAPI) -> None:
 
 # ── Internal Handlers ────────────────────────────────────────────────
 
+def _resolve_ollama_url() -> str:
+    """Ollama URL the same way embeddings resolves it: env > config.yaml
+    embeddings.ollama_url > localhost. So serve health reflects the ACTUAL
+    configured backend instead of false-negating on a remote-Ollama setup.
+    """
+    try:
+        from empirica.core.qdrant.embeddings import _load_config_file
+        file_default = _load_config_file().get("ollama_url", "http://localhost:11434")
+    except Exception:
+        file_default = "http://localhost:11434"
+    return os.environ.get("EMPIRICA_OLLAMA_URL", file_default).rstrip("/")
+
+
+def _resolve_qdrant_url() -> str:
+    """Qdrant URL honoring EMPIRICA_QDRANT_URL (the same env `_get_qdrant_client`
+    uses) before falling back to localhost — so remote-Qdrant setups don't
+    false-negative in serve health.
+    """
+    return os.environ.get("EMPIRICA_QDRANT_URL", "http://localhost:6333").rstrip("/")
+
+
 def _check_ollama() -> bool:
-    """Check if Ollama is available locally."""
+    """Check if Ollama is reachable at the configured ollama_url."""
     try:
         import urllib.request
-        req = urllib.request.Request("http://localhost:11434/api/tags", method="GET")
+        req = urllib.request.Request(f"{_resolve_ollama_url()}/api/tags", method="GET")
         with urllib.request.urlopen(req, timeout=2):
             return True
     except Exception:
@@ -382,10 +404,10 @@ def _check_ollama() -> bool:
 
 
 def _check_qdrant() -> bool:
-    """Check if Qdrant is available locally."""
+    """Check if Qdrant is reachable at the configured qdrant_url."""
     try:
         import urllib.request
-        req = urllib.request.Request("http://localhost:6333/collections", method="GET")
+        req = urllib.request.Request(f"{_resolve_qdrant_url()}/collections", method="GET")
         with urllib.request.urlopen(req, timeout=2):
             return True
     except Exception:
