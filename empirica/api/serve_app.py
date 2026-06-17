@@ -14,7 +14,9 @@ API contract matches empirica-extension/src/api/empirica-client.ts:
 - POST /api/v1/profile/sync    → SyncResponse
 """
 
+import json
 import logging
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -141,6 +143,31 @@ class SyncResponse(BaseModel):
     imported: int = 0
 
 
+class ListenerRow(BaseModel):
+    """One (instance, listener) row for the extension's receive-path health
+    indicator. Declarative + history fields come from the listener registry;
+    `health_*` fields are merged from the per-instance heartbeat marker.
+    `topic` is kept raw (`ntfy:<topic>?tags=<tag>`) — the extension parses it
+    and owns the red/amber render logic.
+    """
+    instance_id: str
+    name: str
+    description: str = ""
+    topic: str = ""
+    wake_count: int = 0
+    last_wake_at: str | None = None
+    last_message: str | None = None
+    registered_at: str | None = None
+    health_status: str | None = None  # ok | degraded | None (no heartbeat yet)
+    health_loop: str | None = None
+    health_ts: str | None = None
+
+
+class ListenersResponse(BaseModel):
+    ok: bool = True
+    listeners: list[ListenerRow] = Field(default_factory=list)
+
+
 # ── FastAPI App ──────────────────────────────────────────────────────
 
 def create_serve_app() -> FastAPI:
@@ -229,6 +256,17 @@ def create_serve_app() -> FastAPI:
         except Exception as e:
             logger.error(f"Profile sync failed: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e)) from e
+
+    @app.get("/api/v1/listeners", response_model=ListenersResponse)
+    async def listeners():  # pyright: ignore[reportUnusedFunction]
+        """Registered mesh listeners + heartbeat freshness, merged from the
+        on-disk registry + health markers. Lets the extension flag silent
+        receive failures (seat alive but deaf) without reading ~/.empirica/
+        directly. Read-only, localhost — same trust surface as /health."""
+        return ListenersResponse(
+            ok=True,
+            listeners=[ListenerRow(**row) for row in _gather_listeners()],
+        )
 
     _register_credentials_routes(app)
 
@@ -390,6 +428,68 @@ def _check_qdrant() -> bool:
             return True
     except Exception:
         return False
+
+
+# Instance ids that are dev/test fixtures, not canonical mesh seats — skipped
+# from the listeners endpoint so the extension's Diagnostics tab stays clean.
+_FIXTURE_INSTANCE_IDS = frozenset({"test_instance", "smoke_test", "custom"})
+_FIXTURE_INSTANCE_PREFIXES = ("tmux_",)
+
+
+def _is_fixture_instance(instance_id: str) -> bool:
+    return (
+        instance_id in _FIXTURE_INSTANCE_IDS
+        or any(instance_id.startswith(p) for p in _FIXTURE_INSTANCE_PREFIXES)
+    )
+
+
+def _gather_listeners() -> list[dict]:
+    """Merge the on-disk listener registry + heartbeat-health files into a flat
+    list of rows for the extension (which can't read ~/.empirica/ directly).
+
+    One row per (instance, listener), built from
+    ``~/.empirica/listeners_<inst>.json`` (declarative + history) with the
+    ``health_*`` fields merged from ``~/.empirica/listener_health_<inst>.json``
+    by instance. Dev/test fixtures are skipped. Read-only; never raises — a
+    missing or malformed file is skipped, not fatal.
+    """
+    base = Path.home() / ".empirica"
+    rows: list[dict] = []
+    if not base.exists():
+        return rows
+    for reg_path in sorted(base.glob("listeners_*.json")):
+        try:
+            with open(reg_path, encoding="utf-8") as f:
+                reg = json.load(f)
+        except Exception:
+            continue
+        instance_id = reg.get("instance_id") or ""
+        if not instance_id or _is_fixture_instance(instance_id):
+            continue
+        health: dict = {}
+        hpath = base / f"listener_health_{instance_id}.json"
+        if hpath.exists():
+            try:
+                with open(hpath, encoding="utf-8") as f:
+                    health = json.load(f) or {}
+            except Exception:
+                health = {}
+        for name, entry in (reg.get("listeners") or {}).items():
+            entry = entry or {}
+            rows.append({
+                "instance_id": instance_id,
+                "name": name,
+                "description": entry.get("description", "") or "",
+                "topic": entry.get("topic", "") or "",
+                "wake_count": int(entry.get("wake_count", 0) or 0),
+                "last_wake_at": entry.get("last_wake_at"),
+                "last_message": entry.get("last_message"),
+                "registered_at": entry.get("registered_at"),
+                "health_status": health.get("status"),
+                "health_loop": health.get("loop"),
+                "health_ts": health.get("ts"),
+            })
+    return rows
 
 
 def _store_artifacts(artifacts: list[ArtifactPayload]) -> dict:
