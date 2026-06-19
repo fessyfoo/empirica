@@ -12,7 +12,7 @@ ENV:
 
 Providers:
 - auto: Auto-detect best available (ollama if running, else local)
-- openai: OpenAI API (requires openai package + API key)
+- openai: OpenAI API (REST /v1/embeddings, no SDK — just an API key)
 - ollama: Local Ollama server (bge-m3, nomic-embed-text, qwen3-embedding, etc.)
 - jina: Jina AI API (jina-embeddings-v3, jina-colbert-v2)
 - voyage: Voyage AI API (voyage-3.5, voyage-3-lite)
@@ -28,11 +28,6 @@ logger = logging.getLogger(__name__)
 
 # Cache for Ollama availability check
 _ollama_available: bool | None = None
-
-try:
-    from openai import OpenAI  # type: ignore
-except Exception:  # pragma: no cover
-    OpenAI = None  # lazy import guard
 
 # Default models and their vector dimensions per provider
 DEFAULT_MODELS = {
@@ -220,9 +215,12 @@ class EmbeddingsProvider:
         self._vector_size: int | None = None
 
         if self.provider == "openai":
-            if OpenAI is None:
-                raise RuntimeError("openai package not available; install openai>=1.0")
-            self._client = OpenAI()
+            # OpenAI uses its REST API directly (no SDK dependency) — the
+            # /v1/embeddings endpoint is a plain POST, same shape as jina/voyage.
+            self._openai_api_key = os.getenv("OPENAI_API_KEY", file_conf.get("openai_api_key"))
+            if not self._openai_api_key:
+                raise RuntimeError("OPENAI_API_KEY env var or openai_api_key in ~/.empirica/embeddings.conf required for provider=openai")
+            self._client = None
             self._vector_size = MODEL_DIMENSIONS.get(self.model, 1536)
         elif self.provider == "ollama":
             # Ollama uses REST API - no special client needed
@@ -262,8 +260,7 @@ class EmbeddingsProvider:
         text = text or ""
 
         if self.provider == "openai":
-            resp = self._client.embeddings.create(model=self.model, input=text)  # type: ignore
-            return resp.data[0].embedding  # type: ignore
+            return self._embed_openai(text)
 
         if self.provider == "ollama":
             return self._embed_ollama(text)
@@ -392,6 +389,47 @@ class EmbeddingsProvider:
         except Exception as e:
             logger.warning(f"Batch embed failed: {e} — falling back to sequential")
             return [self.embed(t) for t in texts]
+
+    def _embed_openai(self, text: str) -> list[float]:
+        """Embed using the OpenAI REST API (text-embedding-3-*, etc.).
+
+        Calls /v1/embeddings directly with ``requests`` — no ``openai`` SDK
+        dependency. The endpoint shape is identical to jina/voyage, so this
+        mirrors those providers. Empirica's default stack runs locally
+        (ollama/qwen3-embedding); the openai provider is opt-in.
+        """
+        import requests
+
+        url = "https://api.openai.com/v1/embeddings"
+        headers = {
+            "Authorization": f"Bearer {self._openai_api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": self.model,
+            "input": text
+        }
+
+        try:
+            resp = requests.post(url, json=payload, headers=headers, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            embedding = data.get("data", [{}])[0].get("embedding", [])
+
+            if not embedding:
+                logger.warning(f"OpenAI returned empty embedding for model {self.model}")
+                return self._embed_local_hash(text)
+
+            # Cache vector size
+            if self._vector_size is None:
+                self._vector_size = len(embedding)
+                logger.info(f"OpenAI {self.model} vector size: {self._vector_size}")
+
+            return embedding
+
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"OpenAI embedding failed: {e} - falling back to local hash")
+            return self._embed_local_hash(text)
 
     def _embed_jina(self, text: str) -> list[float]:
         """Embed using Jina AI API (jina-embeddings-v3, etc.)."""
