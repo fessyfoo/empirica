@@ -737,11 +737,11 @@ def _load_dynamic_context(session_id: str, ai_id: str, pre_snapshot: dict) -> di
         context["pending_subtasks"] = []
         for goal in context["active_goals"]:
             cursor.execute("""
-                SELECT id, description, status, importance, created_timestamp
+                SELECT id, description, status, epistemic_importance, created_timestamp
                 FROM subtasks
                 WHERE goal_id = ? AND status != 'completed'
                 ORDER BY
-                    CASE importance
+                    CASE epistemic_importance
                         WHEN 'critical' THEN 1
                         WHEN 'high' THEN 2
                         WHEN 'medium' THEN 3

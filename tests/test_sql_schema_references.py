@@ -272,14 +272,9 @@ def _missing_symbol(message: str) -> str:
 # the violations are listed here in the open, tracked, and CI-guarded against
 # regrowth. Fix-tracking goal: "SQL schema-reference audit — fix the 17 dead queries".
 _KNOWN_VIOLATIONS: frozenset[tuple[str, str]] = frozenset({
-    ("empirica/api/serve_app.py", "created_at"),
-    ("empirica/core/issue_capture.py", "issue_category"),
-    ("empirica/plugins/claude-code-integration/hooks/sentinel-gate.py", "timestamp"),
-    ("empirica/plugins/claude-code-integration/hooks/post-compact.py", "importance"),
     ("empirica/core/post_test/calibration_insights.py", "calibration_score"),
     ("empirica/core/sentinel/orchestrator.py", "scope_breadth"),
     ("empirica/cli/command_handlers/docs_commands.py", "project_id"),
-    ("empirica/cli/command_handlers/graph_commands.py", "unknown_id"),
     ("empirica/cli/command_handlers/agent_commands.py", "vectors_json"),
     ("empirica/cli/command_handlers/_workflow_preflight.py", "project_id"),
     ("empirica/cli/command_handlers/_workflow_preflight.py", "updated_at"),

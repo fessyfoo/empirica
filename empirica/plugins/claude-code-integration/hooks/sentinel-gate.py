@@ -2176,12 +2176,12 @@ def _validate_check_record(cursor, session_id: str, current_transaction_id, pref
         if noetic_duration < min_duration:
             cursor.execute("""
                 SELECT COUNT(*) FROM project_findings
-                WHERE session_id = ? AND timestamp > ? AND timestamp < ?
+                WHERE session_id = ? AND created_timestamp > ? AND created_timestamp < ?
             """, (session_id, preflight_ts, check_ts))
             findings = cursor.fetchone()[0]
             cursor.execute("""
                 SELECT COUNT(*) FROM project_unknowns
-                WHERE session_id = ? AND timestamp > ? AND timestamp < ?
+                WHERE session_id = ? AND created_timestamp > ? AND created_timestamp < ?
             """, (session_id, preflight_ts, check_ts))
             unknowns = cursor.fetchone()[0]
             if findings == 0 and unknowns == 0:
