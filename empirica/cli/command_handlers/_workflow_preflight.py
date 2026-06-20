@@ -359,7 +359,7 @@ def _feedback_extract_retrospective(cursor, session_id):
     Returns (feedback_dict, pf_meta) or (None, None) if no retrospective found.
     """
     cursor.execute("""
-        SELECT meta FROM reflexes
+        SELECT reflex_data FROM reflexes
         WHERE session_id = ? AND phase = 'POSTFLIGHT'
         ORDER BY timestamp DESC LIMIT 1
     """, (session_id,))
