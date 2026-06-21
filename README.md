@@ -339,16 +339,12 @@ All read-only, all support `--output json`. Backs cross-project orchestration, C
 
 ---
 
-## What's New in 1.12.3
+## What's New in 1.12.4
 
-- **`empirica note`** — a fast scratchpad note-to-self for jotting things to
-- **Retrospective soft-gate** — at PREFLIGHT, when the previous transaction made
-- **MCP↔CLI parity guard** — a test that introspects the real CLI parser and
-- **SQL schema-reference guard** — a test that validates every static SQL query
-- **Import-budget gate** — a test keeping the CLI and serve `/health` hot paths
-- **Revived 12 silently-dead static SQL queries** whose columns had been renamed
-- **PREFLIGHT prior-transaction behavioral feedback** was dead for an unknown
-- **Project-id resolution** read a non-existent `.empirica/project.json`; all
+- **Connective-tissue checks** — three domain-agnostic checks in the
+- **Sentinel recovery-verb deadlock** — a rushed assessment could make the
+- **Session-init mesh-identity self-heal** — session start now backfills a
+- **Repo-wide format enforcement** — the codebase is now `ruff format`-clean
 ---
 
 ## Privacy & Data
