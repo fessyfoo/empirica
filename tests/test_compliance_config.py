@@ -6,6 +6,7 @@ relaxations. Required so compliance-report works on non-empirica project
 shapes (servers, libraries, services) without forcing the empirica-CLI
 docs metric on every project.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -27,10 +28,14 @@ def test_load_compliance_config_missing_returns_empty(tmp_path):
 
 def test_load_compliance_config_reads_yaml(tmp_path):
     (tmp_path / ".empirica").mkdir()
-    (tmp_path / ".empirica" / "compliance.yaml").write_text(yaml.safe_dump({
-        "skip_checks": ["tech_docs"],
-        "extra_checks": [{"id": "foo", "runner": "scripts/foo.py"}],
-    }))
+    (tmp_path / ".empirica" / "compliance.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "skip_checks": ["tech_docs"],
+                "extra_checks": [{"id": "foo", "runner": "scripts/foo.py"}],
+            }
+        )
+    )
     cfg = _load_compliance_config(tmp_path)
     assert cfg["skip_checks"] == ["tech_docs"]
     assert cfg["extra_checks"][0]["id"] == "foo"
@@ -70,11 +75,14 @@ def test_repo_hygiene_license_required_false_relaxes_check(tmp_path):
 
 def test_repo_hygiene_all_optional_passes_with_minimal_project(tmp_path):
     proj = _bare_project(tmp_path)
-    result = _build_repo_hygiene_check(proj, overrides={
-        "license_required": False,
-        "changelog_required": False,
-        "release_scripts_required": False,
-    })
+    result = _build_repo_hygiene_check(
+        proj,
+        overrides={
+            "license_required": False,
+            "changelog_required": False,
+            "release_scripts_required": False,
+        },
+    )
     # Only gitignore + no_tracked_secrets + version_file remain — all present
     assert result["passed"] is True
     assert result["checks_total"] == 3
@@ -85,11 +93,7 @@ def test_repo_hygiene_all_optional_passes_with_minimal_project(tmp_path):
 
 def _make_runner(tmp_path: Path, body: str) -> Path:
     runner = tmp_path / "runner.py"
-    runner.write_text(
-        "#!/usr/bin/env python3\n"
-        "import json, sys\n"
-        f"{body}\n"
-    )
+    runner.write_text(f"#!/usr/bin/env python3\nimport json, sys\n{body}\n")
     runner.chmod(0o755)
     return runner
 
@@ -167,18 +171,21 @@ from empirica.cli.command_handlers.compliance_report_commands import (  # noqa: 
 
 def _docpistemic_payload(coverage: float = 92.3, documented: int = 24, total: int = 26) -> str:
     import json as _json
-    return _json.dumps({
-        "project": "test",
-        "epistemic": {
-            "overall_coverage": coverage,
-            "total_features": total,
-            "documented_features": documented,
-        },
-        "categories": [
-            {"name": "Core Modules", "total": 20, "documented": 20, "coverage": 100.0},
-        ],
-        "discovery": {},
-    })
+
+    return _json.dumps(
+        {
+            "project": "test",
+            "epistemic": {
+                "overall_coverage": coverage,
+                "total_features": total,
+                "documented_features": documented,
+            },
+            "categories": [
+                {"name": "Core Modules", "total": 20, "documented": 20, "coverage": 100.0},
+            ],
+            "discovery": {},
+        }
+    )
 
 
 def test_parse_docpistemic_pass_above_70():
@@ -233,19 +240,23 @@ from empirica.cli.command_handlers.compliance_report_commands import (  # noqa: 
 )
 
 
-def _link_check_payload(broken_total: int = 0, scanned: int = 100,
-                         tier_1: int = 0, tier_2: int = 0, tier_3: int = 0) -> str:
+def _link_check_payload(
+    broken_total: int = 0, scanned: int = 100, tier_1: int = 0, tier_2: int = 0, tier_3: int = 0
+) -> str:
     import json as _json
-    return _json.dumps({
-        "scanned_files": scanned,
-        "broken_total": broken_total,
-        "passed": broken_total == 0,
-        "tiers": {
-            "tier_1_top_readme": {"broken_total": tier_1, "files_with_breaks": 1 if tier_1 else 0, "files": []},
-            "tier_2_folder_readmes": {"broken_total": tier_2, "files_with_breaks": 0, "files": []},
-            "tier_3_other_md": {"broken_total": tier_3, "files_with_breaks": 0, "files": []},
-        },
-    })
+
+    return _json.dumps(
+        {
+            "scanned_files": scanned,
+            "broken_total": broken_total,
+            "passed": broken_total == 0,
+            "tiers": {
+                "tier_1_top_readme": {"broken_total": tier_1, "files_with_breaks": 1 if tier_1 else 0, "files": []},
+                "tier_2_folder_readmes": {"broken_total": tier_2, "files_with_breaks": 0, "files": []},
+                "tier_3_other_md": {"broken_total": tier_3, "files_with_breaks": 0, "files": []},
+            },
+        }
+    )
 
 
 def test_parse_docs_link_check_pass_when_zero_broken():
@@ -260,8 +271,7 @@ def test_parse_docs_link_check_pass_when_zero_broken():
 
 
 def test_parse_docs_link_check_fail_when_any_broken():
-    raw = {"stdout": _link_check_payload(broken_total=5, tier_2=2, tier_3=3),
-           "duration_seconds": 0.5, "passed": False}
+    raw = {"stdout": _link_check_payload(broken_total=5, tier_2=2, tier_3=3), "duration_seconds": 0.5, "passed": False}
     out = _parse_docs_link_check_result(raw)
     assert out["passed"] is False
     assert out["status"] == "fail"
@@ -274,8 +284,7 @@ def test_parse_docs_link_check_fail_when_any_broken():
 def test_parse_docs_link_check_surfaces_top_readme_breaks():
     """Tier 1 (top-level README) breaks should be counted distinctly —
     most user-visible failure mode worth flagging."""
-    raw = {"stdout": _link_check_payload(broken_total=1, tier_1=1),
-           "duration_seconds": 0.3, "passed": False}
+    raw = {"stdout": _link_check_payload(broken_total=1, tier_1=1), "duration_seconds": 0.3, "passed": False}
     out = _parse_docs_link_check_result(raw)
     assert out["broken_in_top_readme"] == 1
 
@@ -297,6 +306,7 @@ def test_parse_docs_link_check_propagates_runner_error():
 def test_tech_docs_links_in_regulatory_map():
     """The new check_id is registered in REGULATORY_MAP with EU AI Act + ISO 42001 mappings."""
     from empirica.cli.command_handlers.compliance_report_commands import REGULATORY_MAP
+
     assert "tech_docs_links" in REGULATORY_MAP
     assert "eu_ai_act" in REGULATORY_MAP["tech_docs_links"]["frameworks"]
     assert "iso_42001" in REGULATORY_MAP["tech_docs_links"]["frameworks"]

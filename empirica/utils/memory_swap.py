@@ -160,9 +160,7 @@ def swap_memory(
 
     # If a different swap is already active, restore it first to avoid layering
     if existing:
-        logger.info(
-            f"Replacing existing swap (was: {existing.get('source_project')})"
-        )
+        logger.info(f"Replacing existing swap (was: {existing.get('source_project')})")
         restore_memory(harness_cwd_project, _force_replace=True)
 
     target_memory.mkdir(parents=True, exist_ok=True)
@@ -318,6 +316,7 @@ def maybe_swap_for_active_transaction(
     """
     try:
         from empirica.utils.session_resolver import InstanceResolver as R
+
         ctx = R.context(claude_session_id)
         active_tx_project = ctx.get("project_path")
         transaction_id = ctx.get("transaction_id")
@@ -339,9 +338,12 @@ def maybe_swap_for_active_transaction(
     harness_cwd = Path.cwd()
     try:
         import subprocess
+
         result = subprocess.run(
             ["git", "-C", str(harness_cwd), "rev-parse", "--show-toplevel"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode == 0 and result.stdout.strip():
             harness_cwd = Path(result.stdout.strip())

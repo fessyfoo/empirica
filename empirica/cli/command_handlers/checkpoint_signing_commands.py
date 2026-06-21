@@ -32,7 +32,7 @@ def handle_checkpoint_sign_command(args):
         phase = args.phase
         round_num = args.round
         ai_id = args.ai_id
-        output_format = getattr(args, 'output', 'default')
+        output_format = getattr(args, "output", "default")
 
         # Initialize signer
         try:
@@ -42,10 +42,10 @@ def handle_checkpoint_sign_command(args):
                 "ok": False,
                 "error": "identity_not_found",
                 "message": f"Identity not found for AI: {ai_id}",
-                "hint": f"Create identity: empirica identity-create --ai-id {ai_id}"
+                "hint": f"Create identity: empirica identity-create --ai-id {ai_id}",
             }
 
-            if output_format == 'json':
+            if output_format == "json":
                 print(json.dumps(error_result, indent=2))
             else:
                 print(f"❌ Identity not found for AI: {ai_id}")
@@ -55,16 +55,12 @@ def handle_checkpoint_sign_command(args):
             sys.exit(1)
 
         # Sign checkpoint
-        result = signer.sign_checkpoint(
-            session_id=session_id,
-            phase=phase,
-            round_num=round_num
-        )
+        result = signer.sign_checkpoint(session_id=session_id, phase=phase, round_num=round_num)
 
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(result, indent=2))
         else:
-            if result['ok']:
+            if result["ok"]:
                 print("✅ Checkpoint signed successfully")
                 print("\n📋 Details:")
                 print(f"   Checkpoint: {result['checkpoint_ref']}")
@@ -98,9 +94,9 @@ def handle_checkpoint_verify_command(args):
         session_id = args.session_id
         phase = args.phase
         round_num = args.round
-        ai_id = getattr(args, 'ai_id', None)
-        public_key_hex = getattr(args, 'public_key', None)
-        output_format = getattr(args, 'output', 'default')
+        ai_id = getattr(args, "ai_id", None)
+        public_key_hex = getattr(args, "public_key", None)
+        output_format = getattr(args, "output", "default")
 
         # If AI ID provided, load their identity to get public key
         if ai_id and not public_key_hex:
@@ -109,7 +105,7 @@ def handle_checkpoint_verify_command(args):
                 identity.load_keypair()
                 public_key_hex = identity.public_key_hex()
             except FileNotFoundError:
-                if output_format != 'json':
+                if output_format != "json":
                     print(f"⚠️  Identity not found for {ai_id}, will use embedded public key from signature")
 
         # For verification, we don't actually need to load a signer identity
@@ -118,6 +114,7 @@ def handle_checkpoint_verify_command(args):
 
         class VerificationSigner(CheckpointSigner):
             """Minimal signer for verification only - doesn't need identity"""
+
             def __init__(self, git_repo_path=None):
                 """Initialize verification-only signer without identity loading."""
                 self.git_repo_path = git_repo_path or Path.cwd()
@@ -128,20 +125,17 @@ def handle_checkpoint_verify_command(args):
 
         # Verify checkpoint
         result = signer.verify_checkpoint(
-            session_id=session_id,
-            phase=phase,
-            round_num=round_num,
-            public_key_hex=public_key_hex
+            session_id=session_id, phase=phase, round_num=round_num, public_key_hex=public_key_hex
         )
 
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(result, indent=2))
         else:
-            if not result['ok']:
+            if not result["ok"]:
                 print(f"❌ Verification failed: {result.get('message', result.get('error'))}")
                 sys.exit(1)
 
-            if result['valid']:
+            if result["valid"]:
                 print("✅ Valid signature")
                 print("\n📋 Details:")
                 print(f"   Checkpoint: {result['checkpoint_ref']}")
@@ -154,7 +148,7 @@ def handle_checkpoint_verify_command(args):
                 print("❌ Invalid signature")
                 print("\n⚠️  Checkpoint may have been tampered with")
                 print(f"   Checkpoint: {result.get('checkpoint_ref')}")
-                if result.get('error') == 'sha_mismatch':
+                if result.get("error") == "sha_mismatch":
                     print(f"   Expected SHA: {result.get('signed_sha', '')[:16]}...")
                     print(f"   Actual SHA: {result.get('checkpoint_sha', '')[:16]}...")
                 sys.exit(1)
@@ -171,15 +165,15 @@ def handle_checkpoint_signatures_command(args):
     try:
         from empirica.core.checkpoint_signer import CheckpointSigner
 
-        session_id = getattr(args, 'session_id', None)
-        output_format = getattr(args, 'output', 'default')
+        session_id = getattr(args, "session_id", None)
+        output_format = getattr(args, "output", "default")
 
         # For listing, we don't need an identity - just access git
         from pathlib import Path
 
-
         class ListSigner(CheckpointSigner):
             """Minimal signer for listing only - doesn't need identity"""
+
             def __init__(self, git_repo_path=None):
                 """Initialize listing-only signer without identity loading."""
                 self.git_repo_path = git_repo_path or Path.cwd()
@@ -191,7 +185,7 @@ def handle_checkpoint_signatures_command(args):
         # List signatures
         signatures = signer.list_signed_checkpoints(session_id=session_id)
 
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps({"signatures": signatures, "count": len(signatures)}, indent=2))
         else:
             if not signatures:
@@ -213,7 +207,9 @@ def handle_checkpoint_signatures_command(args):
             if session_id:
                 print("💡 Verify a checkpoint:")
                 first_sig = signatures[0]
-                print(f"   empirica checkpoint-verify --session-id {first_sig['session_id']} --phase {first_sig['phase']} --round {first_sig['round']}")
+                print(
+                    f"   empirica checkpoint-verify --session-id {first_sig['session_id']} --phase {first_sig['phase']} --round {first_sig['round']}"
+                )
 
         return signatures
 

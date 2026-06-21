@@ -27,23 +27,31 @@ from empirica.cli.command_handlers.setup_claude_code import (
 
 # ─── _resolve_tenant_overrides ──────────────────────────────────────────
 
+
 def test_resolve_overrides_all_none_when_args_bare():
     args = types.SimpleNamespace()
     assert _resolve_tenant_overrides(args) == {
-        "org_id": None, "tenant_slug": None, "mesh_id_prefix": None,
+        "org_id": None,
+        "tenant_slug": None,
+        "mesh_id_prefix": None,
     }
 
 
 def test_resolve_overrides_picks_up_set_flags():
     args = types.SimpleNamespace(
-        org_id="org-acme", tenant_slug="acme", mesh_id_prefix="acme_acme",
+        org_id="org-acme",
+        tenant_slug="acme",
+        mesh_id_prefix="acme_acme",
     )
     assert _resolve_tenant_overrides(args) == {
-        "org_id": "org-acme", "tenant_slug": "acme", "mesh_id_prefix": "acme_acme",
+        "org_id": "org-acme",
+        "tenant_slug": "acme",
+        "mesh_id_prefix": "acme_acme",
     }
 
 
 # ─── _fetch_tenant_metadata ─────────────────────────────────────────────
+
 
 class _FakeResponse:
     """Minimal urlopen()-style context manager that exposes `read()`."""
@@ -67,7 +75,8 @@ def _fake_response(payload: dict) -> _FakeResponse:
 
 def test_fetch_happy_path_returns_three_fields():
     payload = {
-        "user": "David", "org": "org-empirica",
+        "user": "David",
+        "org": "org-empirica",
         "org_id": "org-empirica",
         "tenant_slug": "david",
         "mesh_id_prefix": "empirica_david",
@@ -100,8 +109,11 @@ def test_fetch_strips_trailing_slash_on_cortex_url():
 
 def test_fetch_http_error_returns_none():
     err = urllib.error.HTTPError(
-        url="https://cortex/v1/users/me", code=401,
-        msg="Unauthorized", hdrs=None, fp=io.BytesIO(b""),  # type: ignore[arg-type]
+        url="https://cortex/v1/users/me",
+        code=401,
+        msg="Unauthorized",
+        hdrs=None,
+        fp=io.BytesIO(b""),  # type: ignore[arg-type]
     )
     with patch("urllib.request.urlopen", side_effect=err):
         result = _fetch_tenant_metadata("https://cortex.example.com", "bad_key")
@@ -130,8 +142,10 @@ def test_fetch_malformed_json_returns_none():
 
 # ─── _persist_tenant_metadata ───────────────────────────────────────────
 
+
 def _seed_project_yaml(project_root: Path, contents: dict | None = None) -> Path:
     import yaml
+
     (project_root / ".empirica").mkdir(parents=True, exist_ok=True)
     pyaml = project_root / ".empirica" / "project.yaml"
     pyaml.write_text(yaml.safe_dump(contents or {}), encoding="utf-8")
@@ -140,9 +154,13 @@ def _seed_project_yaml(project_root: Path, contents: dict | None = None) -> Path
 
 def test_persist_writes_fields_into_existing_project_yaml(tmp_path):
     import yaml
+
     pyaml = _seed_project_yaml(tmp_path, {"name": "test", "ai_id": "test"})
     wrote = _persist_tenant_metadata(
-        tmp_path, org_id="org-x", tenant_slug="x", mesh_id_prefix="x_x",
+        tmp_path,
+        org_id="org-x",
+        tenant_slug="x",
+        mesh_id_prefix="x_x",
     )
     assert wrote is True
     data = yaml.safe_load(pyaml.read_text(encoding="utf-8"))
@@ -155,7 +173,10 @@ def test_persist_writes_fields_into_existing_project_yaml(tmp_path):
 
 def test_persist_returns_false_when_no_project_yaml(tmp_path):
     wrote = _persist_tenant_metadata(
-        tmp_path, org_id="org-x", tenant_slug="x", mesh_id_prefix="x_x",
+        tmp_path,
+        org_id="org-x",
+        tenant_slug="x",
+        mesh_id_prefix="x_x",
     )
     assert wrote is False
 
@@ -163,7 +184,10 @@ def test_persist_returns_false_when_no_project_yaml(tmp_path):
 def test_persist_returns_false_when_all_fields_none(tmp_path):
     _seed_project_yaml(tmp_path)
     wrote = _persist_tenant_metadata(
-        tmp_path, org_id=None, tenant_slug=None, mesh_id_prefix=None,
+        tmp_path,
+        org_id=None,
+        tenant_slug=None,
+        mesh_id_prefix=None,
     )
     assert wrote is False
 
@@ -171,34 +195,45 @@ def test_persist_returns_false_when_all_fields_none(tmp_path):
 def test_persist_no_op_when_values_already_match(tmp_path):
     _seed_project_yaml(tmp_path, {"org_id": "x", "tenant_slug": "y", "mesh_id_prefix": "x_y"})
     wrote = _persist_tenant_metadata(
-        tmp_path, org_id="x", tenant_slug="y", mesh_id_prefix="x_y",
+        tmp_path,
+        org_id="x",
+        tenant_slug="y",
+        mesh_id_prefix="x_y",
     )
     assert wrote is False  # no diff = no rewrite
 
 
 def test_persist_partial_update_only_writes_supplied_fields(tmp_path):
     import yaml
+
     _seed_project_yaml(tmp_path, {"org_id": "old", "ai_id": "test"})
     wrote = _persist_tenant_metadata(
-        tmp_path, org_id=None, tenant_slug="new", mesh_id_prefix=None,
+        tmp_path,
+        org_id=None,
+        tenant_slug="new",
+        mesh_id_prefix=None,
     )
     assert wrote is True
     data = yaml.safe_load((tmp_path / ".empirica" / "project.yaml").read_text())
-    assert data["org_id"] == "old"   # preserved (not supplied)
+    assert data["org_id"] == "old"  # preserved (not supplied)
     assert data["tenant_slug"] == "new"  # added
     assert "mesh_id_prefix" not in data
 
 
 # ─── _resolve_and_persist_tenant_metadata (end-to-end) ─────────────────
 
+
 def test_resolve_flags_only_skips_rest_entirely(tmp_path):
     import yaml
+
     _seed_project_yaml(tmp_path)
     args = types.SimpleNamespace(
-        org_id="org-flag", tenant_slug="flag", mesh_id_prefix="flag_flag",
+        org_id="org-flag",
+        tenant_slug="flag",
+        mesh_id_prefix="flag_flag",
     )
     with patch("urllib.request.urlopen") as mock_open:
-        result = _resolve_and_persist_tenant_metadata(args, 'json', project_root=tmp_path)
+        result = _resolve_and_persist_tenant_metadata(args, "json", project_root=tmp_path)
     mock_open.assert_not_called()
     assert result == {"org_id": "org-flag", "tenant_slug": "flag", "mesh_id_prefix": "flag_flag"}
     data = yaml.safe_load((tmp_path / ".empirica" / "project.yaml").read_text())
@@ -207,24 +242,34 @@ def test_resolve_flags_only_skips_rest_entirely(tmp_path):
 
 def test_resolve_flags_partial_then_rest_fills_gaps(tmp_path):
     import yaml
+
     _seed_project_yaml(tmp_path)
     args = types.SimpleNamespace(
-        org_id="org-flag", tenant_slug=None, mesh_id_prefix=None,
+        org_id="org-flag",
+        tenant_slug=None,
+        mesh_id_prefix=None,
     )
     rest_payload = {
-        "org_id": "org-rest", "tenant_slug": "rest", "mesh_id_prefix": "rest_rest",
+        "org_id": "org-rest",
+        "tenant_slug": "rest",
+        "mesh_id_prefix": "rest_rest",
     }
 
-    with patch(
-        "empirica.config.credentials_loader.get_credentials_loader",
-    ) as mock_loader_factory, patch(
-        "urllib.request.urlopen", return_value=_fake_response(rest_payload),
+    with (
+        patch(
+            "empirica.config.credentials_loader.get_credentials_loader",
+        ) as mock_loader_factory,
+        patch(
+            "urllib.request.urlopen",
+            return_value=_fake_response(rest_payload),
+        ),
     ):
         mock_loader = mock_loader_factory.return_value
         mock_loader.get_cortex_config.return_value = {
-            "url": "https://cortex.example.com", "api_key": "ctx_test",
+            "url": "https://cortex.example.com",
+            "api_key": "ctx_test",
         }
-        result = _resolve_and_persist_tenant_metadata(args, 'json', project_root=tmp_path)
+        result = _resolve_and_persist_tenant_metadata(args, "json", project_root=tmp_path)
 
     # Flag wins for org_id; REST fills the other two
     assert result == {
@@ -244,7 +289,7 @@ def test_resolve_returns_none_when_no_creds_no_flags(tmp_path):
     ) as mock_loader_factory:
         mock_loader = mock_loader_factory.return_value
         mock_loader.get_cortex_config.return_value = {}  # no creds
-        result = _resolve_and_persist_tenant_metadata(args, 'json', project_root=tmp_path)
+        result = _resolve_and_persist_tenant_metadata(args, "json", project_root=tmp_path)
     assert result is None
 
 
@@ -253,19 +298,23 @@ def test_resolve_rest_failure_does_not_crash(tmp_path, output_format, capsys):
     _seed_project_yaml(tmp_path)
     args = types.SimpleNamespace()
 
-    with patch(
-        "empirica.config.credentials_loader.get_credentials_loader",
-    ) as mock_loader_factory, patch(
-        "urllib.request.urlopen",
-        side_effect=urllib.error.URLError("no route"),
+    with (
+        patch(
+            "empirica.config.credentials_loader.get_credentials_loader",
+        ) as mock_loader_factory,
+        patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.URLError("no route"),
+        ),
     ):
         mock_loader = mock_loader_factory.return_value
         mock_loader.get_cortex_config.return_value = {
-            "url": "https://cortex.example.com", "api_key": "ctx_test",
+            "url": "https://cortex.example.com",
+            "api_key": "ctx_test",
         }
         result = _resolve_and_persist_tenant_metadata(args, output_format, project_root=tmp_path)
 
     assert result is None
-    if output_format == 'human':
+    if output_format == "human":
         captured = capsys.readouterr()
         assert "Couldn't fetch tenant metadata" in captured.out

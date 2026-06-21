@@ -49,7 +49,10 @@ def walk_listener_processes() -> list[dict]:
     try:
         out = subprocess.run(
             ["ps", "-eo", "pid=,ppid=,args="],
-            capture_output=True, text=True, timeout=10, check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
         ).stdout
     except (OSError, subprocess.SubprocessError):
         return []
@@ -110,6 +113,7 @@ def _is_supervised_listener(proc: dict) -> bool:
     if proc.get("kind") != "loop_listen":
         return False
     import sys
+
     # getattr form avoids the static literal-narrowing that would otherwise
     # mark the macOS branch unreachable on a non-darwin analysis host.
     if getattr(sys, "platform", "") != "darwin":
@@ -121,6 +125,7 @@ def _is_supervised_listener(proc: dict) -> bool:
         from empirica.core.loop_scheduler.persistent_listener import (
             is_listener_running,
         )
+
         return is_listener_running(ai)
     except Exception:
         return False
@@ -137,21 +142,18 @@ def walk_orphan_listener_processes(ai_id: str | None = None) -> list[dict]:
     if ai_id:
         # Boundary-anchored so `--instance empirica` can't match
         # `--instance empirica-outreach` (slug prefixes are common).
-        instance_re = re.compile(
-            rf"--instance\s+{re.escape(ai_id)}(?=[\s;'\"]|$)"
-        )
+        instance_re = re.compile(rf"--instance\s+{re.escape(ai_id)}(?=[\s;'\"]|$)")
         tail_marker = f'"instance_id": "{ai_id}"'
-        orphans = [
-            p for p in orphans
-            if instance_re.search(p["cmdline"]) or tail_marker in p["cmdline"]
-        ]
+        orphans = [p for p in orphans if instance_re.search(p["cmdline"]) or tail_marker in p["cmdline"]]
     # Drop live launchd-supervised workers — on macOS they're reparented to
     # PID 1 and would otherwise be mis-flagged as orphans and reaped.
     return [p for p in orphans if not _is_supervised_listener(p)]
 
 
 def reap_processes(
-    procs: list[dict], apply: bool, term_grace_sec: float = 3.0,
+    procs: list[dict],
+    apply: bool,
+    term_grace_sec: float = 3.0,
 ) -> list[dict]:
     """TERM each process, escalate to KILL after the grace window.
 

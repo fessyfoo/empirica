@@ -230,11 +230,7 @@ def _looks_like_missing_ref(message: str) -> bool:
     non-existent column/table that a broad except would swallow).
     """
     msg = message.lower()
-    return (
-        "no such column" in msg
-        or "no such table" in msg
-        or "has no column named" in msg
-    )
+    return "no such column" in msg or "no such table" in msg or "has no column named" in msg
 
 
 def _missing_symbol(message: str) -> str:
@@ -287,7 +283,7 @@ def test_static_sql_references_exist_in_schema():
     validated = 0
     skipped_non_dml = 0
     skipped_unknown_table = 0
-    new_violations: list[tuple[str, str, str]] = []    # (loc, sql, error) — fail
+    new_violations: list[tuple[str, str, str]] = []  # (loc, sql, error) — fail
     known_violations: list[tuple[str, str, str]] = []  # allow-listed, tracked
     ambiguous: list[tuple[str, str, str]] = []  # other OperationalErrors
 
@@ -360,9 +356,7 @@ def test_static_sql_references_exist_in_schema():
         f"{len(new_violations)} NEW static SQL quer"
         f"{'y' if len(new_violations) == 1 else 'ies'} reference a column/table that "
         f"does not exist in the schema (the bug class this test guards):\n"
-        + "\n".join(
-            f"  {loc} — {err} — {sql.strip()[:120]}" for loc, sql, err in new_violations
-        )
+        + "\n".join(f"  {loc} — {err} — {sql.strip()[:120]}" for loc, sql, err in new_violations)
         + "\n\nFix the query (use the real column), OR — only if it's genuinely a "
         "pre-existing tracked case — add (relpath, symbol) to _KNOWN_VIOLATIONS "
         "with justification."

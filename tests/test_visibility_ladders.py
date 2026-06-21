@@ -31,13 +31,12 @@ class _FakeRepo:
     def __init__(self, rows: list[dict[str, Any]] | None = None):
         self._rows = rows or []
 
-    def list_entities(self, *, entity_type: str, status: str = 'active',
-                      limit: int = 100) -> list[dict[str, Any]]:
+    def list_entities(self, *, entity_type: str, status: str = "active", limit: int = 100) -> list[dict[str, Any]]:
         out = []
         for r in self._rows:
-            if r['entity_type'] != entity_type:
+            if r["entity_type"] != entity_type:
                 continue
-            if status != 'all' and r.get('status') != status:
+            if status != "all" and r.get("status") != status:
                 continue
             out.append(r)
             if len(out) >= limit:
@@ -45,22 +44,24 @@ class _FakeRepo:
         return out
 
 
-def _agreement_row(*, agr_id: str, layer: str, status: str = 'active') -> dict[str, Any]:
+def _agreement_row(*, agr_id: str, layer: str, status: str = "active") -> dict[str, Any]:
     return {
-        'entity_type': 'mesh_sharing_agreement',
-        'entity_id': agr_id,
-        'display_name': f'{agr_id} ({layer})',
-        'description': None,
-        'source_db': 'cortex',
-        'source_table': 'mesh_sharing_agreements',
-        'status': status,
-        'created_at': time.time(),
-        'updated_at': time.time(),
-        'metadata': json.dumps({
-            'layer': layer,
-            'surfaces_json': ['all'],
-            'direction': 'bidirectional',
-        }),
+        "entity_type": "mesh_sharing_agreement",
+        "entity_id": agr_id,
+        "display_name": f"{agr_id} ({layer})",
+        "description": None,
+        "source_db": "cortex",
+        "source_table": "mesh_sharing_agreements",
+        "status": status,
+        "created_at": time.time(),
+        "updated_at": time.time(),
+        "metadata": json.dumps(
+            {
+                "layer": layer,
+                "surfaces_json": ["all"],
+                "direction": "bidirectional",
+            }
+        ),
     }
 
 
@@ -69,15 +70,17 @@ def _agreement_row(*, agr_id: str, layer: str, status: str = 'active') -> dict[s
 
 def test_none_visibility_is_local_no_warning():
     from empirica.core.visibility import resolve_visibility_with_agreement
+
     resolved, warning = resolve_visibility_with_agreement(None, repo=_FakeRepo())
-    assert resolved == 'local'
+    assert resolved == "local"
     assert warning is None
 
 
 def test_local_visibility_is_local_no_warning():
     from empirica.core.visibility import resolve_visibility_with_agreement
-    resolved, warning = resolve_visibility_with_agreement('local', repo=_FakeRepo())
-    assert resolved == 'local'
+
+    resolved, warning = resolve_visibility_with_agreement("local", repo=_FakeRepo())
+    assert resolved == "local"
     assert warning is None
 
 
@@ -86,8 +89,9 @@ def test_unknown_visibility_passes_through():
     The artifact log validates against argparse choices first; this is a
     backstop for the programmatic API."""
     from empirica.core.visibility import resolve_visibility_with_agreement
-    resolved, warning = resolve_visibility_with_agreement('weird', repo=_FakeRepo())
-    assert resolved == 'weird'
+
+    resolved, warning = resolve_visibility_with_agreement("weird", repo=_FakeRepo())
+    assert resolved == "weird"
     assert warning is None
 
 
@@ -96,21 +100,23 @@ def test_unknown_visibility_passes_through():
 
 def test_shared_with_active_L2_no_downgrade():
     from empirica.core.visibility import resolve_visibility_with_agreement
-    repo = _FakeRepo([_agreement_row(agr_id='agr_l2', layer='L2')])
-    resolved, warning = resolve_visibility_with_agreement('shared', repo=repo)
-    assert resolved == 'shared'
+
+    repo = _FakeRepo([_agreement_row(agr_id="agr_l2", layer="L2")])
+    resolved, warning = resolve_visibility_with_agreement("shared", repo=repo)
+    assert resolved == "shared"
     assert warning is None
 
 
 def test_shared_without_L2_downgrades_to_local():
     """Populated mirror with only L3 agreements — 'shared' wants L2, has none → local."""
     from empirica.core.visibility import resolve_visibility_with_agreement
-    repo = _FakeRepo([_agreement_row(agr_id='agr_l3', layer='L3')])
-    resolved, warning = resolve_visibility_with_agreement('shared', repo=repo)
-    assert resolved == 'local'
+
+    repo = _FakeRepo([_agreement_row(agr_id="agr_l3", layer="L3")])
+    resolved, warning = resolve_visibility_with_agreement("shared", repo=repo)
+    assert resolved == "local"
     assert warning is not None
-    assert '--visibility=shared' in warning
-    assert 'L2' in warning
+    assert "--visibility=shared" in warning
+    assert "L2" in warning
 
 
 # --- public paths ---
@@ -118,31 +124,34 @@ def test_shared_without_L2_downgrades_to_local():
 
 def test_public_with_active_L3_no_downgrade():
     from empirica.core.visibility import resolve_visibility_with_agreement
-    repo = _FakeRepo([_agreement_row(agr_id='agr_l3', layer='L3')])
-    resolved, warning = resolve_visibility_with_agreement('public', repo=repo)
-    assert resolved == 'public'
+
+    repo = _FakeRepo([_agreement_row(agr_id="agr_l3", layer="L3")])
+    resolved, warning = resolve_visibility_with_agreement("public", repo=repo)
+    assert resolved == "public"
     assert warning is None
 
 
 def test_public_with_only_L2_downgrades_to_shared():
     """Public wants L3 but only L2 exists — graceful step-down to shared, warning."""
     from empirica.core.visibility import resolve_visibility_with_agreement
-    repo = _FakeRepo([_agreement_row(agr_id='agr_l2', layer='L2')])
-    resolved, warning = resolve_visibility_with_agreement('public', repo=repo)
-    assert resolved == 'shared'
+
+    repo = _FakeRepo([_agreement_row(agr_id="agr_l2", layer="L2")])
+    resolved, warning = resolve_visibility_with_agreement("public", repo=repo)
+    assert resolved == "shared"
     assert warning is not None
-    assert '--visibility=public' in warning
-    assert 'L3' in warning
+    assert "--visibility=public" in warning
+    assert "L3" in warning
 
 
 def test_public_with_no_layer_match_downgrades_to_local():
     """Populated mirror but no L2 OR L3 layer matches — full step-down to local."""
     from empirica.core.visibility import resolve_visibility_with_agreement
-    repo = _FakeRepo([_agreement_row(agr_id='agr_l1', layer='L1')])
-    resolved, warning = resolve_visibility_with_agreement('public', repo=repo)
-    assert resolved == 'local'
+
+    repo = _FakeRepo([_agreement_row(agr_id="agr_l1", layer="L1")])
+    resolved, warning = resolve_visibility_with_agreement("public", repo=repo)
+    assert resolved == "local"
     assert warning is not None
-    assert 'L3' in warning
+    assert "L3" in warning
 
 
 # --- Empty / revoked mirror ---
@@ -152,15 +161,17 @@ def test_empty_mirror_fails_open_for_shared():
     """No agreements at all in mirror → treat as 'unbootstrapped', keep
     intent + no warning. Cortex enforces authoritatively on consumer side."""
     from empirica.core.visibility import resolve_visibility_with_agreement
-    resolved, warning = resolve_visibility_with_agreement('shared', repo=_FakeRepo())
-    assert resolved == 'shared'
+
+    resolved, warning = resolve_visibility_with_agreement("shared", repo=_FakeRepo())
+    assert resolved == "shared"
     assert warning is None
 
 
 def test_empty_mirror_fails_open_for_public():
     from empirica.core.visibility import resolve_visibility_with_agreement
-    resolved, warning = resolve_visibility_with_agreement('public', repo=_FakeRepo())
-    assert resolved == 'public'
+
+    resolved, warning = resolve_visibility_with_agreement("public", repo=_FakeRepo())
+    assert resolved == "public"
     assert warning is None
 
 
@@ -168,11 +179,14 @@ def test_mirror_with_only_revoked_downgrades():
     """Mirror IS populated (sync ran) but only revoked rows — that's a real
     "no active agreement" state, not unbootstrapped. Downgrade."""
     from empirica.core.visibility import resolve_visibility_with_agreement
-    repo = _FakeRepo([
-        _agreement_row(agr_id='agr_old', layer='L2', status='revoked'),
-    ])
-    resolved, warning = resolve_visibility_with_agreement('shared', repo=repo)
-    assert resolved == 'local'
+
+    repo = _FakeRepo(
+        [
+            _agreement_row(agr_id="agr_old", layer="L2", status="revoked"),
+        ]
+    )
+    resolved, warning = resolve_visibility_with_agreement("shared", repo=repo)
+    assert resolved == "local"
     assert warning is not None
 
 
@@ -188,8 +202,10 @@ def test_mirror_error_fails_open():
     """If the mirror lookup throws (DB locked, schema mismatch, etc.),
     fail-open with debug log — don't break the caller's write path."""
     from empirica.core.visibility import resolve_visibility_with_agreement
+
     resolved, warning = resolve_visibility_with_agreement(
-        'shared', repo=_ExplodingRepo(),
+        "shared",
+        repo=_ExplodingRepo(),
     )
-    assert resolved == 'shared'
+    assert resolved == "shared"
     assert warning is None

@@ -18,6 +18,7 @@ All implementations have been modularized into sub-modules:
 For new code, import directly from sub-modules.
 This shim re-exports everything for backward compatibility.
 """
+
 # --- Connection infrastructure ---
 # --- Calibration ---
 from empirica.core.qdrant.calibration import (  # noqa: F401

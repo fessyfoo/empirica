@@ -111,11 +111,9 @@ def _check_for_similar_goals_helper(cursor, db, objective, session_id, similar, 
             project_id = None
             try:
                 from empirica.data.session_database import SessionDatabase
+
                 db = SessionDatabase()
-                cursor = db.conn.execute(
-                    "SELECT project_id FROM sessions WHERE session_id = ?",
-                    (session_id,)
-                )
+                cursor = db.conn.execute("SELECT project_id FROM sessions WHERE session_id = ?", (session_id,))
                 row = cursor.fetchone()
                 if row:
                     project_id = row[0]
@@ -125,26 +123,43 @@ def _check_for_similar_goals_helper(cursor, db, objective, session_id, similar, 
 
             if project_id:
                 result = subprocess.run(
-                    ['empirica', 'goals-search', objective[:100],
-                     '--project-id', project_id, '--status', 'in_progress',
-                     '--limit', '3', '--threshold', str(threshold), '--output', 'json'],
-                    capture_output=True, text=True, timeout=10,
-                    cwd=os.getcwd()
+                    [
+                        "empirica",
+                        "goals-search",
+                        objective[:100],
+                        "--project-id",
+                        project_id,
+                        "--status",
+                        "in_progress",
+                        "--limit",
+                        "3",
+                        "--threshold",
+                        str(threshold),
+                        "--output",
+                        "json",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                    cwd=os.getcwd(),
                 )
                 if result.returncode == 0:
                     search_result = json.loads(result.stdout)
-                    for goal in search_result.get('results', []):
-                        score = goal.get('score', 0)
+                    for goal in search_result.get("results", []):
+                        score = goal.get("score", 0)
                         if score >= threshold:
-                            similar.append({
-                                'goal_id': goal.get('id'),
-                                'objective': goal.get('objective'),
-                                'session_id': goal.get('session_id'),
-                                'match_type': 'semantic',
-                                'score': score
-                            })
+                            similar.append(
+                                {
+                                    "goal_id": goal.get("id"),
+                                    "objective": goal.get("objective"),
+                                    "session_id": goal.get("session_id"),
+                                    "match_type": "semantic",
+                                    "score": score,
+                                }
+                            )
         except Exception as e:
             logger.debug(f"Semantic duplicate check failed: {e}")
+
 
 def _check_for_similar_goals(objective: str, session_id: str | None = None, threshold: float = 0.85) -> list:
     """Check for similar existing goals using text matching and semantic search.
@@ -164,13 +179,14 @@ def _check_for_similar_goals(objective: str, session_id: str | None = None, thre
     # Normalize objective text for comparison
     def normalize(text: str) -> str:
         """Normalize text for comparison by removing special characters and lowercasing."""
-        return re.sub(r'[^\w\s]', '', text.lower().strip())
+        return re.sub(r"[^\w\s]", "", text.lower().strip())
 
     normalized_objective = normalize(objective)
 
     # Strategy 1: Check database for exact/near-exact text matches
     try:
         from empirica.data.session_database import SessionDatabase
+
         db = SessionDatabase()
         cursor = db.conn.execute("""
             SELECT id, objective, session_id, is_completed, created_timestamp
@@ -180,25 +196,23 @@ def _check_for_similar_goals(objective: str, session_id: str | None = None, thre
             LIMIT 50
         """)
         for row in cursor.fetchall():
-            existing_obj = normalize(row[1] or '')
+            existing_obj = normalize(row[1] or "")
             # Check for exact match or high substring overlap
             if existing_obj == normalized_objective:
-                similar.append({
-                    'goal_id': row[0],
-                    'objective': row[1],
-                    'session_id': row[2],
-                    'match_type': 'exact',
-                    'score': 1.0
-                })
+                similar.append(
+                    {"goal_id": row[0], "objective": row[1], "session_id": row[2], "match_type": "exact", "score": 1.0}
+                )
             elif normalized_objective in existing_obj or existing_obj in normalized_objective:
                 # Substring match - one contains the other
-                similar.append({
-                    'goal_id': row[0],
-                    'objective': row[1],
-                    'session_id': row[2],
-                    'match_type': 'substring',
-                    'score': 0.9
-                })
+                similar.append(
+                    {
+                        "goal_id": row[0],
+                        "objective": row[1],
+                        "session_id": row[2],
+                        "match_type": "substring",
+                        "score": 0.9,
+                    }
+                )
         db.close()
     except Exception as e:
         logger.debug(f"Database duplicate check failed: {e}")
@@ -210,20 +224,20 @@ def _check_for_similar_goals(objective: str, session_id: str | None = None, thre
     seen = set()
     unique = []
     for s in similar:
-        if s['goal_id'] not in seen:
-            seen.add(s['goal_id'])
+        if s["goal_id"] not in seen:
+            seen.add(s["goal_id"])
             unique.append(s)
 
     return unique
 
 
-def _link_goal_to_beads(args, config_data, goal, objective,
-                        scope_breadth, scope_duration, output_format):
+def _link_goal_to_beads(args, config_data, goal, objective, scope_breadth, scope_duration, output_format):
     """Create linked BEADS issue for a goal. Returns issue_id or None."""
-    use_beads = getattr(args, 'use_beads', False) or (config_data and config_data.get('use_beads', False))
-    if not use_beads and not hasattr(args, 'use_beads'):
+    use_beads = getattr(args, "use_beads", False) or (config_data and config_data.get("use_beads", False))
+    if not use_beads and not hasattr(args, "use_beads"):
         try:
             from empirica.config.project_config_loader import load_project_config
+
             project_config = load_project_config()
             if project_config and project_config.default_use_beads:
                 use_beads = True
@@ -235,6 +249,7 @@ def _link_goal_to_beads(args, config_data, goal, objective,
 
     try:
         from empirica.integrations.beads import BeadsAdapter
+
         beads = BeadsAdapter()
         if not beads.is_available():
             msg = (
@@ -251,10 +266,14 @@ def _link_goal_to_beads(args, config_data, goal, objective,
         issue_id = beads.create_issue(
             title=objective,
             description=f"Empirica Goal {goal.id[:8]}\nScope: breadth={scope_breadth:.2f}, duration={scope_duration:.2f}",
-            priority=priority, issue_type=issue_type, labels=["empirica"])
+            priority=priority,
+            issue_type=issue_type,
+            labels=["empirica"],
+        )
 
         if issue_id:
             from empirica.data.session_database import SessionDatabase
+
             temp_db = SessionDatabase()
             temp_db.conn.execute("UPDATE goals SET beads_issue_id = ? WHERE id = ?", (issue_id, goal.id))
             temp_db.conn.commit()
@@ -277,8 +296,8 @@ def _parse_goal_config(args):
     import os
 
     config_data = None
-    if hasattr(args, 'config') and args.config:
-        if args.config == '-':
+    if hasattr(args, "config") and args.config:
+        if args.config == "-":
             config_data = parse_json_safely(sys.stdin.read())
         else:
             if not os.path.exists(args.config):
@@ -288,52 +307,54 @@ def _parse_goal_config(args):
                 config_data = parse_json_safely(f.read())
 
     if config_data:
-        session_id = config_data.get('session_id')
-        objective = config_data.get('objective')
-        description = config_data.get('description')
+        session_id = config_data.get("session_id")
+        objective = config_data.get("objective")
+        description = config_data.get("description")
 
-        scope_config = config_data.get('scope', {})
+        scope_config = config_data.get("scope", {})
         if isinstance(scope_config, dict):
-            scope_breadth = scope_config.get('breadth', 0.3)
-            scope_duration = scope_config.get('duration', 0.2)
-            scope_coordination = scope_config.get('coordination', 0.1)
+            scope_breadth = scope_config.get("breadth", 0.3)
+            scope_duration = scope_config.get("duration", 0.2)
+            scope_coordination = scope_config.get("coordination", 0.1)
         else:
             scope_breadth = 0.3
             scope_duration = 0.2
             scope_coordination = 0.1
 
-        success_criteria_list = config_data.get('success_criteria', [])
-        estimated_complexity = config_data.get('estimated_complexity')
-        constraints = config_data.get('constraints')
-        metadata = config_data.get('metadata')
-        output_format = 'json'
+        success_criteria_list = config_data.get("success_criteria", [])
+        estimated_complexity = config_data.get("estimated_complexity")
+        constraints = config_data.get("constraints")
+        metadata = config_data.get("metadata")
+        output_format = "json"
     else:
         session_id = args.session_id
         objective = args.objective
-        description = getattr(args, 'description', None)
-        scope_breadth = float(args.scope_breadth) if hasattr(args, 'scope_breadth') and args.scope_breadth else 0.3
-        scope_duration = float(args.scope_duration) if hasattr(args, 'scope_duration') and args.scope_duration else 0.2
-        scope_coordination = float(args.scope_coordination) if hasattr(args, 'scope_coordination') and args.scope_coordination else 0.1
-        estimated_complexity = getattr(args, 'estimated_complexity', None)
+        description = getattr(args, "description", None)
+        scope_breadth = float(args.scope_breadth) if hasattr(args, "scope_breadth") and args.scope_breadth else 0.3
+        scope_duration = float(args.scope_duration) if hasattr(args, "scope_duration") and args.scope_duration else 0.2
+        scope_coordination = (
+            float(args.scope_coordination) if hasattr(args, "scope_coordination") and args.scope_coordination else 0.1
+        )
+        estimated_complexity = getattr(args, "estimated_complexity", None)
         constraints = parse_json_safely(args.constraints) if args.constraints else None
         metadata = parse_json_safely(args.metadata) if args.metadata else None
-        output_format = getattr(args, 'output', 'json')
+        output_format = getattr(args, "output", "json")
 
         success_criteria_list = _parse_legacy_success_criteria(args)
 
     return {
-        'session_id': session_id,
-        'objective': objective,
-        'description': description,
-        'scope_breadth': scope_breadth,
-        'scope_duration': scope_duration,
-        'scope_coordination': scope_coordination,
-        'success_criteria_list': success_criteria_list,
-        'estimated_complexity': estimated_complexity,
-        'constraints': constraints,
-        'metadata': metadata,
-        'output_format': output_format,
-        'config_data': config_data,
+        "session_id": session_id,
+        "objective": objective,
+        "description": description,
+        "scope_breadth": scope_breadth,
+        "scope_duration": scope_duration,
+        "scope_coordination": scope_coordination,
+        "success_criteria_list": success_criteria_list,
+        "estimated_complexity": estimated_complexity,
+        "constraints": constraints,
+        "metadata": metadata,
+        "output_format": output_format,
+        "config_data": config_data,
     }
 
 
@@ -346,16 +367,16 @@ def _parse_legacy_success_criteria(args):
     import os
 
     success_criteria_list = []
-    if hasattr(args, 'success_criteria_file') and args.success_criteria_file:
+    if hasattr(args, "success_criteria_file") and args.success_criteria_file:
         if not os.path.exists(args.success_criteria_file):
             print(f"❌ Error: File not found: {args.success_criteria_file}", file=sys.stderr)
             sys.exit(1)
         with open(args.success_criteria_file) as f:
             success_criteria_list = parse_json_safely(f.read())
-    elif hasattr(args, 'success_criteria') and args.success_criteria:
-        if args.success_criteria == '-':
+    elif hasattr(args, "success_criteria") and args.success_criteria:
+        if args.success_criteria == "-":
             success_criteria_list = parse_json_safely(sys.stdin.read())
-        elif args.success_criteria.strip().startswith('['):
+        elif args.success_criteria.strip().startswith("["):
             success_criteria_list = parse_json_safely(args.success_criteria)
         else:
             success_criteria_list = [args.success_criteria]
@@ -375,8 +396,8 @@ def _resolve_goal_session(session_id, config_data, args):
     """
     target_project_id = None
     if config_data:
-        target_project_id = config_data.get('project_id')
-    elif hasattr(args, 'project_id') and args.project_id:
+        target_project_id = config_data.get("project_id")
+    elif hasattr(args, "project_id") and args.project_id:
         target_project_id = args.project_id
 
     if not session_id:
@@ -391,18 +412,22 @@ def _resolve_goal_session(session_id, config_data, args):
 
 def _check_goal_duplicates(objective, session_id, output_format, args, config_data):
     """Check for duplicate goals (unless --force). Exits if duplicates found."""
-    force_create = getattr(args, 'force', False) or (config_data and config_data.get('force', False))
+    force_create = getattr(args, "force", False) or (config_data and config_data.get("force", False))
     if not force_create:
         similar_goals = _check_for_similar_goals(objective, session_id)
         if similar_goals:
-            if output_format == 'json':
-                print(json.dumps({
-                    "ok": False,
-                    "error": "Similar goal(s) already exist",
-                    "similar_goals": similar_goals,
-                    "hint": "Use --force to create anyway, or use goals-refresh to resume a stale goal",
-                    "objective": objective
-                }))
+            if output_format == "json":
+                print(
+                    json.dumps(
+                        {
+                            "ok": False,
+                            "error": "Similar goal(s) already exist",
+                            "similar_goals": similar_goals,
+                            "hint": "Use --force to create anyway, or use goals-refresh to resume a stale goal",
+                            "objective": objective,
+                        }
+                    )
+                )
             else:
                 print("⚠️  Similar goal(s) found:")
                 for sg in similar_goals:
@@ -411,10 +436,22 @@ def _check_goal_duplicates(objective, session_id, output_format, args, config_da
             sys.exit(1)
 
 
-def _build_and_save_goal(objective, success_criteria_list, scope_breadth, scope_duration,
-                         scope_coordination, estimated_complexity, constraints, metadata,
-                         session_id, is_cross_project, target_project_id, config_data, args,
-                         description=None):
+def _build_and_save_goal(
+    objective,
+    success_criteria_list,
+    scope_breadth,
+    scope_duration,
+    scope_coordination,
+    estimated_complexity,
+    constraints,
+    metadata,
+    session_id,
+    is_cross_project,
+    target_project_id,
+    config_data,
+    args,
+    description=None,
+):
     """Build Goal object and save to database.
 
     Returns:
@@ -423,11 +460,7 @@ def _build_and_save_goal(objective, success_criteria_list, scope_breadth, scope_
     from empirica.core.goals.repository import GoalRepository
     from empirica.core.goals.types import Goal, ScopeVector
 
-    scope = ScopeVector(
-        breadth=scope_breadth,
-        duration=scope_duration,
-        coordination=scope_coordination
-    )
+    scope = ScopeVector(breadth=scope_breadth, duration=scope_duration, coordination=scope_coordination)
 
     if not success_criteria_list:
         success_criteria_list = ["Goal completion achieved"]
@@ -436,6 +469,7 @@ def _build_and_save_goal(objective, success_criteria_list, scope_breadth, scope_
     goal_repo_db_path = None
     if is_cross_project and target_project_id:
         from empirica.cli.command_handlers.artifact_log_commands import _get_db_for_project
+
         cross_db = _get_db_for_project(target_project_id)
         if cross_db:
             resolved_pid = cross_db.resolve_project_id(target_project_id)
@@ -464,7 +498,7 @@ def _build_and_save_goal(objective, success_criteria_list, scope_breadth, scope_
         description=description,
         estimated_complexity=estimated_complexity,
         constraints=constraints,
-        metadata=metadata
+        metadata=metadata,
     )
 
     # Auto-derive transaction_id
@@ -477,28 +511,40 @@ def _build_and_save_goal(objective, success_criteria_list, scope_breadth, scope_
     success = goal_repo.save_goal(goal, session_id, transaction_id=transaction_id)
 
     # Set initial status
-    initial_status = 'in_progress'
+    initial_status = "in_progress"
     if config_data:
-        initial_status = config_data.get('status', 'in_progress')
-    elif hasattr(args, 'status') and args.status:
+        initial_status = config_data.get("status", "in_progress")
+    elif hasattr(args, "status") and args.status:
         initial_status = args.status
-    if initial_status == 'planned' and success:
-        goal_repo.db.conn.execute(
-            "UPDATE goals SET status = 'planned' WHERE id = ?", (goal.id,))
+    if initial_status == "planned" and success:
+        goal_repo.db.conn.execute("UPDATE goals SET status = 'planned' WHERE id = ?", (goal.id,))
         goal_repo.db.conn.commit()
 
     return goal, goal_repo, success_criteria_objects, scope, success, target_project_id
 
 
-def _goal_post_create_integrations(goal, session_id, objective, scope, success_criteria_objects,
-                                   scope_breadth, scope_duration, scope_coordination,
-                                   estimated_complexity, constraints, metadata,
-                                   args, config_data, output_format, result):
+def _goal_post_create_integrations(
+    goal,
+    session_id,
+    objective,
+    scope,
+    success_criteria_objects,
+    scope_breadth,
+    scope_duration,
+    scope_coordination,
+    estimated_complexity,
+    constraints,
+    metadata,
+    args,
+    config_data,
+    output_format,
+    result,
+):
     """Run post-creation integrations: BEADS, git notes, Qdrant. Mutates result dict."""
     # BEADS
     beads_issue_id = _link_goal_to_beads(
-        args, config_data, goal, objective,
-        scope_breadth, scope_duration, output_format)
+        args, config_data, goal, objective, scope_breadth, scope_duration, output_format
+    )
     result["beads_issue_id"] = beads_issue_id
 
     # CHECK recommendation for high-scope goals
@@ -509,30 +555,27 @@ def _goal_post_create_integrations(goal, session_id, objective, scope, success_c
             "message": "High-scope goal: Consider running CHECK after initial investigation",
             "scope_trigger": {
                 "breadth": scope_breadth if scope_breadth >= 0.6 else None,
-                "duration": scope_duration if scope_duration >= 0.5 else None
+                "duration": scope_duration if scope_duration >= 0.5 else None,
             },
             "suggested_timing": "after 1-2 tasks or 30+ minutes",
-            "command": f"empirica check --session-id {session_id}"
+            "command": f"empirica check --session-id {session_id}",
         }
 
     # Git notes storage
     try:
         from empirica.core.canonical.empirica_git import GitGoalStore
 
-        ai_id = getattr(args, 'ai_id', 'empirica_cli')
+        ai_id = getattr(args, "ai_id", "empirica_cli")
         goal_store = GitGoalStore()
         goal_data = {
-            'objective': objective,
-            'scope': scope.to_dict(),
-            'success_criteria': [sc.description for sc in success_criteria_objects],
-            'estimated_complexity': estimated_complexity,
-            'constraints': constraints,
-            'metadata': metadata
+            "objective": objective,
+            "scope": scope.to_dict(),
+            "success_criteria": [sc.description for sc in success_criteria_objects],
+            "estimated_complexity": estimated_complexity,
+            "constraints": constraints,
+            "metadata": metadata,
         }
-        goal_store.store_goal(
-            goal_id=goal.id, session_id=session_id,
-            ai_id=ai_id, goal_data=goal_data
-        )
+        goal_store.store_goal(goal_id=goal.id, session_id=session_id, ai_id=ai_id, goal_data=goal_data)
         logger.debug(f"Goal {goal.id[:8]} stored in git notes for cross-AI discovery")
     except Exception as e:
         logger.debug(f"Git goal storage skipped: {e}")
@@ -550,34 +593,38 @@ def _goal_post_create_integrations(goal, session_id, objective, scope, success_c
 
         if row and row[0]:
             project_id = row[0]
-            ai_id = row[1] or getattr(args, 'ai_id', 'empirica_cli')
+            ai_id = row[1] or getattr(args, "ai_id", "empirica_cli")
             qdrant_embedded = embed_goal(
-                project_id=project_id, goal_id=goal.id,
-                objective=objective, description=goal.description,
-                session_id=session_id, ai_id=ai_id,
-                scope_breadth=scope_breadth, scope_duration=scope_duration,
+                project_id=project_id,
+                goal_id=goal.id,
+                objective=objective,
+                description=goal.description,
+                session_id=session_id,
+                ai_id=ai_id,
+                scope_breadth=scope_breadth,
+                scope_duration=scope_duration,
                 scope_coordination=scope_coordination,
                 estimated_complexity=estimated_complexity,
                 success_criteria=[sc.description for sc in success_criteria_objects],
-                status="in_progress", timestamp=goal.created_timestamp,
+                status="in_progress",
+                timestamp=goal.created_timestamp,
             )
             if qdrant_embedded:
-                result['qdrant_embedded'] = True
+                result["qdrant_embedded"] = True
     except Exception as e:
         logger.debug(f"Goal Qdrant embedding skipped: {e}")
 
     return beads_issue_id
 
 
-def _format_goal_output(output_format, result, objective, scope, estimated_complexity,
-                        beads_issue_id, use_beads):
+def _format_goal_output(output_format, result, objective, scope, estimated_complexity, beads_issue_id, use_beads):
     """Format and print goal creation output."""
-    if output_format == 'json':
+    if output_format == "json":
         print(json.dumps(result, indent=2))
-        if result['ok'] and not beads_issue_id and not use_beads:
+        if result["ok"] and not beads_issue_id and not use_beads:
             print("\n💡 Tip: Add --use-beads flag to track this goal in BEADS issue tracker", file=sys.stderr)
     else:
-        if result['ok']:
+        if result["ok"]:
             print("✅ Goal created successfully")
             print(f"   Goal ID: {result['goal_id']}")
             print(f"   Objective: {objective[:80]}..." if len(objective) > 80 else f"   Objective: {objective}")
@@ -597,45 +644,58 @@ def handle_goals_create_command(args):
     try:
         # Stage 1: Parse config
         cfg = _parse_goal_config(args)
-        session_id = cfg['session_id']
-        objective = cfg['objective']
-        description = cfg.get('description')
-        scope_breadth = cfg['scope_breadth']
-        scope_duration = cfg['scope_duration']
-        scope_coordination = cfg['scope_coordination']
-        success_criteria_list = cfg['success_criteria_list']
-        estimated_complexity = cfg['estimated_complexity']
-        constraints = cfg['constraints']
-        metadata = cfg['metadata']
-        output_format = cfg['output_format']
-        config_data = cfg['config_data']
+        session_id = cfg["session_id"]
+        objective = cfg["objective"]
+        description = cfg.get("description")
+        scope_breadth = cfg["scope_breadth"]
+        scope_duration = cfg["scope_duration"]
+        scope_coordination = cfg["scope_coordination"]
+        success_criteria_list = cfg["success_criteria_list"]
+        estimated_complexity = cfg["estimated_complexity"]
+        constraints = cfg["constraints"]
+        metadata = cfg["metadata"]
+        output_format = cfg["output_format"]
+        config_data = cfg["config_data"]
 
         # Stage 2: Resolve session and project
-        session_id, target_project_id, is_cross_project = _resolve_goal_session(
-            session_id, config_data, args)
+        session_id, target_project_id, is_cross_project = _resolve_goal_session(session_id, config_data, args)
 
         # Validate required fields
         if not session_id or not objective:
-            print(json.dumps({
-                "ok": False,
-                "error": "No active transaction and --session-id not provided",
-                "hint": "Either run PREFLIGHT first, or provide --session-id explicitly"
-            }))
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": "No active transaction and --session-id not provided",
+                        "hint": "Either run PREFLIGHT first, or provide --session-id explicitly",
+                    }
+                )
+            )
             sys.exit(1)
 
         # Stage 3: Duplicate detection
         _check_goal_duplicates(objective, session_id, output_format, args, config_data)
 
         # Stage 4: Build and save goal
-        goal, goal_repo, success_criteria_objects, scope, success, target_project_id = (
-            _build_and_save_goal(
-                objective, success_criteria_list, scope_breadth, scope_duration,
-                scope_coordination, estimated_complexity, constraints, metadata,
-                session_id, is_cross_project, target_project_id, config_data, args,
-                description=description))
+        goal, goal_repo, success_criteria_objects, scope, success, target_project_id = _build_and_save_goal(
+            objective,
+            success_criteria_list,
+            scope_breadth,
+            scope_duration,
+            scope_coordination,
+            estimated_complexity,
+            constraints,
+            metadata,
+            session_id,
+            is_cross_project,
+            target_project_id,
+            config_data,
+            args,
+            description=description,
+        )
 
         # Stage 5: Post-creation integrations and result building
-        use_beads = getattr(args, 'use_beads', False) or (config_data and config_data.get('use_beads', False))  # type: ignore[reportAttributeAccessIssue]
+        use_beads = getattr(args, "use_beads", False) or (config_data and config_data.get("use_beads", False))  # type: ignore[reportAttributeAccessIssue]
         beads_issue_id = None
 
         if success:
@@ -650,10 +710,22 @@ def handle_goals_create_command(args):
                 "timestamp": goal.created_timestamp,
             }
             beads_issue_id = _goal_post_create_integrations(
-                goal, session_id, objective, scope, success_criteria_objects,
-                scope_breadth, scope_duration, scope_coordination,
-                estimated_complexity, constraints, metadata,
-                args, config_data, output_format, result)
+                goal,
+                session_id,
+                objective,
+                scope,
+                success_criteria_objects,
+                scope_breadth,
+                scope_duration,
+                scope_coordination,
+                estimated_complexity,
+                constraints,
+                metadata,
+                args,
+                config_data,
+                output_format,
+                result,
+            )
         else:
             result = {
                 "ok": False,
@@ -661,24 +733,22 @@ def handle_goals_create_command(args):
                 "session_id": session_id,
                 "message": "Failed to save goal to database",
                 "objective": objective,
-                "scope": scope.to_dict()
+                "scope": scope.to_dict(),
             }
 
         # Stage 6: Format output
-        _format_goal_output(output_format, result, objective, scope,
-                            estimated_complexity, beads_issue_id, use_beads)
+        _format_goal_output(output_format, result, objective, scope, estimated_complexity, beads_issue_id, use_beads)
 
         goal_repo.close()
         return None
 
     except Exception as e:
-        handle_cli_error(e, "Create goal", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Create goal", getattr(args, "verbose", False))
 
 
 def handle_goals_add_task_command(args):
     """Handle goals-add-task command"""
     try:
-
         from empirica.core.goals.repository import GoalRepository
         from empirica.core.tasks.repository import TaskRepository
         from empirica.core.tasks.types import EpistemicImportance, SubTask
@@ -688,7 +758,7 @@ def handle_goals_add_task_command(args):
         description = args.description
         importance = EpistemicImportance[args.importance.upper()] if args.importance else EpistemicImportance.MEDIUM
         dependencies = parse_json_safely(args.dependencies) if args.dependencies else []
-        estimated_tokens = getattr(args, 'estimated_tokens', None)
+        estimated_tokens = getattr(args, "estimated_tokens", None)
 
         # Resolve short ID prefix to full ID
         goal_repo = GoalRepository()
@@ -696,7 +766,7 @@ def handle_goals_add_task_command(args):
         if not goal:
             goal_repo.close()
             result = {"ok": False, "error": f"Goal not found: {goal_id}"}
-            if hasattr(args, 'output') and args.output == 'json':
+            if hasattr(args, "output") and args.output == "json":
                 print(json.dumps(result))
             else:
                 print(f"❌ Goal not found: {goal_id}")
@@ -713,7 +783,7 @@ def handle_goals_add_task_command(args):
             description=description,
             epistemic_importance=importance,
             dependencies=dependencies,
-            estimated_tokens=estimated_tokens
+            estimated_tokens=estimated_tokens,
         )
 
         # Save to database
@@ -722,7 +792,7 @@ def handle_goals_add_task_command(args):
         if success:
             # BEADS Integration (Optional): Create child issue with dependency
             beads_subtask_id = None
-            use_beads = getattr(args, 'use_beads', False)
+            use_beads = getattr(args, "use_beads", False)
 
             if use_beads:
                 try:
@@ -731,10 +801,7 @@ def handle_goals_add_task_command(args):
 
                     # Get parent goal's BEADS ID
                     db = SessionDatabase()
-                    cursor = db.conn.execute(
-                        "SELECT beads_issue_id FROM goals WHERE id = ?",
-                        (goal_id,)
-                    )
+                    cursor = db.conn.execute("SELECT beads_issue_id FROM goals WHERE id = ?", (goal_id,))
                     row = cursor.fetchone()
                     parent_beads_id = row[0] if row and row[0] else None
 
@@ -746,7 +813,7 @@ def handle_goals_add_task_command(args):
                                 EpistemicImportance.CRITICAL: 1,
                                 EpistemicImportance.HIGH: 1,
                                 EpistemicImportance.MEDIUM: 2,
-                                EpistemicImportance.LOW: 3
+                                EpistemicImportance.LOW: 3,
                             }
                             priority = priority_map.get(importance, 2)
 
@@ -756,23 +823,24 @@ def handle_goals_add_task_command(args):
                                 description=f"Empirica Task {subtask.id[:8]}\nParent Goal: {goal_id[:8]}",
                                 priority=priority,
                                 issue_type="task",
-                                labels=["empirica", "task"]
+                                labels=["empirica", "task"],
                             )
 
                             if beads_subtask_id:
                                 # Add dependency: subtask blocks parent
                                 beads.add_dependency(
-                                    child_id=beads_subtask_id,
-                                    parent_id=parent_beads_id,
-                                    dep_type='blocks'
+                                    child_id=beads_subtask_id, parent_id=parent_beads_id, dep_type="blocks"
                                 )
 
                                 # Store BEADS link in subtask_data
-                                db.conn.execute("""
+                                db.conn.execute(
+                                    """
                                     UPDATE subtasks
                                     SET subtask_data = json_set(subtask_data, '$.beads_issue_id', ?)
                                     WHERE id = ?
-                                """, (beads_subtask_id, subtask.id))
+                                """,
+                                    (beads_subtask_id, subtask.id),
+                                )
                                 db.conn.commit()
                                 logger.info(f"Linked task {subtask.id[:8]} to BEADS issue {beads_subtask_id}")
                     else:
@@ -790,12 +858,15 @@ def handle_goals_add_task_command(args):
 
                 # Get goal's session and project info
                 st_db = SubtaskDB()
-                cursor = st_db.conn.execute("""
+                cursor = st_db.conn.execute(
+                    """
                     SELECT g.objective, g.session_id, s.project_id, s.ai_id
                     FROM goals g
                     LEFT JOIN sessions s ON g.session_id = s.session_id
                     WHERE g.id = ?
-                """, (goal_id,))
+                """,
+                    (goal_id,),
+                )
                 row = cursor.fetchone()
                 st_db.close()
 
@@ -826,7 +897,7 @@ def handle_goals_add_task_command(args):
                 "importance": importance.value,
                 "status": subtask.status.value,
                 "timestamp": subtask.created_timestamp,
-                "beads_issue_id": beads_subtask_id  # Include BEADS link
+                "beads_issue_id": beads_subtask_id,  # Include BEADS link
             }
         else:
             result = {
@@ -835,11 +906,11 @@ def handle_goals_add_task_command(args):
                 "goal_id": goal_id,
                 "message": "Failed to save task to database",
                 "description": description,
-                "importance": importance.value
+                "importance": importance.value,
             }
 
         # Format output
-        if hasattr(args, 'output') and args.output == 'json':
+        if hasattr(args, "output") and args.output == "json":
             print(json.dumps(result, indent=2))
         else:
             print("✅ Task added successfully")
@@ -854,7 +925,7 @@ def handle_goals_add_task_command(args):
         return None
 
     except Exception as e:
-        handle_cli_error(e, "Add task", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Add task", getattr(args, "verbose", False))
 
 
 def handle_goals_add_dependency_command(args):
@@ -867,9 +938,9 @@ def handle_goals_add_dependency_command(args):
         # Parse arguments
         goal_id = args.goal_id
         depends_on_goal_id = args.depends_on
-        dependency_type = getattr(args, 'type', 'blocks')
-        description = getattr(args, 'description', None)
-        output_format = getattr(args, 'output', 'human')
+        dependency_type = getattr(args, "type", "blocks")
+        description = getattr(args, "description", None)
+        output_format = getattr(args, "output", "human")
 
         db = SessionDatabase()
         cursor = db.conn.cursor()
@@ -881,9 +952,9 @@ def handle_goals_add_dependency_command(args):
             result = {
                 "ok": False,
                 "error": f"Goal not found: {goal_id}",
-                "hint": "Use 'empirica goals-list-all' to see available goals"
+                "hint": "Use 'empirica goals-list-all' to see available goals",
             }
-            print(json.dumps(result, indent=2) if output_format == 'json' else f"Error: {result['error']}")
+            print(json.dumps(result, indent=2) if output_format == "json" else f"Error: {result['error']}")
             db.close()
             return 1
 
@@ -893,49 +964,58 @@ def handle_goals_add_dependency_command(args):
             result = {
                 "ok": False,
                 "error": f"Dependency goal not found: {depends_on_goal_id}",
-                "hint": "Use 'empirica goals-list-all' to see available goals"
+                "hint": "Use 'empirica goals-list-all' to see available goals",
             }
-            print(json.dumps(result, indent=2) if output_format == 'json' else f"Error: {result['error']}")
+            print(json.dumps(result, indent=2) if output_format == "json" else f"Error: {result['error']}")
             db.close()
             return 1
 
         # Check for circular dependency (simple check: A depends on B, B depends on A)
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id FROM goal_dependencies
             WHERE goal_id = ? AND depends_on_goal_id = ?
-        """, (depends_on_goal_id, goal_id))
+        """,
+            (depends_on_goal_id, goal_id),
+        )
         if cursor.fetchone():
             result = {
                 "ok": False,
                 "error": "Circular dependency detected",
-                "detail": f"Goal {depends_on_goal_id[:8]}... already depends on {goal_id[:8]}..."
+                "detail": f"Goal {depends_on_goal_id[:8]}... already depends on {goal_id[:8]}...",
             }
-            print(json.dumps(result, indent=2) if output_format == 'json' else f"Error: {result['error']}")
+            print(json.dumps(result, indent=2) if output_format == "json" else f"Error: {result['error']}")
             db.close()
             return 1
 
         # Check if dependency already exists
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id FROM goal_dependencies
             WHERE goal_id = ? AND depends_on_goal_id = ?
-        """, (goal_id, depends_on_goal_id))
+        """,
+            (goal_id, depends_on_goal_id),
+        )
         if cursor.fetchone():
             result = {
                 "ok": False,
                 "error": "Dependency already exists",
                 "goal_id": goal_id,
-                "depends_on": depends_on_goal_id
+                "depends_on": depends_on_goal_id,
             }
-            print(json.dumps(result, indent=2) if output_format == 'json' else f"Error: {result['error']}")
+            print(json.dumps(result, indent=2) if output_format == "json" else f"Error: {result['error']}")
             db.close()
             return 1
 
         # Insert dependency
         dep_id = str(uuid.uuid4())
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO goal_dependencies (id, goal_id, depends_on_goal_id, dependency_type, description)
             VALUES (?, ?, ?, ?, ?)
-        """, (dep_id, goal_id, depends_on_goal_id, dependency_type, description))
+        """,
+            (dep_id, goal_id, depends_on_goal_id, dependency_type, description),
+        )
         db.conn.commit()
 
         result = {
@@ -947,17 +1027,13 @@ def handle_goals_add_dependency_command(args):
             "depends_on_objective": depends_row[1][:50] + "..." if len(depends_row[1]) > 50 else depends_row[1],
             "type": dependency_type,
             "description": description,
-            "message": f"Dependency added: {goal_id[:8]}... {dependency_type} {depends_on_goal_id[:8]}..."
+            "message": f"Dependency added: {goal_id[:8]}... {dependency_type} {depends_on_goal_id[:8]}...",
         }
 
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(result, indent=2))
         else:
-            type_labels = {
-                'blocks': 'is blocked by',
-                'informs': 'is informed by',
-                'extends': 'extends'
-            }
+            type_labels = {"blocks": "is blocked by", "informs": "is informed by", "extends": "extends"}
             print("Goal dependency added")
             print(f"  {result['goal_objective']}")
             print(f"    {type_labels.get(dependency_type, dependency_type)}")
@@ -969,7 +1045,7 @@ def handle_goals_add_dependency_command(args):
         return None
 
     except Exception as e:
-        handle_cli_error(e, "Add goal dependency", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Add goal dependency", getattr(args, "verbose", False))
 
 
 def handle_goals_complete_task_command(args):
@@ -993,7 +1069,7 @@ def handle_goals_complete_task_command(args):
                 "task_id": task_id,
                 "message": "Task marked as complete",
                 "evidence": evidence,
-                "timestamp": time.time()
+                "timestamp": time.time(),
             }
         else:
             result = {
@@ -1001,11 +1077,11 @@ def handle_goals_complete_task_command(args):
                 "task_id": task_id,
                 "error": "task_not_found",
                 "message": f"No task matches id '{task_id}' (full UUID or unambiguous prefix required)",
-                "hint": "Verify with: empirica goals-get-tasks --goal-id <goal-id>"
+                "hint": "Verify with: empirica goals-get-tasks --goal-id <goal-id>",
             }
 
         # Format output
-        if hasattr(args, 'output') and args.output == 'json':
+        if hasattr(args, "output") and args.output == "json":
             print(json.dumps(result, indent=2))
         elif success:
             print("✅ Task marked as complete")
@@ -1022,7 +1098,7 @@ def handle_goals_complete_task_command(args):
         return None
 
     except Exception as e:
-        handle_cli_error(e, "Complete task", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Complete task", getattr(args, "verbose", False))
 
 
 def handle_goals_progress_command(args):
@@ -1045,7 +1121,7 @@ def handle_goals_progress_command(args):
                 "ok": False,
                 "goal_id": goal_id,
                 "message": "Goal not found (check ID or use longer prefix if ambiguous)",
-                "timestamp": time.time()
+                "timestamp": time.time(),
             }
         else:
             # Get all subtasks using the resolved full goal ID
@@ -1064,14 +1140,14 @@ def handle_goals_progress_command(args):
                 "total_subtasks": total_subtasks,
                 "completed_subtasks": completed_subtasks,
                 "remaining_subtasks": total_subtasks - completed_subtasks,
-                "timestamp": time.time()
+                "timestamp": time.time(),
             }
 
         # Format output
-        if hasattr(args, 'output') and args.output == 'json':
+        if hasattr(args, "output") and args.output == "json":
             print(json.dumps(result, indent=2))
         else:
-            if result.get('ok'):
+            if result.get("ok"):
                 print("✅ Goal progress retrieved")
                 print(f"   Goal: {goal_id[:8]}...")
                 print(f"   Completion: {result['completion_percentage']:.1f}%")
@@ -1086,9 +1162,7 @@ def handle_goals_progress_command(args):
         return None
 
     except Exception as e:
-        handle_cli_error(e, "Get goal progress", getattr(args, 'verbose', False))
-
-
+        handle_cli_error(e, "Get goal progress", getattr(args, "verbose", False))
 
 
 _DRIFT_PREDICATE = (
@@ -1099,7 +1173,7 @@ _DRIFT_PREDICATE = (
 
 def _count_goal_drift(cursor, project_id, status_filter, show_completed) -> int:
     """Return drift count for the project, or 0 if not applicable to this view."""
-    if not project_id or show_completed or status_filter in ('completed', 'drift', 'all'):
+    if not project_id or show_completed or status_filter in ("completed", "drift", "all"):
         return 0
     try:
         cursor.execute(
@@ -1115,13 +1189,13 @@ def _count_goal_drift(cursor, project_id, status_filter, show_completed) -> int:
 
 def _build_goals_status_filter(status_filter, show_completed):
     """Return (sql_fragment, extra_params) for the chosen status filter."""
-    if status_filter == 'all':
+    if status_filter == "all":
         return "", []
-    if status_filter == 'completed':
+    if status_filter == "completed":
         return " AND g.is_completed = 1", []
-    if status_filter == 'drift':
+    if status_filter == "drift":
         return f" AND {_DRIFT_PREDICATE}", []
-    if status_filter in ('in_progress', 'planned'):
+    if status_filter in ("in_progress", "planned"):
         return " AND g.status = ? AND g.is_completed = 0", [status_filter]
     if show_completed:
         return " AND g.is_completed = 1", []
@@ -1146,7 +1220,7 @@ def _handle_goals_list_command_helper(cursor, project_id, session_id):
     # Priority 2: From unified context resolver (transaction → active_work)
     try:
         context = R.context()
-        ctx_session = context.get('empirica_session_id')
+        ctx_session = context.get("empirica_session_id")
         if ctx_session:
             cursor.execute("SELECT project_id FROM sessions WHERE session_id = ?", (ctx_session,))
             row = cursor.fetchone()
@@ -1155,6 +1229,7 @@ def _handle_goals_list_command_helper(cursor, project_id, session_id):
     except Exception:
         pass
     return None
+
 
 def handle_goals_list_command(args):
     """Handle goals-list command - list goals with optional filters
@@ -1172,14 +1247,14 @@ def handle_goals_list_command(args):
         from empirica.data.session_database import SessionDatabase
 
         # Parse arguments
-        session_id = getattr(args, 'session_id', None)
-        project_id = getattr(args, 'project_id', None)
-        transaction_id = getattr(args, 'transaction_id', None)
-        ai_id = getattr(args, 'ai_id', None)
-        show_completed = getattr(args, 'completed', False)
-        status_filter = getattr(args, 'status', None)  # planned|in_progress|completed|all
-        output_format = getattr(args, 'output', 'human')
-        limit = getattr(args, 'limit', 20) if hasattr(args, 'limit') else 20
+        session_id = getattr(args, "session_id", None)
+        project_id = getattr(args, "project_id", None)
+        transaction_id = getattr(args, "transaction_id", None)
+        ai_id = getattr(args, "ai_id", None)
+        show_completed = getattr(args, "completed", False)
+        status_filter = getattr(args, "status", None)  # planned|in_progress|completed|all
+        output_format = getattr(args, "output", "human")
+        limit = getattr(args, "limit", 20) if hasattr(args, "limit") else 20
 
         db = SessionDatabase()
         cursor = db.conn.cursor()
@@ -1234,17 +1309,19 @@ def handle_goals_list_command(args):
             completed = row[8] or 0
             progress_pct = (completed / total * 100) if total > 0 else 0.0
 
-            goals.append({
-                "goal_id": row[0],
-                "objective": row[1],
-                "status": row[2],
-                "is_completed": bool(row[3]),
-                "created_at": row[4],
-                "session_id": row[5],
-                "ai_id": row[6],
-                "progress": f"{completed}/{total}",
-                "progress_pct": progress_pct
-            })
+            goals.append(
+                {
+                    "goal_id": row[0],
+                    "objective": row[1],
+                    "status": row[2],
+                    "is_completed": bool(row[3]),
+                    "created_at": row[4],
+                    "session_id": row[5],
+                    "ai_id": row[6],
+                    "progress": f"{completed}/{total}",
+                    "progress_pct": progress_pct,
+                }
+            )
 
         db.close()
 
@@ -1265,9 +1342,9 @@ def handle_goals_list_command(args):
                 "project_id": project_id,
                 "session_id": session_id,  # Keep for reference (used to derive project)
                 "ai_id": ai_id,
-                "status": status_desc
+                "status": status_desc,
             },
-            "timestamp": time.time()
+            "timestamp": time.time(),
         }
         if drift_count:
             result["drift_count"] = drift_count
@@ -1276,7 +1353,7 @@ def handle_goals_list_command(args):
                 "run `empirica goals-list --status drift` to inspect."
             )
 
-        if output_format == 'json':
+        if output_format == "json":
             # Return result - CLI core will print as JSON
             return result
         else:
@@ -1290,16 +1367,18 @@ def handle_goals_list_command(args):
                 print("   (No goals found)")
             else:
                 for i, g in enumerate(goals, 1):
-                    status_emoji = "✅" if g['is_completed'] else ("🔄" if g['progress'] != "0/0" else "⏳")
+                    status_emoji = "✅" if g["is_completed"] else ("🔄" if g["progress"] != "0/0" else "⏳")
                     print(f"{status_emoji} {i}. {g['objective'][:65]}")
-                    ai_info = f" | AI: {g['ai_id']}" if g['ai_id'] else ""
-                    print(f"   ID: {g['goal_id'][:8]}... | Progress: {g['progress']} ({g['progress_pct']:.0f}%){ai_info}")
+                    ai_info = f" | AI: {g['ai_id']}" if g["ai_id"] else ""
+                    print(
+                        f"   ID: {g['goal_id'][:8]}... | Progress: {g['progress']} ({g['progress_pct']:.0f}%){ai_info}"
+                    )
                     print()
 
             return None  # Prevents CLI core from printing dict items
 
     except Exception as e:
-        handle_cli_error(e, "List goals", getattr(args, 'verbose', False))
+        handle_cli_error(e, "List goals", getattr(args, "verbose", False))
 
 
 def handle_goals_get_tasks_command(args):
@@ -1328,27 +1407,31 @@ def handle_goals_get_tasks_command(args):
                 "goal_id": goal_id,
                 "message": "No tasks found for goal",
                 "tasks": [],
-                "timestamp": time.time()
+                "timestamp": time.time(),
             }
         else:
             tasks_dict = []
             for task in tasks:
-                tasks_dict.append({
-                    "task_id": task.id,
-                    "description": task.description,
-                    "status": task.status.value,
-                    "importance": task.epistemic_importance.value,
-                    "created_at": task.created_timestamp,
-                    "completed_at": task.completed_timestamp if hasattr(task, 'completed_timestamp') else None,
-                    "dependencies": task.dependencies if hasattr(task, 'dependencies') else [],
-                    "estimated_tokens": task.estimated_tokens if hasattr(task, 'estimated_tokens') else None,
-                    "actual_tokens": task.actual_tokens if hasattr(task, 'actual_tokens') else None,
-                    "completion_evidence": task.completion_evidence if hasattr(task, 'completion_evidence') else None,
-                    "notes": task.notes if hasattr(task, 'notes') else "",
-                    "findings": task.findings if hasattr(task, 'findings') else [],
-                    "unknowns": task.unknowns if hasattr(task, 'unknowns') else [],
-                    "dead_ends": task.dead_ends if hasattr(task, 'dead_ends') else []
-                })
+                tasks_dict.append(
+                    {
+                        "task_id": task.id,
+                        "description": task.description,
+                        "status": task.status.value,
+                        "importance": task.epistemic_importance.value,
+                        "created_at": task.created_timestamp,
+                        "completed_at": task.completed_timestamp if hasattr(task, "completed_timestamp") else None,
+                        "dependencies": task.dependencies if hasattr(task, "dependencies") else [],
+                        "estimated_tokens": task.estimated_tokens if hasattr(task, "estimated_tokens") else None,
+                        "actual_tokens": task.actual_tokens if hasattr(task, "actual_tokens") else None,
+                        "completion_evidence": task.completion_evidence
+                        if hasattr(task, "completion_evidence")
+                        else None,
+                        "notes": task.notes if hasattr(task, "notes") else "",
+                        "findings": task.findings if hasattr(task, "findings") else [],
+                        "unknowns": task.unknowns if hasattr(task, "unknowns") else [],
+                        "dead_ends": task.dead_ends if hasattr(task, "dead_ends") else [],
+                    }
+                )
 
             completed_count = sum(1 for t in tasks if t.status.value == "completed")
 
@@ -1360,27 +1443,27 @@ def handle_goals_get_tasks_command(args):
                 "completed_count": completed_count,
                 "in_progress_count": len(tasks) - completed_count,
                 "tasks": tasks_dict,
-                "timestamp": time.time()
+                "timestamp": time.time(),
             }
 
         # Format output
-        if hasattr(args, 'output') and args.output == 'json':
+        if hasattr(args, "output") and args.output == "json":
             print(json.dumps(result, indent=2))
         else:
-            if result.get('ok'):
+            if result.get("ok"):
                 print(f"✅ Found {result['tasks_count']} task(s) for goal {goal_id[:8]}...")
                 print(f"   Progress: {result['completed_count']}/{result['tasks_count']} completed")
                 print()
-                for i, task in enumerate(result['tasks'], 1):
-                    status_icon = "✅" if task['status'] == "completed" else "⏳"
+                for i, task in enumerate(result["tasks"], 1):
+                    status_icon = "✅" if task["status"] == "completed" else "⏳"
                     print(f"{status_icon} {i}. {task['description']}")
                     print(f"   Status: {task['status']} | Importance: {task.get('importance', 'medium')}")
                     print(f"   Task ID: {task['task_id'][:8]}...")
-                    if task.get('findings'):
+                    if task.get("findings"):
                         print(f"   Findings: {len(task['findings'])} discovered")
-                    if task.get('unknowns'):
+                    if task.get("unknowns"):
                         print(f"   Unknowns: {len(task['unknowns'])} remaining")
-                    if task.get('dead_ends'):
+                    if task.get("dead_ends"):
                         print(f"   Dead ends: {len(task['dead_ends'])} avoided")
             else:
                 print(f"❌ {result.get('message', 'Error retrieving tasks')}")
@@ -1389,7 +1472,7 @@ def handle_goals_get_tasks_command(args):
         return None
 
     except Exception as e:
-        handle_cli_error(e, "Get tasks", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Get tasks", getattr(args, "verbose", False))
 
 
 def handle_sessions_resume_command(args):
@@ -1398,9 +1481,9 @@ def handle_sessions_resume_command(args):
         from empirica.data.session_database import SessionDatabase
 
         # Parse arguments
-        ai_id = getattr(args, 'ai_id', None)
+        ai_id = getattr(args, "ai_id", None)
         count = args.count
-        detail_level = getattr(args, 'detail_level', 'summary')
+        detail_level = getattr(args, "detail_level", "summary")
 
         # Use real database queries
         db = SessionDatabase()
@@ -1410,23 +1493,29 @@ def handle_sessions_resume_command(args):
 
         if ai_id:
             # Get sessions for specific AI
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT session_id, ai_id, start_time, end_time,
                        total_cascades, avg_confidence, session_notes
                 FROM sessions
                 WHERE ai_id = ?
                 ORDER BY start_time DESC
                 LIMIT ?
-            """, (ai_id, count))
+            """,
+                (ai_id, count),
+            )
         else:
             # Get recent sessions for all AIs
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT session_id, ai_id, start_time, end_time,
                        total_cascades, avg_confidence, session_notes
                 FROM sessions
                 ORDER BY start_time DESC
                 LIMIT ?
-            """, (count,))
+            """,
+                (count,),
+            )
 
         # Convert rows to real session data
         sessions = []
@@ -1435,12 +1524,15 @@ def handle_sessions_resume_command(args):
 
             # Calculate current phase from cascades if available
             cascade_cursor = db.conn.cursor()
-            cascade_cursor.execute("""
+            cascade_cursor.execute(
+                """
                 SELECT preflight_completed, think_completed, plan_completed,
                        investigate_completed, check_completed, act_completed, postflight_completed
                 FROM cascades
                 WHERE session_id = ? ORDER BY started_at DESC LIMIT 1
-            """, (session_data['session_id'],))
+            """,
+                (session_data["session_id"],),
+            )
 
             cascade_row = cascade_cursor.fetchone()
             if cascade_row:
@@ -1462,17 +1554,19 @@ def handle_sessions_resume_command(args):
             else:
                 current_phase = "PREFLIGHT"
 
-            sessions.append({
-                "session_id": session_data['session_id'],  # Real UUID!
-                "ai_id": session_data['ai_id'],
-                "start_time": session_data['start_time'],
-                "end_time": session_data['end_time'],
-                "status": "completed" if session_data['end_time'] else "active",
-                "phase": current_phase,
-                "total_cascades": session_data['total_cascades'],
-                "avg_confidence": session_data['avg_confidence'],
-                "last_activity": session_data['start_time'],  # Real timestamp!
-            })
+            sessions.append(
+                {
+                    "session_id": session_data["session_id"],  # Real UUID!
+                    "ai_id": session_data["ai_id"],
+                    "start_time": session_data["start_time"],
+                    "end_time": session_data["end_time"],
+                    "status": "completed" if session_data["end_time"] else "active",
+                    "phase": current_phase,
+                    "total_cascades": session_data["total_cascades"],
+                    "avg_confidence": session_data["avg_confidence"],
+                    "last_activity": session_data["start_time"],  # Real timestamp!
+                }
+            )
 
         result = {
             "ok": True,
@@ -1480,11 +1574,11 @@ def handle_sessions_resume_command(args):
             "sessions_count": len(sessions),
             "detail_level": detail_level,
             "sessions": sessions,
-            "timestamp": time.time()
+            "timestamp": time.time(),
         }
 
         # Format output
-        if hasattr(args, 'output') and args.output == 'json':
+        if hasattr(args, "output") and args.output == "json":
             print(json.dumps(result, indent=2))
         else:
             print(f"✅ Found {len(sessions)} session(s):")
@@ -1494,7 +1588,7 @@ def handle_sessions_resume_command(args):
                 print(f"   Phase: {session['phase']}")
                 print(f"   Status: {session['status']}")
                 print(f"   Start time: {str(session['start_time'])[:16]}")
-                if session['total_cascades'] > 0:
+                if session["total_cascades"] > 0:
                     print(f"   Cascades: {session['total_cascades']}")
 
         db.close()
@@ -1502,7 +1596,7 @@ def handle_sessions_resume_command(args):
         return None
 
     except Exception as e:
-        handle_cli_error(e, "Resume sessions", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Resume sessions", getattr(args, "verbose", False))
 
 
 def handle_goals_search_command(args):
@@ -1516,13 +1610,13 @@ def handle_goals_search_command(args):
         from empirica.data.session_database import SessionDatabase
 
         query = args.query
-        project_id = getattr(args, 'project_id', None)
-        item_type = getattr(args, 'type', None)  # 'goal' or 'subtask'
-        status = getattr(args, 'status', None)
-        ai_id = getattr(args, 'ai_id', None)
-        limit = getattr(args, 'limit', 10)
-        sync_first = getattr(args, 'sync', False)
-        output = getattr(args, 'output', 'human')
+        project_id = getattr(args, "project_id", None)
+        item_type = getattr(args, "type", None)  # 'goal' or 'subtask'
+        status = getattr(args, "status", None)
+        ai_id = getattr(args, "ai_id", None)
+        limit = getattr(args, "limit", 10)
+        sync_first = getattr(args, "sync", False)
+        output = getattr(args, "output", "human")
 
         # Auto-detect project_id if not provided
         if not project_id:
@@ -1542,15 +1636,15 @@ def handle_goals_search_command(args):
                 result = {
                     "ok": False,
                     "error": "No project found. Run empirica session-create first.",
-                    "hint": "Or specify --project-id explicitly"
+                    "hint": "Or specify --project-id explicitly",
                 }
-                print(json.dumps(result, indent=2) if output == 'json' else f"Error: {result['error']}")
+                print(json.dumps(result, indent=2) if output == "json" else f"Error: {result['error']}")
                 return 1
 
         # Optionally sync SQLite goals to Qdrant first
         if sync_first:
             synced = sync_goals_to_qdrant(project_id)
-            if output != 'json':
+            if output != "json":
                 print(f"📦 Synced {synced} goals/tasks to Qdrant")
 
         # Perform semantic search
@@ -1564,17 +1658,22 @@ def handle_goals_search_command(args):
             limit=limit,
         )
 
-        if output == 'json':
-            print(json.dumps({
-                "ok": True,
-                "query": query,
-                "project_id": project_id,
-                "results_count": len(results),
-                "results": results
-            }, indent=2))
+        if output == "json":
+            print(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "query": query,
+                        "project_id": project_id,
+                        "results_count": len(results),
+                        "results": results,
+                    },
+                    indent=2,
+                )
+            )
         else:
             if not results:
-                print(f"\n🔍 No goals found for: \"{query}\"")
+                print(f'\n🔍 No goals found for: "{query}"')
                 print(f"   Project: {project_id[:8]}...")
                 print("\n💡 Tips:")
                 print("   - Run with --sync to sync SQLite goals to Qdrant first")
@@ -1582,13 +1681,13 @@ def handle_goals_search_command(args):
                 print("   - Check Qdrant is running (EMPIRICA_QDRANT_URL)")
                 return 0
 
-            print(f"\n🔍 Found {len(results)} result(s) for: \"{query}\"")
+            print(f'\n🔍 Found {len(results)} result(s) for: "{query}"')
             print(f"   Project: {project_id[:8]}...\n")
 
             for i, r in enumerate(results, 1):
-                score = r.get('score', 0)
-                item_type = r.get('type', 'unknown')
-                is_completed = r.get('is_completed', False)
+                score = r.get("score", 0)
+                item_type = r.get("type", "unknown")
+                is_completed = r.get("is_completed", False)
 
                 # Status icon
                 if is_completed:
@@ -1597,29 +1696,29 @@ def handle_goals_search_command(args):
                     status_icon = "⏳"
 
                 # Type badge
-                type_badge = "📋" if item_type == 'goal' else "📝"
+                type_badge = "📋" if item_type == "goal" else "📝"
 
-                if item_type == 'goal':
-                    objective = r.get('objective', 'No objective')
+                if item_type == "goal":
+                    objective = r.get("objective", "No objective")
                     print(f"{status_icon} {i}. {type_badge} {objective[:70]}")
                 else:
-                    description = r.get('description', 'No description')
-                    goal_id = r.get('goal_id', '')
+                    description = r.get("description", "No description")
+                    goal_id = r.get("goal_id", "")
                     print(f"{status_icon} {i}. {type_badge} {description[:70]}")
                     if goal_id:
                         print(f"      Goal: {goal_id[:8]}...")
 
                 print(f"      Score: {score:.2f} | Status: {r.get('status', 'unknown')}")
-                if r.get('session_id'):
+                if r.get("session_id"):
                     print(f"      Session: {r['session_id'][:8]}...")
-                if r.get('ai_id'):
+                if r.get("ai_id"):
                     print(f"      AI: {r['ai_id']}")
                 print()
 
         return None
 
     except Exception as e:
-        handle_cli_error(e, "Search goals", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Search goals", getattr(args, "verbose", False))
 
 
 def handle_goals_mark_stale_command(args):
@@ -1631,12 +1730,12 @@ def handle_goals_mark_stale_command(args):
     try:
         from empirica.core.goals.repository import GoalRepository
 
-        session_id = getattr(args, 'session_id', None)
-        reason = getattr(args, 'reason', 'memory_compact')
-        output_format = getattr(args, 'output', 'json')
+        session_id = getattr(args, "session_id", None)
+        reason = getattr(args, "reason", "memory_compact")
+        output_format = getattr(args, "output", "json")
 
         if not session_id:
-            if output_format == 'json':
+            if output_format == "json":
                 print(json.dumps({"ok": False, "error": "Session ID required (--session-id)"}))
             else:
                 print("Error: Session ID required (--session-id)")
@@ -1649,14 +1748,18 @@ def handle_goals_mark_stale_command(args):
         finally:
             repo.close()
 
-        if output_format == 'json':
-            print(json.dumps({
-                "ok": True,
-                "session_id": session_id,
-                "goals_marked_stale": count,
-                "reason": reason,
-                "message": f"Marked {count} in_progress goal(s) as stale"
-            }))
+        if output_format == "json":
+            print(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "session_id": session_id,
+                        "goals_marked_stale": count,
+                        "reason": reason,
+                        "message": f"Marked {count} in_progress goal(s) as stale",
+                    }
+                )
+            )
         else:
             if count > 0:
                 print(f"✅ Marked {count} in_progress goal(s) as stale")
@@ -1668,7 +1771,7 @@ def handle_goals_mark_stale_command(args):
         return 0
 
     except Exception as e:
-        handle_cli_error(e, "Mark goals stale", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Mark goals stale", getattr(args, "verbose", False))
 
 
 def handle_goals_get_stale_command(args):
@@ -1679,12 +1782,12 @@ def handle_goals_get_stale_command(args):
     try:
         from empirica.core.goals.repository import GoalRepository
 
-        session_id = getattr(args, 'session_id', None)
-        project_id = getattr(args, 'project_id', None)
-        output_format = getattr(args, 'output', 'json')
+        session_id = getattr(args, "session_id", None)
+        project_id = getattr(args, "project_id", None)
+        output_format = getattr(args, "output", "json")
 
         if not session_id and not project_id:
-            if output_format == 'json':
+            if output_format == "json":
                 print(json.dumps({"ok": False, "error": "Session ID or Project ID required"}))
             else:
                 print("Error: Session ID (--session-id) or Project ID (--project-id) required")
@@ -1696,19 +1799,15 @@ def handle_goals_get_stale_command(args):
         finally:
             repo.close()
 
-        if output_format == 'json':
-            print(json.dumps({
-                "ok": True,
-                "stale_goals": stale_goals,
-                "count": len(stale_goals)
-            }))
+        if output_format == "json":
+            print(json.dumps({"ok": True, "stale_goals": stale_goals, "count": len(stale_goals)}))
         else:
             if stale_goals:
                 print(f"⚠️  Found {len(stale_goals)} stale goal(s) needing re-evaluation:\n")
                 for g in stale_goals:
                     print(f"  📋 {g['objective'][:60]}...")
                     print(f"     ID: {g['goal_id'][:8]}...")
-                    if g.get('stale_reason'):
+                    if g.get("stale_reason"):
                         print(f"     Reason: {g['stale_reason']}")
                     print()
             else:
@@ -1717,7 +1816,7 @@ def handle_goals_get_stale_command(args):
         return 0
 
     except Exception as e:
-        handle_cli_error(e, "Get stale goals", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Get stale goals", getattr(args, "verbose", False))
 
 
 def handle_goals_activate_command(args):
@@ -1730,7 +1829,7 @@ def handle_goals_activate_command(args):
         from empirica.data.session_database import SessionDatabase
 
         goal_id = args.goal_id
-        output_format = getattr(args, 'output', 'json')
+        output_format = getattr(args, "output", "json")
 
         # Auto-derive transaction_id
         transaction_id = None
@@ -1750,25 +1849,23 @@ def handle_goals_activate_command(args):
                 "goal_id": goal_id,
                 "status": "in_progress",
                 "transaction_id": transaction_id,
-                "message": f"Goal {goal_id[:8]} activated — now in_progress and linked to current transaction"
+                "message": f"Goal {goal_id[:8]} activated — now in_progress and linked to current transaction",
             }
-            if output_format == 'json':
+            if output_format == "json":
                 print(json.dumps(result))
             else:
                 print(f"✅ Activated goal: {goal_id[:8]}")
                 if transaction_id:
                     print(f"   Linked to transaction: {transaction_id[:8]}")
         else:
-            result = {
-                "ok": False,
-                "error": f"Goal {goal_id} not found or not in 'planned' status"
-            }
+            result = {"ok": False, "error": f"Goal {goal_id} not found or not in 'planned' status"}
             print(json.dumps(result))
             sys.exit(1)
 
     except Exception as e:
         from empirica.cli.cli_utils import handle_cli_error
-        handle_cli_error(e, "Activate goal", getattr(args, 'verbose', False))
+
+        handle_cli_error(e, "Activate goal", getattr(args, "verbose", False))
 
 
 def handle_goals_refresh_command(args):
@@ -1779,11 +1876,11 @@ def handle_goals_refresh_command(args):
     try:
         from empirica.core.goals.repository import GoalRepository
 
-        goal_id = getattr(args, 'goal_id', None)
-        output_format = getattr(args, 'output', 'json')
+        goal_id = getattr(args, "goal_id", None)
+        output_format = getattr(args, "output", "json")
 
         if not goal_id:
-            if output_format == 'json':
+            if output_format == "json":
                 print(json.dumps({"ok": False, "error": "Goal ID required (--goal-id)"}))
             else:
                 print("Error: Goal ID required (--goal-id)")
@@ -1795,13 +1892,17 @@ def handle_goals_refresh_command(args):
         finally:
             repo.close()
 
-        if output_format == 'json':
-            print(json.dumps({
-                "ok": refreshed,
-                "goal_id": goal_id,
-                "refreshed": refreshed,
-                "message": "Goal refreshed to in_progress" if refreshed else "Goal not found or not stale"
-            }))
+        if output_format == "json":
+            print(
+                json.dumps(
+                    {
+                        "ok": refreshed,
+                        "goal_id": goal_id,
+                        "refreshed": refreshed,
+                        "message": "Goal refreshed to in_progress" if refreshed else "Goal not found or not stale",
+                    }
+                )
+            )
         else:
             if refreshed:
                 print(f"✅ Goal {goal_id[:8]}... refreshed to in_progress")
@@ -1811,23 +1912,28 @@ def handle_goals_refresh_command(args):
         return 0
 
     except Exception as e:
-        handle_cli_error(e, "Refresh goal", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Refresh goal", getattr(args, "verbose", False))
+
 
 # --- Merged from goals_ready_command.py ---
 
 
-
-def _handle_goals_ready_command_helper(beads_ready, cursor, db, max_uncertainty, min_confidence, ready_work, session_id):
+def _handle_goals_ready_command_helper(
+    beads_ready, cursor, db, max_uncertainty, min_confidence, ready_work, session_id
+):
     """Extracted from handle_goals_ready_command to reduce complexity."""
     for beads_issue in beads_ready:
-        beads_id = beads_issue.get('id')
+        beads_id = beads_issue.get("id")
 
         # Find Empirica goal with this beads_issue_id
-        cursor = db.conn.execute("""
+        cursor = db.conn.execute(
+            """
             SELECT id, objective, scope, status
             FROM goals
             WHERE beads_issue_id = ? AND session_id = ?
-        """, (beads_id, session_id))
+        """,
+            (beads_id, session_id),
+        )
 
         goal_row = cursor.fetchone()
 
@@ -1844,14 +1950,17 @@ def _handle_goals_ready_command_helper(beads_ready, cursor, db, max_uncertainty,
         scope = json.loads(scope_json) if scope_json else {}
 
         # Get epistemic state from latest CHECK or PREFLIGHT
-        cursor = db.conn.execute("""
+        cursor = db.conn.execute(
+            """
             SELECT phase, engagement, know, do, context, clarity, coherence,
                    signal, density, state, change, completion, impact, uncertainty
             FROM reflexes
             WHERE session_id = ?
             ORDER BY timestamp DESC
             LIMIT 1
-        """, (session_id,))
+        """,
+            (session_id,),
+        )
 
         reflex_row = cursor.fetchone()
 
@@ -1863,25 +1972,25 @@ def _handle_goals_ready_command_helper(beads_ready, cursor, db, max_uncertainty,
         if reflex_row:
             # Build vectors dict from individual columns
             vectors = {
-                'engagement': reflex_row[1],
-                'know': reflex_row[2],
-                'do': reflex_row[3],
-                'context': reflex_row[4],
-                'clarity': reflex_row[5],
-                'coherence': reflex_row[6],
-                'signal': reflex_row[7],
-                'density': reflex_row[8],
-                'state': reflex_row[9],
-                'change': reflex_row[10],
-                'completion': reflex_row[11],
-                'impact': reflex_row[12],
-                'uncertainty': reflex_row[13]
+                "engagement": reflex_row[1],
+                "know": reflex_row[2],
+                "do": reflex_row[3],
+                "context": reflex_row[4],
+                "clarity": reflex_row[5],
+                "coherence": reflex_row[6],
+                "signal": reflex_row[7],
+                "density": reflex_row[8],
+                "state": reflex_row[9],
+                "change": reflex_row[10],
+                "completion": reflex_row[11],
+                "impact": reflex_row[12],
+                "uncertainty": reflex_row[13],
             }
             reflex_row[0]
 
             # Extract epistemic state
-            last_confidence = vectors.get('know', 0.5)
-            last_uncertainty = vectors.get('uncertainty', 0.5)
+            last_confidence = vectors.get("know", 0.5)
+            last_uncertainty = vectors.get("uncertainty", 0.5)
 
             # Check epistemic readiness
             if last_confidence < min_confidence:
@@ -1901,13 +2010,13 @@ def _handle_goals_ready_command_helper(beads_ready, cursor, db, max_uncertainty,
             "goal_id": goal_id,
             "beads_issue_id": beads_id,
             "objective": objective,
-            "priority": beads_issue.get('priority', 2),
+            "priority": beads_issue.get("priority", 2),
             "no_blockers": True,  # BEADS already filtered for this
             "epistemic_ready": epistemic_ready,
             "last_check_confidence": last_confidence,
             "preflight_uncertainty": last_uncertainty,
             "scope": scope,
-            "status": status
+            "status": status,
         }
 
         if epistemic_ready:
@@ -1916,6 +2025,7 @@ def _handle_goals_ready_command_helper(beads_ready, cursor, db, max_uncertainty,
             ready_item["why_not_ready"] = why_not_ready
 
         ready_work.append(ready_item)
+
 
 def handle_goals_ready_command(args):
     """Query BEADS ready work + filter by Empirica epistemic criteria
@@ -1929,11 +2039,11 @@ def handle_goals_ready_command(args):
         from empirica.integrations.beads import BeadsAdapter
 
         # Session ID is optional - auto-detect active session if not provided
-        session_id = getattr(args, 'session_id', None)
-        min_confidence = getattr(args, 'min_confidence', 0.7)
-        max_uncertainty = getattr(args, 'max_uncertainty', 0.3)
-        min_priority = getattr(args, 'min_priority', None)
-        output_format = getattr(args, 'output', 'json')
+        session_id = getattr(args, "session_id", None)
+        min_confidence = getattr(args, "min_confidence", 0.7)
+        max_uncertainty = getattr(args, "max_uncertainty", 0.3)
+        min_priority = getattr(args, "min_priority", None)
+        output_format = getattr(args, "output", "json")
 
         # Initialize adapters
         beads = BeadsAdapter()
@@ -1950,16 +2060,16 @@ def handle_goals_ready_command(args):
             """)
             row = cursor.fetchone()
             if row:
-                session_id = row['session_id']
-                if getattr(args, 'verbose', False):
+                session_id = row["session_id"]
+                if getattr(args, "verbose", False):
                     print(f"📍 Auto-detected active session: {session_id[:8]}...", file=sys.stderr)
             else:
                 result = {
                     "ok": False,
                     "error": "No active session found",
-                    "hint": "Create a session: empirica session-create --ai-id <YOUR_AI_ID>"
+                    "hint": "Create a session: empirica session-create --ai-id <YOUR_AI_ID>",
                 }
-                if output_format == 'json':
+                if output_format == "json":
                     print(json.dumps(result, indent=2))
                 else:
                     print("❌ No active session found")
@@ -1975,14 +2085,16 @@ def handle_goals_ready_command(args):
                 "ok": False,
                 "error": "BEADS not available",
                 "hint": "Install bd CLI or use goals without --use-beads",
-                "ready_work": []
+                "ready_work": [],
             }
 
-            if output_format == 'json':
+            if output_format == "json":
                 print(json.dumps(result, indent=2))
             else:
                 print("❌ BEADS not available")
-                print("   Hint: Install bd CLI: curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash")
+                print(
+                    "   Hint: Install bd CLI: curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash"
+                )
 
             db.close()
             # Return 0 to indicate success
@@ -1992,13 +2104,9 @@ def handle_goals_ready_command(args):
         beads_ready = beads.get_ready_work(limit=50, priority=min_priority)
 
         if not beads_ready:
-            result = {
-                "ok": True,
-                "ready_work": [],
-                "message": "No ready work found in BEADS"
-            }
+            result = {"ok": True, "ready_work": [], "message": "No ready work found in BEADS"}
 
-            if output_format == 'json':
+            if output_format == "json":
                 print(json.dumps(result, indent=2))
             else:
                 print("📭 No ready work found")
@@ -2008,7 +2116,9 @@ def handle_goals_ready_command(args):
             return 0
 
         # Map BEADS issues to Empirica goals
-        _handle_goals_ready_command_helper(beads_ready, cursor, db, max_uncertainty, min_confidence, ready_work, session_id)
+        _handle_goals_ready_command_helper(
+            beads_ready, cursor, db, max_uncertainty, min_confidence, ready_work, session_id
+        )
 
         # Filter to only epistemically-ready items
         epistemically_ready_work = [item for item in ready_work if item["epistemic_ready"]]
@@ -2022,12 +2132,12 @@ def handle_goals_ready_command(args):
             "filters": {
                 "min_confidence": min_confidence,
                 "max_uncertainty": max_uncertainty,
-                "min_priority": min_priority
-            }
+                "min_priority": min_priority,
+            },
         }
 
         # Format output
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(result, indent=2))
         else:
             print("📋 Ready Work (Dependency + Epistemic)")
@@ -2039,7 +2149,9 @@ def handle_goals_ready_command(args):
             if epistemically_ready_work:
                 for item in epistemically_ready_work:
                     print(f"✅ {item['beads_issue_id']}: {item['objective']}")
-                    print(f"   Priority: {item['priority']}, Confidence: {item['last_check_confidence']:.2f}, Uncertainty: {item['preflight_uncertainty']:.2f}")
+                    print(
+                        f"   Priority: {item['priority']}, Confidence: {item['last_check_confidence']:.2f}, Uncertainty: {item['preflight_uncertainty']:.2f}"
+                    )
                     print(f"   Why ready: {item['why_ready']}")
                     print()
             else:
@@ -2052,16 +2164,12 @@ def handle_goals_ready_command(args):
 
     except Exception as e:
         logger.error(f"goals-ready error: {e}", exc_info=True)
-        result = {
-            "ok": False,
-            "error": str(e)
-        }
+        result = {"ok": False, "error": str(e)}
         print(json.dumps(result, indent=2))
         return 1
 
 
 # --- Merged from goal_claim_command.py ---
-
 
 
 def _handle_goals_claim_command_helper(ai_id, beads_issue_id, create_branch, goal_id, result, session_id):
@@ -2075,27 +2183,15 @@ def _handle_goals_claim_command_helper(ai_id, beads_issue_id, create_branch, goa
                 branch_name = f"epistemic/reasoning/goal-{goal_id[:8]}"
 
             # Check if branch already exists
-            check_result = subprocess.run(
-                ["git", "rev-parse", "--verify", branch_name],
-                capture_output=True,
-                text=True
-            )
+            check_result = subprocess.run(["git", "rev-parse", "--verify", branch_name], capture_output=True, text=True)
 
             if check_result.returncode == 0:
                 # Branch exists, just checkout
-                subprocess.run(
-                    ["git", "checkout", branch_name],
-                    check=True,
-                    capture_output=True
-                )
+                subprocess.run(["git", "checkout", branch_name], check=True, capture_output=True)
                 result["branch_action"] = "checked_out_existing"
             else:
                 # Create new branch
-                subprocess.run(
-                    ["git", "checkout", "-b", branch_name],
-                    check=True,
-                    capture_output=True
-                )
+                subprocess.run(["git", "checkout", "-b", branch_name], check=True, capture_output=True)
                 result["branch_action"] = "created_new"
 
             result["branch_name"] = branch_name
@@ -2104,13 +2200,14 @@ def _handle_goals_claim_command_helper(ai_id, beads_issue_id, create_branch, goa
             # Add branch mapping
             try:
                 from empirica.integrations.branch_mapping import get_branch_mapping
+
                 branch_mapping = get_branch_mapping()
                 branch_mapping.add_mapping(
                     branch_name=branch_name,
                     goal_id=goal_id,
                     beads_issue_id=beads_issue_id,
                     ai_id=ai_id,
-                    session_id=session_id
+                    session_id=session_id,
                 )
                 result["branch_mapping_saved"] = True
             except Exception as e:
@@ -2124,6 +2221,7 @@ def _handle_goals_claim_command_helper(ai_id, beads_issue_id, create_branch, goa
         result["branch_created"] = False
         result["branch_skipped"] = True
 
+
 def handle_goals_claim_command(args):
     """Handle goals-claim command - Claim goal and create git branch"""
     try:
@@ -2131,67 +2229,48 @@ def handle_goals_claim_command(args):
         from empirica.data.session_database import SessionDatabase
 
         goal_id = args.goal_id
-        create_branch = getattr(args, 'create_branch', True)
-        run_preflight = getattr(args, 'run_preflight', False)
-        output_format = getattr(args, 'output', 'json')
+        create_branch = getattr(args, "create_branch", True)
+        run_preflight = getattr(args, "run_preflight", False)
+        output_format = getattr(args, "output", "json")
 
         # Validate goal exists
         goal_repo = GoalRepository()
         goal = goal_repo.get_goal(goal_id)
 
         if not goal:
-            result = {
-                "ok": False,
-                "error": f"Goal not found: {goal_id}"
-            }
-            print(json.dumps(result) if output_format == 'json' else f"❌ {result['error']}")
+            result = {"ok": False, "error": f"Goal not found: {goal_id}"}
+            print(json.dumps(result) if output_format == "json" else f"❌ {result['error']}")
             sys.exit(1)
 
         # Get session_id from the database (not stored in the Goal object itself)
         db = SessionDatabase()
-        cursor = db.conn.execute(
-            "SELECT session_id FROM goals WHERE id = ?",
-            (goal_id,)
-        )
+        cursor = db.conn.execute("SELECT session_id FROM goals WHERE id = ?", (goal_id,))
         row = cursor.fetchone()
         if not row:
-            result = {
-                "ok": False,
-                "error": f"Goal session not found in database: {goal_id}"
-            }
-            print(json.dumps(result) if output_format == 'json' else f"❌ {result['error']}")
+            result = {"ok": False, "error": f"Goal session not found in database: {goal_id}"}
+            print(json.dumps(result) if output_format == "json" else f"❌ {result['error']}")
             db.close()
             sys.exit(1)
         session_id = row[0]
 
         # Get AI ID from session
-        cursor = db.conn.execute(
-            "SELECT ai_id FROM sessions WHERE session_id = ?",
-            (session_id,)
-        )
+        cursor = db.conn.execute("SELECT ai_id FROM sessions WHERE session_id = ?", (session_id,))
         row = cursor.fetchone()
         ai_id = row[0] if row else "unknown"
 
         # Get BEADS issue ID
-        cursor = db.conn.execute(
-            "SELECT beads_issue_id FROM goals WHERE id = ?",
-            (goal_id,)
-        )
+        cursor = db.conn.execute("SELECT beads_issue_id FROM goals WHERE id = ?", (goal_id,))
         row = cursor.fetchone()
         beads_issue_id = row[0] if row and row[0] else None
         db.close()
 
-        result = {
-            "ok": True,
-            "goal_id": goal_id,
-            "session_id": session_id,
-            "beads_issue_id": beads_issue_id
-        }
+        result = {"ok": True, "goal_id": goal_id, "session_id": session_id, "beads_issue_id": beads_issue_id}
 
         # Update BEADS status to in_progress
         if beads_issue_id:
             try:
                 from empirica.integrations.beads import BeadsAdapter
+
                 beads = BeadsAdapter()
                 if beads.is_available():
                     beads.update_status(beads_issue_id, "in_progress")
@@ -2218,11 +2297,11 @@ def handle_goals_claim_command(args):
                         self.session_id = session_id
                         self.prompt = prompt
                         self.prompt_only = False
-                        self.output = 'json'
+                        self.output = "json"
 
                 preflight_args = MockArgs(
                     session_id=goal.session_id,  # type: ignore[reportAttributeAccessIssue]
-                    prompt=f"Starting work on goal: {goal.objective}"
+                    prompt=f"Starting work on goal: {goal.objective}",
                 )
 
                 # Run preflight (this will print its own output)
@@ -2237,14 +2316,16 @@ def handle_goals_claim_command(args):
             result["preflight_started"] = False
 
         # Output result
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(result, indent=2))
         else:
             print(f"✅ Claimed goal: {goal_id[:8]}")
             if beads_issue_id and result.get("beads_status_updated"):
                 print("✅ Updated BEADS status: in_progress")
             if result.get("branch_created"):
-                print(f"✅ {'Created' if result['branch_action'] == 'created_new' else 'Checked out'} branch: {result['branch_name']}")
+                print(
+                    f"✅ {'Created' if result['branch_action'] == 'created_new' else 'Checked out'} branch: {result['branch_name']}"
+                )
             if result.get("branch_mapping_saved"):
                 print("✅ Branch mapping saved")
             if result.get("preflight_started"):
@@ -2252,7 +2333,7 @@ def handle_goals_claim_command(args):
             print("✅ Ready to start work!")
 
     except Exception as e:
-        handle_cli_error(e, "goals-claim", getattr(args, 'output', 'json'))
+        handle_cli_error(e, "goals-claim", getattr(args, "output", "json"))
 
 
 # --- Merged from goal_complete_command.py ---
@@ -2273,21 +2354,18 @@ def _gc_resolve_goal(goal_id, output_format):
         matches = cursor.fetchall()
 
         if len(matches) == 0:
-            result = {
-                "ok": False,
-                "error": f"Goal not found: {goal_id}"
-            }
-            print(json.dumps(result) if output_format == 'json' else f"❌ {result['error']}")
+            result = {"ok": False, "error": f"Goal not found: {goal_id}"}
+            print(json.dumps(result) if output_format == "json" else f"❌ {result['error']}")
             sys.exit(1)
         elif len(matches) > 1:
-            match_ids = [m['id'][:12] for m in matches]
+            match_ids = [m["id"][:12] for m in matches]
             result = {
                 "ok": False,
                 "error": f"Ambiguous goal prefix '{goal_id}' matches {len(matches)} goals",
                 "matches": match_ids,
-                "hint": "Provide more characters to disambiguate"
+                "hint": "Provide more characters to disambiguate",
             }
-            if output_format == 'json':
+            if output_format == "json":
                 print(json.dumps(result))
             else:
                 print(f"❌ Ambiguous prefix '{goal_id}' matches {len(matches)} goals:")
@@ -2296,13 +2374,10 @@ def _gc_resolve_goal(goal_id, output_format):
             sys.exit(1)
         else:
             goal = matches[0]
-            goal_id = goal['id']
+            goal_id = goal["id"]
 
     # Get BEADS issue ID
-    cursor = db.conn.execute(
-        "SELECT beads_issue_id FROM goals WHERE id = ?",
-        (goal_id,)
-    )
+    cursor = db.conn.execute("SELECT beads_issue_id FROM goals WHERE id = ?", (goal_id,))
     row = cursor.fetchone()
     beads_issue_id = row[0] if row and row[0] else None
     db.close()
@@ -2317,7 +2392,7 @@ def _gc_mark_completed(goal_id):
     db2 = SessionDatabase()
     db2.conn.execute(
         "UPDATE goals SET status = 'completed', is_completed = 1, completed_timestamp = ? WHERE id = ?",
-        (time.time(), goal_id)
+        (time.time(), goal_id),
     )
     db2.conn.commit()
     db2.close()
@@ -2335,12 +2410,9 @@ def _gc_run_postflight(goal, result):
                 """Initialize mock args with session ID and task summary."""
                 self.session_id = session_id
                 self.task_summary = task_summary
-                self.output = 'json'
+                self.output = "json"
 
-        postflight_args = MockArgs(
-            session_id=goal['session_id'],
-            task_summary=f"Completed goal: {goal['objective']}"
-        )
+        postflight_args = MockArgs(session_id=goal["session_id"], task_summary=f"Completed goal: {goal['objective']}")
         handle_postflight_command(postflight_args)
         result["postflight_started"] = True
 
@@ -2355,6 +2427,7 @@ def _gc_close_beads(beads_issue_id, close_reason, result):
     if beads_issue_id:
         try:
             from empirica.integrations.beads import BeadsAdapter
+
             beads = BeadsAdapter()
             if beads.is_available():
                 beads.close_issue(beads_issue_id, reason=close_reason)
@@ -2385,7 +2458,7 @@ def _gc_handle_branch(goal_id, goal, args, get_branch_mapping, result):
         return None
 
     result["branch_name"] = branch_name
-    merge_branch = getattr(args, 'merge_branch', False)
+    merge_branch = getattr(args, "merge_branch", False)
 
     if merge_branch:
         _gc_merge_branch(branch_name, goal, args, result)
@@ -2408,34 +2481,27 @@ def _gc_merge_branch(branch_name, goal, args, result):
     """Perform the git merge operation. Mutates result dict."""
     try:
         current_branch_result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True, text=True, check=True
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, check=True
         )
         current_branch = current_branch_result.stdout.strip()
 
         if current_branch == branch_name:
-            subprocess.run(
-                ["git", "checkout", "main"],
-                check=True, capture_output=True
-            )
+            subprocess.run(["git", "checkout", "main"], check=True, capture_output=True)
 
         merge_result = subprocess.run(
             ["git", "merge", "--no-ff", branch_name, "-m", f"Merge goal: {goal['objective']}"],
-            capture_output=True, text=True
+            capture_output=True,
+            text=True,
         )
 
         if merge_result.returncode == 0:
             result["branch_merged"] = True
             result["merge_commit"] = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                capture_output=True, text=True, check=True
+                ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True
             ).stdout.strip()
 
-            if getattr(args, 'delete_branch', False):
-                subprocess.run(
-                    ["git", "branch", "-d", branch_name],
-                    check=True, capture_output=True
-                )
+            if getattr(args, "delete_branch", False):
+                subprocess.run(["git", "branch", "-d", branch_name], check=True, capture_output=True)
                 result["branch_deleted"] = True
         else:
             result["branch_merged"] = False
@@ -2462,12 +2528,9 @@ def _gc_create_handoff(goal, result):
                 self.remaining_unknowns = None
                 self.next_session_context = None
                 self.artifacts_created = None
-                self.output = 'json'
+                self.output = "json"
 
-        handoff_args = MockArgs(
-            session_id=goal.session_id,
-            task_summary=f"Completed goal: {goal.objective}"
-        )
+        handoff_args = MockArgs(session_id=goal.session_id, task_summary=f"Completed goal: {goal.objective}")
         handle_handoff_create_command(handoff_args)
         result["handoff_created"] = True
 
@@ -2501,9 +2564,9 @@ def handle_goals_complete_command(args):
         from empirica.integrations.branch_mapping import get_branch_mapping
 
         goal_id = args.goal_id
-        run_postflight = getattr(args, 'run_postflight', False)
-        close_reason = getattr(args, 'reason', 'completed')
-        output_format = getattr(args, 'output', 'json')
+        run_postflight = getattr(args, "run_postflight", False)
+        close_reason = getattr(args, "reason", "completed")
+        output_format = getattr(args, "output", "json")
 
         goal, goal_id, beads_issue_id = _gc_resolve_goal(goal_id, output_format)
 
@@ -2512,10 +2575,10 @@ def handle_goals_complete_command(args):
         result = {
             "ok": True,
             "goal_id": goal_id,
-            "objective": goal['objective'],
-            "session_id": goal['session_id'],
+            "objective": goal["objective"],
+            "session_id": goal["session_id"],
             "beads_issue_id": beads_issue_id,
-            "status_updated": True
+            "status_updated": True,
         }
 
         if run_postflight:
@@ -2527,21 +2590,22 @@ def handle_goals_complete_command(args):
 
         branch_name = _gc_handle_branch(goal_id, goal, args, get_branch_mapping, result)
 
-        if getattr(args, 'create_handoff', False):
+        if getattr(args, "create_handoff", False):
             _gc_create_handoff(goal, result)
         else:
             result["handoff_created"] = False
 
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(result, indent=2))
         else:
             _gc_print_human_output(result, goal_id, beads_issue_id, branch_name)
 
     except Exception as e:
-        handle_cli_error(e, "goals-complete", getattr(args, 'output', 'json'))
+        handle_cli_error(e, "goals-complete", getattr(args, "output", "json"))
 
 
 # --- Merged from goal_discovery_commands.py ---
+
 
 def handle_goals_discover_command(args):
     """Discover goals from other AIs via git notes"""
@@ -2550,27 +2614,21 @@ def handle_goals_discover_command(args):
 
         goal_store = GitGoalStore()
 
-        from_ai_id = getattr(args, 'from_ai_id', None)
-        session_id = getattr(args, 'session_id', None)
+        from_ai_id = getattr(args, "from_ai_id", None)
+        session_id = getattr(args, "session_id", None)
 
         # Discover goals
-        goals = goal_store.discover_goals(
-            from_ai_id=from_ai_id,
-            session_id=session_id
-        )
+        goals = goal_store.discover_goals(from_ai_id=from_ai_id, session_id=session_id)
 
         result = {
             "ok": True,
             "count": len(goals),
             "goals": goals,
-            "filter": {
-                "from_ai_id": from_ai_id,
-                "session_id": session_id
-            }
+            "filter": {"from_ai_id": from_ai_id, "session_id": session_id},
         }
 
         # Format output
-        if hasattr(args, 'output') and args.output == 'json':
+        if hasattr(args, "output") and args.output == "json":
             print(json.dumps(result, indent=2))
         else:
             if not goals:
@@ -2591,9 +2649,9 @@ def handle_goals_discover_command(args):
                     print(f"   Scope: {goal_data['goal_data']['scope']}")
 
                     # Show lineage
-                    if 'lineage' in goal_data and len(goal_data['lineage']) > 1:
+                    if "lineage" in goal_data and len(goal_data["lineage"]) > 1:
                         print(f"   Lineage: {len(goal_data['lineage'])} action(s)")
-                        for entry in goal_data['lineage']:
+                        for entry in goal_data["lineage"]:
                             print(f"     • {entry['ai_id']} - {entry['action']} at {entry['timestamp'][:10]}")
 
                     print()
@@ -2604,7 +2662,7 @@ def handle_goals_discover_command(args):
         return result
 
     except Exception as e:
-        handle_cli_error(e, "Goal discovery", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Goal discovery", getattr(args, "verbose", False))
         # Error handler already manages output, return None to avoid duplicate output
         return None
 
@@ -2615,7 +2673,7 @@ def handle_goals_resume_command(args):
         from empirica.core.canonical.empirica_git import GitGoalStore
 
         goal_id = args.goal_id
-        ai_id = getattr(args, 'ai_id', 'empirica_cli')
+        ai_id = getattr(args, "ai_id", "empirica_cli")
 
         goal_store = GitGoalStore()
 
@@ -2623,12 +2681,9 @@ def handle_goals_resume_command(args):
         goal_data = goal_store.load_goal(goal_id)
 
         if not goal_data:
-            result = {
-                "ok": False,
-                "error": f"Goal {goal_id} not found in git notes"
-            }
+            result = {"ok": False, "error": f"Goal {goal_id} not found in git notes"}
 
-            if hasattr(args, 'output') and args.output == 'json':
+            if hasattr(args, "output") and args.output == "json":
                 print(json.dumps(result, indent=2))
             else:
                 print(f"❌ Goal {goal_id[:8]}... not found")
@@ -2645,14 +2700,14 @@ def handle_goals_resume_command(args):
             "ok": True,
             "goal_id": goal_id,
             "ai_id": ai_id,
-            "original_ai": goal_data['ai_id'],
+            "original_ai": goal_data["ai_id"],
             "message": "Goal resumed successfully",
-            "objective": goal_data['goal_data']['objective'],
-            "epistemic_state": goal_data.get('epistemic_state', {})
+            "objective": goal_data["goal_data"]["objective"],
+            "epistemic_state": goal_data.get("epistemic_state", {}),
         }
 
         # Format output
-        if hasattr(args, 'output') and args.output == 'json':
+        if hasattr(args, "output") and args.output == "json":
             print(json.dumps(result, indent=2))
         else:
             print("✅ Goal resumed successfully")
@@ -2662,7 +2717,7 @@ def handle_goals_resume_command(args):
             print(f"   Objective: {goal_data['goal_data']['objective'][:80]}")
 
             # Show epistemic handoff
-            epistemic_state = goal_data.get('epistemic_state', {})
+            epistemic_state = goal_data.get("epistemic_state", {})
             if epistemic_state:
                 print(f"\n📊 Epistemic State from {goal_data['ai_id']}:")
                 for key, value in epistemic_state.items():
@@ -2671,32 +2726,33 @@ def handle_goals_resume_command(args):
 
             print("\n💡 Next steps:")
             print("   1. Review original AI's epistemic state")
-            print(f"   2. Run your own preflight: empirica preflight \"<task>\" --ai-id {ai_id}")
+            print(f'   2. Run your own preflight: empirica preflight "<task>" --ai-id {ai_id}')
             print("   3. Compare your vectors with original AI's")
 
         return result
 
     except Exception as e:
-        handle_cli_error(e, "Goal resume", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Goal resume", getattr(args, "verbose", False))
         # Error handler already manages output, return None to avoid duplicate output
         return None
 
 
 # ─── goals prune ───────────────────────────────────────────────────────────
 
+
 def _resolve_project_id_for_prune(args, db) -> str | None:
     """Resolve project_id for prune scope. Order: --project-id flag → resolver
     via session → workspace.db active project."""
-    pid = getattr(args, 'project_id', None)
+    pid = getattr(args, "project_id", None)
     if pid:
         return pid
     try:
         ctx = R.context()
-        sid = ctx.get('empirica_session_id')
+        sid = ctx.get("empirica_session_id")
         if sid:
             session = db.get_session(sid)
             if session:
-                return session.get('project_id')
+                return session.get("project_id")
     except Exception:
         pass
     return None
@@ -2714,14 +2770,17 @@ def _prune_by_status_planned(cursor, project_id: str, dry_run: bool) -> list[dic
     rows = cursor.fetchall()
     pruned = []
     for goal_id, objective, _created in rows:
-        pruned.append({
-            'id': goal_id, 'objective': objective[:80], 'mode': 'by-status:planned',
-            'reason': 'Planned goal never activated — closed via goals-prune sweep',
-        })
+        pruned.append(
+            {
+                "id": goal_id,
+                "objective": objective[:80],
+                "mode": "by-status:planned",
+                "reason": "Planned goal never activated — closed via goals-prune sweep",
+            }
+        )
         if not dry_run:
             cursor.execute(
-                "UPDATE goals SET is_completed = 1, status = 'completed', "
-                "completed_timestamp = ? WHERE id = ?",
+                "UPDATE goals SET is_completed = 1, status = 'completed', completed_timestamp = ? WHERE id = ?",
                 (time.time(), goal_id),
             )
     return pruned
@@ -2772,17 +2831,20 @@ def _prune_test_pollution(cursor, project_id: str, dry_run: bool) -> list[dict]:
         # pollution like 'E2E test goal workflow' (22 chars) clears
         # the bar; 'Test cockpit TUI buttons + keys end-to-end...'
         # (200+ chars) doesn't.
-        if len(objective or '') >= 80:
+        if len(objective or "") >= 80:
             continue
-        pruned.append({
-            'id': goal_id, 'objective': objective[:80], 'mode': 'test-pollution',
-            'ai_id': ai_id or '(none)',
-            'reason': 'Test-runner pollution pattern (E2E/test-prefixed objective or test ai_id) — closed via goals-prune sweep',
-        })
+        pruned.append(
+            {
+                "id": goal_id,
+                "objective": objective[:80],
+                "mode": "test-pollution",
+                "ai_id": ai_id or "(none)",
+                "reason": "Test-runner pollution pattern (E2E/test-prefixed objective or test ai_id) — closed via goals-prune sweep",
+            }
+        )
         if not dry_run:
             cursor.execute(
-                "UPDATE goals SET is_completed = 1, status = 'completed', "
-                "completed_timestamp = ? WHERE id = ?",
+                "UPDATE goals SET is_completed = 1, status = 'completed', completed_timestamp = ? WHERE id = ?",
                 (time.time(), goal_id),
             )
     return pruned
@@ -2810,22 +2872,24 @@ def _prune_auto_stale(cursor, project_id: str, days: int, dry_run: bool) -> list
     pruned = []
     for goal_id, objective, created in rows:
         age_days = int((time.time() - float(created or 0)) / 86400)
-        pruned.append({
-            'id': goal_id, 'objective': objective[:80], 'mode': f'auto-stale:{days}d',
-            'age_days': age_days,
-            'reason': f'No activity in {age_days} days (cutoff {days}d) — closed via goals-prune sweep',
-        })
+        pruned.append(
+            {
+                "id": goal_id,
+                "objective": objective[:80],
+                "mode": f"auto-stale:{days}d",
+                "age_days": age_days,
+                "reason": f"No activity in {age_days} days (cutoff {days}d) — closed via goals-prune sweep",
+            }
+        )
         if not dry_run:
             cursor.execute(
-                "UPDATE goals SET is_completed = 1, status = 'completed', "
-                "completed_timestamp = ? WHERE id = ?",
+                "UPDATE goals SET is_completed = 1, status = 'completed', completed_timestamp = ? WHERE id = ?",
                 (time.time(), goal_id),
             )
     return pruned
 
 
-def _prune_duplicates_via_qdrant(cursor, project_id: str, threshold: float,
-                                  dry_run: bool) -> list[dict]:
+def _prune_duplicates_via_qdrant(cursor, project_id: str, threshold: float, dry_run: bool) -> list[dict]:
     """Detect goals with similar objectives via Qdrant embedding similarity.
 
     For each open goal, find others above similarity threshold; keep the
@@ -2835,12 +2899,11 @@ def _prune_duplicates_via_qdrant(cursor, project_id: str, threshold: float,
     try:
         from empirica.core.qdrant.connection import _get_qdrant_client
     except Exception as e:
-        return [{'mode': 'duplicates', 'error': f'Qdrant unavailable: {e}'}]
+        return [{"mode": "duplicates", "error": f"Qdrant unavailable: {e}"}]
 
     client = _get_qdrant_client()
     if client is None:
-        return [{'mode': 'duplicates',
-                 'error': 'Qdrant not running — start with empirica-server'}]
+        return [{"mode": "duplicates", "error": "Qdrant not running — start with empirica-server"}]
 
     cursor.execute(
         "SELECT id, objective, created_timestamp FROM goals "
@@ -2859,7 +2922,7 @@ def _prune_duplicates_via_qdrant(cursor, project_id: str, threshold: float,
     pruned: list[dict] = []
     seen_kept: list[tuple[str, set[str]]] = []
     for goal_id, objective, _ in goals:
-        tokens = {t.lower() for t in (objective or '').split() if len(t) > 3}
+        tokens = {t.lower() for t in (objective or "").split() if len(t) > 3}
         if not tokens:
             continue
         merged = False
@@ -2868,16 +2931,19 @@ def _prune_duplicates_via_qdrant(cursor, project_id: str, threshold: float,
                 continue
             jaccard = len(tokens & kept_tokens) / max(1, len(tokens | kept_tokens))
             if jaccard >= threshold:
-                pruned.append({
-                    'id': goal_id, 'objective': objective[:80], 'mode': 'duplicate',
-                    'similar_to': kept_id,
-                    'similarity': round(jaccard, 2),
-                    'reason': f'Duplicate of {kept_id[:8]} (Jaccard {jaccard:.2f}) — closed via goals-prune sweep',
-                })
+                pruned.append(
+                    {
+                        "id": goal_id,
+                        "objective": objective[:80],
+                        "mode": "duplicate",
+                        "similar_to": kept_id,
+                        "similarity": round(jaccard, 2),
+                        "reason": f"Duplicate of {kept_id[:8]} (Jaccard {jaccard:.2f}) — closed via goals-prune sweep",
+                    }
+                )
                 if not dry_run:
                     cursor.execute(
-                        "UPDATE goals SET is_completed = 1, status = 'completed', "
-                        "completed_timestamp = ? WHERE id = ?",
+                        "UPDATE goals SET is_completed = 1, status = 'completed', completed_timestamp = ? WHERE id = ?",
                         (time.time(), goal_id),
                     )
                 merged = True
@@ -2891,16 +2957,18 @@ def _write_prune_receipt(pruned: list[dict], modes_run: list[str], dry_run: bool
     """Write a transparent receipt of what got pruned to git notes."""
     try:
         receipt = {
-            'event': 'goals-prune',
-            'modes': modes_run,
-            'dry_run': dry_run,
-            'pruned_count': len([p for p in pruned if 'error' not in p]),
-            'errors': [p for p in pruned if 'error' in p],
-            'timestamp': time.time(),
+            "event": "goals-prune",
+            "modes": modes_run,
+            "dry_run": dry_run,
+            "pruned_count": len([p for p in pruned if "error" not in p]),
+            "errors": [p for p in pruned if "error" in p],
+            "timestamp": time.time(),
         }
         subprocess.run(
-            ['git', 'notes', '--ref=breadcrumbs', 'append', '-m', json.dumps(receipt)],
-            capture_output=True, timeout=5, check=False,
+            ["git", "notes", "--ref=breadcrumbs", "append", "-m", json.dumps(receipt)],
+            capture_output=True,
+            timeout=5,
+            check=False,
         )
     except Exception:
         pass
@@ -2922,49 +2990,62 @@ def handle_goals_prune_command(args):
         from empirica.data.session_database import SessionDatabase
 
         modes_run: list[str] = []
-        if getattr(args, 'test_pollution', False):
-            modes_run.append('test-pollution')
-        if getattr(args, 'by_status_planned', False):
-            modes_run.append('by-status:planned')
-        if getattr(args, 'auto_stale', None) is not None:
-            modes_run.append(f'auto-stale:{args.auto_stale}d')
-        if getattr(args, 'duplicates', None) is not None:
-            modes_run.append(f'duplicates:{args.duplicates}')
+        if getattr(args, "test_pollution", False):
+            modes_run.append("test-pollution")
+        if getattr(args, "by_status_planned", False):
+            modes_run.append("by-status:planned")
+        if getattr(args, "auto_stale", None) is not None:
+            modes_run.append(f"auto-stale:{args.auto_stale}d")
+        if getattr(args, "duplicates", None) is not None:
+            modes_run.append(f"duplicates:{args.duplicates}")
 
         if not modes_run:
-            print(json.dumps({
-                'ok': False,
-                'error': 'Specify at least one mode: --test-pollution, --by-status-planned, --auto-stale [N], --duplicates [thresh]',
-                'hint': 'Quick start: `empirica goals-prune --test-pollution` (dry-run by default; pass --apply to mutate).',
-            }))
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": "Specify at least one mode: --test-pollution, --by-status-planned, --auto-stale [N], --duplicates [thresh]",
+                        "hint": "Quick start: `empirica goals-prune --test-pollution` (dry-run by default; pass --apply to mutate).",
+                    }
+                )
+            )
             return 1
 
         # Default to dry-run unless --apply explicitly given.
-        dry_run = not getattr(args, 'apply', False)
+        dry_run = not getattr(args, "apply", False)
 
         db = SessionDatabase()
         project_id = _resolve_project_id_for_prune(args, db)
         if not project_id:
             db.close()
-            print(json.dumps({
-                'ok': False,
-                'error': 'Could not resolve project_id. Pass --project-id explicitly.',
-            }))
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": "Could not resolve project_id. Pass --project-id explicitly.",
+                    }
+                )
+            )
             return 1
 
         cursor = db.conn.cursor()
         all_pruned: list[dict] = []
 
-        if getattr(args, 'test_pollution', False):
+        if getattr(args, "test_pollution", False):
             all_pruned.extend(_prune_test_pollution(cursor, project_id, dry_run))
-        if getattr(args, 'by_status_planned', False):
+        if getattr(args, "by_status_planned", False):
             all_pruned.extend(_prune_by_status_planned(cursor, project_id, dry_run))
-        if getattr(args, 'auto_stale', None) is not None:
+        if getattr(args, "auto_stale", None) is not None:
             all_pruned.extend(_prune_auto_stale(cursor, project_id, args.auto_stale, dry_run))
-        if getattr(args, 'duplicates', None) is not None:
-            all_pruned.extend(_prune_duplicates_via_qdrant(
-                cursor, project_id, args.duplicates, dry_run,
-            ))
+        if getattr(args, "duplicates", None) is not None:
+            all_pruned.extend(
+                _prune_duplicates_via_qdrant(
+                    cursor,
+                    project_id,
+                    args.duplicates,
+                    dry_run,
+                )
+            )
 
         if not dry_run:
             db.conn.commit()
@@ -2972,23 +3053,23 @@ def handle_goals_prune_command(args):
 
         _write_prune_receipt(all_pruned, modes_run, dry_run)
 
-        successful = [p for p in all_pruned if 'error' not in p]
-        errors = [p for p in all_pruned if 'error' in p]
+        successful = [p for p in all_pruned if "error" not in p]
+        errors = [p for p in all_pruned if "error" in p]
 
         result = {
-            'ok': True,
-            'dry_run': dry_run,
-            'modes_run': modes_run,
-            'project_id': project_id,
-            'pruned_count': len(successful),
-            'pruned': successful[:50],  # Cap output
-            'errors': errors,
+            "ok": True,
+            "dry_run": dry_run,
+            "modes_run": modes_run,
+            "project_id": project_id,
+            "pruned_count": len(successful),
+            "pruned": successful[:50],  # Cap output
+            "errors": errors,
         }
         if len(successful) > 50:
-            result['truncated_count'] = len(successful) - 50
+            result["truncated_count"] = len(successful) - 50
         print(json.dumps(result, indent=2, default=str))
         return 0
 
     except Exception as e:
-        handle_cli_error(e, "Goals prune", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Goals prune", getattr(args, "verbose", False))
         return 1

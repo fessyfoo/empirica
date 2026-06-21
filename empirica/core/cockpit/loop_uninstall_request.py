@@ -41,13 +41,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-EMPIRICA_DIR = Path.home() / '.empirica'
+EMPIRICA_DIR = Path.home() / ".empirica"
 
-DEFAULT_SCHEDULER_KIND = 'cron-create'
+DEFAULT_SCHEDULER_KIND = "cron-create"
 
 
 def _safe_suffix(text: str) -> str:
-    return text.replace('/', '-').replace('%', '')
+    return text.replace("/", "-").replace("%", "")
 
 
 def pending_path(instance_id: str, name: str) -> Path:
@@ -55,13 +55,13 @@ def pending_path(instance_id: str, name: str) -> Path:
     requests so writers and readers agree on the filename."""
     safe_inst = _safe_suffix(instance_id)
     safe_name = _safe_suffix(name)
-    return EMPIRICA_DIR / f'loop_uninstall_pending_{safe_inst}_{safe_name}.json'
+    return EMPIRICA_DIR / f"loop_uninstall_pending_{safe_inst}_{safe_name}.json"
 
 
 def list_pending(instance_id: str) -> list[Path]:
     """All pending uninstall request files for the given instance."""
     safe_inst = _safe_suffix(instance_id)
-    return sorted(EMPIRICA_DIR.glob(f'loop_uninstall_pending_{safe_inst}_*.json'))
+    return sorted(EMPIRICA_DIR.glob(f"loop_uninstall_pending_{safe_inst}_*.json"))
 
 
 @dataclass
@@ -69,40 +69,41 @@ class LoopUninstallRequest:
     """A pending request to cancel a scheduled cron job inside the owning
     Claude instance. The pause CLI can't call CronDelete directly — this
     file is the bridge."""
+
     instance_id: str
     name: str
     job_id: str
     scheduler_kind: str = DEFAULT_SCHEDULER_KIND
-    requested_at: str = ''
+    requested_at: str = ""
     requested_by: str | None = None
-    reason: str = 'pause'
+    reason: str = "pause"
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            'instance_id': self.instance_id,
-            'name': self.name,
-            'job_id': self.job_id,
-            'scheduler_kind': self.scheduler_kind,
-            'requested_at': self.requested_at,
-            'requested_by': self.requested_by,
-            'reason': self.reason,
+            "instance_id": self.instance_id,
+            "name": self.name,
+            "job_id": self.job_id,
+            "scheduler_kind": self.scheduler_kind,
+            "requested_at": self.requested_at,
+            "requested_by": self.requested_by,
+            "reason": self.reason,
         }
 
     @classmethod
     def from_path(cls, path: Path) -> LoopUninstallRequest | None:
         try:
-            with open(path, encoding='utf-8') as f:
+            with open(path, encoding="utf-8") as f:
                 data = json.load(f)
         except (OSError, json.JSONDecodeError):
             return None
         return cls(
-            instance_id=str(data.get('instance_id', '')),
-            name=str(data.get('name', '')),
-            job_id=str(data.get('job_id', '')),
-            scheduler_kind=str(data.get('scheduler_kind') or DEFAULT_SCHEDULER_KIND),
-            requested_at=str(data.get('requested_at', '')),
-            requested_by=data.get('requested_by'),
-            reason=str(data.get('reason', '') or 'pause'),
+            instance_id=str(data.get("instance_id", "")),
+            name=str(data.get("name", "")),
+            job_id=str(data.get("job_id", "")),
+            scheduler_kind=str(data.get("scheduler_kind") or DEFAULT_SCHEDULER_KIND),
+            requested_at=str(data.get("requested_at", "")),
+            requested_by=data.get("requested_by"),
+            reason=str(data.get("reason", "") or "pause"),
         )
 
 
@@ -112,7 +113,7 @@ def write_pending(
     job_id: str,
     scheduler_kind: str = DEFAULT_SCHEDULER_KIND,
     requested_by: str | None = None,
-    reason: str = 'pause',
+    reason: str = "pause",
 ) -> Path:
     """Write a pending uninstall request. Idempotent — overwrites existing
     file with the same instance_id+name."""
@@ -127,7 +128,7 @@ def write_pending(
         requested_by=requested_by,
         reason=reason,
     )
-    with open(path, 'w', encoding='utf-8') as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(request.to_dict(), f, indent=2)
     return path
 
@@ -155,11 +156,11 @@ def consume_pending(instance_id: str) -> list[LoopUninstallRequest]:
 
 
 __all__ = [
-    'DEFAULT_SCHEDULER_KIND',
-    'EMPIRICA_DIR',
-    'LoopUninstallRequest',
-    'consume_pending',
-    'list_pending',
-    'pending_path',
-    'write_pending',
+    "DEFAULT_SCHEDULER_KIND",
+    "EMPIRICA_DIR",
+    "LoopUninstallRequest",
+    "consume_pending",
+    "list_pending",
+    "pending_path",
+    "write_pending",
 ]

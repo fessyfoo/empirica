@@ -82,10 +82,17 @@ def test_migration_backfills_edges_from_finding_data(db):
     cursor = db.cursor()
     cursor.execute(
         "INSERT INTO project_findings (id, finding_data) VALUES (?, ?)",
-        ("f1", json.dumps({"edges": [
-            {"to": "d1", "relation": "evidence"},
-            {"to": "s1", "relation": "sourced_from"},
-        ]})),
+        (
+            "f1",
+            json.dumps(
+                {
+                    "edges": [
+                        {"to": "d1", "relation": "evidence"},
+                        {"to": "s1", "relation": "sourced_from"},
+                    ]
+                }
+            ),
+        ),
     )
     db.commit()
 
@@ -167,12 +174,19 @@ def test_migration_skips_edge_entries_missing_to_or_relation(db):
     cursor = db.cursor()
     cursor.execute(
         "INSERT INTO project_findings (id, finding_data) VALUES (?, ?)",
-        ("f1", json.dumps({"edges": [
-            {"to": "d1", "relation": "evidence"},      # valid
-            {"to": "d2"},                                # missing relation
-            {"relation": "evidence"},                    # missing to
-            {},                                          # both missing
-        ]})),
+        (
+            "f1",
+            json.dumps(
+                {
+                    "edges": [
+                        {"to": "d1", "relation": "evidence"},  # valid
+                        {"to": "d2"},  # missing relation
+                        {"relation": "evidence"},  # missing to
+                        {},  # both missing
+                    ]
+                }
+            ),
+        ),
     )
     db.commit()
 

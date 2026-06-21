@@ -32,8 +32,12 @@ import yaml
 # --- Helpers ---
 
 
-def _seed_project(tmp_path: Path, *, project_id: str | None = "11111111-1111-1111-1111-111111111111",
-                   name: str = "empirica-test-project") -> Path:
+def _seed_project(
+    tmp_path: Path,
+    *,
+    project_id: str | None = "11111111-1111-1111-1111-111111111111",
+    name: str = "empirica-test-project",
+) -> Path:
     """Create a tmp project dir with .empirica/project.yaml."""
     project_dir = tmp_path / "src" / name
     (project_dir / ".empirica").mkdir(parents=True, exist_ok=True)
@@ -46,7 +50,8 @@ def _seed_project(tmp_path: Path, *, project_id: str | None = "11111111-1111-111
     if project_id is not None:
         yaml_data["project_id"] = project_id
     (project_dir / ".empirica" / "project.yaml").write_text(
-        yaml.dump(yaml_data, default_flow_style=False), encoding="utf-8",
+        yaml.dump(yaml_data, default_flow_style=False),
+        encoding="utf-8",
     )
     return project_dir
 
@@ -76,11 +81,9 @@ def _override_home(tmp_path: Path):
     """
     registry_path = tmp_path / ".empirica" / "registry.yaml"
     return [
-        patch("empirica.cli.command_handlers.workspace_init.Path.home",
-              return_value=tmp_path),
+        patch("empirica.cli.command_handlers.workspace_init.Path.home", return_value=tmp_path),
         patch("empirica.api.registry.DEFAULT_REGISTRY_PATH", registry_path),
-        patch("empirica.data.repositories.workspace_db.Path.home",
-              return_value=tmp_path),
+        patch("empirica.data.repositories.workspace_db.Path.home", return_value=tmp_path),
     ]
 
 
@@ -123,7 +126,9 @@ def test_missing_empirica_dir_exits_with_hint(tmp_path, capsys):
     empty = tmp_path / "not-a-project"
     empty.mkdir()
     exit_code, payload, _out, _err = _run_register(
-        tmp_path, _make_args(str(empty)), capsys,
+        tmp_path,
+        _make_args(str(empty)),
+        capsys,
     )
     assert exit_code == 1
     assert payload is not None
@@ -135,7 +140,9 @@ def test_missing_empirica_dir_exits_with_hint(tmp_path, capsys):
 def test_missing_project_id_in_yaml_exits(tmp_path, capsys):
     project = _seed_project(tmp_path, project_id=None)
     exit_code, payload, _out, _err = _run_register(
-        tmp_path, _make_args(str(project)), capsys,
+        tmp_path,
+        _make_args(str(project)),
+        capsys,
     )
     assert exit_code == 1
     assert payload["ok"] is False
@@ -146,7 +153,9 @@ def test_missing_project_id_in_yaml_exits(tmp_path, capsys):
 def test_nonexistent_path_exits_with_hint(tmp_path, capsys):
     nowhere = tmp_path / "definitely-not-there"
     exit_code, payload, _out, _err = _run_register(
-        tmp_path, _make_args(str(nowhere)), capsys,
+        tmp_path,
+        _make_args(str(nowhere)),
+        capsys,
     )
     assert exit_code == 1
     assert payload["ok"] is False
@@ -160,7 +169,9 @@ def test_no_cortex_writes_workspace_db_and_registry(tmp_path, capsys):
     pid = "22222222-3333-4444-5555-666666666666"
     project = _seed_project(tmp_path, project_id=pid, name="empirica-foo")
     exit_code, payload, _out, _err = _run_register(
-        tmp_path, _make_args(str(project), no_cortex=True), capsys,
+        tmp_path,
+        _make_args(str(project), no_cortex=True),
+        capsys,
     )
     assert exit_code == 0
     assert payload["ok"] is True
@@ -179,8 +190,7 @@ def test_no_cortex_writes_workspace_db_and_registry(tmp_path, capsys):
     assert gp is not None
     assert gp[1] == "empirica-foo"
     cur.execute(
-        "SELECT entity_id, display_name FROM entity_registry "
-        "WHERE entity_type = 'project' AND entity_id = ?",
+        "SELECT entity_id, display_name FROM entity_registry WHERE entity_type = 'project' AND entity_id = ?",
         (pid,),
     )
     er = cur.fetchone()
@@ -216,8 +226,8 @@ def test_no_cortex_idempotent_rerun(tmp_path, capsys):
     cur.execute("SELECT COUNT(*) FROM global_projects WHERE id = ?", (pid,))
     assert cur.fetchone()[0] == 1
     cur.execute(
-        "SELECT COUNT(*) FROM entity_registry "
-        "WHERE entity_type = 'project' AND entity_id = ?", (pid,),
+        "SELECT COUNT(*) FROM entity_registry WHERE entity_type = 'project' AND entity_id = ?",
+        (pid,),
     )
     assert cur.fetchone()[0] == 1
     conn.close()

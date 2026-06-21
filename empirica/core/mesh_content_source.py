@@ -82,6 +82,7 @@ class MeshContentSource:
         requires a roster lookup that belongs in the practice resolver,
         not in this wrapper.
         """
+
         def _get(key: str, default: Any = None) -> Any:
             try:
                 return row[key]

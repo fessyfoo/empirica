@@ -53,9 +53,13 @@ def get_memory_dir(project_path: str | None = None) -> Path | None:
     # up from the actual filesystem anchor and is stable.
     try:
         import subprocess
+
         result = subprocess.run(
-            ['git', 'rev-parse', '--show-toplevel'],
-            capture_output=True, text=True, timeout=2, check=False,
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
         )
         if result.returncode == 0:
             candidates.append(Path(result.stdout.strip()).resolve())
@@ -63,8 +67,8 @@ def get_memory_dir(project_path: str | None = None) -> Path | None:
         pass
 
     for candidate in candidates:
-        project_key = str(candidate).replace('/', '-')
-        memory_dir = Path.home() / '.claude' / 'projects' / project_key / 'memory'
+        project_key = str(candidate).replace("/", "-")
+        memory_dir = Path.home() / ".claude" / "projects" / project_key / "memory"
         if memory_dir.exists():
             return memory_dir
 
@@ -75,7 +79,7 @@ def get_memory_md_path(project_path: str | None = None) -> Path | None:
     """Get the MEMORY.md path for the current project."""
     memory_dir = get_memory_dir(project_path)
     if memory_dir:
-        return memory_dir / 'MEMORY.md'
+        return memory_dir / "MEMORY.md"
     return None
 
 
@@ -88,6 +92,7 @@ def resolve_project_id(session_id: str, db_path: str | None = None) -> str | Non
         # which leaks artifacts across project boundaries.
         try:
             from empirica.config.path_resolver import get_session_db_path
+
             resolved = get_session_db_path()
             if resolved.exists():
                 db_path = str(resolved)
@@ -99,10 +104,7 @@ def resolve_project_id(session_id: str, db_path: str | None = None) -> str | Non
     try:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT project_id FROM sessions WHERE session_id = ?",
-            (session_id,)
-        )
+        cursor.execute("SELECT project_id FROM sessions WHERE session_id = ?", (session_id,))
         row = cursor.fetchone()
         conn.close()
         if row:
@@ -112,19 +114,19 @@ def resolve_project_id(session_id: str, db_path: str | None = None) -> str | Non
     return None
 
 
-def fetch_ranked_artifacts(session_id: str, db_path: str | None = None,
-                           limit: int = 20) -> dict:
+def fetch_ranked_artifacts(session_id: str, db_path: str | None = None, limit: int = 20) -> dict:
     """Fetch recent artifacts from DB, scoped to project.
 
     Returns dict with findings, unknowns, dead_ends, goals, mistakes.
     """
-    result = {'findings': [], 'unknowns': [], 'dead_ends': [], 'goals': [], 'mistakes': []}
+    result = {"findings": [], "unknowns": [], "dead_ends": [], "goals": [], "mistakes": []}
 
     if not db_path:
         # Canonical resolver only — see resolve_project_id() above for why
         # CWD-relative DB lookup is unsafe.
         try:
             from empirica.config.path_resolver import get_session_db_path
+
             resolved = get_session_db_path()
             if resolved.exists():
                 db_path = str(resolved)
@@ -152,53 +154,77 @@ def fetch_ranked_artifacts(session_id: str, db_path: str | None = None,
             gf, gf_args = "WHERE is_completed = 0", ()
 
         # Findings
-        cursor.execute(f"""
+        cursor.execute(
+            f"""
             SELECT finding, impact, created_timestamp FROM project_findings
             {pf} ORDER BY created_timestamp DESC LIMIT ?
-        """, (*pf_args, limit))
+        """,
+            (*pf_args, limit),
+        )
         for row in cursor.fetchall():
-            result['findings'].append({
-                'finding': row[0], 'impact': row[1] or 0.5,
-                'created_timestamp': row[2],
-            })
+            result["findings"].append(
+                {
+                    "finding": row[0],
+                    "impact": row[1] or 0.5,
+                    "created_timestamp": row[2],
+                }
+            )
 
         # Open unknowns
-        cursor.execute(f"""
+        cursor.execute(
+            f"""
             SELECT unknown, created_timestamp FROM project_unknowns
             {uf} ORDER BY created_timestamp DESC LIMIT ?
-        """, (*uf_args, 10))
+        """,
+            (*uf_args, 10),
+        )
         for row in cursor.fetchall():
-            result['unknowns'].append({'unknown': row[0], 'created_timestamp': row[1]})
+            result["unknowns"].append({"unknown": row[0], "created_timestamp": row[1]})
 
         # Dead-ends
-        cursor.execute(f"""
+        cursor.execute(
+            f"""
             SELECT approach, why_failed, created_timestamp FROM project_dead_ends
             {pf} ORDER BY created_timestamp DESC LIMIT ?
-        """, (*pf_args, 10))
+        """,
+            (*pf_args, 10),
+        )
         for row in cursor.fetchall():
-            result['dead_ends'].append({
-                'approach': row[0], 'why_failed': row[1],
-                'created_timestamp': row[2],
-            })
+            result["dead_ends"].append(
+                {
+                    "approach": row[0],
+                    "why_failed": row[1],
+                    "created_timestamp": row[2],
+                }
+            )
 
         # Open goals
-        cursor.execute(f"""
+        cursor.execute(
+            f"""
             SELECT objective, status FROM project_goals
             {gf} ORDER BY created_timestamp DESC LIMIT ?
-        """, (*gf_args, 10))
+        """,
+            (*gf_args, 10),
+        )
         for row in cursor.fetchall():
-            result['goals'].append({'objective': row[0], 'status': row[1]})
+            result["goals"].append({"objective": row[0], "status": row[1]})
 
         # Mistakes
-        cursor.execute(f"""
+        cursor.execute(
+            f"""
             SELECT mistake, prevention, created_timestamp FROM project_mistakes
             {pf} ORDER BY created_timestamp DESC LIMIT ?
-        """, (*pf_args, 5))
+        """,
+            (*pf_args, 5),
+        )
         for row in cursor.fetchall():
-            result['mistakes'].append({
-                'mistake': row[0], 'prevention': row[1],
-                'created_timestamp': row[2],
-            })
+            result["mistakes"].append(
+                {
+                    "mistake": row[0],
+                    "prevention": row[1],
+                    "created_timestamp": row[2],
+                }
+            )
 
         conn.close()
     except Exception as e:
@@ -212,63 +238,65 @@ def _format_auto_section(artifacts: dict, session_id: str) -> str:
     auto_lines = []
     auto_lines.append(f"\n{MEMORY_AUTO_START}\n")
 
-    ranked = sorted(artifacts['findings'], key=lambda f: f.get('impact', 0.5), reverse=True)
+    ranked = sorted(artifacts["findings"], key=lambda f: f.get("impact", 0.5), reverse=True)
 
-    critical = [f for f in ranked if f.get('impact', 0.5) > 0.7]
+    critical = [f for f in ranked if f.get("impact", 0.5) > 0.7]
     if critical:
         auto_lines.append("### Critical (weight > 0.7)")
         for f in critical[:5]:
-            impact = f.get('impact', 0.5)
-            text = f['finding'][:100].replace('\n', ' ')
+            impact = f.get("impact", 0.5)
+            text = f["finding"][:100].replace("\n", " ")
             auto_lines.append(f"- [{impact:.2f}] **Finding:** {text}...")
 
-    important = [f for f in ranked if 0.4 <= f.get('impact', 0.5) <= 0.7]
+    important = [f for f in ranked if 0.4 <= f.get("impact", 0.5) <= 0.7]
     if important:
         auto_lines.append("\n### Important (weight 0.4-0.7)")
         for f in important[:5]:
-            impact = f.get('impact', 0.5)
-            text = f['finding'][:100].replace('\n', ' ')
+            impact = f.get("impact", 0.5)
+            text = f["finding"][:100].replace("\n", " ")
             auto_lines.append(f"- [{impact:.2f}] **Finding:** {text}...")
 
-    if artifacts['dead_ends']:
+    if artifacts["dead_ends"]:
         auto_lines.append("\n### Dead-Ends (avoid re-trying)")
-        for d in artifacts['dead_ends'][:3]:
-            approach = d['approach'][:80].replace('\n', ' ')
+        for d in artifacts["dead_ends"][:3]:
+            approach = d["approach"][:80].replace("\n", " ")
             auto_lines.append(f"- [{0.5 + len(d.get('why_failed', '')) / 500:.2f}] **Dead-End:** {approach}")
 
-    if artifacts['mistakes']:
+    if artifacts["mistakes"]:
         auto_lines.append("\n### Mistakes (prevention strategies)")
-        for m in artifacts['mistakes'][:3]:
-            text = m['mistake'][:80].replace('\n', ' ')
+        for m in artifacts["mistakes"][:3]:
+            text = m["mistake"][:80].replace("\n", " ")
             auto_lines.append(f"- [{0.50:.2f}] **Mistake:** {text}")
 
-    if artifacts['goals']:
+    if artifacts["goals"]:
         auto_lines.append(f"\n### Active Goals ({len(artifacts['goals'])})")
-        for g in artifacts['goals'][:5]:
-            obj = g['objective'][:80].replace('\n', ' ')
+        for g in artifacts["goals"][:5]:
+            obj = g["objective"][:80].replace("\n", " ")
             auto_lines.append(f"- [{0.44:.2f}] **Goal:** {obj}...")
 
     total_items = sum(len(v) for v in artifacts.values())
     auto_lines.append("\n---")
     auto_lines.append(f"📊 **{total_items} items ranked** | For deeper context:")
     auto_lines.append(f"- `empirica project-bootstrap --session-id {session_id[:8]}` (full load + subtasks)")
-    auto_lines.append("- `empirica project-search --task \"<query>\"` (Qdrant semantic)")
+    auto_lines.append('- `empirica project-search --task "<query>"` (Qdrant semantic)')
     auto_lines.append("- `git notes show --ref=breadcrumbs HEAD` (session narrative)")
 
-    return '\n'.join(auto_lines) + '\n'
+    return "\n".join(auto_lines) + "\n"
 
 
 def _strip_stale_markers(content: str) -> str:
     """Remove stale HTML comment markers from previous auto-section formats."""
     import re
-    return re.sub(r'<!--\s*empirica-auto-\w+\s*-->\n?', '', content)
+
+    return re.sub(r"<!--\s*empirica-auto-\w+\s*-->\n?", "", content)
 
 
 def _collapse_blank_runs(content: str, max_consecutive: int = 2) -> str:
     """Collapse runs of blank lines down to max_consecutive."""
     import re
-    pattern = r'\n{' + str(max_consecutive + 2) + r',}'
-    return re.sub(pattern, '\n' * (max_consecutive + 1), content)
+
+    pattern = r"\n{" + str(max_consecutive + 2) + r",}"
+    return re.sub(pattern, "\n" * (max_consecutive + 1), content)
 
 
 def _replace_auto_section(existing: str, auto_section: str) -> str:
@@ -277,38 +305,37 @@ def _replace_auto_section(existing: str, auto_section: str) -> str:
     existing = _strip_stale_markers(existing)
 
     if MEMORY_AUTO_START not in existing:
-        manual = existing.rstrip('\n') + '\n\n'
+        manual = existing.rstrip("\n") + "\n\n"
         return _collapse_blank_runs(manual + auto_section)
 
     start_idx = existing.index(MEMORY_AUTO_START)
     end_marker = "📊 **"
     if end_marker not in existing[start_idx:]:
-        manual = existing[:start_idx].rstrip('\n') + '\n\n'
+        manual = existing[:start_idx].rstrip("\n") + "\n\n"
         return _collapse_blank_runs(manual + auto_section)
 
     end_search = existing.index(end_marker, start_idx)
-    end_idx = existing.find('\n', end_search)
+    end_idx = existing.find("\n", end_search)
     if end_idx == -1:
         end_idx = len(existing)
     else:
         while end_idx < len(existing) - 1:
-            next_line_end = existing.find('\n', end_idx + 1)
+            next_line_end = existing.find("\n", end_idx + 1)
             if next_line_end == -1:
                 next_line_end = len(existing)
-            next_line = existing[end_idx + 1:next_line_end]
-            if next_line.startswith('- `empirica') or next_line.startswith('- `git'):
+            next_line = existing[end_idx + 1 : next_line_end]
+            if next_line.startswith("- `empirica") or next_line.startswith("- `git"):
                 end_idx = next_line_end
             else:
                 break
         end_idx += 1
 
-    manual = existing[:start_idx].rstrip('\n') + '\n\n'
+    manual = existing[:start_idx].rstrip("\n") + "\n\n"
     after = existing[end_idx:]
     return _collapse_blank_runs(manual + auto_section + after)
 
 
-def update_hot_cache(session_id: str, project_path: str | None = None,
-                     db_path: str | None = None) -> bool:
+def update_hot_cache(session_id: str, project_path: str | None = None, db_path: str | None = None) -> bool:
     """Update MEMORY.md auto-generated section with ranked artifacts.
 
     Preserves manual content. Auto section is delimited by markers.
@@ -325,16 +352,17 @@ def update_hot_cache(session_id: str, project_path: str | None = None,
     auto_section = _format_auto_section(artifacts, session_id)
 
     # Enforce line cap
-    auto_section_lines = auto_section.count('\n')
+    auto_section_lines = auto_section.count("\n")
     if auto_section_lines > MEMORY_AUTO_MAX_LINES:
-        lines = auto_section.split('\n')
-        auto_section = '\n'.join(lines[:MEMORY_AUTO_MAX_LINES]) + '\n'
+        lines = auto_section.split("\n")
+        auto_section = "\n".join(lines[:MEMORY_AUTO_MAX_LINES]) + "\n"
 
     try:
         import fcntl
+
         memory_path.parent.mkdir(parents=True, exist_ok=True)
-        lock_path = memory_path.parent / '.memory_lock'
-        with open(lock_path, 'w') as lock_fd:
+        lock_path = memory_path.parent / ".memory_lock"
+        with open(lock_path, "w") as lock_fd:
             fcntl.flock(lock_fd, fcntl.LOCK_EX)
             existing = memory_path.read_text() if memory_path.exists() else "# Empirica Project Memory\n"
             updated = _replace_auto_section(existing, auto_section)
@@ -357,7 +385,7 @@ def get_memory_stats(project_path: str | None = None) -> dict:
     if not memory_dir:
         return {"error": "Memory directory not found"}
 
-    md_files = list(memory_dir.glob('*.md'))
+    md_files = list(memory_dir.glob("*.md"))
     file_list: list[dict] = []
     stats: dict = {
         "memory_dir": str(memory_dir),
@@ -367,27 +395,29 @@ def get_memory_stats(project_path: str | None = None) -> dict:
     }
 
     # MEMORY.md specific stats
-    memory_md = memory_dir / 'MEMORY.md'
+    memory_md = memory_dir / "MEMORY.md"
     if memory_md.exists():
         content = memory_md.read_text()
-        stats["memory_md_lines"] = content.count('\n')
+        stats["memory_md_lines"] = content.count("\n")
         stats["memory_md_has_auto_section"] = MEMORY_AUTO_START in content
         if MEMORY_AUTO_START in content:
             auto_start = content.index(MEMORY_AUTO_START)
             auto_content = content[auto_start:]
-            stats["auto_section_lines"] = auto_content.count('\n')
+            stats["auto_section_lines"] = auto_content.count("\n")
     else:
         stats["memory_md_lines"] = 0
 
     # Individual file stats
     for f in sorted(md_files, key=lambda p: p.stat().st_mtime, reverse=True):
-        if f.name == 'MEMORY.md':
+        if f.name == "MEMORY.md":
             continue
-        file_list.append({
-            "name": f.name,
-            "size": f.stat().st_size,
-            "modified": f.stat().st_mtime,
-        })
+        file_list.append(
+            {
+                "name": f.name,
+                "size": f.stat().st_size,
+                "modified": f.stat().st_mtime,
+            }
+        )
 
     return stats
 
@@ -403,18 +433,19 @@ PROMOTE_MIN_CONFIDENCE = 0.7
 def _slugify(text: str, max_len: int = 40) -> str:
     """Convert text to a filename-safe slug."""
     import re
+
     slug = text.lower().strip()
-    slug = re.sub(r'[^a-z0-9]+', '_', slug)
-    slug = slug.strip('_')
+    slug = re.sub(r"[^a-z0-9]+", "_", slug)
+    slug = slug.strip("_")
     return slug[:max_len]
 
 
 def _get_promoted_tracker(memory_dir: Path) -> set[str]:
     """Read the set of already-promoted content hashes to avoid duplicates."""
-    tracker_file = memory_dir / '.promoted_hashes'
+    tracker_file = memory_dir / ".promoted_hashes"
     if tracker_file.exists():
         try:
-            return set(tracker_file.read_text().strip().split('\n'))
+            return set(tracker_file.read_text().strip().split("\n"))
         except Exception:
             pass
     return set()
@@ -422,9 +453,9 @@ def _get_promoted_tracker(memory_dir: Path) -> set[str]:
 
 def _save_promoted_tracker(memory_dir: Path, hashes: set[str]) -> None:
     """Save the promoted content hashes."""
-    tracker_file = memory_dir / '.promoted_hashes'
+    tracker_file = memory_dir / ".promoted_hashes"
     try:
-        tracker_file.write_text('\n'.join(sorted(hashes)))
+        tracker_file.write_text("\n".join(sorted(hashes)))
     except Exception:
         pass
 
@@ -437,7 +468,7 @@ def _try_promote_point(point, memory_dir: Path, promoted_hashes: set[str]) -> st
     import hashlib
 
     payload = point.payload or {}
-    content = payload.get('content', '')
+    content = payload.get("content", "")
     if not content:
         return None
 
@@ -445,11 +476,11 @@ def _try_promote_point(point, memory_dir: Path, promoted_hashes: set[str]) -> st
     if content_hash in promoted_hashes:
         return None
 
-    domain = payload.get('domain', '')
-    confidence = payload.get('confidence', 0.5)
-    confirmations = payload.get('confirmation_count', 1)
+    domain = payload.get("domain", "")
+    confidence = payload.get("confidence", 0.5)
+    confirmations = payload.get("confirmation_count", 1)
 
-    first_line = content.split('\n')[0][:80]
+    first_line = content.split("\n")[0][:80]
     name = f"{domain}: {first_line}" if domain else first_line
 
     slug = _slugify(name)
@@ -611,12 +642,12 @@ def demote_stale_memories(
     if not memory_dir:
         return []
 
-    archive_dir = memory_dir / '_archive'
+    archive_dir = memory_dir / "_archive"
     now = time.time()
     cutoff = now - (stale_days * 86400)
     archived = []
 
-    for f in memory_dir.glob('promoted_*.md'):
+    for f in memory_dir.glob("promoted_*.md"):
         if f.stat().st_mtime < cutoff:
             if dry_run:
                 archived.append(f.name)
@@ -639,7 +670,7 @@ def demote_stale_memories(
 
 def _remove_from_memory_index(memory_dir: Path, filenames: list[str]) -> None:
     """Remove references to demoted files from MEMORY.md."""
-    memory_md = memory_dir / 'MEMORY.md'
+    memory_md = memory_dir / "MEMORY.md"
     if not memory_md.exists():
         return
 
@@ -648,10 +679,9 @@ def _remove_from_memory_index(memory_dir: Path, filenames: list[str]) -> None:
         for fname in filenames:
             # Remove lines that contain a markdown link or reference to this file
             # Match: [text](filename) or (filename) patterns, not bare substrings
-            lines = content.split('\n')
-            content = '\n'.join(
-                line for line in lines
-                if f'({fname})' not in line and f'({fname.replace(".md", "")}.md)' not in line
+            lines = content.split("\n")
+            content = "\n".join(
+                line for line in lines if f"({fname})" not in line and f"({fname.replace('.md', '')}.md)" not in line
             )
         memory_md.write_text(content)
     except Exception as e:
@@ -661,6 +691,7 @@ def _remove_from_memory_index(memory_dir: Path, filenames: list[str]) -> None:
 # =============================================================================
 # MEMORY.md Eviction: Keep auto-section under cap
 # =============================================================================
+
 
 def enforce_memory_md_cap(
     project_path: str | None = None,
@@ -688,7 +719,7 @@ def enforce_memory_md_cap(
     content = _strip_stale_markers(content)
     content = _collapse_blank_runs(content)
 
-    total_lines = content.count('\n')
+    total_lines = content.count("\n")
 
     if total_lines <= max_total_lines:
         # Write cleaned version back even if under cap
@@ -706,8 +737,8 @@ def enforce_memory_md_cap(
     manual_section = content[:start_idx]
     auto_section = content[start_idx:]
 
-    manual_lines = manual_section.count('\n')
-    auto_lines = auto_section.count('\n')
+    manual_lines = manual_section.count("\n")
+    auto_lines = auto_section.count("\n")
 
     # Calculate how many auto lines to keep
     available_for_auto = max_total_lines - manual_lines
@@ -718,13 +749,13 @@ def enforce_memory_md_cap(
         return 0
 
     # Trim auto section from the bottom (lowest-ranked items)
-    auto_lines_list = auto_section.split('\n')
-    trimmed = '\n'.join(auto_lines_list[:available_for_auto])
+    auto_lines_list = auto_section.split("\n")
+    trimmed = "\n".join(auto_lines_list[:available_for_auto])
     evicted = auto_lines - available_for_auto
 
     # Write back
     try:
-        memory_path.write_text(manual_section + trimmed + '\n')
+        memory_path.write_text(manual_section + trimmed + "\n")
         logger.debug(f"Evicted {evicted} lines from MEMORY.md auto section")
     except Exception as e:
         logger.warning(f"Failed to enforce MEMORY.md cap: {e}")

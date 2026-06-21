@@ -29,17 +29,17 @@ import yaml
 
 def _voice_dirs() -> list[Path]:
     """Return profile lookup dirs in priority order (project, then global)."""
-    project_local = Path.cwd() / '.empirica' / 'voice'
-    user_global = Path.home() / '.empirica' / 'voice'
+    project_local = Path.cwd() / ".empirica" / "voice"
+    user_global = Path.home() / ".empirica" / "voice"
     return [project_local, user_global]
 
 
 def _resolve_profile_path(name: str) -> Path | None:
     """Find a profile by name. Project-local wins over global."""
-    if name.endswith('.yaml'):
+    if name.endswith(".yaml"):
         name = name[:-5]
     for d in _voice_dirs():
-        candidate = d / f'{name}.yaml'
+        candidate = d / f"{name}.yaml"
         if candidate.exists():
             return candidate
     return None
@@ -56,7 +56,7 @@ def _list_profiles() -> list[dict]:
     for d in _voice_dirs():
         if not d.exists():
             continue
-        for f in sorted(d.glob('*.yaml')):
+        for f in sorted(d.glob("*.yaml")):
             stem = f.stem
             if stem in seen:
                 continue  # project-local already won
@@ -64,19 +64,19 @@ def _list_profiles() -> list[dict]:
                 data = yaml.safe_load(f.read_text()) or {}
             except Exception as e:
                 seen[stem] = {
-                    'name': stem,
-                    'path': str(f),
-                    'scope': 'project' if d == _voice_dirs()[0] else 'global',
-                    'error': f'parse error: {e}',
+                    "name": stem,
+                    "path": str(f),
+                    "scope": "project" if d == _voice_dirs()[0] else "global",
+                    "error": f"parse error: {e}",
                 }
                 continue
             seen[stem] = {
-                'name': stem,
-                'path': str(f),
-                'scope': 'project' if d == _voice_dirs()[0] else 'global',
-                'archetype': data.get('archetype'),
-                'natural_register': data.get('natural_register'),
-                'samples': (data.get('voice_stats') or {}).get('total_samples', 0),
+                "name": stem,
+                "path": str(f),
+                "scope": "project" if d == _voice_dirs()[0] else "global",
+                "archetype": data.get("archetype"),
+                "natural_register": data.get("natural_register"),
+                "samples": (data.get("voice_stats") or {}).get("total_samples", 0),
             }
     return list(seen.values())
 
@@ -86,14 +86,14 @@ def _list_profiles() -> list[dict]:
 
 def _emit(args, payload: Any, *, default_human=None) -> int:
     """JSON or human output, mirroring notify_commands._emit_output."""
-    fmt = getattr(args, 'output', 'human')
-    if fmt == 'json':
-        sys.stdout.write(json.dumps(payload, indent=2, default=str) + '\n')
+    fmt = getattr(args, "output", "human")
+    if fmt == "json":
+        sys.stdout.write(json.dumps(payload, indent=2, default=str) + "\n")
     else:
         if default_human is not None:
-            sys.stdout.write(default_human + '\n')
+            sys.stdout.write(default_human + "\n")
         else:
-            sys.stdout.write(json.dumps(payload, indent=2, default=str) + '\n')
+            sys.stdout.write(json.dumps(payload, indent=2, default=str) + "\n")
     return 0
 
 
@@ -102,22 +102,22 @@ def _emit(args, payload: Any, *, default_human=None) -> int:
 
 def handle_voice_list_command(args) -> int:
     profiles = _list_profiles()
-    if getattr(args, 'output', 'human') == 'json':
-        return _emit(args, {'profiles': profiles})
+    if getattr(args, "output", "human") == "json":
+        return _emit(args, {"profiles": profiles})
 
     if not profiles:
-        sys.stdout.write('No voice profiles found.\n')
-        sys.stdout.write('Looked in:\n')
+        sys.stdout.write("No voice profiles found.\n")
+        sys.stdout.write("Looked in:\n")
         for d in _voice_dirs():
-            sys.stdout.write(f'  {d}\n')
+            sys.stdout.write(f"  {d}\n")
         sys.stdout.write(
             "\nTo populate: run mcp__cortex__populate_voice "
             "(scrapes reddit/devto/text into Qdrant + writes the yaml).\n"
         )
         return 0
 
-    rows = ['NAME         SCOPE     REGISTER             SAMPLES  ARCHETYPE']
-    rows.append('-' * 70)
+    rows = ["NAME         SCOPE     REGISTER             SAMPLES  ARCHETYPE"]
+    rows.append("-" * 70)
     for p in profiles:
         rows.append(
             f"{p['name']:<12} "
@@ -126,70 +126,64 @@ def handle_voice_list_command(args) -> int:
             f"{p.get('samples', 0):>7}  "
             f"{p.get('archetype') or '-'}"
         )
-        if p.get('error'):
+        if p.get("error"):
             rows.append(f"  ⚠ {p['error']}")
-    sys.stdout.write('\n'.join(rows) + '\n')
+    sys.stdout.write("\n".join(rows) + "\n")
     return 0
 
 
 def handle_voice_show_command(args) -> int:
-    name = getattr(args, 'name', None)
+    name = getattr(args, "name", None)
     if not name:
-        sys.stderr.write('error: voice show requires a profile name\n')
+        sys.stderr.write("error: voice show requires a profile name\n")
         return 2
 
     path = _resolve_profile_path(name)
     if path is None:
-        sys.stderr.write(
-            f"error: profile {name!r} not found in any of:\n"
-        )
+        sys.stderr.write(f"error: profile {name!r} not found in any of:\n")
         for d in _voice_dirs():
-            sys.stderr.write(f'  {d}\n')
+            sys.stderr.write(f"  {d}\n")
         return 1
 
     try:
         data = yaml.safe_load(path.read_text()) or {}
     except Exception as e:
-        sys.stderr.write(f'error: parse failed for {path}: {e}\n')
+        sys.stderr.write(f"error: parse failed for {path}: {e}\n")
         return 1
 
-    if getattr(args, 'output', 'human') == 'json':
-        return _emit(args, {'name': name, 'path': str(path), 'profile': data})
+    if getattr(args, "output", "human") == "json":
+        return _emit(args, {"name": name, "path": str(path), "profile": data})
 
     # Human-friendly summary
     out = []
     out.append(f"Profile: {data.get('name', name)}")
     out.append(f"Path:    {path}")
-    out.append(f"Type:    {data.get('profile_type', '-')} | "
-               f"Archetype: {data.get('archetype', '-')}")
+    out.append(f"Type:    {data.get('profile_type', '-')} | Archetype: {data.get('archetype', '-')}")
     out.append(f"Natural register: {data.get('natural_register', '-')}")
-    if data.get('domains'):
+    if data.get("domains"):
         out.append(f"Domains: {', '.join(data['domains'])}")
-    if data.get('tendencies'):
+    if data.get("tendencies"):
         out.append("\nTendencies (foreground when drafting):")
-        for t in data['tendencies']:
+        for t in data["tendencies"]:
             out.append(f"  + {t}")
-    if data.get('anti_patterns'):
+    if data.get("anti_patterns"):
         out.append("\nAnti-patterns (suppress):")
-        for a in data['anti_patterns']:
+        for a in data["anti_patterns"]:
             out.append(f"  - {a}")
-    if data.get('platforms'):
+    if data.get("platforms"):
         out.append("\nPlatform registers:")
-        for plat, conf in data['platforms'].items():
-            reg = (conf or {}).get('register', '-')
-            depth = (conf or {}).get('depth', '-')
-            framing = (conf or {}).get('framing', '-')
+        for plat, conf in data["platforms"].items():
+            reg = (conf or {}).get("register", "-")
+            depth = (conf or {}).get("depth", "-")
+            framing = (conf or {}).get("framing", "-")
             out.append(f"  {plat:<10} register={reg}, depth={depth}, framing={framing}")
-    if data.get('voice_stats'):
-        stats = data['voice_stats']
-        total = stats.get('total_samples', 0)
-        sources = stats.get('sources') or {}
-        src_summary = ', '.join(
-            f"{name}={(s or {}).get('samples', 0)}"
-            for name, s in sources.items()
-        )
+    if data.get("voice_stats"):
+        stats = data["voice_stats"]
+        total = stats.get("total_samples", 0)
+        sources = stats.get("sources") or {}
+        src_summary = ", ".join(f"{name}={(s or {}).get('samples', 0)}" for name, s in sources.items())
         out.append(f"\nSamples: {total} total ({src_summary})")
-    sys.stdout.write('\n'.join(out) + '\n')
+    sys.stdout.write("\n".join(out) + "\n")
     return 0
 
 
@@ -201,10 +195,10 @@ def handle_voice_apply_command(args) -> int:
     treat it as a checklist while drafting. Caller scopes by --register
     when drafting for a specific platform.
     """
-    name = getattr(args, 'name', None)
-    register = getattr(args, 'register', None)
+    name = getattr(args, "name", None)
+    register = getattr(args, "register", None)
     if not name:
-        sys.stderr.write('error: voice apply requires a profile name\n')
+        sys.stderr.write("error: voice apply requires a profile name\n")
         return 2
 
     path = _resolve_profile_path(name)
@@ -215,56 +209,51 @@ def handle_voice_apply_command(args) -> int:
     try:
         data = yaml.safe_load(path.read_text()) or {}
     except Exception as e:
-        sys.stderr.write(f'error: parse failed for {path}: {e}\n')
+        sys.stderr.write(f"error: parse failed for {path}: {e}\n")
         return 1
 
     # Resolve register: explicit --register > platforms[register] > natural_register
-    natural = data.get('natural_register', 'unspecified')
-    platform_conf = (data.get('platforms') or {}).get(register or '') or {}
-    effective_register = (
-        platform_conf.get('register')
-        if platform_conf.get('register')
-        else natural
-    )
-    depth = platform_conf.get('depth', 'medium')
-    framing = platform_conf.get('framing', 'unspecified')
+    natural = data.get("natural_register", "unspecified")
+    platform_conf = (data.get("platforms") or {}).get(register or "") or {}
+    effective_register = platform_conf.get("register") if platform_conf.get("register") else natural
+    depth = platform_conf.get("depth", "medium")
+    framing = platform_conf.get("framing", "unspecified")
 
     payload = {
-        'profile': data.get('name', name),
-        'register_requested': register,
-        'register_effective': effective_register,
-        'depth': depth,
-        'framing': framing,
-        'tendencies_foreground': data.get('tendencies') or [],
-        'anti_patterns_suppress': data.get('anti_patterns') or [],
-        'natural_register_fallback': natural,
-        'profile_path': str(path),
-        'hint': (
-            'Apply these tendencies and avoid the anti-patterns when drafting '
-            'in this register. The guidance is descriptive of the source '
-            'voice, not aspirational — match what the person actually does.'
+        "profile": data.get("name", name),
+        "register_requested": register,
+        "register_effective": effective_register,
+        "depth": depth,
+        "framing": framing,
+        "tendencies_foreground": data.get("tendencies") or [],
+        "anti_patterns_suppress": data.get("anti_patterns") or [],
+        "natural_register_fallback": natural,
+        "profile_path": str(path),
+        "hint": (
+            "Apply these tendencies and avoid the anti-patterns when drafting "
+            "in this register. The guidance is descriptive of the source "
+            "voice, not aspirational — match what the person actually does."
         ),
     }
 
-    if getattr(args, 'output', 'human') == 'json':
+    if getattr(args, "output", "human") == "json":
         return _emit(args, payload)
 
     out = []
     out.append(f"=== Voice profile: {payload['profile']} ===")
-    out.append(f"Register: {effective_register}"
-               + (f" (requested: {register})" if register else ""))
+    out.append(f"Register: {effective_register}" + (f" (requested: {register})" if register else ""))
     out.append(f"Depth: {depth} | Framing: {framing}")
     out.append("")
     out.append("Foreground these tendencies:")
-    for i, t in enumerate(payload['tendencies_foreground'], 1):
+    for i, t in enumerate(payload["tendencies_foreground"], 1):
         out.append(f"  {i}. {t}")
     out.append("")
     out.append("Suppress these anti-patterns:")
-    for a in payload.get('anti_patterns_suppress') or []:
+    for a in payload.get("anti_patterns_suppress") or []:
         out.append(f"  ✗ {a}")
     out.append("")
-    out.append(payload['hint'])
-    sys.stdout.write('\n'.join(out) + '\n')
+    out.append(payload["hint"])
+    sys.stdout.write("\n".join(out) + "\n")
     return 0
 
 
@@ -272,28 +261,28 @@ def handle_voice_apply_command(args) -> int:
 
 
 _VOICE_DISPATCH = {
-    'list': handle_voice_list_command,
-    'show': handle_voice_show_command,
-    'apply': handle_voice_apply_command,
+    "list": handle_voice_list_command,
+    "show": handle_voice_show_command,
+    "apply": handle_voice_apply_command,
 }
 
 
 def handle_voice_group_command(args) -> int:
     """Dispatcher for `empirica voice <action>`."""
-    action = getattr(args, 'voice_action', None)
+    action = getattr(args, "voice_action", None)
     if not action:
-        sys.stderr.write('usage: empirica voice <list|show|apply> [args...]\n')
+        sys.stderr.write("usage: empirica voice <list|show|apply> [args...]\n")
         return 2
     handler = _VOICE_DISPATCH.get(action)
     if handler is None:
-        sys.stderr.write(f'error: unknown voice action: {action}\n')
+        sys.stderr.write(f"error: unknown voice action: {action}\n")
         return 2
     return handler(args) or 0
 
 
 __all__ = [
-    'handle_voice_apply_command',
-    'handle_voice_group_command',
-    'handle_voice_list_command',
-    'handle_voice_show_command',
+    "handle_voice_apply_command",
+    "handle_voice_group_command",
+    "handle_voice_list_command",
+    "handle_voice_show_command",
 ]

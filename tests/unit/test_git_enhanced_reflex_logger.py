@@ -22,33 +22,22 @@ class TestGitAvailability:
         # Create a temporary git repo
         subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
 
-        logger = GitEnhancedReflexLogger(
-            session_id="test-session",
-            enable_git_notes=True,
-            git_repo_path=str(tmp_path)
-        )
+        logger = GitEnhancedReflexLogger(session_id="test-session", enable_git_notes=True, git_repo_path=str(tmp_path))
 
         assert logger.git_available is True
 
     def test_git_available_check_no_git_repo(self, tmp_path):
         """Test git availability check when not in git repo"""
-        logger = GitEnhancedReflexLogger(
-            session_id="test-session",
-            enable_git_notes=True,
-            git_repo_path=str(tmp_path)
-        )
+        logger = GitEnhancedReflexLogger(session_id="test-session", enable_git_notes=True, git_repo_path=str(tmp_path))
 
         assert logger.git_available is False
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_git_available_check_command_not_found(self, mock_run):
         """Test git availability check when git command not found"""
         mock_run.side_effect = FileNotFoundError("git command not found")
 
-        logger = GitEnhancedReflexLogger(
-            session_id="test-session",
-            enable_git_notes=True
-        )
+        logger = GitEnhancedReflexLogger(session_id="test-session", enable_git_notes=True)
 
         assert logger.git_available is False
 
@@ -75,23 +64,15 @@ class TestCheckpointCreation:
             session_id="test-session",
             enable_git_notes=True,
             base_log_dir=str(tmp_path / ".empirica_reflex_logs"),
-            git_repo_path=str(tmp_path)
+            git_repo_path=str(tmp_path),
         )
 
     def test_add_git_checkpoint_success(self, git_logger, tmp_path):
         """Test successful checkpoint addition to git notes"""
-        vectors = {
-            "know": 0.8,
-            "do": 0.9,
-            "context": 0.7,
-            "uncertainty": 0.3
-        }
+        vectors = {"know": 0.8, "do": 0.9, "context": 0.7, "uncertainty": 0.3}
 
         note_id = git_logger.add_checkpoint(
-            phase="PREFLIGHT",
-            round_num=1,
-            vectors=vectors,
-            metadata={"task": "test task"}
+            phase="PREFLIGHT", round_num=1, vectors=vectors, metadata={"task": "test task"}
         )
 
         # Verify note was added
@@ -100,10 +81,7 @@ class TestCheckpointCreation:
         # Verify note content (using session-specific ref)
         note_ref = "empirica/session/test-session/PREFLIGHT/1"
         result = subprocess.run(
-            ["git", "notes", "--ref", note_ref, "show", "HEAD"],
-            cwd=tmp_path,
-            capture_output=True,
-            text=True
+            ["git", "notes", "--ref", note_ref, "show", "HEAD"], cwd=tmp_path, capture_output=True, text=True
         )
 
         checkpoint = json.loads(result.stdout)
@@ -117,11 +95,7 @@ class TestCheckpointCreation:
         """Test that checkpoint is saved to SQLite even when git succeeds"""
         vectors = {"know": 0.8, "do": 0.9}
 
-        git_logger.add_checkpoint(
-            phase="PREFLIGHT",
-            round_num=1,
-            vectors=vectors
-        )
+        git_logger.add_checkpoint(phase="PREFLIGHT", round_num=1, vectors=vectors)
 
         # Check SQLite fallback file exists
         checkpoint_dir = Path(git_logger.base_log_dir) / "checkpoints" / "test-session"
@@ -134,11 +108,7 @@ class TestCheckpointCreation:
         """Test token count estimation for checkpoints"""
         vectors = {"know": 0.8, "do": 0.9, "context": 0.7}
 
-        git_logger.add_checkpoint(
-            phase="PREFLIGHT",
-            round_num=1,
-            vectors=vectors
-        )
+        git_logger.add_checkpoint(phase="PREFLIGHT", round_num=1, vectors=vectors)
 
         # Retrieve checkpoint
         checkpoint = git_logger.get_last_checkpoint()
@@ -170,7 +140,7 @@ class TestCheckpointRetrieval:
             session_id="test-session",
             enable_git_notes=True,
             base_log_dir=str(tmp_path / ".empirica_reflex_logs"),
-            git_repo_path=str(tmp_path)
+            git_repo_path=str(tmp_path),
         )
 
         # Add checkpoint
@@ -192,9 +162,7 @@ class TestCheckpointRetrieval:
     def test_get_last_checkpoint_with_phase_filter(self, logger_with_checkpoint):
         """Test retrieving checkpoint filtered by phase"""
         # Add CHECK checkpoint
-        logger_with_checkpoint.add_checkpoint(
-            "CHECK", 2, {"know": 0.85, "do": 0.95}
-        )
+        logger_with_checkpoint.add_checkpoint("CHECK", 2, {"know": 0.85, "do": 0.95})
 
         # Get PREFLIGHT checkpoint
         checkpoint = logger_with_checkpoint.get_last_checkpoint(phase="PREFLIGHT")
@@ -214,18 +182,14 @@ class TestSQLiteFallback:
             session_id="test-session",
             enable_git_notes=True,
             base_log_dir=str(tmp_path / ".empirica_reflex_logs"),
-            git_repo_path=str(tmp_path)  # Not a git repo
+            git_repo_path=str(tmp_path),  # Not a git repo
         )
 
     def test_add_checkpoint_fallback_when_git_unavailable(self, logger_no_git):
         """Test checkpoint storage falls back to SQLite when git unavailable"""
         vectors = {"know": 0.7, "do": 0.8}
 
-        note_id = logger_no_git.add_checkpoint(
-            phase="PREFLIGHT",
-            round_num=1,
-            vectors=vectors
-        )
+        note_id = logger_no_git.add_checkpoint(phase="PREFLIGHT", round_num=1, vectors=vectors)
 
         # Git operation should return None
         assert note_id is None
@@ -256,9 +220,7 @@ class TestVectorDiff:
     def logger(self, tmp_path):
         """Create basic logger"""
         return GitEnhancedReflexLogger(
-            session_id="test-session",
-            enable_git_notes=False,
-            base_log_dir=str(tmp_path / ".empirica_reflex_logs")
+            session_id="test-session", enable_git_notes=False, base_log_dir=str(tmp_path / ".empirica_reflex_logs")
         )
 
     def test_get_vector_diff_calculation(self, logger):
@@ -267,18 +229,10 @@ class TestVectorDiff:
             "session_id": "test-session",
             "phase": "PREFLIGHT",
             "round": 1,
-            "vectors": {
-                "know": 0.5,
-                "do": 0.6,
-                "context": 0.7
-            }
+            "vectors": {"know": 0.5, "do": 0.6, "context": 0.7},
         }
 
-        current_vectors = {
-            "know": 0.8,
-            "do": 0.9,
-            "context": 0.75
-        }
+        current_vectors = {"know": 0.8, "do": 0.9, "context": 0.75}
 
         logger.current_round = 5
 
@@ -286,7 +240,7 @@ class TestVectorDiff:
 
         # Verify delta calculation
         assert diff["delta"]["know"] == 0.3  # 0.8 - 0.5
-        assert diff["delta"]["do"] == 0.3    # 0.9 - 0.6
+        assert diff["delta"]["do"] == 0.3  # 0.9 - 0.6
         assert diff["delta"]["context"] == 0.05  # 0.75 - 0.7
 
         # Verify metadata
@@ -305,11 +259,7 @@ class TestVectorDiff:
 
     def test_vector_diff_token_count(self, logger):
         """Test that vector diff is token-efficient"""
-        baseline_checkpoint = {
-            "vectors": {"know": 0.5, "do": 0.6},
-            "phase": "PREFLIGHT",
-            "round": 1
-        }
+        baseline_checkpoint = {"vectors": {"know": 0.5, "do": 0.6}, "phase": "PREFLIGHT", "round": 1}
 
         current_vectors = {"know": 0.8, "do": 0.9}
 
@@ -329,9 +279,7 @@ class TestBackwardCompatibility:
     def test_disabled_git_notes_uses_standard_logger(self, tmp_path):
         """Test that enable_git_notes=False maintains standard behavior"""
         logger = GitEnhancedReflexLogger(
-            session_id="test-session",
-            enable_git_notes=False,
-            base_log_dir=str(tmp_path / ".empirica_reflex_logs")
+            session_id="test-session", enable_git_notes=False, base_log_dir=str(tmp_path / ".empirica_reflex_logs")
         )
 
         vectors = {"know": 0.7, "do": 0.8}
@@ -352,9 +300,7 @@ class TestErrorHandling:
     @pytest.fixture
     def logger(self, tmp_path):
         return GitEnhancedReflexLogger(
-            session_id="test-session",
-            enable_git_notes=False,
-            base_log_dir=str(tmp_path / ".empirica_reflex_logs")
+            session_id="test-session", enable_git_notes=False, base_log_dir=str(tmp_path / ".empirica_reflex_logs")
         )
 
     def test_get_last_checkpoint_returns_none_when_empty(self, logger):

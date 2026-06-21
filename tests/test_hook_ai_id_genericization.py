@@ -29,7 +29,7 @@ import pytest
 
 import empirica.utils.session_resolver as sr
 
-_HOOKS = Path(__file__).parent.parent / 'empirica' / 'plugins' / 'claude-code-integration' / 'hooks'
+_HOOKS = Path(__file__).parent.parent / "empirica" / "plugins" / "claude-code-integration" / "hooks"
 
 
 def _load_hook(module_name: str, filename: str):
@@ -56,7 +56,8 @@ def patch_resolver(monkeypatch):
 
     def _configure(ai_id_value, *, raise_always=False, return_value="SESS"):
         monkeypatch.setattr(
-            sr.InstanceResolver, "ai_id",
+            sr.InstanceResolver,
+            "ai_id",
             staticmethod(lambda *_a, **_k: ai_id_value),
         )
 
@@ -67,7 +68,8 @@ def patch_resolver(monkeypatch):
             return return_value
 
         monkeypatch.setattr(
-            sr.InstanceResolver, "latest_session_id",
+            sr.InstanceResolver,
+            "latest_session_id",
             staticmethod(_fake_lsid),
         )
         return captured

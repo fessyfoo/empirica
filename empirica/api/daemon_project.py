@@ -104,6 +104,7 @@ def _slugify_project_name(name: str) -> str:
     trim leading/trailing hyphens. Stable across machines for the same name.
     """
     import re
+
     slug = re.sub(r"[^a-z0-9-]+", "-", name.lower())
     slug = re.sub(r"-+", "-", slug).strip("-")
     return slug or name.lower()
@@ -125,6 +126,7 @@ def resolve_daemon_project() -> dict | None:
     # 1. Canonical resolver (instance_projects → active_work_{uuid} → headless)
     try:
         from empirica.utils.session_resolver import InstanceResolver as R
+
         canonical = R.project_path()
         if canonical:
             candidate = Path(canonical)
@@ -159,7 +161,11 @@ def resolve_daemon_project() -> dict | None:
     project_uuid = _resolve_project_uuid(project_path, yaml_id)
 
     project_id = project_uuid or yaml_id  # UUID preferred; fall back to whatever yaml had
-    project_slug = _slugify_project_name(yaml_id) if (yaml_id and not _looks_uuid(yaml_id)) else _slugify_project_name(project_name)
+    project_slug = (
+        _slugify_project_name(yaml_id)
+        if (yaml_id and not _looks_uuid(yaml_id))
+        else _slugify_project_name(project_name)
+    )
     repo_url = _read_git_remote(project_path)
 
     return {
@@ -178,8 +184,11 @@ def _looks_uuid(value: str | None) -> bool:
     parts = value.split("-")
     return (
         len(parts) == 5
-        and len(parts[0]) == 8 and len(parts[1]) == 4 and len(parts[2]) == 4
-        and len(parts[3]) == 4 and len(parts[4]) == 12
+        and len(parts[0]) == 8
+        and len(parts[1]) == 4
+        and len(parts[2]) == 4
+        and len(parts[3]) == 4
+        and len(parts[4]) == 12
     )
 
 
@@ -199,6 +208,7 @@ def _resolve_project_uuid(project_path: Path, yaml_id: str | None) -> str | None
 
     try:
         import sqlite3
+
         conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
         # Try by name (yaml_id as slug)
@@ -268,6 +278,7 @@ def resolve_for_request(
 
     if project_id:
         from empirica.api.registry import find_by_project_id, load_registry
+
         entry = find_by_project_id(load_registry(), project_id)
         if not entry:
             return None
@@ -308,11 +319,7 @@ def _synthesize_project_entry(project_path: Path) -> dict:
     interchangeably with the cached CWD-bound resolver.
     """
     project_yaml = _read_project_yaml(project_path)
-    project_name = (
-        project_yaml.get("display_name")
-        or project_yaml.get("name")
-        or project_path.name
-    )
+    project_name = project_yaml.get("display_name") or project_yaml.get("name") or project_path.name
     yaml_id = project_yaml.get("project_id")
     project_uuid = _resolve_project_uuid(project_path, yaml_id)
     project_id = project_uuid or yaml_id

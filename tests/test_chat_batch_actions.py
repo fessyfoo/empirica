@@ -40,7 +40,8 @@ class TestLogArtifactsFromFile:
         f = tmp_path / "batch.json"
         f.write_text(json.dumps(payload))
         mock_run.return_value = MagicMock(
-            returncode=0, stdout='{"ok": true, "nodes_created": 1, "edges_wired": 0}',
+            returncode=0,
+            stdout='{"ok": true, "nodes_created": 1, "edges_wired": 0}',
             stderr="",
         )
         result = log_artifacts_from_file(str(f))
@@ -54,7 +55,9 @@ class TestLogArtifactsFromFile:
         f = tmp_path / "batch.json"
         f.write_text('{"nodes": []}')
         mock_run.return_value = MagicMock(
-            returncode=1, stdout="", stderr="bad payload",
+            returncode=1,
+            stdout="",
+            stderr="bad payload",
         )
         with pytest.raises(ActionError, match="exit 1"):
             log_artifacts_from_file(str(f))
@@ -64,7 +67,8 @@ class TestLogArtifactsFromFile:
         f = tmp_path / "batch.json"
         f.write_text('{"nodes": []}')
         mock_run.return_value = MagicMock(
-            returncode=0, stdout="not json output",
+            returncode=0,
+            stdout="not json output",
             stderr="",
         )
         result = log_artifacts_from_file(str(f))
@@ -83,7 +87,9 @@ class TestResolveArtifactsBatch:
     @patch("empirica.core.chat.actions.subprocess.run")
     def test_calls_cli_with_id_payload(self, mock_run):
         mock_run.return_value = MagicMock(
-            returncode=0, stdout='{"ok": true, "resolved": 2}', stderr="",
+            returncode=0,
+            stdout='{"ok": true, "resolved": 2}',
+            stderr="",
         )
         result = resolve_artifacts_batch(["uuid-1", "uuid-2"])
         assert result["resolved"] == 2
@@ -95,7 +101,9 @@ class TestResolveArtifactsBatch:
     @patch("empirica.core.chat.actions.subprocess.run")
     def test_nonzero_exit_raises(self, mock_run):
         mock_run.return_value = MagicMock(
-            returncode=2, stdout="", stderr="not found",
+            returncode=2,
+            stdout="",
+            stderr="not found",
         )
         with pytest.raises(ActionError, match="exit 2"):
             resolve_artifacts_batch(["x"])
@@ -112,7 +120,9 @@ class TestDeleteArtifactsBatch:
     @patch("empirica.core.chat.actions.subprocess.run")
     def test_calls_cli_with_id_payload(self, mock_run):
         mock_run.return_value = MagicMock(
-            returncode=0, stdout='{"ok": true, "deleted": 3}', stderr="",
+            returncode=0,
+            stdout='{"ok": true, "deleted": 3}',
+            stderr="",
         )
         result = delete_artifacts_batch(["a", "b", "c"])
         assert result["deleted"] == 3
@@ -122,7 +132,9 @@ class TestDeleteArtifactsBatch:
     @patch("empirica.core.chat.actions.subprocess.run")
     def test_non_json_returns_raw(self, mock_run):
         mock_run.return_value = MagicMock(
-            returncode=0, stdout="success!", stderr="",
+            returncode=0,
+            stdout="success!",
+            stderr="",
         )
         result = delete_artifacts_batch(["x"])
         assert result == {"raw_output": "success!"}

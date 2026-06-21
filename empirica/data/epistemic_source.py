@@ -24,9 +24,9 @@ deferred until calibration history accumulates.
 
 from typing import Literal
 
-EpistemicSource = Literal['intuition', 'search', 'mixed']
+EpistemicSource = Literal["intuition", "search", "mixed"]
 
-EPISTEMIC_SOURCES: tuple[str, ...] = ('intuition', 'search', 'mixed')
+EPISTEMIC_SOURCES: tuple[str, ...] = ("intuition", "search", "mixed")
 
 
 def normalize_epistemic_source(value: str | None) -> str | None:

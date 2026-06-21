@@ -15,9 +15,15 @@ from .base import BaseRepository
 class BranchRepository(BaseRepository):
     """Repository for investigation branch management (Phase 2 branching)"""
 
-    def create_branch(self, session_id: str, branch_name: str, investigation_path: str,
-                     git_branch_name: str, preflight_vectors: dict,
-                     transaction_id: str | None = None) -> str:
+    def create_branch(
+        self,
+        session_id: str,
+        branch_name: str,
+        investigation_path: str,
+        git_branch_name: str,
+        preflight_vectors: dict,
+        transaction_id: str | None = None,
+    ) -> str:
         """Create a new investigation branch
 
         Args:
@@ -34,19 +40,31 @@ class BranchRepository(BaseRepository):
         branch_id = str(uuid.uuid4())
         now = time.time()
 
-        self._execute("""
+        self._execute(
+            """
             INSERT INTO investigation_branches
             (id, session_id, branch_name, investigation_path, git_branch_name,
              preflight_vectors, transaction_id, created_timestamp, status)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
-        """, (branch_id, session_id, branch_name, investigation_path, git_branch_name,
-              json.dumps(preflight_vectors), transaction_id, now))
+        """,
+            (
+                branch_id,
+                session_id,
+                branch_name,
+                investigation_path,
+                git_branch_name,
+                json.dumps(preflight_vectors),
+                transaction_id,
+                now,
+            ),
+        )
 
         self.commit()
         return branch_id
 
-    def checkpoint_branch(self, branch_id: str, postflight_vectors: dict,
-                         tokens_spent: int, time_spent_minutes: int) -> bool:
+    def checkpoint_branch(
+        self, branch_id: str, postflight_vectors: dict, tokens_spent: int, time_spent_minutes: int
+    ) -> bool:
         """Checkpoint a branch after investigation
 
         Args:
@@ -60,12 +78,15 @@ class BranchRepository(BaseRepository):
         """
         now = time.time()
 
-        self._execute("""
+        self._execute(
+            """
             UPDATE investigation_branches
             SET postflight_vectors = ?, tokens_spent = ?, time_spent_minutes = ?,
                 checkpoint_timestamp = ?
             WHERE id = ?
-        """, (json.dumps(postflight_vectors), tokens_spent, time_spent_minutes, now, branch_id))
+        """,
+            (json.dumps(postflight_vectors), tokens_spent, time_spent_minutes, now, branch_id),
+        )
 
         self.commit()
         return True
@@ -79,12 +100,15 @@ class BranchRepository(BaseRepository):
         Returns:
             Dict with branch data or empty dict if not found
         """
-        cursor = self._execute("""
+        cursor = self._execute(
+            """
             SELECT id, session_id, branch_name, investigation_path,
                    preflight_vectors, postflight_vectors, merge_score, status,
                    transaction_id
             FROM investigation_branches WHERE id = ?
-        """, (branch_id,))
+        """,
+            (branch_id,),
+        )
 
         row = cursor.fetchone()
         if not row:
@@ -99,7 +123,7 @@ class BranchRepository(BaseRepository):
             "postflight_vectors": json.loads(row[5]) if row[5] else {},
             "merge_score": row[6],
             "status": row[7],
-            "transaction_id": row[8]
+            "transaction_id": row[8],
         }
 
     def calculate_branch_merge_score(self, branch_id: str) -> dict:
@@ -111,10 +135,13 @@ class BranchRepository(BaseRepository):
         Returns:
             Dict with merge_score, quality, and rationale
         """
-        cursor = self._execute("""
+        cursor = self._execute(
+            """
             SELECT preflight_vectors, postflight_vectors, tokens_spent
             FROM investigation_branches WHERE id = ?
-        """, (branch_id,))
+        """,
+            (branch_id,),
+        )
 
         row = cursor.fetchone()
         if not row or not row[1]:  # No postflight data yet
@@ -125,7 +152,7 @@ class BranchRepository(BaseRepository):
         tokens_spent = row[2] or 0
 
         # 1. Calculate learning delta
-        key_vectors = ['know', 'do', 'context', 'clarity', 'signal']
+        key_vectors = ["know", "do", "context", "clarity", "signal"]
         learning_deltas = []
         for key in key_vectors:
             pre_val = preflight.get(key, 0.5)
@@ -134,13 +161,13 @@ class BranchRepository(BaseRepository):
         learning_delta = sum(learning_deltas) / len(key_vectors)
 
         # 2. Calculate quality
-        coherence = postflight.get('coherence', 0.5)
-        clarity = postflight.get('clarity', 0.5)
-        density = postflight.get('density', 0.5)
+        coherence = postflight.get("coherence", 0.5)
+        clarity = postflight.get("clarity", 0.5)
+        density = postflight.get("density", 0.5)
         quality = (coherence + clarity + (1 - density)) / 3
 
         # 3. Calculate confidence (1 - uncertainty, CRITICAL DAMPENER)
-        uncertainty = postflight.get('uncertainty', 0.5)
+        uncertainty = postflight.get("uncertainty", 0.5)
         confidence = 1.0 - uncertainty
 
         # 4. Calculate cost penalty
@@ -154,7 +181,7 @@ class BranchRepository(BaseRepository):
             "quality": round(quality, 4),
             "learning_delta": round(learning_delta, 4),
             "confidence": round(confidence, 4),
-            "uncertainty_dampener": round(uncertainty, 4)
+            "uncertainty_dampener": round(uncertainty, 4),
         }
 
     def merge_branches(self, session_id: str, investigation_round: int = 1) -> dict:
@@ -163,11 +190,14 @@ class BranchRepository(BaseRepository):
         Returns:
             Dict with winning_branch_id, merge_decision_id, rationale
         """
-        cursor = self._execute("""
+        cursor = self._execute(
+            """
             SELECT id, branch_name, investigation_path
             FROM investigation_branches
             WHERE session_id = ? AND status = 'active'
-        """, (session_id,))
+        """,
+            (session_id,),
+        )
 
         branches = cursor.fetchall()
         if not branches:
@@ -177,33 +207,38 @@ class BranchRepository(BaseRepository):
         branch_scores = []
         for branch_id, branch_name, investigation_path in branches:
             score_data = self.calculate_branch_merge_score(branch_id)
-            if score_data.get('merge_score', 0) > 0:
-                branch_scores.append({
-                    'branch_id': branch_id,
-                    'branch_name': branch_name,
-                    'investigation_path': investigation_path,
-                    'score': score_data['merge_score'],
-                    'quality': score_data['quality'],
-                    'confidence': score_data['confidence'],
-                    'uncertainty': score_data['uncertainty_dampener']
-                })
+            if score_data.get("merge_score", 0) > 0:
+                branch_scores.append(
+                    {
+                        "branch_id": branch_id,
+                        "branch_name": branch_name,
+                        "investigation_path": investigation_path,
+                        "score": score_data["merge_score"],
+                        "quality": score_data["quality"],
+                        "confidence": score_data["confidence"],
+                        "uncertainty": score_data["uncertainty_dampener"],
+                    }
+                )
 
         if not branch_scores:
             return {"error": "No branches with valid epistemic data"}
 
         # Select winner (highest score)
-        winner = max(branch_scores, key=lambda x: x['score'])
+        winner = max(branch_scores, key=lambda x: x["score"])
 
         # Mark winner in database
-        self._execute("""
+        self._execute(
+            """
             UPDATE investigation_branches
             SET is_winner = TRUE, status = 'merged', merged_timestamp = ?
             WHERE id = ?
-        """, (time.time(), winner['branch_id']))
+        """,
+            (time.time(), winner["branch_id"]),
+        )
 
         # Record merge decision
         decision_id = str(uuid.uuid4())
-        other_branches = [b['branch_name'] for b in branch_scores if b['branch_id'] != winner['branch_id']]
+        other_branches = [b["branch_name"] for b in branch_scores if b["branch_id"] != winner["branch_id"]]
         rationale = (
             f"Selected {winner['investigation_path']}: "
             f"score={winner['score']:.4f}, "
@@ -212,23 +247,34 @@ class BranchRepository(BaseRepository):
             f"({len(other_branches)} other paths evaluated)"
         )
 
-        self._execute("""
+        self._execute(
+            """
             INSERT INTO merge_decisions
             (id, session_id, investigation_round, winning_branch_id, winning_branch_name,
              winning_score, other_branches, decision_rationale, auto_merged, created_timestamp)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?)
-        """, (decision_id, session_id, investigation_round, winner['branch_id'],
-              winner['branch_name'], winner['score'], json.dumps(other_branches),
-              rationale, time.time()))
+        """,
+            (
+                decision_id,
+                session_id,
+                investigation_round,
+                winner["branch_id"],
+                winner["branch_name"],
+                winner["score"],
+                json.dumps(other_branches),
+                rationale,
+                time.time(),
+            ),
+        )
 
         self.commit()
 
         return {
             "success": True,
-            "winning_branch_id": winner['branch_id'],
-            "winning_branch_name": winner['branch_name'],
-            "winning_score": round(winner['score'], 4),
+            "winning_branch_id": winner["branch_id"],
+            "winning_branch_name": winner["branch_name"],
+            "winning_score": round(winner["score"], 4),
             "merge_decision_id": decision_id,
             "other_branches": other_branches,
-            "rationale": rationale
+            "rationale": rationale,
         }

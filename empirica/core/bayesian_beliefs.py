@@ -30,6 +30,7 @@ from typing import Any, ClassVar
 @dataclass
 class Belief:
     """A Bayesian belief about a vector."""
+
     vector_name: str
     mean: float
     variance: float
@@ -60,9 +61,19 @@ class BayesianBeliefManager:
 
     # Vectors to track
     TRACKED_VECTORS: ClassVar[list[str]] = [
-        'engagement', 'know', 'do', 'context',
-        'clarity', 'coherence', 'signal', 'density',
-        'state', 'change', 'completion', 'impact', 'uncertainty'
+        "engagement",
+        "know",
+        "do",
+        "context",
+        "clarity",
+        "coherence",
+        "signal",
+        "density",
+        "state",
+        "change",
+        "completion",
+        "impact",
+        "uncertainty",
     ]
 
     def __init__(self, db):
@@ -79,7 +90,8 @@ class BayesianBeliefManager:
         cursor = self.conn.cursor()
 
         # Get most recent belief for each vector
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT bb.vector_name, bb.mean, bb.variance, bb.evidence_count,
                    bb.prior_mean, bb.prior_variance, bb.last_updated
             FROM bayesian_beliefs bb
@@ -87,7 +99,9 @@ class BayesianBeliefManager:
             JOIN sessions s ON c.session_id = s.session_id
             WHERE s.ai_id = ?
             ORDER BY bb.last_updated DESC
-        """, (ai_id,))
+        """,
+            (ai_id,),
+        )
 
         beliefs = {}
         seen_vectors = set()
@@ -102,7 +116,7 @@ class BayesianBeliefManager:
                     evidence_count=row[3],
                     prior_mean=row[4],
                     prior_variance=row[5],
-                    last_updated=row[6]
+                    last_updated=row[6],
                 )
                 seen_vectors.add(vector_name)
 
@@ -116,7 +130,7 @@ class BayesianBeliefManager:
                     evidence_count=0,
                     prior_mean=self.DEFAULT_PRIOR_MEAN,
                     prior_variance=self.DEFAULT_PRIOR_VARIANCE,
-                    last_updated=None
+                    last_updated=None,
                 )
 
         return beliefs
@@ -149,14 +163,14 @@ class BayesianBeliefManager:
 
                 # Cap correction magnitude to prevent calibration drift
                 # Without this, corrections grow unbounded and override honest self-assessments
-                capped = max(-self.MAX_CORRECTION_MAGNITUDE,
-                             min(self.MAX_CORRECTION_MAGNITUDE, raw_adjustment))
+                capped = max(-self.MAX_CORRECTION_MAGNITUDE, min(self.MAX_CORRECTION_MAGNITUDE, raw_adjustment))
                 adjustments[vector] = capped
 
         return adjustments
 
-    def update_belief(self, session_id: str, vector_name: str, observation: float,
-                      phase: str = "CHECK", round_num: int = 1) -> dict | None:
+    def update_belief(
+        self, session_id: str, vector_name: str, observation: float, phase: str = "CHECK", round_num: int = 1
+    ) -> dict | None:
         """
         Update belief for a single vector during CHECK phase.
 
@@ -201,54 +215,67 @@ class BayesianBeliefManager:
         # Bayesian update
         obs_var = self.OBSERVATION_VARIANCE
 
-        posterior_mean = (
-            (prior_var * observation + obs_var * prior_mean) /
-            (prior_var + obs_var)
-        )
-        posterior_var = 1.0 / (1.0/prior_var + 1.0/obs_var)
+        posterior_mean = (prior_var * observation + obs_var * prior_mean) / (prior_var + obs_var)
+        posterior_var = 1.0 / (1.0 / prior_var + 1.0 / obs_var)
         new_evidence_count = evidence_count + 1
 
         # Get or create cascade_id for this session
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT cascade_id FROM cascades
             WHERE session_id = ?
             ORDER BY started_at DESC LIMIT 1
-        """, (session_id,))
+        """,
+            (session_id,),
+        )
         cascade_row = cursor.fetchone()
         cascade_id = cascade_row[0] if cascade_row else str(uuid.uuid4())
 
         # Store the update
         belief_id = str(uuid.uuid4())
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO bayesian_beliefs (
                 belief_id, cascade_id, vector_name,
                 mean, variance, evidence_count,
                 prior_mean, prior_variance, last_updated
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            belief_id, cascade_id, vector_name,
-            posterior_mean, posterior_var, new_evidence_count,
-            observation, self.OBSERVATION_VARIANCE, datetime.now()
-        ))
+        """,
+            (
+                belief_id,
+                cascade_id,
+                vector_name,
+                posterior_mean,
+                posterior_var,
+                new_evidence_count,
+                observation,
+                self.OBSERVATION_VARIANCE,
+                datetime.now(),
+            ),
+        )
 
         self.conn.commit()
 
         return {
-            'vector_name': vector_name,
-            'phase': phase,
-            'round_num': round_num,
-            'prior_mean': prior_mean,
-            'prior_variance': prior_var,
-            'observation': observation,
-            'posterior_mean': posterior_mean,
-            'posterior_variance': posterior_var,
-            'evidence_count': new_evidence_count,
-            'calibration_delta': observation - prior_mean
+            "vector_name": vector_name,
+            "phase": phase,
+            "round_num": round_num,
+            "prior_mean": prior_mean,
+            "prior_variance": prior_var,
+            "observation": observation,
+            "posterior_mean": posterior_mean,
+            "posterior_variance": posterior_var,
+            "evidence_count": new_evidence_count,
+            "calibration_delta": observation - prior_mean,
         }
 
-    def update_beliefs(self, cascade_id: str, session_id: str,
-                       preflight_vectors: dict[str, float],
-                       postflight_vectors: dict[str, float]) -> dict[str, dict]:
+    def update_beliefs(
+        self,
+        cascade_id: str,
+        session_id: str,
+        preflight_vectors: dict[str, float],
+        postflight_vectors: dict[str, float],
+    ) -> dict[str, dict]:
         """
         Update beliefs based on PREFLIGHT → POSTFLIGHT comparison.
 
@@ -303,39 +330,45 @@ class BayesianBeliefManager:
             obs_var = self.OBSERVATION_VARIANCE
 
             # Posterior mean: weighted average of prior and observation
-            posterior_mean = (
-                (prior_var * observation + obs_var * prior_mean) /
-                (prior_var + obs_var)
-            )
+            posterior_mean = (prior_var * observation + obs_var * prior_mean) / (prior_var + obs_var)
 
             # Posterior variance: decreases with more evidence
-            posterior_var = 1.0 / (1.0/prior_var + 1.0/obs_var)
+            posterior_var = 1.0 / (1.0 / prior_var + 1.0 / obs_var)
 
             # Increment evidence count
             new_evidence_count = evidence_count + 1
 
             # Store the update
             belief_id = str(uuid.uuid4())
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO bayesian_beliefs (
                     belief_id, cascade_id, vector_name,
                     mean, variance, evidence_count,
                     prior_mean, prior_variance, last_updated
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                belief_id, cascade_id, vector,
-                posterior_mean, posterior_var, new_evidence_count,
-                pre_val, self.OBSERVATION_VARIANCE, datetime.now()
-            ))
+            """,
+                (
+                    belief_id,
+                    cascade_id,
+                    vector,
+                    posterior_mean,
+                    posterior_var,
+                    new_evidence_count,
+                    pre_val,
+                    self.OBSERVATION_VARIANCE,
+                    datetime.now(),
+                ),
+            )
 
             updates[vector] = {
-                'prior_mean': prior_mean,
-                'prior_variance': prior_var,
-                'observation': observation,
-                'posterior_mean': posterior_mean,
-                'posterior_variance': posterior_var,
-                'evidence_count': new_evidence_count,
-                'calibration_delta': observation - pre_val  # How wrong was self-assessment
+                "prior_mean": prior_mean,
+                "prior_variance": prior_var,
+                "observation": observation,
+                "posterior_mean": posterior_mean,
+                "posterior_variance": posterior_var,
+                "evidence_count": new_evidence_count,
+                "calibration_delta": observation - pre_val,  # How wrong was self-assessment
             }
 
         self.conn.commit()
@@ -351,42 +384,37 @@ class BayesianBeliefManager:
         adjustments = self.get_calibration_adjustments(ai_id)
 
         report: dict[str, Any] = {
-            'ai_id': ai_id,
-            'total_evidence': sum(b.evidence_count for b in beliefs.values()),
-            'vectors': {},
-            'calibration_summary': {
-                'overestimates': [],
-                'underestimates': [],
-                'well_calibrated': []
-            }
+            "ai_id": ai_id,
+            "total_evidence": sum(b.evidence_count for b in beliefs.values()),
+            "vectors": {},
+            "calibration_summary": {"overestimates": [], "underestimates": [], "well_calibrated": []},
         }
 
         for vector, belief in beliefs.items():
             adjustment = adjustments.get(vector, 0)
 
             vector_report = {
-                'mean': belief.mean,
-                'variance': belief.variance,
-                'evidence_count': belief.evidence_count,
-                'adjustment': adjustment,
-                'confidence': 1.0 / (belief.variance + 0.01) if belief.variance else 0
+                "mean": belief.mean,
+                "variance": belief.variance,
+                "evidence_count": belief.evidence_count,
+                "adjustment": adjustment,
+                "confidence": 1.0 / (belief.variance + 0.01) if belief.variance else 0,
             }
-            report['vectors'][vector] = vector_report
+            report["vectors"][vector] = vector_report
 
             # Categorize calibration
             if belief.evidence_count >= 3:
                 if adjustment < -0.1:
-                    report['calibration_summary']['overestimates'].append(vector)
+                    report["calibration_summary"]["overestimates"].append(vector)
                 elif adjustment > 0.1:
-                    report['calibration_summary']['underestimates'].append(vector)
+                    report["calibration_summary"]["underestimates"].append(vector)
                 else:
-                    report['calibration_summary']['well_calibrated'].append(vector)
+                    report["calibration_summary"]["well_calibrated"].append(vector)
 
         return report
 
 
-def apply_calibration_to_vectors(vectors: dict[str, float],
-                                  adjustments: dict[str, float]) -> dict[str, float]:
+def apply_calibration_to_vectors(vectors: dict[str, float], adjustments: dict[str, float]) -> dict[str, float]:
     """
     Apply calibration adjustments to self-assessed vectors.
 
@@ -422,7 +450,7 @@ def _find_yaml_section(
             if section_start == -1:
                 section_start = i
             in_section = True
-        elif in_section and line.strip() and not line.startswith(' ') and not line.startswith('\t'):
+        elif in_section and line.strip() and not line.startswith(" ") and not line.startswith("\t"):
             section_end = i
             break
 
@@ -454,10 +482,7 @@ def export_calibration_to_breadcrumbs(ai_id: str, db, git_root: str | None = Non
     # Auto-detect git root if not provided
     if not git_root:
         try:
-            result = subprocess.run(
-                ['git', 'rev-parse', '--show-toplevel'],
-                capture_output=True, text=True, timeout=5
-            )
+            result = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, timeout=5)
             if result.returncode == 0:
                 git_root = result.stdout.strip()
             else:
@@ -465,7 +490,7 @@ def export_calibration_to_breadcrumbs(ai_id: str, db, git_root: str | None = Non
         except Exception:
             return False
 
-    breadcrumbs_path = os.path.join(git_root, '.breadcrumbs.yaml')
+    breadcrumbs_path = os.path.join(git_root, ".breadcrumbs.yaml")
 
     # Get calibration data
     try:
@@ -489,14 +514,14 @@ def export_calibration_to_breadcrumbs(ai_id: str, db, git_root: str | None = Non
 
         calibration_start, calibration_end = _find_yaml_section(
             existing_lines,
-            comments=['# Bayesian calibration', '# Learning trajectory'],
-            headers=['calibration:', 'learning_trajectory:'],
+            comments=["# Bayesian calibration", "# Learning trajectory"],
+            headers=["calibration:", "learning_trajectory:"],
         )
 
     # Build calibration YAML block
     timestamp = datetime.now().isoformat()
-    total_evidence = report.get('total_evidence', 0) if report else 0
-    summary = report.get('calibration_summary', {}) if report else {}
+    total_evidence = report.get("total_evidence", 0) if report else 0
+    summary = report.get("calibration_summary", {}) if report else {}
 
     # Sort adjustments by magnitude (most impactful first)
     sorted_adjustments = sorted(adjustments.items(), key=lambda x: abs(x[1]), reverse=True)
@@ -512,7 +537,7 @@ learning_trajectory:
 """
 
     for vector, adj in sorted_adjustments:
-        sign = '+' if adj >= 0 else ''
+        sign = "+" if adj >= 0 else ""
         calibration_yaml += f"    {vector}: {sign}{adj:.2f}\n"
 
     calibration_yaml += """  readiness:
@@ -521,9 +546,9 @@ learning_trajectory:
   summary:
 """
 
-    overestimates = summary.get('overestimates', [])
-    underestimates = summary.get('underestimates', [])
-    well_calibrated = summary.get('well_calibrated', [])
+    overestimates = summary.get("overestimates", [])
+    underestimates = summary.get("underestimates", [])
+    well_calibrated = summary.get("well_calibrated", [])
 
     calibration_yaml += f"    overestimates: [{', '.join(overestimates)}]\n"
     calibration_yaml += f"    underestimates: [{', '.join(underestimates)}]\n"
@@ -536,7 +561,7 @@ learning_trajectory:
             new_lines = existing_lines[:calibration_start] + [calibration_yaml] + existing_lines[calibration_end:]
         elif existing_lines:
             # Append to existing file
-            new_lines = existing_lines + ['\n', calibration_yaml]
+            new_lines = existing_lines + ["\n", calibration_yaml]
         else:
             # New file with default breadcrumbs config + calibration
             new_lines = [
@@ -550,16 +575,16 @@ learning_trajectory:
                 "\n",
                 "epistemic:\n",
                 "  enabled: true\n",
-                "  scale: \"1-5 (1=guessing, 3=reasonable, 5=certain)\"\n",
+                '  scale: "1-5 (1=guessing, 3=reasonable, 5=certain)"\n',
                 "  track_uncertainties: true\n",
                 "  track_decisions: true\n",
                 "\n",
                 "task:\n",
                 "  extract_last_task: 500\n",
-                calibration_yaml
+                calibration_yaml,
             ]
 
-        with open(breadcrumbs_path, 'w') as f:
+        with open(breadcrumbs_path, "w") as f:
             f.writelines(new_lines)
 
         return True
@@ -581,10 +606,7 @@ def load_bias_corrections(git_root: str | None = None) -> dict[str, float]:
 
     if not git_root:
         try:
-            result = subprocess.run(
-                ['git', 'rev-parse', '--show-toplevel'],
-                capture_output=True, text=True, timeout=5
-            )
+            result = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, timeout=5)
             if result.returncode == 0:
                 git_root = result.stdout.strip()
             else:
@@ -592,7 +614,7 @@ def load_bias_corrections(git_root: str | None = None) -> dict[str, float]:
         except Exception:
             return {}
 
-    breadcrumbs_path = os.path.join(git_root, '.breadcrumbs.yaml')
+    breadcrumbs_path = os.path.join(git_root, ".breadcrumbs.yaml")
     if not os.path.exists(breadcrumbs_path):
         return {}
 
@@ -604,25 +626,24 @@ def load_bias_corrections(git_root: str | None = None) -> dict[str, float]:
         corrections = {}
         in_corrections = False
         max_correction = BayesianBeliefManager.MAX_CORRECTION_MAGNITUDE
-        for line in content.split('\n'):
+        for line in content.split("\n"):
             stripped = line.strip()
-            if stripped == 'bias_corrections:':
+            if stripped == "bias_corrections:":
                 in_corrections = True
                 continue
             if in_corrections:
-                if stripped and not stripped.startswith('#'):
-                    if ':' in stripped and not stripped.endswith(':'):
-                        key, val = stripped.split(':', 1)
+                if stripped and not stripped.startswith("#"):
+                    if ":" in stripped and not stripped.endswith(":"):
+                        key, val = stripped.split(":", 1)
                         key = key.strip()
                         val = val.strip()
                         try:
                             raw = float(val)
                             # Defense-in-depth: cap corrections on load
-                            corrections[key] = max(-max_correction,
-                                                   min(max_correction, raw))
+                            corrections[key] = max(-max_correction, min(max_correction, raw))
                         except ValueError:
                             continue
-                    elif stripped.endswith(':'):
+                    elif stripped.endswith(":"):
                         # New section started — stop parsing
                         break
 
@@ -649,10 +670,7 @@ def load_grounded_corrections(git_root: str | None = None) -> dict[str, float]:
 
     if not git_root:
         try:
-            result = subprocess.run(
-                ['git', 'rev-parse', '--show-toplevel'],
-                capture_output=True, text=True, timeout=5
-            )
+            result = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, timeout=5)
             if result.returncode == 0:
                 git_root = result.stdout.strip()
             else:
@@ -660,7 +678,7 @@ def load_grounded_corrections(git_root: str | None = None) -> dict[str, float]:
         except Exception:
             return {}
 
-    breadcrumbs_path = os.path.join(git_root, '.breadcrumbs.yaml')
+    breadcrumbs_path = os.path.join(git_root, ".breadcrumbs.yaml")
     if not os.path.exists(breadcrumbs_path):
         return {}
 
@@ -671,24 +689,23 @@ def load_grounded_corrections(git_root: str | None = None) -> dict[str, float]:
         corrections = {}
         in_corrections = False
         max_correction = BayesianBeliefManager.MAX_CORRECTION_MAGNITUDE
-        for line in content.split('\n'):
+        for line in content.split("\n"):
             stripped = line.strip()
-            if stripped == 'grounded_bias_corrections:':
+            if stripped == "grounded_bias_corrections:":
                 in_corrections = True
                 continue
             if in_corrections:
-                if stripped and not stripped.startswith('#'):
-                    if ':' in stripped and not stripped.endswith(':'):
-                        key, val = stripped.split(':', 1)
+                if stripped and not stripped.startswith("#"):
+                    if ":" in stripped and not stripped.endswith(":"):
+                        key, val = stripped.split(":", 1)
                         key = key.strip()
                         val = val.strip()
                         try:
                             raw = float(val)
-                            corrections[key] = max(-max_correction,
-                                                   min(max_correction, raw))
+                            corrections[key] = max(-max_correction, min(max_correction, raw))
                         except ValueError:
                             continue
-                    elif stripped.endswith(':'):
+                    elif stripped.endswith(":"):
                         break
 
         return corrections

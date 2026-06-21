@@ -40,41 +40,46 @@ logger = logging.getLogger(__name__)
 
 class GateAction(Enum):
     """Actions that compliance gates can take"""
-    PROCEED = "proceed"           # Continue execution
-    INVESTIGATE = "investigate"   # Return to noetic phase
+
+    PROCEED = "proceed"  # Continue execution
+    INVESTIGATE = "investigate"  # Return to noetic phase
     HALT_AND_AUDIT = "halt_and_audit"  # Stop and log for audit
     REQUIRE_HUMAN = "require_human_review"  # Pause for human approval
-    ESCALATE = "escalate"         # Escalate to higher authority
+    ESCALATE = "escalate"  # Escalate to higher authority
     LOG_AND_CONTINUE = "log_and_continue"  # Log concern but proceed
 
 
 class LoopMode(Enum):
     """Who decides loop count"""
-    USER = "user"           # User specifies exact count
-    AI = "ai"               # AI chooses based on task
-    SENTINEL = "sentinel"   # Sentinel governs with convergence
+
+    USER = "user"  # User specifies exact count
+    AI = "ai"  # AI chooses based on task
+    SENTINEL = "sentinel"  # Sentinel governs with convergence
 
 
 class MergeStrategy(Enum):
     """Strategies for merging parallel agent results"""
-    CONSENSUS = "consensus"       # All agents must agree
-    BEST_SCORE = "best_score"     # Take highest merge_score result
-    WEIGHTED = "weighted"         # Weight by merge_score
-    UNION = "union"               # Combine all findings
-    INTERSECTION = "intersection" # Only common findings
+
+    CONSENSUS = "consensus"  # All agents must agree
+    BEST_SCORE = "best_score"  # Take highest merge_score result
+    WEIGHTED = "weighted"  # Weight by merge_score
+    UNION = "union"  # Combine all findings
+    INTERSECTION = "intersection"  # Only common findings
 
 
 class GatePhase(Enum):
     """Phase during which a gate operates"""
-    NOETIC = "noetic"     # Cognition/investigation phase
-    PRAXIC = "praxic"     # Action/execution phase
-    CHECK = "check"       # During CHECK gate transition
-    ANY = "any"           # Applies to all phases
+
+    NOETIC = "noetic"  # Cognition/investigation phase
+    PRAXIC = "praxic"  # Action/execution phase
+    CHECK = "check"  # During CHECK gate transition
+    ANY = "any"  # Applies to all phases
 
 
 # =============================================================================
 # DUAL DEFENSE LAYERS
 # =============================================================================
+
 
 @dataclass
 class NoeticFilter:
@@ -89,10 +94,11 @@ class NoeticFilter:
     - Restrict access to sensitive codebase areas
     - Prevent deep-diving into user credentials
     """
+
     filter_id: str
     name: str
     blocked_patterns: list[str] = field(default_factory=list)  # Regex patterns to block
-    blocked_domains: list[str] = field(default_factory=list)   # Domain areas to block
+    blocked_domains: list[str] = field(default_factory=list)  # Domain areas to block
     allow_with_justification: bool = False  # If True, can proceed with explicit justification
     action_on_match: GateAction = GateAction.INVESTIGATE
     log_matches: bool = True
@@ -151,9 +157,10 @@ class AxiologicGate:
     - Block push to main branch without review
     - Require audit trail for sensitive operations
     """
+
     gate_id: str
     name: str
-    action_patterns: list[str] = field(default_factory=list)   # Action patterns to gate
+    action_patterns: list[str] = field(default_factory=list)  # Action patterns to gate
     value_constraints: dict[str, Any] = field(default_factory=dict)  # Value thresholds
     required_vectors: dict[str, float] = field(default_factory=dict)  # Min vectors required
     action_on_violation: GateAction = GateAction.REQUIRE_HUMAN
@@ -208,6 +215,7 @@ class AxiologicGate:
 @dataclass
 class ComplianceGate:
     """A compliance gate that runs during CHECK"""
+
     gate_id: str
     condition: str  # e.g., "uncertainty > 0.5", "pii_detected"
     action: GateAction
@@ -261,6 +269,7 @@ class ComplianceGate:
 @dataclass
 class DomainProfile:
     """Domain-specific configuration for Sentinel"""
+
     name: str
     compliance_framework: str | None = None  # HIPAA, SOX, etc.
 
@@ -285,7 +294,7 @@ class DomainProfile:
     audit_retention_days: int = 90
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> 'DomainProfile':
+    def from_dict(cls, data: dict[str, Any]) -> "DomainProfile":
         """Load from dictionary"""
         gates = [
             ComplianceGate(
@@ -294,7 +303,7 @@ class DomainProfile:
                 action=GateAction(g["action"]),
                 threshold=g.get("threshold"),
                 description=g.get("description"),
-                priority=g.get("priority", "medium")
+                priority=g.get("priority", "medium"),
             )
             for g in data.get("gates", [])
         ]
@@ -311,13 +320,14 @@ class DomainProfile:
             restricted_tools=data.get("restricted_tools", []),
             allowed_tools=data.get("allowed_tools", []),
             audit_all_actions=data.get("audit_all_actions", False),
-            audit_retention_days=data.get("audit_retention_days", 90)
+            audit_retention_days=data.get("audit_retention_days", 90),
         )
 
 
 @dataclass
 class OrchestrationResult:
     """Result of orchestrating a task"""
+
     ok: bool
     task: str
     personas_selected: list[PersonaMatch]
@@ -344,13 +354,14 @@ class OrchestrationResult:
             "merged_vectors": self.merged_vectors,
             "compliance_check": self.compliance_check,
             "error": self.error,
-            "timestamp": self.timestamp
+            "timestamp": self.timestamp,
         }
 
 
 @dataclass
 class LoopRecord:
     """Record of a single epistemic loop (PREFLIGHT → POSTFLIGHT)"""
+
     loop_number: int
     preflight_vectors: dict[str, float]
     postflight_vectors: dict[str, float]
@@ -370,7 +381,7 @@ class LoopRecord:
             "findings": self.findings_count,
             "unknowns": self.unknowns_count,
             "decision": self.check_decision,
-            "timestamp": self.timestamp
+            "timestamp": self.timestamp,
         }
 
 
@@ -393,16 +404,17 @@ class EpistemicLoopTracker:
         else:
             # Converged or max loops reached
     """
+
     # Scope vectors (same as goals)
-    scope_breadth: float = 0.5      # How wide (more = more loops)
-    scope_duration: float = 0.5     # Expected lifetime (more = more loops)
-    scope_coordination: float = 0.3 # Multi-agent needed
+    scope_breadth: float = 0.5  # How wide (more = more loops)
+    scope_duration: float = 0.5  # Expected lifetime (more = more loops)
+    scope_coordination: float = 0.3  # Multi-agent needed
 
     # Loop configuration
     max_loops: int | None = None  # Hard limit (None = derive from scope)
-    min_loops: int = 1               # Minimum before allowing termination
+    min_loops: int = 1  # Minimum before allowing termination
     convergence_threshold: float = 0.03  # Delta below this = converged
-    convergence_window: int = 2      # Consecutive low-delta loops to confirm
+    convergence_window: int = 2  # Consecutive low-delta loops to confirm
 
     # Loop mode
     mode: LoopMode = LoopMode.SENTINEL
@@ -443,7 +455,7 @@ class EpistemicLoopTracker:
         postflight_vectors: dict[str, float],
         findings_count: int = 0,
         unknowns_count: int = 0,
-        check_decision: str = "proceed"
+        check_decision: str = "proceed",
     ) -> LoopRecord:
         """
         Complete current epistemic loop.
@@ -479,7 +491,7 @@ class EpistemicLoopTracker:
             delta=delta,
             findings_count=findings_count,
             unknowns_count=unknowns_count,
-            check_decision=check_decision
+            check_decision=check_decision,
         )
 
         self.loop_history.append(record)
@@ -534,7 +546,7 @@ class EpistemicLoopTracker:
             return False
 
         # Check last N loops for low delta
-        recent = self.loop_history[-self.convergence_window:]
+        recent = self.loop_history[-self.convergence_window :]
         for record in recent:
             # Check if any key vector had significant change
             know_delta = abs(record.delta.get("know", 0))
@@ -558,12 +570,12 @@ class EpistemicLoopTracker:
             "scope": {
                 "breadth": self.scope_breadth,
                 "duration": self.scope_duration,
-                "coordination": self.scope_coordination
+                "coordination": self.scope_coordination,
             },
             "cumulative_delta": self.cumulative_delta,
             "converged": self._is_converged(),
             "should_continue": self.should_continue(),
-            "loop_history": [r.to_dict() for r in self.loop_history]
+            "loop_history": [r.to_dict() for r in self.loop_history],
         }
 
     def estimate_remaining_loops(self) -> int:
@@ -609,11 +621,7 @@ class Sentinel:
 
     # Default domain profiles
     DEFAULT_PROFILES: ClassVar[dict[str, DomainProfile]] = {
-        "general": DomainProfile(
-            name="general",
-            uncertainty_trigger=0.5,
-            confidence_to_proceed=0.75
-        ),
+        "general": DomainProfile(name="general", uncertainty_trigger=0.5, confidence_to_proceed=0.75),
         "healthcare": DomainProfile(
             name="healthcare",
             compliance_framework="HIPAA",
@@ -624,17 +632,17 @@ class Sentinel:
                     gate_id="pii_check",
                     condition="pii_detected",
                     action=GateAction.HALT_AND_AUDIT,
-                    description="Halt if PII detected without authorization"
+                    description="Halt if PII detected without authorization",
                 ),
                 ComplianceGate(
                     gate_id="high_uncertainty",
                     condition="uncertainty > 0.4",
                     action=GateAction.REQUIRE_HUMAN,
-                    description="Require human review for uncertain medical decisions"
-                )
+                    description="Require human review for uncertain medical decisions",
+                ),
             ],
             audit_all_actions=True,
-            audit_retention_days=2555  # 7 years for HIPAA
+            audit_retention_days=2555,  # 7 years for HIPAA
         ),
         "finance": DomainProfile(
             name="finance",
@@ -646,19 +654,14 @@ class Sentinel:
                     gate_id="transaction_limit",
                     condition="high_risk",
                     action=GateAction.ESCALATE,
-                    description="Escalate high-risk financial operations"
+                    description="Escalate high-risk financial operations",
                 )
             ],
-            audit_all_actions=True
-        )
+            audit_all_actions=True,
+        ),
     }
 
-    def __init__(
-        self,
-        session_id: str,
-        qdrant_host: str = "localhost",
-        qdrant_port: int = 6333
-    ):
+    def __init__(self, session_id: str, qdrant_host: str = "localhost", qdrant_port: int = 6333):
         """
         Initialize Sentinel.
 
@@ -669,10 +672,7 @@ class Sentinel:
         """
         self.session_id = session_id
         self.domain_profile: DomainProfile | None = None
-        self.decision_logic = DecisionLogic(
-            qdrant_host=qdrant_host,
-            qdrant_port=qdrant_port
-        )
+        self.decision_logic = DecisionLogic(qdrant_host=qdrant_host, qdrant_port=qdrant_port)
         self._spawn_fn: Callable | None = None
         self._aggregate_fn: Callable | None = None
 
@@ -685,7 +685,7 @@ class Sentinel:
         scope_duration: float = 0.5,
         scope_coordination: float = 0.3,
         max_loops: int | None = None,
-        mode: LoopMode = LoopMode.SENTINEL
+        mode: LoopMode = LoopMode.SENTINEL,
     ) -> EpistemicLoopTracker:
         """
         Initialize epistemic loop tracking.
@@ -705,13 +705,10 @@ class Sentinel:
             scope_duration=scope_duration,
             scope_coordination=scope_coordination,
             max_loops=max_loops,
-            mode=mode
+            mode=mode,
         )
 
-        logger.info(
-            f"Loop tracking initialized: max_loops={self.loop_tracker.max_loops}, "
-            f"mode={mode.value}"
-        )
+        logger.info(f"Loop tracking initialized: max_loops={self.loop_tracker.max_loops}, mode={mode.value}")
 
         return self.loop_tracker
 
@@ -722,10 +719,7 @@ class Sentinel:
         return self.loop_tracker.start_loop(preflight_vectors)
 
     def complete_loop(
-        self,
-        postflight_vectors: dict[str, float],
-        findings_count: int = 0,
-        unknowns_count: int = 0
+        self, postflight_vectors: dict[str, float], findings_count: int = 0, unknowns_count: int = 0
     ) -> dict[str, Any]:
         """
         Complete an epistemic loop (call at POSTFLIGHT).
@@ -736,16 +730,14 @@ class Sentinel:
             raise ValueError("Loop tracking not initialized")
 
         record = self.loop_tracker.complete_loop(
-            postflight_vectors=postflight_vectors,
-            findings_count=findings_count,
-            unknowns_count=unknowns_count
+            postflight_vectors=postflight_vectors, findings_count=findings_count, unknowns_count=unknowns_count
         )
 
         return {
             "loop": record.to_dict(),
             "should_continue": self.loop_tracker.should_continue(),
             "loops_remaining": self.loop_tracker.estimate_remaining_loops(),
-            "converged": self.loop_tracker._is_converged()
+            "converged": self.loop_tracker._is_converged(),
         }
 
     def get_loop_summary(self) -> dict[str, Any] | None:
@@ -754,11 +746,7 @@ class Sentinel:
             return None
         return self.loop_tracker.get_summary()
 
-    def load_domain_profile(
-        self,
-        profile_name: str,
-        custom_profile: dict[str, Any] | None = None
-    ) -> DomainProfile:
+    def load_domain_profile(self, profile_name: str, custom_profile: dict[str, Any] | None = None) -> DomainProfile:
         """
         Load a domain profile for compliance configuration.
 
@@ -778,17 +766,12 @@ class Sentinel:
             self.domain_profile = self.DEFAULT_PROFILES["general"]
 
         logger.info(
-            f"Loaded domain profile: {self.domain_profile.name} "
-            f"(framework={self.domain_profile.compliance_framework})"
+            f"Loaded domain profile: {self.domain_profile.name} (framework={self.domain_profile.compliance_framework})"
         )
 
         return self.domain_profile
 
-    def select_personas(
-        self,
-        task: str,
-        max_personas: int = 3
-    ) -> list[PersonaMatch]:
+    def select_personas(self, task: str, max_personas: int = 3) -> list[PersonaMatch]:
         """
         Select personas for a task using DecisionLogic.
 
@@ -810,18 +793,12 @@ class Sentinel:
             required = self.domain_profile.required_personas
 
         matches = self.decision_logic.select_personas(
-            task=task,
-            max_personas=max_personas,
-            required_domains=required,
-            excluded_personas=excluded
+            task=task, max_personas=max_personas, required_domains=required, excluded_personas=excluded
         )
 
         # Filter by allowed if specified
         if self.domain_profile and self.domain_profile.allowed_personas:
-            matches = [
-                m for m in matches
-                if m.persona_id in self.domain_profile.allowed_personas
-            ]
+            matches = [m for m in matches if m.persona_id in self.domain_profile.allowed_personas]
 
         return matches
 
@@ -830,7 +807,7 @@ class Sentinel:
         task: str,
         max_agents: int = 3,
         merge_strategy: MergeStrategy = MergeStrategy.UNION,
-        execute_agents: bool = False
+        execute_agents: bool = False,
     ) -> OrchestrationResult:
         """
         Orchestrate a task with automatic persona selection and agent spawning.
@@ -854,24 +831,17 @@ class Sentinel:
                     task=task,
                     personas_selected=[],
                     agents_spawned=[],
-                    error="No suitable personas found for task"
+                    error="No suitable personas found for task",
                 )
 
-            logger.info(
-                f"Orchestrating task with {len(personas)} personas: "
-                f"{[p.persona_id for p in personas]}"
-            )
+            logger.info(f"Orchestrating task with {len(personas)} personas: {[p.persona_id for p in personas]}")
 
             # 2. Spawn agents (if execute_agents is True)
             agents_spawned = []
             if execute_agents and self._spawn_fn:
                 for persona in personas:
                     try:
-                        branch_id = self._spawn_fn(
-                            session_id=self.session_id,
-                            task=task,
-                            persona=persona.persona_id
-                        )
+                        branch_id = self._spawn_fn(session_id=self.session_id, task=task, persona=persona.persona_id)
                         agents_spawned.append(branch_id)
                     except Exception as e:
                         logger.warning(f"Failed to spawn agent {persona.persona_id}: {e}")
@@ -883,10 +853,7 @@ class Sentinel:
 
             if agents_spawned and self._aggregate_fn:
                 try:
-                    aggregate_result = self._aggregate_fn(
-                        session_id=self.session_id,
-                        strategy=merge_strategy.value
-                    )
+                    aggregate_result = self._aggregate_fn(session_id=self.session_id, strategy=merge_strategy.value)
                     aggregated_findings = aggregate_result.get("findings", [])
                     aggregated_unknowns = aggregate_result.get("unknowns", [])
                     merged_vectors = aggregate_result.get("vectors", {})
@@ -899,7 +866,7 @@ class Sentinel:
                 compliance_check = self.check_compliance(
                     vectors=merged_vectors or {"uncertainty": 0.5},
                     findings=aggregated_findings,
-                    unknowns=aggregated_unknowns
+                    unknowns=aggregated_unknowns,
                 )
 
             return OrchestrationResult(
@@ -911,25 +878,15 @@ class Sentinel:
                 aggregated_unknowns=aggregated_unknowns,
                 merge_strategy=merge_strategy,
                 merged_vectors=merged_vectors,
-                compliance_check=compliance_check
+                compliance_check=compliance_check,
             )
 
         except Exception as e:
             logger.error(f"Orchestration failed: {e}")
-            return OrchestrationResult(
-                ok=False,
-                task=task,
-                personas_selected=[],
-                agents_spawned=[],
-                error=str(e)
-            )
+            return OrchestrationResult(ok=False, task=task, personas_selected=[], agents_spawned=[], error=str(e))
 
     def check_compliance(
-        self,
-        vectors: dict[str, float],
-        findings: list[str],
-        unknowns: list[str],
-        flags: dict[str, bool] | None = None
+        self, vectors: dict[str, float], findings: list[str], unknowns: list[str], flags: dict[str, bool] | None = None
     ) -> dict[str, Any]:
         """
         Run compliance gates and return CHECK decision.
@@ -955,23 +912,18 @@ class Sentinel:
                     "decision": "proceed",
                     "triggered_gates": [],
                     "actions": [],
-                    "rationale": "Meta uncertainty within readiness threshold"
+                    "rationale": "Meta uncertainty within readiness threshold",
                 }
             else:
                 return {
                     "decision": "investigate",
                     "triggered_gates": [],
                     "actions": [],
-                    "rationale": f"Meta uncertainty above threshold: {uncertainty:.2f} > 0.35"
+                    "rationale": f"Meta uncertainty above threshold: {uncertainty:.2f} > 0.35",
                 }
 
         # Build context for gate evaluation
-        context = {
-            "vectors": vectors,
-            "findings": findings,
-            "unknowns": unknowns,
-            "flags": flags
-        }
+        context = {"vectors": vectors, "findings": findings, "unknowns": unknowns, "flags": flags}
 
         # Evaluate gates
         triggered_gates = []
@@ -980,12 +932,14 @@ class Sentinel:
         for gate in self.domain_profile.gates:
             if gate.evaluate(context):
                 triggered_gates.append(gate.gate_id)
-                actions.append({
-                    "gate_id": gate.gate_id,
-                    "action": gate.action.value,
-                    "priority": gate.priority,
-                    "description": gate.description
-                })
+                actions.append(
+                    {
+                        "gate_id": gate.gate_id,
+                        "action": gate.action.value,
+                        "priority": gate.priority,
+                        "description": gate.description,
+                    }
+                )
 
         # Determine decision based on gates
         if any(a["action"] == GateAction.HALT_AND_AUDIT.value for a in actions):
@@ -1014,15 +968,10 @@ class Sentinel:
             "actions": actions,
             "profile": self.domain_profile.name,
             "framework": self.domain_profile.compliance_framework,
-            "rationale": self._build_rationale(decision, triggered_gates, vectors)
+            "rationale": self._build_rationale(decision, triggered_gates, vectors),
         }
 
-    def _build_rationale(
-        self,
-        decision: str,
-        triggered_gates: list[str],
-        vectors: dict[str, float]
-    ) -> str:
+    def _build_rationale(self, decision: str, triggered_gates: list[str], vectors: dict[str, float]) -> str:
         """Build human-readable rationale for decision"""
         if triggered_gates:
             return f"Gates triggered: {', '.join(triggered_gates)}"
@@ -1051,7 +1000,7 @@ class Sentinel:
             "uncertainty_trigger": self.domain_profile.uncertainty_trigger,
             "confidence_to_proceed": self.domain_profile.confidence_to_proceed,
             "audit_enabled": self.domain_profile.audit_all_actions,
-            "restricted_tools": self.domain_profile.restricted_tools
+            "restricted_tools": self.domain_profile.restricted_tools,
         }
 
     def wire_agent_infrastructure(self) -> None:
@@ -1064,12 +1013,7 @@ class Sentinel:
 
         def spawn_fn(session_id: str, task: str, persona: str) -> str:
             """Spawn an epistemic agent via existing infrastructure"""
-            config = {
-                "session_id": session_id,
-                "task": task,
-                "persona": persona,
-                "cascade_style": "exploratory"
-            }
+            config = {"session_id": session_id, "task": task, "persona": persona, "cascade_style": "exploratory"}
             result = spawn_epistemic_agent(config)
             return result.branch_id
 
@@ -1078,6 +1022,7 @@ class Sentinel:
             from empirica.core.agents.epistemic_agent import (
                 aggregate_branches,  # pyright: ignore[reportAttributeAccessIssue]
             )
+
             return aggregate_branches(session_id, strategy=strategy)
 
         self.register_spawn_function(spawn_fn)
@@ -1091,7 +1036,7 @@ class Sentinel:
         max_agents: int = 3,
         merge_strategy: MergeStrategy = MergeStrategy.UNION,
         scope_breadth: float = 0.5,
-        scope_duration: float = 0.5
+        scope_duration: float = 0.5,
     ) -> OrchestrationResult:
         """
         Full autonomous orchestration with agent spawning and loop tracking.
@@ -1109,11 +1054,7 @@ class Sentinel:
             OrchestrationResult with full tracking
         """
         # Initialize loop tracking
-        self.init_loop_tracking(
-            scope_breadth=scope_breadth,
-            scope_duration=scope_duration,
-            mode=LoopMode.SENTINEL
-        )
+        self.init_loop_tracking(scope_breadth=scope_breadth, scope_duration=scope_duration, mode=LoopMode.SENTINEL)
 
         # Wire agent infrastructure if not done
         if not self._spawn_fn:
@@ -1123,12 +1064,7 @@ class Sentinel:
                 logger.warning(f"Could not wire agent infrastructure: {e}")
 
         # Run orchestration with agent execution
-        result = self.orchestrate(
-            task=task,
-            max_agents=max_agents,
-            merge_strategy=merge_strategy,
-            execute_agents=True
-        )
+        result = self.orchestrate(task=task, max_agents=max_agents, merge_strategy=merge_strategy, execute_agents=True)
 
         # Add loop tracking info
         if self.loop_tracker:
@@ -1137,7 +1073,7 @@ class Sentinel:
         return result
 
     @classmethod
-    def from_goal(cls, goal_id: str, session_id: str) -> 'Sentinel':
+    def from_goal(cls, goal_id: str, session_id: str) -> "Sentinel":
         """
         Create Sentinel from an existing goal's scope vectors.
 
@@ -1152,10 +1088,7 @@ class Sentinel:
 
         db = SessionDatabase()
         cursor = db.conn.cursor()
-        cursor.execute(
-            "SELECT scope FROM goals WHERE id = ?",
-            (goal_id,)
-        )
+        cursor.execute("SELECT scope FROM goals WHERE id = ?", (goal_id,))
         row = cursor.fetchone()
         db.close()
 
@@ -1167,6 +1100,7 @@ class Sentinel:
         scope_data: dict = {}
         if row and row[0]:
             import json
+
             try:
                 parsed = json.loads(row[0])
                 if isinstance(parsed, dict):
@@ -1176,9 +1110,9 @@ class Sentinel:
 
         if scope_data:
             sentinel.init_loop_tracking(
-                scope_breadth=scope_data.get('breadth') or 0.5,
-                scope_duration=scope_data.get('duration') or 0.5,
-                scope_coordination=scope_data.get('coordination') or 0.3
+                scope_breadth=scope_data.get("breadth") or 0.5,
+                scope_duration=scope_data.get("duration") or 0.5,
+                scope_coordination=scope_data.get("coordination") or 0.3,
             )
 
         return sentinel

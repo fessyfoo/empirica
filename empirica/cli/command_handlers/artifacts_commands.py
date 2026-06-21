@@ -105,8 +105,7 @@ def _read_note_blob(workspace, ref):
     """
     try:
         tree_result = subprocess.run(
-            ["git", "cat-file", "-p", ref],
-            cwd=workspace, capture_output=True, text=True, timeout=10
+            ["git", "cat-file", "-p", ref], cwd=workspace, capture_output=True, text=True, timeout=10
         )
         if tree_result.returncode != 0:
             return None
@@ -120,8 +119,7 @@ def _read_note_blob(workspace, ref):
             return None
 
         ls_result = subprocess.run(
-            ["git", "ls-tree", tree_sha],
-            cwd=workspace, capture_output=True, text=True, timeout=10
+            ["git", "ls-tree", tree_sha], cwd=workspace, capture_output=True, text=True, timeout=10
         )
         if ls_result.returncode != 0 or not ls_result.stdout.strip():
             return None
@@ -130,8 +128,7 @@ def _read_note_blob(workspace, ref):
         blob_sha = first_line.split()[2]
 
         blob_result = subprocess.run(
-            ["git", "cat-file", "-p", blob_sha],
-            cwd=workspace, capture_output=True, text=True, timeout=10
+            ["git", "cat-file", "-p", blob_sha], cwd=workspace, capture_output=True, text=True, timeout=10
         )
         if blob_result.returncode == 0 and blob_result.stdout.strip():
             return json.loads(blob_result.stdout.strip())
@@ -144,8 +141,7 @@ def _read_note_raw(workspace, ref):
     """Read raw text from a git notes ref (for non-JSON formats like cascades)."""
     try:
         tree_result = subprocess.run(
-            ["git", "cat-file", "-p", ref],
-            cwd=workspace, capture_output=True, text=True, timeout=10
+            ["git", "cat-file", "-p", ref], cwd=workspace, capture_output=True, text=True, timeout=10
         )
         if tree_result.returncode != 0:
             return None
@@ -159,8 +155,7 @@ def _read_note_raw(workspace, ref):
             return None
 
         ls_result = subprocess.run(
-            ["git", "ls-tree", tree_sha],
-            cwd=workspace, capture_output=True, text=True, timeout=10
+            ["git", "ls-tree", tree_sha], cwd=workspace, capture_output=True, text=True, timeout=10
         )
         if ls_result.returncode != 0 or not ls_result.stdout.strip():
             return None
@@ -169,8 +164,7 @@ def _read_note_raw(workspace, ref):
         blob_sha = first_line.split()[2]
 
         blob_result = subprocess.run(
-            ["git", "cat-file", "-p", blob_sha],
-            cwd=workspace, capture_output=True, text=True, timeout=10
+            ["git", "cat-file", "-p", blob_sha], cwd=workspace, capture_output=True, text=True, timeout=10
         )
         if blob_result.returncode == 0:
             return blob_result.stdout
@@ -184,9 +178,11 @@ def _read_all_notes(workspace, namespace):
     items = []
     try:
         result = subprocess.run(
-            ["git", "for-each-ref", "--format=%(refname)",
-             f"refs/notes/empirica/{namespace}/"],
-            cwd=workspace, capture_output=True, text=True, timeout=30
+            ["git", "for-each-ref", "--format=%(refname)", f"refs/notes/empirica/{namespace}/"],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if result.returncode != 0 or not result.stdout.strip():
             return items
@@ -209,9 +205,11 @@ def _read_session_refs(workspace):
     sessions = {}
     try:
         result = subprocess.run(
-            ["git", "for-each-ref", "--format=%(refname)",
-             "refs/notes/empirica/session/"],
-            cwd=workspace, capture_output=True, text=True, timeout=60
+            ["git", "for-each-ref", "--format=%(refname)", "refs/notes/empirica/session/"],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         if result.returncode != 0 or not result.stdout.strip():
             return sessions
@@ -237,9 +235,11 @@ def _read_cascade_refs(workspace):
     cascades = []
     try:
         result = subprocess.run(
-            ["git", "for-each-ref", "--format=%(refname)",
-             "refs/notes/empirica/cascades/"],
-            cwd=workspace, capture_output=True, text=True, timeout=30
+            ["git", "for-each-ref", "--format=%(refname)", "refs/notes/empirica/cascades/"],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if result.returncode != 0 or not result.stdout.strip():
             return cascades
@@ -265,10 +265,10 @@ def _read_cascade_refs(workspace):
                     if colon_pos > 0:
                         label = line[:colon_pos].strip()
                         try:
-                            payload = json.loads(line[colon_pos + 1:].strip())
+                            payload = json.loads(line[colon_pos + 1 :].strip())
                             entries.append({"decision": label, "data": payload})
                         except json.JSONDecodeError:
-                            entries.append({"decision": label, "data": {"raw": line[colon_pos + 1:].strip()}})
+                            entries.append({"decision": label, "data": {"raw": line[colon_pos + 1 :].strip()}})
                     else:
                         entries.append({"decision": "UNKNOWN", "data": {"raw": line}})
                 cascades.append((sid, tid, entries))
@@ -343,7 +343,7 @@ def _render_findings(findings):
         sid = _short_id(data.get("session_id", ""))
         lines.append(
             f"| {date} | {float(impact):.1f} | "
-            f"<a id=\"finding-{short}\"></a>{text} | "
+            f'<a id="finding-{short}"></a>{text} | '
             f"`{ai}` | [{sid}](transactions.md#{sid}) |"
         )
 
@@ -376,7 +376,7 @@ def _render_unknowns(unknowns):
         extra = f" *Resolved: {_truncate(resolved_by, 40)}*" if resolved_by else ""
         lines.append(
             f"| {date} | {status} | "
-            f"<a id=\"unknown-{short}\"></a>{text}{extra} | "
+            f'<a id="unknown-{short}"></a>{text}{extra} | '
             f"`{ai}` | [{sid}](transactions.md#{sid}) |"
         )
 
@@ -403,17 +403,19 @@ def _render_dead_ends(dead_ends):
         date = _format_date_short(data.get("created_at") or data.get("created_timestamp", ""))
         sid = _short_id(data.get("session_id", ""))
 
-        lines.extend([
-            f"<a id=\"deadend-{short}\"></a>",
-            f"### {_truncate(approach, 80)}",
-            "",
-            f"**Why it failed:** {why_failed}",
-            "",
-            f"`{ai}` | {date} | Session [{sid}](transactions.md#{sid})",
-            "",
-            "---",
-            "",
-        ])
+        lines.extend(
+            [
+                f'<a id="deadend-{short}"></a>',
+                f"### {_truncate(approach, 80)}",
+                "",
+                f"**Why it failed:** {why_failed}",
+                "",
+                f"`{ai}` | {date} | Session [{sid}](transactions.md#{sid})",
+                "",
+                "---",
+                "",
+            ]
+        )
 
     lines.append("*Generated by [Empirica](https://getempirica.com)*")
     return "\n".join(lines)
@@ -441,15 +443,17 @@ def _render_mistakes(mistakes):
         date = _format_date_short(data.get("created_at") or data.get("created_timestamp", ""))
         sid = _short_id(data.get("session_id", ""))
 
-        lines.extend([
-            f"<a id=\"mistake-{short}\"></a>",
-            f"### {_truncate(mistake, 80)}",
-            "",
-            f"**Why wrong:** {why_wrong}",
-            "",
-            f"**Prevention:** {prevention}",
-            "",
-        ])
+        lines.extend(
+            [
+                f'<a id="mistake-{short}"></a>',
+                f"### {_truncate(mistake, 80)}",
+                "",
+                f"**Why wrong:** {why_wrong}",
+                "",
+                f"**Prevention:** {prevention}",
+                "",
+            ]
+        )
         meta_parts = [f"`{ai}`", date, f"Session [{sid}](transactions.md#{sid})"]
         if cost:
             meta_parts.append(f"Cost: {cost}")
@@ -491,13 +495,15 @@ def _render_goals(goals, tasks_by_goal):
         pct = int(completed / total * 100) if total > 0 else 0
         progress = f"{completed}/{total} ({pct}%)" if total > 0 else "no tasks"
 
-        lines.extend([
-            f"<a id=\"goal-{short}\"></a>",
-            f"### {objective or '(no objective)'}",
-            "",
-            f"**Progress:** {progress} | **AI:** `{ai_id}` | **Date:** {date} | **Session:** [{sid}](transactions.md#{sid})",
-            "",
-        ])
+        lines.extend(
+            [
+                f'<a id="goal-{short}"></a>',
+                f"### {objective or '(no objective)'}",
+                "",
+                f"**Progress:** {progress} | **AI:** `{ai_id}` | **Date:** {date} | **Session:** [{sid}](transactions.md#{sid})",
+                "",
+            ]
+        )
 
         if scope and isinstance(scope, dict):
             lines.append(
@@ -539,9 +545,7 @@ def _render_transactions(sessions_map):
 
     # Sort sessions by earliest timestamp
     sorted_sessions = sorted(
-        sessions_map.items(),
-        key=lambda x: min((_get_ts(cp) for cp in x[1]), default=0),
-        reverse=True
+        sessions_map.items(), key=lambda x: min((_get_ts(cp) for cp in x[1]), default=0), reverse=True
     )
 
     lines = [
@@ -554,22 +558,21 @@ def _render_transactions(sessions_map):
 
     for sid, checkpoints in sorted_sessions:
         short = _short_id(sid)
-        checkpoints.sort(key=lambda c: (
-            c.get("round") or 0,
-            phase_order.get(c.get("phase", ""), 99)
-        ))
+        checkpoints.sort(key=lambda c: (c.get("round") or 0, phase_order.get(c.get("phase", ""), 99)))
 
         first = checkpoints[0] if checkpoints else {}
         ai_id = first.get("ai_id", "unknown")
         date = _format_date(first.get("timestamp", ""))
 
-        lines.extend([
-            f"<a id=\"{short}\"></a>",
-            f"## Session {short}",
-            "",
-            f"**AI:** `{ai_id}` | **Started:** {date} | **Checkpoints:** {len(checkpoints)}",
-            "",
-        ])
+        lines.extend(
+            [
+                f'<a id="{short}"></a>',
+                f"## Session {short}",
+                "",
+                f"**AI:** `{ai_id}` | **Started:** {date} | **Checkpoints:** {len(checkpoints)}",
+                "",
+            ]
+        )
 
         for cp in checkpoints:
             phase = cp.get("phase", "?")
@@ -591,9 +594,21 @@ def _render_transactions(sessions_map):
 
             if vectors:
                 lines.extend(["| Vector | Value |", "|--------|-------|"])
-                for k in ["know", "uncertainty", "engagement", "do", "context",
-                           "clarity", "coherence", "signal", "density",
-                           "state", "change", "completion", "impact"]:
+                for k in [
+                    "know",
+                    "uncertainty",
+                    "engagement",
+                    "do",
+                    "context",
+                    "clarity",
+                    "coherence",
+                    "signal",
+                    "density",
+                    "state",
+                    "change",
+                    "completion",
+                    "impact",
+                ]:
                     v = vectors.get(k)
                     if v is not None:
                         lines.append(f"| {k} | {_vector_bar(v)} |")
@@ -614,14 +629,16 @@ def _render_transactions(sessions_map):
                     lines.append("")
 
             if reasoning:
-                lines.extend([
-                    "<details><summary>Reasoning</summary>",
-                    "",
-                    reasoning,
-                    "",
-                    "</details>",
-                    "",
-                ])
+                lines.extend(
+                    [
+                        "<details><summary>Reasoning</summary>",
+                        "",
+                        reasoning,
+                        "",
+                        "</details>",
+                        "",
+                    ]
+                )
 
         lines.extend(["---", ""])
 
@@ -632,9 +649,7 @@ def _render_transactions(sessions_map):
 def _render_sessions(sessions_map):
     """Render sessions.md — timeline overview (summary, not full vectors)."""
     sorted_sessions = sorted(
-        sessions_map.items(),
-        key=lambda x: min((_get_ts(cp) for cp in x[1]), default=0),
-        reverse=True
+        sessions_map.items(), key=lambda x: min((_get_ts(cp) for cp in x[1]), default=0), reverse=True
     )
 
     lines = [
@@ -656,9 +671,7 @@ def _render_sessions(sessions_map):
         phase_str = " \u2192 ".join(phases)
         conf = first.get("overall_confidence", "")
         conf_str = f"{conf:.2f}" if isinstance(conf, (int, float)) else str(conf)
-        lines.append(
-            f"| [{short}](transactions.md#{short}) | `{ai}` | {phase_str} | {date} | {conf_str} |"
-        )
+        lines.append(f"| [{short}](transactions.md#{short}) | `{ai}` | {phase_str} | {date} | {conf_str} |")
 
     lines.extend(["", "---", "*Generated by [Empirica](https://getempirica.com)*"])
     return "\n".join(lines)
@@ -689,14 +702,20 @@ def _render_handoffs(handoffs):
         next_ctx = data.get("next", data.get("next_session_context", ""))
         cal = data.get("cal", data.get("calibration", ""))
 
-        lines.extend([
-            f"<a id=\"handoff-{short}\"></a>",
-            f"### Session {_short_id(sid)} \u2192 next",
-            "",
-            f"**AI:** `{ai}` | **Date:** {_format_date(ts)}",
-        ])
+        lines.extend(
+            [
+                f'<a id="handoff-{short}"></a>',
+                f"### Session {_short_id(sid)} \u2192 next",
+                "",
+                f"**AI:** `{ai}` | **Date:** {_format_date(ts)}",
+            ]
+        )
         if duration:
-            lines.append(f" | **Duration:** {duration:.0f}s" if isinstance(duration, (int, float)) else f" | **Duration:** {duration}")
+            lines.append(
+                f" | **Duration:** {duration:.0f}s"
+                if isinstance(duration, (int, float))
+                else f" | **Duration:** {duration}"
+            )
         lines.append("")
 
         if task:
@@ -737,11 +756,13 @@ def _render_cascades(cascades):
     ]
 
     for sid, tid, entries in cascades:
-        lines.extend([
-            f"<a id=\"cascade-{_short_id(tid)}\"></a>",
-            f"## Session {_short_id(sid)} / Transaction {_short_id(tid)}",
-            "",
-        ])
+        lines.extend(
+            [
+                f'<a id="cascade-{_short_id(tid)}"></a>',
+                f"## Session {_short_id(sid)} / Transaction {_short_id(tid)}",
+                "",
+            ]
+        )
 
         for _i, entry in enumerate(entries):
             decision = entry.get("decision", "?")
@@ -786,13 +807,15 @@ def _render_lessons(lessons):
         anti_pattern = data.get("anti_pattern", "")
         created = data.get("created_at", "")
 
-        lines.extend([
-            f"<a id=\"lesson-{lid[:8]}\"></a>",
-            f"### {title}",
-            "",
-            f"**Domain:** `{domain}` | **Confidence:** {confidence} | **Created:** {_format_date_short(created)}",
-            "",
-        ])
+        lines.extend(
+            [
+                f'<a id="lesson-{lid[:8]}"></a>',
+                f"### {title}",
+                "",
+                f"**Domain:** `{domain}` | **Confidence:** {confidence} | **Created:** {_format_date_short(created)}",
+                "",
+            ]
+        )
 
         if trigger:
             lines.extend([f"**Trigger:** {trigger}", ""])
@@ -827,7 +850,7 @@ def _render_sources(ref_docs):
     for name, data in ref_docs:
         size = data.get("size", 0)
         size_str = f"{size:,}" if size else "?"
-        lines.append(f"| <a id=\"source-{name[:8]}\"></a>{name} | {size_str} bytes |")
+        lines.append(f'| <a id="source-{name[:8]}"></a>{name} | {size_str} bytes |')
 
     lines.extend(["", "---", "*Generated by [Empirica](https://getempirica.com)*"])
     return "\n".join(lines)
@@ -851,19 +874,21 @@ def _render_signatures(signatures):
         pubkey = data.get("public_key", "")
         sig = data.get("signature", "")
 
-        lines.extend([
-            f"<a id=\"sig-{short}\"></a>",
-            f"### Checkpoint: {checkpoint_ref}",
-            "",
-            f"**AI:** `{ai}` | **Signed:** {_format_date(signed_at)}",
-            "",
-            f"**Public key:** `{pubkey[:16]}...`",
-            "",
-            f"**Signature:** `{sig[:32]}...`",
-            "",
-            "---",
-            "",
-        ])
+        lines.extend(
+            [
+                f'<a id="sig-{short}"></a>',
+                f"### Checkpoint: {checkpoint_ref}",
+                "",
+                f"**AI:** `{ai}` | **Signed:** {_format_date(signed_at)}",
+                "",
+                f"**Public key:** `{pubkey[:16]}...`",
+                "",
+                f"**Signature:** `{sig[:32]}...`",
+                "",
+                "---",
+                "",
+            ]
+        )
 
     lines.append("*Generated by [Empirica](https://getempirica.com)*")
     return "\n".join(lines)
@@ -892,35 +917,47 @@ def _render_calibration(cal_data):
     observations = cal.get("observations", 0)
     last_updated = cal.get("last_updated", "")
 
-    lines.extend([
-        f"**AI:** `{ai_id}` | **Observations:** {observations} | **Updated:** {_format_date(last_updated)}",
-        "",
-    ])
+    lines.extend(
+        [
+            f"**AI:** `{ai_id}` | **Observations:** {observations} | **Updated:** {_format_date(last_updated)}",
+            "",
+        ]
+    )
 
     # Support both old 'bias_corrections' and new 'session_deltas' key names
     corrections = cal.get("session_deltas", cal.get("bias_corrections", {}))
     if corrections:
-        lines.extend([
-            "## Learning Trajectory (Session Deltas)",
-            "",
-            "| Vector | Correction | Direction |",
-            "|--------|------------|-----------|",
-        ])
+        lines.extend(
+            [
+                "## Learning Trajectory (Session Deltas)",
+                "",
+                "| Vector | Correction | Direction |",
+                "|--------|------------|-----------|",
+            ]
+        )
         for k, v in sorted(corrections.items(), key=lambda x: abs(x[1]), reverse=True):
             sign = "+" if v > 0 else ""
-            direction = "\u2b06\ufe0f underestimates" if v > 0.02 else "\u2b07\ufe0f overestimates" if v < -0.02 else "\u2194\ufe0f well calibrated"
+            direction = (
+                "\u2b06\ufe0f underestimates"
+                if v > 0.02
+                else "\u2b07\ufe0f overestimates"
+                if v < -0.02
+                else "\u2194\ufe0f well calibrated"
+            )
             lines.append(f"| {k} | {sign}{v:.3f} | {direction} |")
         lines.append("")
 
     readiness = cal.get("readiness", {})
     if readiness:
-        lines.extend([
-            "## Readiness Gate",
-            "",
-            f"- **min_know:** {readiness.get('min_know', '?')}",
-            f"- **max_uncertainty:** {readiness.get('max_uncertainty', '?')}",
-            "",
-        ])
+        lines.extend(
+            [
+                "## Readiness Gate",
+                "",
+                f"- **min_know:** {readiness.get('min_know', '?')}",
+                f"- **max_uncertainty:** {readiness.get('max_uncertainty', '?')}",
+                "",
+            ]
+        )
 
     summary = cal.get("summary", {})
     if summary:
@@ -987,30 +1024,30 @@ def _render_readme(counts, recent_items):
             "goal": lambda d: d.get("goal_data", {}).get("objective", "") or d.get("objective", ""),
         }
 
-        lines.extend([
-            "## Recent Activity",
-            "",
-            "| Date | Type | Summary |",
-            "|------|------|---------|",
-        ])
+        lines.extend(
+            [
+                "## Recent Activity",
+                "",
+                "| Date | Type | Summary |",
+                "|------|------|---------|",
+            ]
+        )
 
         for item_type, item_id, item_data in recent_items[:20]:
-            date = _format_date_short(
-                item_data.get("created_at") or item_data.get("created_timestamp", "")
-            )
+            date = _format_date_short(item_data.get("created_at") or item_data.get("created_timestamp", ""))
             emoji = type_emoji.get(item_type, "\u25c8")
             short = _short_id(item_id)
             file_name, anchor_prefix = type_dirs.get(item_type, ("sessions.md", "session"))
             text = _truncate(text_extractors.get(item_type, lambda d: "")(item_data), 80)
-            lines.append(
-                f"| {date} | {emoji} | [{text}]({file_name}#{anchor_prefix}-{short}) |"
-            )
+            lines.append(f"| {date} | {emoji} | [{text}]({file_name}#{anchor_prefix}-{short}) |")
 
-    lines.extend([
-        "",
-        "---",
-        "*Generated by [Empirica](https://getempirica.com) \u2014 epistemic infrastructure for AI-assisted work*",
-    ])
+    lines.extend(
+        [
+            "",
+            "---",
+            "*Generated by [Empirica](https://getempirica.com) \u2014 epistemic infrastructure for AI-assisted work*",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -1151,10 +1188,7 @@ def handle_artifacts_generate_command(args):
         output_format = getattr(args, "output", "text")
         output_dir = getattr(args, "output_dir", None)
 
-        result = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True, text=True
-        )
+        result = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True)
         if result.returncode != 0:
             print("Error: Not in a git repository")
             return 1
@@ -1192,6 +1226,7 @@ def handle_artifacts_generate_command(args):
         logger.error(f"Error generating artifacts: {e}")
         if getattr(args, "verbose", False):
             import traceback
+
             traceback.print_exc()
         print(f"Error: {e}")
         return 1

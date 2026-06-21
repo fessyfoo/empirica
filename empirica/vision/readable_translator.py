@@ -11,6 +11,7 @@ from empirica.vision.slide_processor import SlideEpistemicAssessment
 @dataclass
 class ReadableAssessment:
     """Human-readable slide assessment"""
+
     slide_number: int
     quality_level: str  # Excellent/Good/Fair/Needs Work
     reading_experience: str
@@ -109,7 +110,7 @@ class HumanReadableTranslator:
             summary=assessment.summary,
             key_terms=assessment.key_concepts[:5],
             study_time_minutes=study_time,
-            suggestions=suggestions
+            suggestions=suggestions,
         )
 
     def generate_study_guide(self, assessments: list[SlideEpistemicAssessment]) -> str:
@@ -124,10 +125,7 @@ class HumanReadableTranslator:
         unclear = [a for a in assessments if a.clarity < 0.5]
 
         # Calculate totals
-        total_time = sum(
-            5 if a.density > 0.7 else (3 if a.density > 0.5 else 2)
-            for a in assessments
-        )
+        total_time = sum(5 if a.density > 0.7 else (3 if a.density > 0.5 else 2) for a in assessments)
 
         guide = []
         guide.append("=" * 70)
@@ -235,7 +233,9 @@ class HumanReadableTranslator:
         card.append("📊 QUALITY METRICS")
         card.append(f"   Visual Clarity:  {self._score_to_grade(assessment.clarity)} [{assessment.clarity:.2f}]")
         card.append(f"   Content Signal:  {self._score_to_grade(assessment.signal)} [{assessment.signal:.2f}]")
-        card.append(f"   Easy to Process: {self._score_to_grade(1.0 - assessment.density)} [{1.0-assessment.density:.2f}]")
+        card.append(
+            f"   Easy to Process: {self._score_to_grade(1.0 - assessment.density)} [{1.0 - assessment.density:.2f}]"
+        )
         card.append(f"   Learning Impact: {self._score_to_grade(assessment.impact)} [{assessment.impact:.2f}]")
         card.append("")
 
@@ -273,21 +273,12 @@ def main():
     import argparse
     import json
 
-    parser = argparse.ArgumentParser(
-        description="Generate human-readable study guides from epistemic assessments"
-    )
+    parser = argparse.ArgumentParser(description="Generate human-readable study guides from epistemic assessments")
     parser.add_argument(
-        "assessment_file",
-        help="Path to assessment JSON (e.g., .empirica/slides/assessment_ledger-all.png.json)"
+        "assessment_file", help="Path to assessment JSON (e.g., .empirica/slides/assessment_ledger-all.png.json)"
     )
-    parser.add_argument(
-        "--slide", type=int,
-        help="Show detailed card for specific slide number"
-    )
-    parser.add_argument(
-        "--format", choices=["guide", "cards", "both"], default="guide",
-        help="Output format"
-    )
+    parser.add_argument("--slide", type=int, help="Show detailed card for specific slide number")
+    parser.add_argument("--format", choices=["guide", "cards", "both"], default="guide", help="Output format")
 
     args = parser.parse_args()
 
@@ -295,10 +286,7 @@ def main():
     with open(args.assessment_file) as f:
         data = json.load(f)
 
-    assessments = [
-        SlideEpistemicAssessment(**slide_data)
-        for slide_data in data["slides"]
-    ]
+    assessments = [SlideEpistemicAssessment(**slide_data) for slide_data in data["slides"]]
 
     translator = HumanReadableTranslator()
 

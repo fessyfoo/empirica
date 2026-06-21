@@ -28,7 +28,7 @@ from .collector import EvidenceItem, EvidenceQuality
 logger = logging.getLogger(__name__)
 
 # File extensions that trigger web profile auto-detection
-WEB_EXTENSIONS = {'.astro', '.html', '.jsx', '.tsx', '.vue', '.svelte', '.mdx'}
+WEB_EXTENSIONS = {".astro", ".html", ".jsx", ".tsx", ".vue", ".svelte", ".mdx"}
 
 
 class _HTMLStructureValidator(HTMLParser):
@@ -47,29 +47,43 @@ class _HTMLStructureValidator(HTMLParser):
         self._empty_attrs: list[str] = []
 
     # Self-closing tags that don't need a closing tag
-    VOID_ELEMENTS = frozenset({
-        'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
-        'link', 'meta', 'param', 'source', 'track', 'wbr',
-    })
+    VOID_ELEMENTS = frozenset(
+        {
+            "area",
+            "base",
+            "br",
+            "col",
+            "embed",
+            "hr",
+            "img",
+            "input",
+            "link",
+            "meta",
+            "param",
+            "source",
+            "track",
+            "wbr",
+        }
+    )
 
     def handle_starttag(self, tag: str, attrs: list):
         tag = tag.lower()
-        if tag == 'html':
+        if tag == "html":
             self._has_html = True
-        elif tag == 'head':
+        elif tag == "head":
             self._has_head = True
-        elif tag == 'title':
+        elif tag == "title":
             self._has_title = True
-        elif tag == 'body':
+        elif tag == "body":
             self._has_body = True
-        elif tag == 'meta':
+        elif tag == "meta":
             for name, _value in attrs:
-                if name == 'charset':
+                if name == "charset":
                     self._has_charset = True
 
         # Check for empty href/src
         for name, value in attrs:
-            if name in ('href', 'src') and (value is None or value.strip() == ''):
+            if name in ("href", "src") and (value is None or value.strip() == ""):
                 self._empty_attrs.append(f"<{tag}> has empty {name}")
 
         if tag not in self.VOID_ELEMENTS:
@@ -115,9 +129,14 @@ class _HTMLStructureValidator(HTMLParser):
 class WebEvidenceCollector:
     """Collects deterministic evidence from web/static-site artifacts."""
 
-    def __init__(self, session_id: str, project_id: str | None = None,
-                 db=None, phase: str = "combined",
-                 check_timestamp: float | None = None):
+    def __init__(
+        self,
+        session_id: str,
+        project_id: str | None = None,
+        db=None,
+        phase: str = "combined",
+        check_timestamp: float | None = None,
+    ):
         self.session_id = session_id
         self.project_id = project_id
         self.phase = phase
@@ -130,6 +149,7 @@ class WebEvidenceCollector:
     def _get_db(self):
         if self._db is None:
             from empirica.data.session_database import SessionDatabase
+
             self._db = SessionDatabase()
             self._owns_db = True
         return self._db
@@ -147,7 +167,9 @@ class WebEvidenceCollector:
         try:
             result = subprocess.run(
                 ["git", "rev-parse", "--show-toplevel"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if result.returncode == 0:
                 self._project_path = Path(result.stdout.strip())
@@ -168,6 +190,7 @@ class WebEvidenceCollector:
 
         try:
             import yaml
+
             config_path = project_path / ".empirica" / "project.yaml"
             if config_path.exists():
                 with open(config_path) as f:
@@ -194,19 +217,21 @@ class WebEvidenceCollector:
             }
 
         # Auto-detect from project files
-        if (project_path / "astro.config.mjs").exists() or \
-           (project_path / "astro.config.ts").exists():
+        if (project_path / "astro.config.mjs").exists() or (project_path / "astro.config.ts").exists():
             return {"tool": "astro", "command": "npx astro build", "output_dir": "dist"}
 
-        if (project_path / "next.config.js").exists() or \
-           (project_path / "next.config.mjs").exists() or \
-           (project_path / "next.config.ts").exists():
+        if (
+            (project_path / "next.config.js").exists()
+            or (project_path / "next.config.mjs").exists()
+            or (project_path / "next.config.ts").exists()
+        ):
             return {"tool": "next", "command": "npx next build", "output_dir": ".next"}
 
         pkg_json = project_path / "package.json"
         if pkg_json.exists():
             try:
                 import json
+
                 pkg = json.loads(pkg_json.read_text())
                 if "build" in pkg.get("scripts", {}):
                     return {"tool": "npm", "command": "npm run build", "output_dir": "dist"}
@@ -216,7 +241,7 @@ class WebEvidenceCollector:
         makefile = project_path / "Makefile"
         if makefile.exists():
             content = makefile.read_text()
-            if re.search(r'^build\s*:', content, re.MULTILINE):
+            if re.search(r"^build\s*:", content, re.MULTILINE):
                 return {"tool": "make", "command": "make build", "output_dir": "build"}
 
         return None
@@ -299,36 +324,41 @@ class WebEvidenceCollector:
         try:
             result = subprocess.run(
                 build_info["command"].split(),
-                capture_output=True, text=True,
-                timeout=timeout, cwd=str(project_path),
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                cwd=str(project_path),
             )
             duration_ms = (time.time() - start) * 1000
             success = result.returncode == 0
 
-            items.append(EvidenceItem(
-                source="web_build",
-                metric_name="build_success",
-                value=1.0 if success else 0.0,
-                raw_value={
-                    "exit_code": result.returncode,
-                    "build_tool": build_info["tool"],
-                    "duration_ms": round(duration_ms, 1),
-                    "stderr_tail": result.stderr[-500:] if not success else "",
-                },
-                quality=EvidenceQuality.OBJECTIVE,
-                supports_vectors=["do", "completion", "state"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="web_build",
+                    metric_name="build_success",
+                    value=1.0 if success else 0.0,
+                    raw_value={
+                        "exit_code": result.returncode,
+                        "build_tool": build_info["tool"],
+                        "duration_ms": round(duration_ms, 1),
+                        "stderr_tail": result.stderr[-500:] if not success else "",
+                    },
+                    quality=EvidenceQuality.OBJECTIVE,
+                    supports_vectors=["do", "completion", "state"],
+                )
+            )
 
         except subprocess.TimeoutExpired:
-            items.append(EvidenceItem(
-                source="web_build",
-                metric_name="build_success",
-                value=0.0,
-                raw_value={"error": f"Build timed out after {timeout}s",
-                           "build_tool": build_info["tool"]},
-                quality=EvidenceQuality.OBJECTIVE,
-                supports_vectors=["do", "completion", "state"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="web_build",
+                    metric_name="build_success",
+                    value=0.0,
+                    raw_value={"error": f"Build timed out after {timeout}s", "build_tool": build_info["tool"]},
+                    quality=EvidenceQuality.OBJECTIVE,
+                    supports_vectors=["do", "completion", "state"],
+                )
+            )
         except FileNotFoundError:
             logger.debug(f"Build command not found: {build_info['command']}")
 
@@ -349,7 +379,7 @@ class WebEvidenceCollector:
 
         for html_file in html_files[:50]:  # Cap at 50 files
             try:
-                content = html_file.read_text(errors='replace')
+                content = html_file.read_text(errors="replace")
                 validator = _HTMLStructureValidator()
                 validator.feed(content)
                 validator.finalize()
@@ -358,10 +388,12 @@ class WebEvidenceCollector:
                 total_warnings += len(validator.warnings)
 
                 if validator.errors:
-                    file_results.append({
-                        "file": str(html_file.name),
-                        "errors": validator.errors[:5],
-                    })
+                    file_results.append(
+                        {
+                            "file": str(html_file.name),
+                            "errors": validator.errors[:5],
+                        }
+                    )
             except Exception as e:
                 logger.debug(f"HTML validation failed for {html_file}: {e}")
 
@@ -370,19 +402,21 @@ class WebEvidenceCollector:
             # Score: 1.0 - (error_count / files_checked), floored at 0.0
             validity_score = max(0.0, 1.0 - (total_errors / files_checked))
 
-            items.append(EvidenceItem(
-                source="web_validation",
-                metric_name="html_validity",
-                value=validity_score,
-                raw_value={
-                    "files_checked": files_checked,
-                    "total_errors": total_errors,
-                    "total_warnings": total_warnings,
-                    "file_errors": file_results[:10],
-                },
-                quality=EvidenceQuality.OBJECTIVE,
-                supports_vectors=["clarity", "coherence"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="web_validation",
+                    metric_name="html_validity",
+                    value=validity_score,
+                    raw_value={
+                        "files_checked": files_checked,
+                        "total_errors": total_errors,
+                        "total_warnings": total_warnings,
+                        "file_errors": file_results[:10],
+                    },
+                    quality=EvidenceQuality.OBJECTIVE,
+                    supports_vectors=["clarity", "coherence"],
+                )
+            )
 
         return items
 
@@ -406,14 +440,13 @@ class WebEvidenceCollector:
 
         for html_file in html_files[:50]:
             try:
-                content = html_file.read_text(errors='replace')
+                content = html_file.read_text(errors="replace")
                 # Extract href and src attributes
                 links = re.findall(r'(?:href|src)=["\']([^"\']+)["\']', content)
 
                 for link in links:
                     # Skip external links, anchors, data URIs, mailto, tel
-                    if link.startswith(('http://', 'https://', 'mailto:', 'tel:',
-                                        'data:', '#', 'javascript:')):
+                    if link.startswith(("http://", "https://", "mailto:", "tel:", "data:", "#", "javascript:")):
                         external_count += 1
                         continue
 
@@ -423,12 +456,12 @@ class WebEvidenceCollector:
                     parsed = urlparse(link)
                     link_path = parsed.path
 
-                    if not link_path or link_path == '/':
+                    if not link_path or link_path == "/":
                         valid_links += 1
                         continue
 
                     # Strip leading slash for resolution
-                    clean_path = link_path.lstrip('/')
+                    clean_path = link_path.lstrip("/")
 
                     # Try resolving against output directory
                     resolved = output_dir / clean_path
@@ -439,10 +472,12 @@ class WebEvidenceCollector:
                     elif (resolved / "index.html").exists():
                         valid_links += 1  # /about/ -> /about/index.html
                     else:
-                        broken_links.append({
-                            "file": str(html_file.name),
-                            "link": link,
-                        })
+                        broken_links.append(
+                            {
+                                "file": str(html_file.name),
+                                "link": link,
+                            }
+                        )
 
             except Exception as e:
                 logger.debug(f"Link checking failed for {html_file}: {e}")
@@ -450,19 +485,21 @@ class WebEvidenceCollector:
         if total_internal > 0:
             integrity_score = valid_links / total_internal
 
-            items.append(EvidenceItem(
-                source="web_validation",
-                metric_name="link_integrity",
-                value=integrity_score,
-                raw_value={
-                    "valid": valid_links,
-                    "broken": broken_links[:20],
-                    "total_internal": total_internal,
-                    "external_skipped": external_count,
-                },
-                quality=EvidenceQuality.OBJECTIVE,
-                supports_vectors=["coherence", "signal"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="web_validation",
+                    metric_name="link_integrity",
+                    value=integrity_score,
+                    raw_value={
+                        "valid": valid_links,
+                        "broken": broken_links[:20],
+                        "total_internal": total_internal,
+                        "external_skipped": external_count,
+                    },
+                    quality=EvidenceQuality.OBJECTIVE,
+                    supports_vectors=["coherence", "signal"],
+                )
+            )
 
         return items
 
@@ -484,6 +521,7 @@ class WebEvidenceCollector:
 
         try:
             import yaml
+
             with open(glossary_path) as f:
                 glossary = yaml.safe_load(f) or {}
         except Exception:
@@ -502,9 +540,9 @@ class WebEvidenceCollector:
 
         for html_file in html_files[:50]:
             try:
-                content = html_file.read_text(errors='replace')
+                content = html_file.read_text(errors="replace")
                 # Strip HTML tags for text matching
-                text = re.sub(r'<[^>]+>', ' ', content)
+                text = re.sub(r"<[^>]+>", " ", content)
 
                 for term_def in terms:
                     canonical = term_def.get("canonical", "")
@@ -513,11 +551,13 @@ class WebEvidenceCollector:
 
                     for variant in incorrect_variants:
                         if variant.lower() in text.lower():
-                            violations.append({
-                                "file": str(html_file.name),
-                                "found": variant,
-                                "should_be": canonical,
-                            })
+                            violations.append(
+                                {
+                                    "file": str(html_file.name),
+                                    "found": variant,
+                                    "should_be": canonical,
+                                }
+                            )
 
             except Exception as e:
                 logger.debug(f"Terminology check failed for {html_file}: {e}")
@@ -525,19 +565,21 @@ class WebEvidenceCollector:
         if terms_checked > 0:
             consistency_score = max(0.0, 1.0 - (len(violations) / terms_checked))
 
-            items.append(EvidenceItem(
-                source="web_terminology",
-                metric_name="term_consistency",
-                value=consistency_score,
-                raw_value={
-                    "violations": violations[:20],
-                    "violation_count": len(violations),
-                    "terms_checked": terms_checked,
-                    "files_checked": len(html_files),
-                },
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["coherence", "clarity", "signal"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="web_terminology",
+                    metric_name="term_consistency",
+                    value=consistency_score,
+                    raw_value={
+                        "violations": violations[:20],
+                        "violation_count": len(violations),
+                        "terms_checked": terms_checked,
+                        "files_checked": len(html_files),
+                    },
+                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                    supports_vectors=["coherence", "clarity", "signal"],
+                )
+            )
 
         return items
 
@@ -570,24 +612,26 @@ class WebEvidenceCollector:
 
         for html_file in html_files[:50]:
             try:
-                content = html_file.read_text(errors='replace')
+                content = html_file.read_text(errors="replace")
                 assets = asset_pattern.findall(content)
 
                 for asset in assets:
-                    if asset.startswith(('http://', 'https://', 'data:')):
+                    if asset.startswith(("http://", "https://", "data:")):
                         continue
 
                     total_referenced += 1
-                    clean_path = asset.lstrip('/')
+                    clean_path = asset.lstrip("/")
 
                     # Try output dir, then public dir
                     if (output_dir / clean_path).exists() or (public_dir / clean_path).exists():
                         found_assets += 1
                     else:
-                        missing_assets.append({
-                            "file": str(html_file.name),
-                            "asset": asset,
-                        })
+                        missing_assets.append(
+                            {
+                                "file": str(html_file.name),
+                                "asset": asset,
+                            }
+                        )
 
             except Exception as e:
                 logger.debug(f"Asset verification failed for {html_file}: {e}")
@@ -595,17 +639,19 @@ class WebEvidenceCollector:
         if total_referenced > 0:
             integrity_score = found_assets / total_referenced
 
-            items.append(EvidenceItem(
-                source="web_assets",
-                metric_name="asset_integrity",
-                value=integrity_score,
-                raw_value={
-                    "found": found_assets,
-                    "missing": missing_assets[:20],
-                    "total": total_referenced,
-                },
-                quality=EvidenceQuality.OBJECTIVE,
-                supports_vectors=["do", "state"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="web_assets",
+                    metric_name="asset_integrity",
+                    value=integrity_score,
+                    raw_value={
+                        "found": found_assets,
+                        "missing": missing_assets[:20],
+                        "total": total_referenced,
+                    },
+                    quality=EvidenceQuality.OBJECTIVE,
+                    supports_vectors=["do", "state"],
+                )
+            )
 
         return items

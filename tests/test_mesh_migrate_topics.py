@@ -26,10 +26,11 @@ from empirica.cli.command_handlers.mesh_commands import (
 
 
 def test_strip_drops_scheme_and_tags():
-    assert _strip_ntfy_topic_url("ntfy:empirica-orchestration-events-david?tags=cortex") == \
-        "empirica-orchestration-events-david"
-    assert _strip_ntfy_topic_url("empirica-orchestration-events-david") == \
-        "empirica-orchestration-events-david"
+    assert (
+        _strip_ntfy_topic_url("ntfy:empirica-orchestration-events-david?tags=cortex")
+        == "empirica-orchestration-events-david"
+    )
+    assert _strip_ntfy_topic_url("empirica-orchestration-events-david") == "empirica-orchestration-events-david"
     assert _strip_ntfy_topic_url("") == ""
 
 
@@ -66,6 +67,7 @@ def test_empty_is_not_retired():
 def _patch_creds(tmp_path: Path, monkeypatch, body: str | None) -> None:
     """Point credentials.yaml resolution at tmp_path and reset the loader cache."""
     from empirica.config.credentials_loader import CredentialsLoader
+
     monkeypatch.setenv("EMPIRICA_CREDENTIALS_PATH", str(tmp_path / "credentials.yaml"))
     monkeypatch.delenv("ORCHESTRATION_NTFY_URL", raising=False)
     monkeypatch.delenv("ORCHESTRATION_NTFY_TOPIC", raising=False)
@@ -80,11 +82,10 @@ def _patch_creds(tmp_path: Path, monkeypatch, body: str | None) -> None:
 
 
 def test_credentials_migration_dry_run_does_not_write(tmp_path, monkeypatch):
-    _patch_creds(tmp_path, monkeypatch,
-        "ntfy:\n"
-        "  url: https://ntfy.example\n"
-        "  topic: orchestration-events\n"
-        "  token: tk_test_keep_x123\n",
+    _patch_creds(
+        tmp_path,
+        monkeypatch,
+        "ntfy:\n  url: https://ntfy.example\n  topic: orchestration-events\n  token: tk_test_keep_x123\n",
     )
     report = _migrate_credentials_topic("empirica-orchestration-events-david", apply=False)
     assert report["action"] == "rewrite"
@@ -97,11 +98,10 @@ def test_credentials_migration_dry_run_does_not_write(tmp_path, monkeypatch):
 
 
 def test_credentials_migration_apply_rewrites_topic_only(tmp_path, monkeypatch):
-    _patch_creds(tmp_path, monkeypatch,
-        "ntfy:\n"
-        "  url: https://ntfy.example\n"
-        "  topic: orchestration-events\n"
-        "  token: tk_test_keep_x123\n",
+    _patch_creds(
+        tmp_path,
+        monkeypatch,
+        "ntfy:\n  url: https://ntfy.example\n  topic: orchestration-events\n  token: tk_test_keep_x123\n",
     )
     report = _migrate_credentials_topic("empirica-orchestration-events-david", apply=True)
     assert report["action"] == "rewrite"
@@ -114,7 +114,9 @@ def test_credentials_migration_apply_rewrites_topic_only(tmp_path, monkeypatch):
 
 
 def test_credentials_canonical_topic_is_kept(tmp_path, monkeypatch):
-    _patch_creds(tmp_path, monkeypatch,
+    _patch_creds(
+        tmp_path,
+        monkeypatch,
         "ntfy:\n"
         "  url: https://ntfy.example\n"
         "  topic: empirica-orchestration-events-david\n"
@@ -125,10 +127,10 @@ def test_credentials_canonical_topic_is_kept(tmp_path, monkeypatch):
 
 
 def test_credentials_no_topic_is_skipped(tmp_path, monkeypatch):
-    _patch_creds(tmp_path, monkeypatch,
-        "ntfy:\n"
-        "  url: https://ntfy.example\n"
-        "  token: tk_test_x\n",
+    _patch_creds(
+        tmp_path,
+        monkeypatch,
+        "ntfy:\n  url: https://ntfy.example\n  token: tk_test_x\n",
     )
     report = _migrate_credentials_topic("empirica-orchestration-events-david", apply=True)
     assert report["action"] == "skip"
@@ -140,23 +142,29 @@ def test_credentials_no_topic_is_skipped(tmp_path, monkeypatch):
 def _seed_marker(tmp_path: Path, name: str, topic: str, ai_id: str = "empirica") -> Path:
     (tmp_path / ".empirica").mkdir(exist_ok=True)
     p = tmp_path / ".empirica" / f"listener_active_{name}.json"
-    p.write_text(json.dumps({
-        "monitor_task_id": None,
-        "armed_at": 1780000000.0,
-        "ai_id": ai_id,
-        "name": f"{ai_id}-inbox",
-        "topic": topic,
-        "mode": "standalone",
-    }, indent=2), encoding="utf-8")
+    p.write_text(
+        json.dumps(
+            {
+                "monitor_task_id": None,
+                "armed_at": 1780000000.0,
+                "ai_id": ai_id,
+                "name": f"{ai_id}-inbox",
+                "topic": topic,
+                "mode": "standalone",
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     return p
 
 
 def test_marker_migration_rewrites_pre_tenant_form(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-    _seed_marker(tmp_path, "empirica_empirica-inbox",
-                 "ntfy:empirica-orchestration-events?tags=empirica")
+    _seed_marker(tmp_path, "empirica_empirica-inbox", "ntfy:empirica-orchestration-events?tags=empirica")
     reports = _migrate_listener_active_markers(
-        "empirica-orchestration-events-david", apply=True,
+        "empirica-orchestration-events-david",
+        apply=True,
     )
     assert len(reports) == 1
     assert reports[0]["action"] == "rewrite"
@@ -167,10 +175,10 @@ def test_marker_migration_rewrites_pre_tenant_form(tmp_path, monkeypatch):
 
 def test_marker_migration_preserves_tag_suffix(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-    _seed_marker(tmp_path, "cortex_cortex-inbox",
-                 "ntfy:orchestration-events?tags=cortex", ai_id="cortex")
+    _seed_marker(tmp_path, "cortex_cortex-inbox", "ntfy:orchestration-events?tags=cortex", ai_id="cortex")
     _migrate_listener_active_markers(
-        "empirica-orchestration-events-david", apply=True,
+        "empirica-orchestration-events-david",
+        apply=True,
     )
     new = json.loads(
         (tmp_path / ".empirica" / "listener_active_cortex_cortex-inbox.json").read_text(),
@@ -181,10 +189,10 @@ def test_marker_migration_preserves_tag_suffix(tmp_path, monkeypatch):
 
 def test_marker_migration_dry_run_does_not_write(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-    marker = _seed_marker(tmp_path, "empirica_empirica-inbox",
-                          "ntfy:orchestration-events?tags=empirica")
+    marker = _seed_marker(tmp_path, "empirica_empirica-inbox", "ntfy:orchestration-events?tags=empirica")
     reports = _migrate_listener_active_markers(
-        "empirica-orchestration-events-david", apply=False,
+        "empirica-orchestration-events-david",
+        apply=False,
     )
     assert reports[0]["action"] == "rewrite"
     assert reports[0]["applied"] is False
@@ -195,10 +203,10 @@ def test_marker_migration_dry_run_does_not_write(tmp_path, monkeypatch):
 
 def test_marker_migration_keeps_canonical(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-    _seed_marker(tmp_path, "empirica_empirica-inbox",
-                 "ntfy:empirica-orchestration-events-david?tags=empirica")
+    _seed_marker(tmp_path, "empirica_empirica-inbox", "ntfy:empirica-orchestration-events-david?tags=empirica")
     reports = _migrate_listener_active_markers(
-        "empirica-orchestration-events-david", apply=True,
+        "empirica-orchestration-events-david",
+        apply=True,
     )
     assert reports[0]["action"] == "keep"
 
@@ -207,10 +215,10 @@ def test_marker_migration_handles_per_practice_topic(tmp_path, monkeypatch):
     """A topic like `ffp-archive` (no -orchestration-events- segment) is
     per-practice + retired per the canonical model."""
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-    _seed_marker(tmp_path, "ffp_ffp-inbox",
-                 "ntfy:ffp-archive?tags=ffp-archive", ai_id="ffp-archive")
+    _seed_marker(tmp_path, "ffp_ffp-inbox", "ntfy:ffp-archive?tags=ffp-archive", ai_id="ffp-archive")
     reports = _migrate_listener_active_markers(
-        "empirica-orchestration-events-david", apply=True,
+        "empirica-orchestration-events-david",
+        apply=True,
     )
     assert reports[0]["action"] == "rewrite"
     new = json.loads(
@@ -223,7 +231,8 @@ def test_marker_migration_returns_empty_when_no_empirica_dir(tmp_path, monkeypat
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     # No tmp_path/.empirica directory.
     reports = _migrate_listener_active_markers(
-        "empirica-orchestration-events-david", apply=True,
+        "empirica-orchestration-events-david",
+        apply=True,
     )
     assert reports == []
 
@@ -253,20 +262,17 @@ def test_handler_returns_2_when_canonical_unresolvable(tmp_path, monkeypatch, ca
 
 
 def test_handler_full_dry_run_reports_pending_rewrites(tmp_path, monkeypatch, capsys):
-    _patch_creds(tmp_path, monkeypatch,
-        "ntfy:\n"
-        "  url: https://ntfy.example\n"
-        "  topic: orchestration-events\n"
-        "  token: tk_test_x\n",
+    _patch_creds(
+        tmp_path,
+        monkeypatch,
+        "ntfy:\n  url: https://ntfy.example\n  topic: orchestration-events\n  token: tk_test_x\n",
     )
-    _seed_marker(tmp_path, "empirica_empirica-inbox",
-                 "ntfy:orchestration-events?tags=empirica")
+    _seed_marker(tmp_path, "empirica_empirica-inbox", "ntfy:orchestration-events?tags=empirica")
     with patch(
         "empirica.core.cockpit.notification_channels.fetch_notification_channels",
         return_value={
             "channels": [
-                {"category": "orchestration_events",
-                 "topic": "empirica-orchestration-events-david"},
+                {"category": "orchestration_events", "topic": "empirica-orchestration-events-david"},
             ],
         },
     ):
@@ -284,20 +290,17 @@ def test_handler_full_dry_run_reports_pending_rewrites(tmp_path, monkeypatch, ca
 
 
 def test_handler_apply_writes_creds_and_markers(tmp_path, monkeypatch, capsys):
-    _patch_creds(tmp_path, monkeypatch,
-        "ntfy:\n"
-        "  url: https://ntfy.example\n"
-        "  topic: orchestration-events\n"
-        "  token: tk_test_x\n",
+    _patch_creds(
+        tmp_path,
+        monkeypatch,
+        "ntfy:\n  url: https://ntfy.example\n  topic: orchestration-events\n  token: tk_test_x\n",
     )
-    _seed_marker(tmp_path, "empirica_empirica-inbox",
-                 "ntfy:orchestration-events?tags=empirica")
+    _seed_marker(tmp_path, "empirica_empirica-inbox", "ntfy:orchestration-events?tags=empirica")
     with patch(
         "empirica.core.cockpit.notification_channels.fetch_notification_channels",
         return_value={
             "channels": [
-                {"category": "orchestration_events",
-                 "topic": "empirica-orchestration-events-david"},
+                {"category": "orchestration_events", "topic": "empirica-orchestration-events-david"},
             ],
         },
     ):

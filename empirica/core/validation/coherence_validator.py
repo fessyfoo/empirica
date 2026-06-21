@@ -39,7 +39,7 @@ class CoherenceValidator:
         postflight_vectors: dict[str, float],
         preflight_plan: dict[str, Any] | None = None,
         findings: list[dict] | None = None,
-        unknowns: list[dict] | None = None
+        unknowns: list[dict] | None = None,
     ) -> dict[str, Any]:
         """
         Validate: can I hand off, or do I need to investigate more?
@@ -101,7 +101,7 @@ class CoherenceValidator:
             "concerns": concerns,
             "session_id": self.session_id,
             "ai_id": self.ai_id,
-            "message": self._format_message(coherent, recommendation, concerns)
+            "message": self._format_message(coherent, recommendation, concerns),
         }
 
     def _check_scope_match(self, preflight_plan: dict | None) -> dict[str, Any]:
@@ -128,10 +128,7 @@ class CoherenceValidator:
 
         if actual_diff.get("error"):
             # Can't validate without git diff
-            return {
-                "valid": False,
-                "reason": f"Cannot validate git state: {actual_diff['error']}"
-            }
+            return {"valid": False, "reason": f"Cannot validate git state: {actual_diff['error']}"}
 
         actual_scope = actual_diff.get("scope_estimate", "unknown")
 
@@ -143,17 +140,12 @@ class CoherenceValidator:
         # Allow one level of variance (e.g., planned small, did medium is okay)
         # But not large divergence
         if abs(actual_size - planned_size) > 1:
-            return {
-                "valid": False,
-                "reason": f"Scope creep: planned {planned_scope}, did {actual_scope}"
-            }
+            return {"valid": False, "reason": f"Scope creep: planned {planned_scope}, did {actual_scope}"}
 
         return {"valid": True, "reason": "scope_matches"}
 
     def _check_trajectory(
-        self,
-        preflight_vectors: dict[str, float],
-        postflight_vectors: dict[str, float]
+        self, preflight_vectors: dict[str, float], postflight_vectors: dict[str, float]
     ) -> dict[str, Any]:
         """
         Check: Is my learning trajectory coherent?
@@ -171,17 +163,9 @@ class CoherenceValidator:
         """
         result = analyze_epistemic_trajectory(preflight_vectors, postflight_vectors)
 
-        return {
-            "coherent": result["coherent"],
-            "pattern": result["pattern"],
-            "concern": result.get("concern", "")
-        }
+        return {"coherent": result["coherent"], "pattern": result["pattern"], "concern": result.get("concern", "")}
 
-    def _check_findings_honesty(
-        self,
-        findings: list[dict],
-        postflight_vectors: dict[str, float]
-    ) -> dict[str, Any]:
+    def _check_findings_honesty(self, findings: list[dict], postflight_vectors: dict[str, float]) -> dict[str, Any]:
         """
         Check: Are my findings honest? (Not overstating confidence)
 
@@ -202,31 +186,21 @@ class CoherenceValidator:
         my_clarity = postflight_vectors.get("clarity", 0.5)
 
         # Check 1: If I have low clarity, I shouldn't have many high-certainty findings
-        high_certainty_findings = sum(
-            1 for f in findings if f.get("certainty", 0.5) > 0.8
-        )
+        high_certainty_findings = sum(1 for f in findings if f.get("certainty", 0.5) > 0.8)
 
         if my_clarity < 0.5 and high_certainty_findings > len(findings) * 0.5:
             return {
                 "honest": False,
-                "issue": f"High certainty findings ({high_certainty_findings}) but low clarity ({my_clarity})"
+                "issue": f"High certainty findings ({high_certainty_findings}) but low clarity ({my_clarity})",
             }
 
         # Check 2: If knowledge is low, findings should be tentative
         if my_know < 0.4 and high_certainty_findings > 2:
-            return {
-                "honest": False,
-                "issue": f"High certainty findings but low knowledge ({my_know})"
-            }
+            return {"honest": False, "issue": f"High certainty findings but low knowledge ({my_know})"}
 
         return {"honest": True, "issue": None}
 
-    def _format_message(
-        self,
-        coherent: bool,
-        recommendation: str,
-        concerns: list[str]
-    ) -> str:
+    def _format_message(self, coherent: bool, recommendation: str, concerns: list[str]) -> str:
         """Format human-readable validation message"""
         if coherent:
             return "✅ Coherence check PASSED. Ready to hand off."

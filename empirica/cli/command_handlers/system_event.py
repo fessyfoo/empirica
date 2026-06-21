@@ -69,8 +69,12 @@ def _overall_from_checks(checks: list[dict[str, Any]]) -> tuple[str, int, int]:
 
 
 def compliance_report_to_event(
-    report: dict[str, Any], *, ran_by: str, ran_at: str,
-    org_id: str | None = None, suite: str = "empirica-compliance",
+    report: dict[str, Any],
+    *,
+    ran_by: str,
+    ran_at: str,
+    org_id: str | None = None,
+    suite: str = "empirica-compliance",
     suite_version: str | None = None,
 ) -> dict[str, Any]:
     """Map an empirica compliance-report result dict → a /v1/system/event envelope."""
@@ -103,8 +107,11 @@ def compliance_report_to_event(
 
 
 def emit_system_event(
-    envelope: dict[str, Any], *, cortex_url: str | None = None,
-    api_key: str | None = None, timeout: float = 10.0,
+    envelope: dict[str, Any],
+    *,
+    cortex_url: str | None = None,
+    api_key: str | None = None,
+    timeout: float = 10.0,
 ) -> tuple[int, dict[str, Any]]:
     """POST the envelope to cortex /v1/system/event. Returns (status, body).
 
@@ -119,7 +126,9 @@ def emit_system_event(
         return -1, {"error": "no cortex url/api_key (configure ~/.empirica/credentials.yaml)"}
     url = cortex_url.rstrip("/") + SYSTEM_EVENT_PATH
     req = urllib.request.Request(
-        url, data=json.dumps(envelope).encode("utf-8"), method="POST",
+        url,
+        data=json.dumps(envelope).encode("utf-8"),
+        method="POST",
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
     )
     try:

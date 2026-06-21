@@ -45,6 +45,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ExtractedFinding:
     """A discovery or insight extracted from conversation."""
+
     finding: str
     impact: float = 0.5
     confidence: float = 0.5  # How confident is the extraction
@@ -56,6 +57,7 @@ class ExtractedFinding:
 @dataclass
 class ExtractedDecision:
     """A choice point extracted from conversation."""
+
     choice: str
     rationale: str = ""
     reversibility: str = "exploratory"
@@ -67,6 +69,7 @@ class ExtractedDecision:
 @dataclass
 class ExtractedDeadEnd:
     """A failed approach extracted from conversation."""
+
     approach: str
     why_failed: str = ""
     confidence: float = 0.5
@@ -77,6 +80,7 @@ class ExtractedDeadEnd:
 @dataclass
 class ExtractedMistake:
     """An error or mistake extracted from conversation."""
+
     mistake: str
     why_wrong: str = ""
     prevention: str = ""
@@ -88,6 +92,7 @@ class ExtractedMistake:
 @dataclass
 class ExtractedUnknown:
     """An open question or uncertainty extracted from conversation."""
+
     unknown: str
     confidence: float = 0.5
     source_turn: int = 0
@@ -97,6 +102,7 @@ class ExtractedUnknown:
 @dataclass
 class ExtractionResult:
     """Complete extraction output from a session or conversation."""
+
     findings: list[ExtractedFinding] = field(default_factory=list)
     decisions: list[ExtractedDecision] = field(default_factory=list)
     dead_ends: list[ExtractedDeadEnd] = field(default_factory=list)
@@ -111,10 +117,7 @@ class ExtractionResult:
 
     @property
     def total_artifacts(self) -> int:
-        return (
-            len(self.findings) + len(self.decisions) + len(self.dead_ends)
-            + len(self.mistakes) + len(self.unknowns)
-        )
+        return len(self.findings) + len(self.decisions) + len(self.dead_ends) + len(self.mistakes) + len(self.unknowns)
 
     def summary(self) -> dict[str, Any]:
         return {
@@ -156,9 +159,21 @@ FINDING_PATTERNS = [
 
 # Patterns that indicate decisions
 DECISION_PATTERNS = [
-    (re.compile(r"(?:I(?:'ll| will)?|let(?:'s| us)|we should)\s+(?:use|go with|choose|pick|implement|switch to)\s+(.{10,200})", re.I), 0.80),
+    (
+        re.compile(
+            r"(?:I(?:'ll| will)?|let(?:'s| us)|we should)\s+(?:use|go with|choose|pick|implement|switch to)\s+(.{10,200})",
+            re.I,
+        ),
+        0.80,
+    ),
     (re.compile(r"(?:decided|decision|choosing)\s+(?:to\s+)?(.{10,200})", re.I), 0.85),
-    (re.compile(r"(?:instead of|rather than)\s+(.{10,100}),?\s*(?:I(?:'ll| will)?|we(?:'ll| will)?|let(?:'s))\s+(.{10,200})", re.I), 0.80),
+    (
+        re.compile(
+            r"(?:instead of|rather than)\s+(.{10,100}),?\s*(?:I(?:'ll| will)?|we(?:'ll| will)?|let(?:'s))\s+(.{10,200})",
+            re.I,
+        ),
+        0.80,
+    ),
 ]
 
 # Patterns that indicate dead ends
@@ -178,7 +193,10 @@ MISTAKE_PATTERNS = [
 
 # Patterns that indicate unknowns
 UNKNOWN_PATTERNS = [
-    (re.compile(r"(?:I(?:'m| am))?\s*(?:not sure|uncertain|unclear)\s+(?:about|whether|if|how)\s+(.{10,200})", re.I), 0.80),
+    (
+        re.compile(r"(?:I(?:'m| am))?\s*(?:not sure|uncertain|unclear)\s+(?:about|whether|if|how)\s+(.{10,200})", re.I),
+        0.80,
+    ),
     (re.compile(r"(?:need to|should)\s+(?:investigate|figure out|understand|check|verify)\s+(.{10,200})", re.I), 0.75),
     (re.compile(r"(?:question|unknown|mystery):\s*(.{10,200})", re.I), 0.85),
     (re.compile(r"\?\s*$", re.M), 0.40),  # Questions (low confidence — many false positives)
@@ -206,7 +224,7 @@ class ArtifactExtractor:
 
     def _content_hash(self, text: str) -> str:
         """Create a hash for deduplication."""
-        normalized = re.sub(r'\s+', ' ', text.lower().strip())
+        normalized = re.sub(r"\s+", " ", text.lower().strip())
         return hashlib.sha256(normalized.encode()).hexdigest()[:16]
 
     def _is_duplicate(self, text: str) -> bool:
@@ -240,14 +258,16 @@ class ArtifactExtractor:
                         # Estimate impact from context
                         impact = self._estimate_impact(finding_text, turn)
 
-                        findings.append(ExtractedFinding(
-                            finding=finding_text,
-                            impact=impact,
-                            confidence=confidence,
-                            source_turn=turn.turn_index,
-                            source_text=text_source[:200],
-                            timestamp=turn.timestamp,
-                        ))
+                        findings.append(
+                            ExtractedFinding(
+                                finding=finding_text,
+                                impact=impact,
+                                confidence=confidence,
+                                source_turn=turn.turn_index,
+                                source_text=text_source[:200],
+                                timestamp=turn.timestamp,
+                            )
+                        )
 
             # Tool chain patterns: successful tool use after investigation = finding
             for chain in turn.tool_chains:
@@ -286,13 +306,15 @@ class ArtifactExtractor:
 
                         confidence = min(1.0, base_confidence + (0.05 if text_source == turn.thinking else 0))
 
-                        decisions.append(ExtractedDecision(
-                            choice=choice,
-                            rationale=rationale,
-                            confidence=confidence,
-                            source_turn=turn.turn_index,
-                            timestamp=turn.timestamp,
-                        ))
+                        decisions.append(
+                            ExtractedDecision(
+                                choice=choice,
+                                rationale=rationale,
+                                confidence=confidence,
+                                source_turn=turn.turn_index,
+                                timestamp=turn.timestamp,
+                            )
+                        )
 
         return [d for d in decisions if d.confidence >= self.min_confidence]
 
@@ -322,13 +344,15 @@ class ArtifactExtractor:
                         if len(approach) < 10 or self._is_duplicate(approach):
                             continue
 
-                        dead_ends.append(ExtractedDeadEnd(
-                            approach=approach,
-                            why_failed=self._clean_text(why_failed),
-                            confidence=base_confidence,
-                            source_turn=turn.turn_index,
-                            timestamp=turn.timestamp,
-                        ))
+                        dead_ends.append(
+                            ExtractedDeadEnd(
+                                approach=approach,
+                                why_failed=self._clean_text(why_failed),
+                                confidence=base_confidence,
+                                source_turn=turn.turn_index,
+                                timestamp=turn.timestamp,
+                            )
+                        )
 
             # Pattern 2: Tool chain dead ends (tool fails, then different tool used)
             failed_chains = [c for c in turn.tool_chains if not c.success]
@@ -361,12 +385,14 @@ class ArtifactExtractor:
                         if text_source == turn.user_message:
                             confidence = min(1.0, confidence + 0.10)
 
-                        mistakes.append(ExtractedMistake(
-                            mistake=mistake_text,
-                            confidence=confidence,
-                            source_turn=turn.turn_index,
-                            timestamp=turn.timestamp,
-                        ))
+                        mistakes.append(
+                            ExtractedMistake(
+                                mistake=mistake_text,
+                                confidence=confidence,
+                                source_turn=turn.turn_index,
+                                timestamp=turn.timestamp,
+                            )
+                        )
 
         return [m for m in mistakes if m.confidence >= self.min_confidence]
 
@@ -391,12 +417,14 @@ class ArtifactExtractor:
                         if len(unknown_text) < 10 or self._is_duplicate(unknown_text):
                             continue
 
-                        unknowns.append(ExtractedUnknown(
-                            unknown=unknown_text,
-                            confidence=base_confidence,
-                            source_turn=turn.turn_index,
-                            timestamp=turn.timestamp,
-                        ))
+                        unknowns.append(
+                            ExtractedUnknown(
+                                unknown=unknown_text,
+                                confidence=base_confidence,
+                                source_turn=turn.turn_index,
+                                timestamp=turn.timestamp,
+                            )
+                        )
 
         return [u for u in unknowns if u.confidence >= self.min_confidence]
 
@@ -444,8 +472,8 @@ class ArtifactExtractor:
 
         why_failed = ""
         if chain.result_content:
-            for line in chain.result_content.split('\n'):
-                if any(w in line.lower() for w in ['error', 'fail', 'not found', 'denied']):
+            for line in chain.result_content.split("\n"):
+                if any(w in line.lower() for w in ["error", "fail", "not found", "denied"]):
                     why_failed = line.strip()[:200]
                     break
 
@@ -462,11 +490,11 @@ class ArtifactExtractor:
     def _clean_text(self, text: str) -> str:
         """Clean extracted text for artifact storage."""
         # Remove markdown formatting
-        text = re.sub(r'[*_`#]+', '', text)
+        text = re.sub(r"[*_`#]+", "", text)
         # Normalize whitespace
-        text = re.sub(r'\s+', ' ', text).strip()
+        text = re.sub(r"\s+", " ", text).strip()
         # Remove trailing punctuation artifacts
-        text = text.rstrip('.,;:')
+        text = text.rstrip(".,;:")
         # Cap length
         if len(text) > 500:
             text = text[:497] + "..."
@@ -478,11 +506,22 @@ class ArtifactExtractor:
 
         # Higher impact for findings about bugs, security, architecture
         high_impact_keywords = [
-            "bug", "security", "vulnerability", "breaking", "regression",
-            "architecture", "design", "performance", "critical",
+            "bug",
+            "security",
+            "vulnerability",
+            "breaking",
+            "regression",
+            "architecture",
+            "design",
+            "performance",
+            "critical",
         ]
         medium_impact_keywords = [
-            "pattern", "convention", "approach", "structure", "dependency",
+            "pattern",
+            "convention",
+            "approach",
+            "structure",
+            "dependency",
         ]
 
         text_lower = finding_text.lower()
@@ -511,52 +550,40 @@ def build_dedup_set_from_db(db, project_id: str) -> set[str]:
 
     # Findings
     try:
-        cursor.execute(
-            "SELECT finding FROM project_findings WHERE project_id = ?",
-            (project_id,)
-        )
+        cursor.execute("SELECT finding FROM project_findings WHERE project_id = ?", (project_id,))
         for row in cursor.fetchall():
             if row[0]:
-                normalized = re.sub(r'\s+', ' ', row[0].lower().strip())
+                normalized = re.sub(r"\s+", " ", row[0].lower().strip())
                 hashes.add(hashlib.sha256(normalized.encode()).hexdigest()[:16])
     except Exception:
         pass
 
     # Unknowns
     try:
-        cursor.execute(
-            "SELECT unknown FROM project_unknowns WHERE project_id = ?",
-            (project_id,)
-        )
+        cursor.execute("SELECT unknown FROM project_unknowns WHERE project_id = ?", (project_id,))
         for row in cursor.fetchall():
             if row[0]:
-                normalized = re.sub(r'\s+', ' ', row[0].lower().strip())
+                normalized = re.sub(r"\s+", " ", row[0].lower().strip())
                 hashes.add(hashlib.sha256(normalized.encode()).hexdigest()[:16])
     except Exception:
         pass
 
     # Dead ends
     try:
-        cursor.execute(
-            "SELECT approach FROM project_dead_ends WHERE project_id = ?",
-            (project_id,)
-        )
+        cursor.execute("SELECT approach FROM project_dead_ends WHERE project_id = ?", (project_id,))
         for row in cursor.fetchall():
             if row[0]:
-                normalized = re.sub(r'\s+', ' ', row[0].lower().strip())
+                normalized = re.sub(r"\s+", " ", row[0].lower().strip())
                 hashes.add(hashlib.sha256(normalized.encode()).hexdigest()[:16])
     except Exception:
         pass
 
     # Mistakes
     try:
-        cursor.execute(
-            "SELECT mistake FROM mistakes_made WHERE project_id = ?",
-            (project_id,)
-        )
+        cursor.execute("SELECT mistake FROM mistakes_made WHERE project_id = ?", (project_id,))
         for row in cursor.fetchall():
             if row[0]:
-                normalized = re.sub(r'\s+', ' ', row[0].lower().strip())
+                normalized = re.sub(r"\s+", " ", row[0].lower().strip())
                 hashes.add(hashlib.sha256(normalized.encode()).hexdigest()[:16])
     except Exception:
         pass

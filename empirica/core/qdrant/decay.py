@@ -1,6 +1,7 @@
 """
 Decay and lifecycle management: confidence decay, staleness signals, urgency updates.
 """
+
 from __future__ import annotations
 
 from empirica.core.qdrant.collections import (
@@ -34,6 +35,7 @@ def decay_eidetic_fact(
 
     try:
         import time as _time
+
         client = _get_qdrant_client()
         if client is None:
             return False
@@ -46,9 +48,7 @@ def decay_eidetic_fact(
 
         results = client.scroll(
             collection_name=coll,
-            scroll_filter=Filter(
-                must=[FieldCondition(key="content_hash", match=MatchValue(value=content_hash))]
-            ),
+            scroll_filter=Filter(must=[FieldCondition(key="content_hash", match=MatchValue(value=content_hash))]),
             limit=1,
             with_payload=True,
             with_vectors=True,
@@ -158,9 +158,7 @@ def propagate_lesson_confidence_to_qdrant(
         # Find lesson by type + text content match
         results = client.scroll(
             collection_name=coll,
-            scroll_filter=Filter(
-                must=[FieldCondition(key="type", match=MatchValue(value="lesson"))]
-            ),
+            scroll_filter=Filter(must=[FieldCondition(key="type", match=MatchValue(value="lesson"))]),
             limit=50,  # Scan lessons
             with_payload=True,
             with_vectors=True,
@@ -174,6 +172,7 @@ def propagate_lesson_confidence_to_qdrant(
                 payload = point.payload
                 payload["confidence"] = new_confidence
                 import time as _time
+
                 payload["confidence_synced_at"] = _time.time()
 
                 updated = PointStruct(id=point.id, vector=point.vector, payload=payload)
@@ -211,7 +210,7 @@ def auto_sync_session_to_global(
         if not project_path:
             return 0
 
-        db_path = Path(project_path) / '.empirica' / 'sessions' / 'sessions.db'
+        db_path = Path(project_path) / ".empirica" / "sessions" / "sessions.db"
         if not db_path.exists():
             return 0
 
@@ -224,18 +223,18 @@ def auto_sync_session_to_global(
 
         synced = 0
         for f in findings:
-            impact = f.get('impact', 0.0)
-            f_session = f.get('session_id', '')
+            impact = f.get("impact", 0.0)
+            f_session = f.get("session_id", "")
             if impact >= min_impact and f_session == session_id:
                 if embed_to_global(
-                    item_id=f.get('id', f.get('finding_id', '')),
-                    text=f.get('finding', f.get('text', '')),
-                    item_type='finding',
+                    item_id=f.get("id", f.get("finding_id", "")),
+                    text=f.get("finding", f.get("text", "")),
+                    item_type="finding",
                     project_id=project_id,
                     session_id=session_id,
                     impact=impact,
-                    timestamp=f.get('created_timestamp', ''),
-                    tags=[f.get('subject', '')],
+                    timestamp=f.get("created_timestamp", ""),
+                    tags=[f.get("subject", "")],
                 ):
                     synced += 1
 
@@ -266,6 +265,7 @@ def apply_staleness_signal(
 
     try:
         import time as _time
+
         client = _get_qdrant_client()
         if client is None:
             return 0
@@ -282,7 +282,7 @@ def apply_staleness_signal(
         # Batch upsert
         if batch:
             for i in range(0, len(batch), 50):
-                client.upsert(collection_name=coll, points=batch[i:i+50])
+                client.upsert(collection_name=coll, points=batch[i : i + 50])
 
         # Also update assumption urgency
         assumption_updated = update_assumption_urgency(project_id)
@@ -321,7 +321,8 @@ def _parse_timestamp(ts) -> float | None:
     if isinstance(ts, str):
         try:
             from datetime import datetime
-            return datetime.fromisoformat(ts.replace('Z', '+00:00')).timestamp()
+
+            return datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp()
         except Exception:
             return None
     return float(ts)
@@ -373,6 +374,7 @@ def update_assumption_urgency(
 
     try:
         import time as _time
+
         client = _get_qdrant_client()
         if client is None:
             return 0
@@ -421,7 +423,7 @@ def update_assumption_urgency(
 
         if batch:
             for i in range(0, len(batch), 50):
-                client.upsert(collection_name=coll, points=batch[i:i+50])
+                client.upsert(collection_name=coll, points=batch[i : i + 50])
 
         return updated
     except Exception as e:

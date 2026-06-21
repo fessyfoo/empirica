@@ -13,16 +13,12 @@ def test_three_forms_returned():
 
 
 def test_short_is_bare_basename():
-    forms = compose_ai_id_forms(
-        tenant_slug="david", mesh_id_prefix="empirica_david", basename="empirica"
-    )
+    forms = compose_ai_id_forms(tenant_slug="david", mesh_id_prefix="empirica_david", basename="empirica")
     assert forms["short"] == "empirica"
 
 
 def test_tenant_form_joins_slug_and_basename():
-    forms = compose_ai_id_forms(
-        tenant_slug="david", mesh_id_prefix="empirica_david", basename="cortex"
-    )
+    forms = compose_ai_id_forms(tenant_slug="david", mesh_id_prefix="empirica_david", basename="cortex")
     assert forms["tenant"] == "david_cortex"
 
 
@@ -38,9 +34,7 @@ def test_mesh_form_uses_prefix_as_returned_by_cortex():
 
 
 def test_handles_basename_with_dash():
-    forms = compose_ai_id_forms(
-        tenant_slug="acme", mesh_id_prefix="mod_acme", basename="empirica-fork"
-    )
+    forms = compose_ai_id_forms(tenant_slug="acme", mesh_id_prefix="mod_acme", basename="empirica-fork")
     assert forms["short"] == "empirica-fork"
     assert forms["tenant"] == "acme_empirica-fork"
     assert forms["mesh"] == "mod_acme_empirica-fork"
@@ -51,5 +45,6 @@ def test_kwargs_only_signature():
     # field is which (mistaking tenant_slug for mesh_id_prefix is silent
     # otherwise since both are strings).
     import pytest
+
     with pytest.raises(TypeError):
         compose_ai_id_forms("david", "empirica_david", "empirica")  # type: ignore[misc]

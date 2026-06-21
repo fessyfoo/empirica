@@ -96,9 +96,7 @@ class CouplingAnalyzer:
         metrics.abstractness = self._calculate_abstractness(tree)
 
         # Distance from main sequence: |A + I - 1|
-        metrics.distance_from_main = abs(
-            metrics.abstractness + metrics.instability - 1.0
-        )
+        metrics.distance_from_main = abs(metrics.abstractness + metrics.instability - 1.0)
 
         return metrics
 
@@ -146,7 +144,7 @@ class CouplingAnalyzer:
         """Check if import is from within the project."""
         # Simple heuristic: starts with project name
         project_name = self.project_root.name
-        return import_name.startswith(project_name) or import_name.startswith('.')
+        return import_name.startswith(project_name) or import_name.startswith(".")
 
     def _count_importers(self, module_name: str) -> int:
         """Count how many modules import this one."""
@@ -195,7 +193,7 @@ class CouplingAnalyzer:
 
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                if node.name.startswith('_'):
+                if node.name.startswith("_"):
                     private += 1
                 else:
                     public += 1
@@ -209,12 +207,12 @@ class CouplingAnalyzer:
         for node in ast.walk(tree):
             if isinstance(node, ast.Assign):
                 for target in node.targets:
-                    if isinstance(target, ast.Name) and target.id == '__all__':
+                    if isinstance(target, ast.Name) and target.id == "__all__":
                         if isinstance(node.value, (ast.List, ast.Tuple)):
                             for elt in node.value.elts:
                                 if isinstance(elt, ast.Constant):
                                     name = elt.value
-                                    if isinstance(name, str) and name.startswith('_'):
+                                    if isinstance(name, str) and name.startswith("_"):
                                         leaked.append(name)
 
         return leaked
@@ -229,10 +227,10 @@ class CouplingAnalyzer:
                 total_count += 1
                 # Check for ABC inheritance or abstractmethod decorators
                 for base in node.bases:
-                    if isinstance(base, ast.Name) and base.id in ('ABC', 'ABCMeta'):
+                    if isinstance(base, ast.Name) and base.id in ("ABC", "ABCMeta"):
                         abstract_count += 1
                         break
-                    if isinstance(base, ast.Attribute) and base.attr in ('ABC', 'ABCMeta'):
+                    if isinstance(base, ast.Attribute) and base.attr in ("ABC", "ABCMeta"):
                         abstract_count += 1
                         break
 
@@ -262,7 +260,7 @@ class CouplingAnalyzer:
         impact = impact_raw  # Note: HIGH impact = HIGH blast radius = risky
 
         return {
-            'clarity': clarity,
-            'context': context,
-            'impact': impact,
+            "clarity": clarity,
+            "context": context,
+            "impact": impact,
         }

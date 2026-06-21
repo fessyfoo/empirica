@@ -29,8 +29,7 @@ def test_get_qdrant_client_uses_explicit_url_when_provided(monkeypatch):
     """qdrant_url= wins over EMPIRICA_QDRANT_URL env var."""
     monkeypatch.setenv("EMPIRICA_QDRANT_URL", "http://from-env:6333")
     mock_cls = MagicMock()
-    with patch.object(conn_mod, "_get_qdrant_imports",
-                      return_value=(mock_cls, None, None, None)):
+    with patch.object(conn_mod, "_get_qdrant_imports", return_value=(mock_cls, None, None, None)):
         client = conn_mod._get_qdrant_client(qdrant_url="http://from-arg:7333")
     # Connected to the per-request URL, NOT the env URL
     mock_cls.assert_called_once_with(url="http://from-arg:7333")
@@ -41,8 +40,7 @@ def test_get_qdrant_client_falls_through_to_env_when_no_arg(monkeypatch):
     """qdrant_url=None preserves the existing env→localhost priority chain."""
     monkeypatch.setenv("EMPIRICA_QDRANT_URL", "http://from-env:6333")
     mock_cls = MagicMock()
-    with patch.object(conn_mod, "_get_qdrant_imports",
-                      return_value=(mock_cls, None, None, None)):
+    with patch.object(conn_mod, "_get_qdrant_imports", return_value=(mock_cls, None, None, None)):
         client = conn_mod._get_qdrant_client()
     mock_cls.assert_called_once_with(url="http://from-env:6333")
     assert client is mock_cls.return_value
@@ -57,9 +55,10 @@ def test_get_qdrant_client_falls_through_to_localhost_probe(monkeypatch):
     mock_resp.status = 200
     mock_resp.__enter__ = MagicMock(return_value=mock_resp)
     mock_resp.__exit__ = MagicMock(return_value=False)
-    with patch.object(conn_mod, "_get_qdrant_imports",
-                      return_value=(mock_cls, None, None, None)), \
-         patch("urllib.request.urlopen", return_value=mock_resp):
+    with (
+        patch.object(conn_mod, "_get_qdrant_imports", return_value=(mock_cls, None, None, None)),
+        patch("urllib.request.urlopen", return_value=mock_resp),
+    ):
         client = conn_mod._get_qdrant_client()
     mock_cls.assert_called_once_with(url="http://localhost:6333")
     assert client is mock_cls.return_value
@@ -68,9 +67,10 @@ def test_get_qdrant_client_falls_through_to_localhost_probe(monkeypatch):
 def test_get_qdrant_client_returns_none_when_no_url_anywhere(monkeypatch):
     """qdrant_url=None + no env + localhost unreachable → returns None."""
     monkeypatch.delenv("EMPIRICA_QDRANT_URL", raising=False)
-    with patch.object(conn_mod, "_get_qdrant_imports",
-                      return_value=(MagicMock(), None, None, None)), \
-         patch("urllib.request.urlopen", side_effect=Exception("connection refused")):
+    with (
+        patch.object(conn_mod, "_get_qdrant_imports", return_value=(MagicMock(), None, None, None)),
+        patch("urllib.request.urlopen", side_effect=Exception("connection refused")),
+    ):
         client = conn_mod._get_qdrant_client()
     assert client is None
 
@@ -120,7 +120,9 @@ def test_rest_search_uses_arg_url_in_request(monkeypatch):
     fake_resp.json = MagicMock(return_value={"result": [{"id": 1}]})
     with patch("requests.post", return_value=fake_resp) as mock_post:
         out = conn_mod._rest_search(
-            "my_collection", [0.1, 0.2], 5,
+            "my_collection",
+            [0.1, 0.2],
+            5,
             qdrant_url="http://from-arg:7333",
         )
     # POST hit the arg URL, not the env URL
@@ -153,17 +155,16 @@ def test_omitting_qdrant_url_is_byte_for_byte_legacy_behavior(monkeypatch):
     call shapes against the same mocked deps and asserting identical output."""
     monkeypatch.setenv("EMPIRICA_QDRANT_URL", "http://legacy:6333")
     mock_cls = MagicMock()
-    with patch.object(conn_mod, "_get_qdrant_imports",
-                      return_value=(mock_cls, None, None, None)):
+    with patch.object(conn_mod, "_get_qdrant_imports", return_value=(mock_cls, None, None, None)):
         legacy_call = conn_mod._get_qdrant_client()
     mock_cls.reset_mock()
-    with patch.object(conn_mod, "_get_qdrant_imports",
-                      return_value=(mock_cls, None, None, None)):
+    with patch.object(conn_mod, "_get_qdrant_imports", return_value=(mock_cls, None, None, None)):
         new_call_with_none = conn_mod._get_qdrant_client(qdrant_url=None)
     # Same client object returned, same URL used
     assert legacy_call is not None
     assert new_call_with_none is not None
     assert mock_cls.call_args[1]["url"] == "http://legacy:6333"
+
 
 # ── embed_* / upsert_* / search threading (prop_t7s6whxwjncoploks5wwcdqssm) ──
 # The write-path gap cortex found: embed_single_memory_item / embed_assumption /
@@ -174,8 +175,12 @@ def test_omitting_qdrant_url_is_byte_for_byte_legacy_behavior(monkeypatch):
 
 _MEMORY_FNS = ["embed_single_memory_item", "upsert_docs", "upsert_memory", "search"]
 _INTENT_FNS = [
-    "embed_assumption", "embed_decision", "embed_intent_edge",
-    "search_assumptions", "search_decisions", "search_intents",
+    "embed_assumption",
+    "embed_decision",
+    "embed_intent_edge",
+    "search_assumptions",
+    "search_decisions",
+    "search_intents",
 ]
 
 
@@ -195,10 +200,15 @@ def test_all_intent_layer_functions_accept_qdrant_url_defaulting_none():
 
 def test_embed_single_memory_item_threads_url_to_check_and_client():
     """The exact repro from cortex: write must route to the per-org URL."""
-    with patch.object(memory_mod, "_check_qdrant_available", return_value=True) as mock_check, \
-         patch.object(memory_mod, "_get_qdrant_client", return_value=None) as mock_client:
+    with (
+        patch.object(memory_mod, "_check_qdrant_available", return_value=True) as mock_check,
+        patch.object(memory_mod, "_get_qdrant_client", return_value=None) as mock_client,
+    ):
         memory_mod.embed_single_memory_item(
-            "proj", "item-1", "text", "finding",
+            "proj",
+            "item-1",
+            "text",
+            "finding",
             qdrant_url="http://org-mod:7335",
         )
     mock_check.assert_called_once_with(qdrant_url="http://org-mod:7335")
@@ -206,10 +216,14 @@ def test_embed_single_memory_item_threads_url_to_check_and_client():
 
 
 def test_embed_assumption_threads_url_to_check_and_client():
-    with patch.object(intent_mod, "_check_qdrant_available", return_value=True) as mock_check, \
-         patch.object(intent_mod, "_get_qdrant_client", return_value=None) as mock_client:
+    with (
+        patch.object(intent_mod, "_check_qdrant_available", return_value=True) as mock_check,
+        patch.object(intent_mod, "_get_qdrant_client", return_value=None) as mock_client,
+    ):
         intent_mod.embed_assumption(
-            "proj", "a-1", "an assumption",
+            "proj",
+            "a-1",
+            "an assumption",
             qdrant_url="http://org-mod:7335",
         )
     mock_check.assert_called_once_with(qdrant_url="http://org-mod:7335")
@@ -217,10 +231,15 @@ def test_embed_assumption_threads_url_to_check_and_client():
 
 
 def test_embed_decision_threads_url_to_check_and_client():
-    with patch.object(intent_mod, "_check_qdrant_available", return_value=True) as mock_check, \
-         patch.object(intent_mod, "_get_qdrant_client", return_value=None) as mock_client:
+    with (
+        patch.object(intent_mod, "_check_qdrant_available", return_value=True) as mock_check,
+        patch.object(intent_mod, "_get_qdrant_client", return_value=None) as mock_client,
+    ):
         intent_mod.embed_decision(
-            "proj", "d-1", "a choice", "a rationale",
+            "proj",
+            "d-1",
+            "a choice",
+            "a rationale",
             qdrant_url="http://org-mod:7335",
         )
     mock_check.assert_called_once_with(qdrant_url="http://org-mod:7335")
@@ -228,10 +247,19 @@ def test_embed_decision_threads_url_to_check_and_client():
 
 
 def test_embed_intent_edge_threads_url_to_check_and_client():
-    with patch.object(intent_mod, "_check_qdrant_available", return_value=True) as mock_check, \
-         patch.object(intent_mod, "_get_qdrant_client", return_value=None) as mock_client:
+    with (
+        patch.object(intent_mod, "_check_qdrant_available", return_value=True) as mock_check,
+        patch.object(intent_mod, "_get_qdrant_client", return_value=None) as mock_client,
+    ):
         intent_mod.embed_intent_edge(
-            "proj", "i-1", "noetic_to_praxic", "src", "finding", "tgt", "commit", 0.8,
+            "proj",
+            "i-1",
+            "noetic_to_praxic",
+            "src",
+            "finding",
+            "tgt",
+            "commit",
+            0.8,
             qdrant_url="http://org-mod:7335",
         )
     mock_check.assert_called_once_with(qdrant_url="http://org-mod:7335")
@@ -239,17 +267,20 @@ def test_embed_intent_edge_threads_url_to_check_and_client():
 
 
 def test_upsert_memory_threads_url_to_check_and_client():
-    with patch.object(memory_mod, "_check_qdrant_available", return_value=True) as mock_check, \
-         patch.object(memory_mod, "_get_qdrant_client", return_value=None) as mock_client:
-        memory_mod.upsert_memory("proj", [{"id": "x", "text": "t"}],
-                                 qdrant_url="http://org-mod:7335")
+    with (
+        patch.object(memory_mod, "_check_qdrant_available", return_value=True) as mock_check,
+        patch.object(memory_mod, "_get_qdrant_client", return_value=None) as mock_client,
+    ):
+        memory_mod.upsert_memory("proj", [{"id": "x", "text": "t"}], qdrant_url="http://org-mod:7335")
     mock_check.assert_called_once_with(qdrant_url="http://org-mod:7335")
     mock_client.assert_called_once_with(qdrant_url="http://org-mod:7335")
 
 
 def test_search_threads_url_to_check_and_client():
-    with patch.object(memory_mod, "_check_qdrant_available", return_value=True) as mock_check, \
-         patch.object(memory_mod, "_get_qdrant_client", return_value=None) as mock_client:
+    with (
+        patch.object(memory_mod, "_check_qdrant_available", return_value=True) as mock_check,
+        patch.object(memory_mod, "_get_qdrant_client", return_value=None) as mock_client,
+    ):
         memory_mod.search("proj", "query", qdrant_url="http://org-mod:7335")
     mock_check.assert_called_once_with(qdrant_url="http://org-mod:7335")
     mock_client.assert_called_once_with(qdrant_url="http://org-mod:7335")
@@ -258,8 +289,10 @@ def test_search_threads_url_to_check_and_client():
 def test_embed_omitting_url_is_legacy_behavior():
     """Backward-compat envelope for the embed layer: no kwarg = check/client
     called with qdrant_url=None — exactly the pre-change resolution chain."""
-    with patch.object(memory_mod, "_check_qdrant_available", return_value=True) as mock_check, \
-         patch.object(memory_mod, "_get_qdrant_client", return_value=None) as mock_client:
+    with (
+        patch.object(memory_mod, "_check_qdrant_available", return_value=True) as mock_check,
+        patch.object(memory_mod, "_get_qdrant_client", return_value=None) as mock_client,
+    ):
         memory_mod.embed_single_memory_item("proj", "item-1", "text", "finding")
     mock_check.assert_called_once_with(qdrant_url=None)
     mock_client.assert_called_once_with(qdrant_url=None)

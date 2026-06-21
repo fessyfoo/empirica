@@ -17,12 +17,15 @@ logger = logging.getLogger(__name__)
 
 def _read_crontab() -> list[dict[str, Any]]:
     """Return rows for ``crontab -l`` if available."""
-    if shutil.which('crontab') is None:
+    if shutil.which("crontab") is None:
         return []
     try:
         result = subprocess.run(
-            ['crontab', '-l'],
-            check=False, capture_output=True, text=True, timeout=5,
+            ["crontab", "-l"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
     except (subprocess.TimeoutExpired, OSError) as exc:
         logger.info(f"crontab -l skipped: {exc}")
@@ -33,29 +36,31 @@ def _read_crontab() -> list[dict[str, Any]]:
         return []
 
     rows: list[dict[str, Any]] = []
-    for raw_line in (result.stdout or '').splitlines():
+    for raw_line in (result.stdout or "").splitlines():
         line = raw_line.strip()
-        if not line or line.startswith('#'):
+        if not line or line.startswith("#"):
             continue
-        rows.append({'kind': 'crontab', 'line': line})
+        rows.append({"kind": "crontab", "line": line})
     return rows
 
 
 def _scan_systemd_user_units() -> list[dict[str, Any]]:
     """Enumerate ``~/.config/systemd/user/*.{service,timer}`` filenames only."""
-    base = Path(os.path.expanduser('~/.config/systemd/user'))
+    base = Path(os.path.expanduser("~/.config/systemd/user"))
     if not base.exists() or not base.is_dir():
         return []
 
     rows: list[dict[str, Any]] = []
     try:
         for entry in sorted(base.iterdir()):
-            if entry.is_file() and entry.suffix in ('.service', '.timer'):
-                rows.append({
-                    'kind': 'systemd-user',
-                    'name': entry.name,
-                    'path': str(entry),
-                })
+            if entry.is_file() and entry.suffix in (".service", ".timer"):
+                rows.append(
+                    {
+                        "kind": "systemd-user",
+                        "name": entry.name,
+                        "path": str(entry),
+                    }
+                )
     except OSError as exc:
         logger.info(f"systemd-user unit scan skipped: {exc}")
     return rows
@@ -66,19 +71,21 @@ def _scan_launchd_agents() -> list[dict[str, Any]]:
 
     Reads filenames; never parses plist contents.
     """
-    base = Path(os.path.expanduser('~/Library/LaunchAgents'))
+    base = Path(os.path.expanduser("~/Library/LaunchAgents"))
     if not base.exists() or not base.is_dir():
         return []
 
     rows: list[dict[str, Any]] = []
     try:
         for entry in sorted(base.iterdir()):
-            if entry.is_file() and entry.suffix == '.plist':
-                rows.append({
-                    'kind': 'launchd',
-                    'label': entry.stem,
-                    'path': str(entry),
-                })
+            if entry.is_file() and entry.suffix == ".plist":
+                rows.append(
+                    {
+                        "kind": "launchd",
+                        "label": entry.stem,
+                        "path": str(entry),
+                    }
+                )
     except OSError as exc:
         logger.info(f"launchd scan skipped: {exc}")
     return rows
@@ -90,31 +97,29 @@ def collect_scheduled(read_surface) -> tuple[dict[str, Any], dict[str, Any]]:
     sources_checked = 0
     sources_yielding = 0
 
-    if 'cron_entries' in read_surface.scheduled:
+    if "cron_entries" in read_surface.scheduled:
         sources_checked += 1
         rows = _read_crontab()
-        output['cron_entries'] = rows
+        output["cron_entries"] = rows
         if rows:
             sources_yielding += 1
-    if 'systemd_user_units' in read_surface.scheduled:
+    if "systemd_user_units" in read_surface.scheduled:
         sources_checked += 1
         rows = _scan_systemd_user_units()
-        output['systemd_user_units'] = rows
+        output["systemd_user_units"] = rows
         if rows:
             sources_yielding += 1
-    if 'launchd_agents' in read_surface.scheduled:
+    if "launchd_agents" in read_surface.scheduled:
         sources_checked += 1
         rows = _scan_launchd_agents()
-        output['launchd_agents'] = rows
+        output["launchd_agents"] = rows
         if rows:
             sources_yielding += 1
 
-    total_entries = sum(
-        len(output.get(k, [])) for k in ('cron_entries', 'systemd_user_units', 'launchd_agents')
-    )
+    total_entries = sum(len(output.get(k, [])) for k in ("cron_entries", "systemd_user_units", "launchd_agents"))
     coverage: dict[str, Any] = {
-        'sources_checked': sources_checked,
-        'sources_yielding': sources_yielding,
-        'total_entries': total_entries,
+        "sources_checked": sources_checked,
+        "sources_yielding": sources_yielding,
+        "total_entries": total_entries,
     }
     return output, coverage

@@ -26,10 +26,7 @@ from pathlib import Path
 def check_native_host_process():
     """Check if chrome-native-host process is running."""
     try:
-        result = subprocess.run(
-            ["pgrep", "-f", "chrome-native-host"],
-            capture_output=True, text=True, timeout=5
-        )
+        result = subprocess.run(["pgrep", "-f", "chrome-native-host"], capture_output=True, text=True, timeout=5)
         pids = [p.strip() for p in result.stdout.strip().split("\n") if p.strip()]
         if not pids:
             return {"status": "dead", "detail": "No chrome-native-host process found"}
@@ -37,7 +34,7 @@ def check_native_host_process():
             return {
                 "status": "degraded",
                 "detail": f"Multiple native host processes: {pids} (stale processes likely)",
-                "pids": pids
+                "pids": pids,
             }
         return {"status": "healthy", "detail": f"Native host running (PID {pids[0]})", "pids": pids}
     except Exception as e:
@@ -132,26 +129,26 @@ def check_bridge_polls():
             "status": "dead",
             "detail": f"STDIO pipe broken. Bridge polling with {max_empty} consecutive empty polls.",
             "empty_polls": max_empty,
-            "pipe_broken": True
+            "pipe_broken": True,
         }
 
     if max_empty > 1000:
         return {
             "status": "dead",
             "detail": f"{max_empty} consecutive empty bridge polls — connection likely dead",
-            "empty_polls": max_empty
+            "empty_polls": max_empty,
         }
     elif max_empty > 100:
         return {
             "status": "degraded",
             "detail": f"{max_empty} consecutive empty bridge polls — connection may be degraded",
-            "empty_polls": max_empty
+            "empty_polls": max_empty,
         }
     else:
         return {
             "status": "healthy",
             "detail": f"Bridge polling active ({max_empty} empty polls — normal range)",
-            "empty_polls": max_empty
+            "empty_polls": max_empty,
         }
 
 
@@ -183,15 +180,15 @@ def check_mcp_tools_registered():
         last_connect = None
         last_drop = None
         for line in lines:
-            if 'claude-in-chrome' in line and 'Successfully connected' in line:
+            if "claude-in-chrome" in line and "Successfully connected" in line:
                 last_connect = line
-            if 'claude-in-chrome' in line and ('dropped' in line.lower() or 'broken pipe' in line.lower()):
+            if "claude-in-chrome" in line and ("dropped" in line.lower() or "broken pipe" in line.lower()):
                 last_drop = line
 
         if last_drop and last_connect:
             # Both exist — check which is more recent (by position in file)
-            connect_pos = tail.rfind('Successfully connected')
-            drop_pos = tail.rfind('dropped') if 'dropped' in tail else tail.rfind('Broken pipe')
+            connect_pos = tail.rfind("Successfully connected")
+            drop_pos = tail.rfind("dropped") if "dropped" in tail else tail.rfind("Broken pipe")
             if drop_pos > connect_pos:
                 return {"status": "dead", "detail": "Chrome MCP connected then dropped (not recovered)"}
 
@@ -207,29 +204,27 @@ def generate_recovery_instructions(checks):
     # Check for stale sockets
     socket_check = checks.get("sockets", {})
     if socket_check.get("stale_sockets"):
-        instructions.append(
-            f"Remove stale sockets: rm {' '.join(socket_check['stale_sockets'])}"
-        )
+        instructions.append(f"Remove stale sockets: rm {' '.join(socket_check['stale_sockets'])}")
 
     # Check for multiple native hosts
     process_check = checks.get("process", {})
     if process_check.get("pids") and len(process_check.get("pids", [])) > 1:
-        instructions.append(
-            f"Kill stale native hosts: kill {' '.join(process_check['pids'][:-1])}"
-        )
+        instructions.append(f"Kill stale native hosts: kill {' '.join(process_check['pids'][:-1])}")
 
     # Universal recovery
     if any(c.get("status") == "dead" for c in checks.values()):
-        instructions.extend([
-            "Full recovery (requires session restart):",
-            "  1. pkill -f 'chrome-native-host'",
-            f"  2. rm -rf /tmp/claude-mcp-browser-bridge-{os.environ.get('USER', 'unknown')}/",
-            "  3. Exit Claude Code and restart: claude --chrome",
-            "  4. Run: empirica project-bootstrap --output json",
-            "",
-            "Known issue: anthropics/claude-code#25956",
-            "Root cause: Cloud WebSocket bridge drops in long-lived sessions",
-        ])
+        instructions.extend(
+            [
+                "Full recovery (requires session restart):",
+                "  1. pkill -f 'chrome-native-host'",
+                f"  2. rm -rf /tmp/claude-mcp-browser-bridge-{os.environ.get('USER', 'unknown')}/",
+                "  3. Exit Claude Code and restart: claude --chrome",
+                "  4. Run: empirica project-bootstrap --output json",
+                "",
+                "Known issue: anthropics/claude-code#25956",
+                "Root cause: Cloud WebSocket bridge drops in long-lived sessions",
+            ]
+        )
 
     return instructions
 

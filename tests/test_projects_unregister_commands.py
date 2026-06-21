@@ -13,14 +13,14 @@ from empirica.cli.command_handlers.projects_commands import (
 
 def _make_args(**overrides):
     defaults = {
-        'project_id': 'p-test-uuid',
-        'slug': None,
-        'purge': False,
-        'confirm': False,
-        'cortex_url': 'https://cortex.test',
-        'api_key': 'test-key',
-        'timeout': 5.0,
-        'output': 'json',
+        "project_id": "p-test-uuid",
+        "slug": None,
+        "purge": False,
+        "confirm": False,
+        "cortex_url": "https://cortex.test",
+        "api_key": "test-key",
+        "timeout": 5.0,
+        "output": "json",
     }
     defaults.update(overrides)
     return types.SimpleNamespace(**defaults)
@@ -32,7 +32,7 @@ def _make_args(**overrides):
 def test_soft_archive_returns_archived_outcome(capsys):
     args = _make_args()
     with patch(
-        'empirica.cli.command_handlers.projects_commands._post_project',
+        "empirica.cli.command_handlers.projects_commands._post_project",
         return_value=(200, {"ok": True}),
     ):
         handle_projects_unregister_command(args)
@@ -46,7 +46,7 @@ def test_soft_archive_returns_archived_outcome(capsys):
 def test_purge_with_confirm_returns_purged_outcome(capsys):
     args = _make_args(purge=True, confirm=True)
     with patch(
-        'empirica.cli.command_handlers.projects_commands._post_project',
+        "empirica.cli.command_handlers.projects_commands._post_project",
         return_value=(200, {"ok": True}),
     ):
         handle_projects_unregister_command(args)
@@ -60,7 +60,7 @@ def test_already_archived_idempotent_409_ok(capsys):
     """409 (already archived) is treated as success — idempotent operation."""
     args = _make_args()
     with patch(
-        'empirica.cli.command_handlers.projects_commands._post_project',
+        "empirica.cli.command_handlers.projects_commands._post_project",
         return_value=(409, {"reason": "already archived"}),
     ):
         handle_projects_unregister_command(args)
@@ -101,7 +101,7 @@ def test_no_project_identification_exits_2(capsys, monkeypatch, tmp_path):
 def test_no_cortex_config_exits_2(capsys):
     args = _make_args(cortex_url=None, api_key=None)
     with patch(
-        'empirica.cli.command_handlers.projects_commands._resolve_cortex_config',
+        "empirica.cli.command_handlers.projects_commands._resolve_cortex_config",
         return_value=(None, None),
     ):
         try:
@@ -119,7 +119,7 @@ def test_no_cortex_config_exits_2(capsys):
 def test_404_not_found_exits_1(capsys):
     args = _make_args()
     with patch(
-        'empirica.cli.command_handlers.projects_commands._post_project',
+        "empirica.cli.command_handlers.projects_commands._post_project",
         return_value=(404, None),
     ):
         try:
@@ -149,7 +149,7 @@ def test_resolves_project_id_from_yaml(capsys, monkeypatch, tmp_path):
         return (200, {"ok": True})
 
     with patch(
-        'empirica.cli.command_handlers.projects_commands._post_project',
+        "empirica.cli.command_handlers.projects_commands._post_project",
         side_effect=_capture,
     ):
         handle_projects_unregister_command(args)

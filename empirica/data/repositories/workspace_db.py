@@ -32,10 +32,10 @@ def _get_workspace_db_path() -> Path:
     used by per-org daemon deployments where one box runs N isolated
     `empirica serve` instances, each rooted in its own workspace.db.
     """
-    override = os.getenv('EMPIRICA_WORKSPACE_DB')
+    override = os.getenv("EMPIRICA_WORKSPACE_DB")
     if override:
         return Path(override).expanduser()
-    return Path.home() / '.empirica' / 'workspace' / 'workspace.db'
+    return Path.home() / ".empirica" / "workspace" / "workspace.db"
 
 
 def _ensure_workspace_schema(conn: sqlite3.Connection) -> None:
@@ -177,8 +177,12 @@ def _ensure_workspace_schema(conn: sqlite3.Connection) -> None:
             PRIMARY KEY (entity_type, entity_id, group_type, group_id)
         )
     """)
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_entity_memberships_member ON entity_memberships(entity_type, entity_id)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_entity_memberships_group ON entity_memberships(group_type, group_id)")
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_entity_memberships_member ON entity_memberships(entity_type, entity_id)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_entity_memberships_group ON entity_memberships(group_type, group_id)"
+    )
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_entity_memberships_active ON entity_memberships(left_at)")
     conn.commit()
 
@@ -190,7 +194,7 @@ class WorkspaceDBRepository(BaseRepository):
         super().__init__(conn)
 
     @classmethod
-    def open(cls, ensure_schema: bool = True) -> 'WorkspaceDBRepository':
+    def open(cls, ensure_schema: bool = True) -> "WorkspaceDBRepository":
         """Open workspace.db and return a repository instance.
 
         Creates the database directory and schema if needed.
@@ -227,35 +231,29 @@ class WorkspaceDBRepository(BaseRepository):
     def get_project_by_path(self, trajectory_path: str) -> dict[str, Any] | None:
         """Look up a project by its filesystem path (the stable key)."""
         cursor = self._execute(
-            "SELECT * FROM global_projects WHERE trajectory_path = ? AND status = 'active'",
-            (str(trajectory_path),)
+            "SELECT * FROM global_projects WHERE trajectory_path = ? AND status = 'active'", (str(trajectory_path),)
         )
         row = cursor.fetchone()
         return dict(row) if row else None
 
     def get_project_by_id(self, project_id: str) -> dict[str, Any] | None:
         """Look up a project by UUID."""
-        cursor = self._execute(
-            "SELECT * FROM global_projects WHERE id = ?",
-            (project_id,)
-        )
+        cursor = self._execute("SELECT * FROM global_projects WHERE id = ?", (project_id,))
         row = cursor.fetchone()
         return dict(row) if row else None
 
     def get_project_by_name(self, name: str) -> dict[str, Any] | None:
         """Look up a project by name (case-insensitive)."""
         cursor = self._execute(
-            "SELECT * FROM global_projects WHERE LOWER(name) = LOWER(?) AND status = 'active'",
-            (name,)
+            "SELECT * FROM global_projects WHERE LOWER(name) = LOWER(?) AND status = 'active'", (name,)
         )
         row = cursor.fetchone()
         return dict(row) if row else None
 
-    def list_projects(self, status: str = 'active') -> list[dict[str, Any]]:
+    def list_projects(self, status: str = "active") -> list[dict[str, Any]]:
         """List all projects with given status."""
         cursor = self._execute(
-            "SELECT * FROM global_projects WHERE status = ? ORDER BY updated_timestamp DESC",
-            (status,)
+            "SELECT * FROM global_projects WHERE status = ? ORDER BY updated_timestamp DESC", (status,)
         )
         return [dict(row) for row in cursor.fetchall()]
 
@@ -264,11 +262,11 @@ class WorkspaceDBRepository(BaseRepository):
         project_id: str,
         name: str,
         trajectory_path: str,
-        description: str = '',
-        git_remote_url: str = '',
-        git_branch: str = 'main',
-        status: str = 'active',
-        project_type: str = 'product',
+        description: str = "",
+        git_remote_url: str = "",
+        git_branch: str = "main",
+        status: str = "active",
+        project_type: str = "product",
         metadata: str | None = None,
     ) -> None:
         """Insert or update a project in the global registry."""
@@ -289,8 +287,19 @@ class WorkspaceDBRepository(BaseRepository):
                    metadata = excluded.metadata,
                    updated_timestamp = excluded.updated_timestamp
             """,
-            (project_id, name, description, str(trajectory_path),
-             git_remote_url, git_branch, status, project_type, metadata, now, now)
+            (
+                project_id,
+                name,
+                description,
+                str(trajectory_path),
+                git_remote_url,
+                git_branch,
+                status,
+                project_type,
+                metadata,
+                now,
+                now,
+            ),
         )
         self.commit()
 
@@ -350,26 +359,18 @@ class WorkspaceDBRepository(BaseRepository):
         params.append(time.time())
         params.append(project_id)
 
-        self._execute(
-            f"UPDATE global_projects SET {', '.join(updates)} WHERE id = ?",
-            tuple(params)
-        )
+        self._execute(f"UPDATE global_projects SET {', '.join(updates)} WHERE id = ?", tuple(params))
         self.commit()
 
     # --- instance_bindings ---
 
     def get_instance_binding(self, instance_id: str) -> dict[str, Any] | None:
         """Get the project binding for a TMUX pane instance."""
-        cursor = self._execute(
-            "SELECT * FROM instance_bindings WHERE instance_id = ?",
-            (instance_id,)
-        )
+        cursor = self._execute("SELECT * FROM instance_bindings WHERE instance_id = ?", (instance_id,))
         row = cursor.fetchone()
         return dict(row) if row else None
 
-    def set_instance_binding(
-        self, instance_id: str, project_id: str, project_path: str
-    ) -> None:
+    def set_instance_binding(self, instance_id: str, project_id: str, project_path: str) -> None:
         """Bind a TMUX pane instance to a project."""
         self._execute(
             """INSERT INTO instance_bindings (instance_id, project_id, project_path, bound_timestamp)
@@ -379,7 +380,7 @@ class WorkspaceDBRepository(BaseRepository):
                    project_path = excluded.project_path,
                    bound_timestamp = excluded.bound_timestamp
             """,
-            (instance_id, project_id, str(project_path), time.time())
+            (instance_id, project_id, str(project_path), time.time()),
         )
         self.commit()
 
@@ -405,8 +406,7 @@ class WorkspaceDBRepository(BaseRepository):
                    current_project_id = excluded.current_project_id,
                    instance_id = excluded.instance_id
             """,
-            (session_id, ai_id, project_id, project_id,
-             instance_id, parent_session_id, now, now)
+            (session_id, ai_id, project_id, project_id, instance_id, parent_session_id, now, now),
         )
         self.commit()
 
@@ -419,7 +419,7 @@ class WorkspaceDBRepository(BaseRepository):
         artifact_source: str,
         entity_type: str,
         entity_id: str,
-        relationship: str = 'about',
+        relationship: str = "about",
         relevance: float = 1.0,
         discovered_via: str | None = None,
         engagement_id: str | None = None,
@@ -428,6 +428,7 @@ class WorkspaceDBRepository(BaseRepository):
     ) -> str | None:
         """Link an artifact to a CRM entity. Returns the link ID or None on conflict."""
         import uuid
+
         link_id = str(uuid.uuid4())
         try:
             self._execute(
@@ -437,24 +438,30 @@ class WorkspaceDBRepository(BaseRepository):
                     created_at, created_by_ai)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (link_id, artifact_type, artifact_id, artifact_source,
-                 entity_type, entity_id, relationship, relevance,
-                 discovered_via, engagement_id, transaction_id,
-                 time.time(), created_by_ai)
+                (
+                    link_id,
+                    artifact_type,
+                    artifact_id,
+                    artifact_source,
+                    entity_type,
+                    entity_id,
+                    relationship,
+                    relevance,
+                    discovered_via,
+                    engagement_id,
+                    transaction_id,
+                    time.time(),
+                    created_by_ai,
+                ),
             )
             self.commit()
             return link_id
         except sqlite3.IntegrityError:
             return None
 
-    def get_entity_artifacts_by_transaction(
-        self, transaction_id: str
-    ) -> list[dict[str, Any]]:
+    def get_entity_artifacts_by_transaction(self, transaction_id: str) -> list[dict[str, Any]]:
         """Get all entity-artifact links for a given transaction."""
-        cursor = self._execute(
-            "SELECT * FROM entity_artifacts WHERE transaction_id = ?",
-            (transaction_id,)
-        )
+        cursor = self._execute("SELECT * FROM entity_artifacts WHERE transaction_id = ?", (transaction_id,))
         return [dict(row) for row in cursor.fetchall()]
 
     def get_entity_artifacts_by_entity(
@@ -468,7 +475,7 @@ class WorkspaceDBRepository(BaseRepository):
             """SELECT * FROM entity_artifacts
                WHERE entity_type = ? AND entity_id = ?
                ORDER BY created_at DESC LIMIT ?""",
-            (entity_type, entity_id, limit)
+            (entity_type, entity_id, limit),
         )
         return [dict(row) for row in cursor.fetchall()]
 
@@ -482,7 +489,7 @@ class WorkspaceDBRepository(BaseRepository):
             """SELECT * FROM entity_artifacts
                WHERE engagement_id = ?
                ORDER BY created_at DESC LIMIT ?""",
-            (engagement_id, limit)
+            (engagement_id, limit),
         )
         return [dict(row) for row in cursor.fetchall()]
 
@@ -491,7 +498,7 @@ class WorkspaceDBRepository(BaseRepository):
     def list_entities(
         self,
         entity_type: str | None = None,
-        status: str = 'active',
+        status: str = "active",
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         """List entities from the registry.
@@ -507,21 +514,18 @@ class WorkspaceDBRepository(BaseRepository):
         if entity_type:
             where.append("entity_type = ?")
             params.append(entity_type)
-        if status != 'all':
+        if status != "all":
             where.append("status = ?")
             params.append(status)
         where_clause = ("WHERE " + " AND ".join(where)) if where else ""
         params.append(limit)
         cursor = self._execute(
-            f"SELECT * FROM entity_registry {where_clause} "
-            f"ORDER BY updated_at DESC, created_at DESC LIMIT ?",
+            f"SELECT * FROM entity_registry {where_clause} ORDER BY updated_at DESC, created_at DESC LIMIT ?",
             tuple(params),
         )
         return [dict(row) for row in cursor.fetchall()]
 
-    def get_entity(
-        self, entity_type: str, entity_id: str
-    ) -> dict[str, Any] | None:
+    def get_entity(self, entity_type: str, entity_id: str) -> dict[str, Any] | None:
         """Get a single entity by (type, id). Returns None if not found.
 
         Supports prefix-match on entity_id (8+ chars) when no exact match —
@@ -554,7 +558,7 @@ class WorkspaceDBRepository(BaseRepository):
         source_table: str,
         description: str | None = None,
         emoji_state: str | None = None,
-        status: str = 'active',
+        status: str = "active",
         metadata: str | None = None,
     ) -> None:
         """Insert or update an entity_registry row by (entity_type, entity_id).
@@ -582,9 +586,17 @@ class WorkspaceDBRepository(BaseRepository):
                 metadata = excluded.metadata
             """,
             (
-                entity_type, entity_id, display_name, description,
-                source_db, source_table, emoji_state, status,
-                now, now, metadata,
+                entity_type,
+                entity_id,
+                display_name,
+                description,
+                source_db,
+                source_table,
+                emoji_state,
+                status,
+                now,
+                now,
+                metadata,
             ),
         )
         self.commit()
@@ -602,8 +614,7 @@ class WorkspaceDBRepository(BaseRepository):
         response → mark revoked locally' without rewriting the metadata.
         """
         cursor = self._execute(
-            "UPDATE entity_registry SET status = ?, updated_at = ? "
-            "WHERE entity_type = ? AND entity_id = ?",
+            "UPDATE entity_registry SET status = ?, updated_at = ? WHERE entity_type = ? AND entity_id = ?",
             (status, time.time(), entity_type, entity_id),
         )
         self.commit()
@@ -613,7 +624,7 @@ class WorkspaceDBRepository(BaseRepository):
         self,
         query: str,
         entity_type: str | None = None,
-        status: str = 'active',
+        status: str = "active",
         limit: int = 50,
     ) -> list[dict[str, Any]]:
         """Text-search entities by display_name + description.
@@ -627,7 +638,7 @@ class WorkspaceDBRepository(BaseRepository):
         if entity_type:
             where.append("entity_type = ?")
             params.append(entity_type)
-        if status != 'all':
+        if status != "all":
             where.append("status = ?")
             params.append(status)
         params.append(limit)
@@ -638,9 +649,7 @@ class WorkspaceDBRepository(BaseRepository):
         )
         return [dict(row) for row in cursor.fetchall()]
 
-    def get_entity_memberships(
-        self, entity_type: str, entity_id: str
-    ) -> dict[str, list[dict[str, Any]]]:
+    def get_entity_memberships(self, entity_type: str, entity_id: str) -> dict[str, list[dict[str, Any]]]:
         """Get incoming + outgoing membership edges for an entity.
 
         Returns:
@@ -705,8 +714,11 @@ class WorkspaceDBRepository(BaseRepository):
         while frontier:
             ntype, nid, depth = frontier.pop(0)
             if depth >= max_depth:
-                if depth == max_depth and self.get_entity_memberships(ntype, nid)["member_of"] + \
-                                          self.get_entity_memberships(ntype, nid)["members"]:
+                if (
+                    depth == max_depth
+                    and self.get_entity_memberships(ntype, nid)["member_of"]
+                    + self.get_entity_memberships(ntype, nid)["members"]
+                ):
                     truncated = True
                 continue
             memberships = self.get_entity_memberships(ntype, nid)

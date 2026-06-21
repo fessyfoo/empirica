@@ -16,7 +16,7 @@ from .handoff_validator import HandoffValidator
 from .rehydration import EpistemicRehydration
 
 __all__ = [
-    'CoherenceValidator',
-    'EpistemicRehydration',
-    'HandoffValidator',
+    "CoherenceValidator",
+    "EpistemicRehydration",
+    "HandoffValidator",
 ]

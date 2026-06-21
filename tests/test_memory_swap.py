@@ -121,7 +121,8 @@ class TestSwapMemory:
         _seed_memory_dir(active_project, {"MEMORY.md": "y"}, fake_home)
 
         swap_memory(
-            harness_project, active_project,
+            harness_project,
+            active_project,
             claude_session_id="abc-123",
             transaction_id="tx-456",
         )

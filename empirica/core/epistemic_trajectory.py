@@ -7,6 +7,7 @@ This module enables:
 - Multi-agent learning sharing
 - Skill gap early detection
 """
+
 from __future__ import annotations
 
 import json
@@ -109,15 +110,11 @@ def extract_trajectory(session_id: str, db: SessionDatabase) -> dict[str, Any] |
     deltas = compute_deltas(pre_vectors, post_vectors)
 
     # Get mistakes count for this session
-    mistakes = db.conn.execute(
-        "SELECT COUNT(*) FROM mistakes_made WHERE session_id = ?",
-        (session_id,)
-    ).fetchone()[0]
+    mistakes = db.conn.execute("SELECT COUNT(*) FROM mistakes_made WHERE session_id = ?", (session_id,)).fetchone()[0]
 
     # Check if investigation phase happened (any CHECK gates)
     check_count = db.conn.execute(
-        "SELECT COUNT(*) FROM reflexes WHERE session_id = ? AND phase = 'CHECK'",
-        (session_id,)
+        "SELECT COUNT(*) FROM reflexes WHERE session_id = ? AND phase = 'CHECK'", (session_id,)
     ).fetchone()[0]
 
     # Build complete trajectory
@@ -126,23 +123,19 @@ def extract_trajectory(session_id: str, db: SessionDatabase) -> dict[str, Any] |
         "ai_id": session["ai_id"],
         "timestamp": postflight["timestamp"],
         "task_description": postflight.get("reasoning", "No description"),
-
         # Flattened vectors for filtering
         "preflight": flatten_vectors(pre_vectors),
         "postflight": flatten_vectors(post_vectors),
         "deltas": deltas,
-
         # Calibration metadata
         "calibration_accuracy": postflight.get("calibration_accuracy", "unknown"),
         "investigation_phase": check_count > 0,
         "mistakes_count": mistakes,
-
         # Outcome
         "completion": post_vectors.get("execution", {}).get("completion", 0.0),
         "impact": post_vectors.get("execution", {}).get("impact", 0.0),
-
         # Combined reasoning for embedding
-        "reasoning_combined": f"{preflight.get('reasoning', '')} {postflight.get('reasoning', '')}"
+        "reasoning_combined": f"{preflight.get('reasoning', '')} {postflight.get('reasoning', '')}",
     }
 
     return trajectory
@@ -170,10 +163,7 @@ def store_trajectory(project_id: str, session_id: str, db: SessionDatabase) -> b
     item = {
         "id": f"session_{session_id}",
         "text": trajectory["reasoning_combined"],
-        "metadata": {
-            k: v for k, v in trajectory.items()
-            if k != "reasoning_combined"
-        }
+        "metadata": {k: v for k, v in trajectory.items() if k != "reasoning_combined"},
     }
 
     try:
@@ -189,7 +179,7 @@ def search_trajectories(
     query: str,
     min_learning_delta: float | None = None,
     calibration_quality: str | None = None,
-    limit: int = 5
+    limit: int = 5,
 ) -> list[dict[str, Any]]:
     """
     Search epistemic learning trajectories with optional filters.

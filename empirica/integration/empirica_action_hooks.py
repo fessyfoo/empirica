@@ -25,6 +25,7 @@ from typing import Any
 REALTIME_DIR = Path("/tmp/empirica_realtime")  # noqa: S108 — ephemeral IPC dir for tmux panels
 REALTIME_DIR.mkdir(exist_ok=True)
 
+
 class EmpiricaActionHooks:
     """Action hooks that feed tmux panels in real-time"""
 
@@ -43,33 +44,31 @@ class EmpiricaActionHooks:
                 "epistemic_uncertainty": {
                     "KNOW": unc.get("KNOW", unc.get("know", 0.5)),
                     "DO": unc.get("DO", unc.get("do", 0.5)),
-                    "CONTEXT": unc.get("CONTEXT", unc.get("context", 0.5))
+                    "CONTEXT": unc.get("CONTEXT", unc.get("context", 0.5)),
                 },
                 "epistemic_comprehension": {
                     "CLARITY": comp.get("CLARITY", comp.get("clarity", 0.5)),
                     "COHERENCE": comp.get("COHERENCE", comp.get("coherence", 0.5)),
                     "DENSITY": comp.get("DENSITY", comp.get("density", 0.5)),
-                    "SIGNAL": comp.get("SIGNAL", comp.get("signal", 0.5))
+                    "SIGNAL": comp.get("SIGNAL", comp.get("signal", 0.5)),
                 },
                 "execution_awareness": {
                     "STATE": exec_aw.get("STATE", exec_aw.get("state", 0.5)),
                     "CHANGE": exec_aw.get("CHANGE", exec_aw.get("change", 0.5)),
                     "COMPLETION": exec_aw.get("COMPLETION", exec_aw.get("completion", 0.5)),
-                    "IMPACT": exec_aw.get("IMPACT", exec_aw.get("impact", 0.5))
+                    "IMPACT": exec_aw.get("IMPACT", exec_aw.get("impact", 0.5)),
                 },
-                "engagement": {
-                    "ENGAGEMENT": engage.get("ENGAGEMENT", engage.get("engagement", 0.5))
-                },
+                "engagement": {"ENGAGEMENT": engage.get("ENGAGEMENT", engage.get("engagement", 0.5))},
                 "overall_confidence": state.get("overall_confidence", 0.5),
-                "ai_id": state.get("ai_id", "empirica_agent")
+                "ai_id": state.get("ai_id", "empirica_agent"),
             }
 
             output_file = REALTIME_DIR / "12d_vectors.json"
-            with open(output_file, 'w') as f:
+            with open(output_file, "w") as f:
                 json.dump(twelve_d_data, f, indent=2)
 
             # Trigger immediate pane update
-            trigger_pane_update('12d')
+            trigger_pane_update("12d")
 
         except Exception as e:
             print(f"Warning: Could not update 12D monitor feed: {e}")
@@ -86,38 +85,54 @@ class EmpiricaActionHooks:
                     "THINK": {
                         "status": "complete" if phase != "THINK" else "active",
                         "description": context.get("think_description", "Analyzing the task and requirements"),
-                        "active": phase == "THINK"
+                        "active": phase == "THINK",
                     },
                     "INVESTIGATE": {
-                        "status": "complete" if phase not in ["THINK", "INVESTIGATE"] else "active" if phase == "INVESTIGATE" else "pending",
-                        "description": context.get("investigate_description", "Gathering information and examining components"),
-                        "active": phase == "INVESTIGATE"
+                        "status": "complete"
+                        if phase not in ["THINK", "INVESTIGATE"]
+                        else "active"
+                        if phase == "INVESTIGATE"
+                        else "pending",
+                        "description": context.get(
+                            "investigate_description", "Gathering information and examining components"
+                        ),
+                        "active": phase == "INVESTIGATE",
                     },
                     "UNCERTAINTY": {
-                        "status": "active" if phase == "UNCERTAINTY" else "pending" if phase in ["THINK", "INVESTIGATE"] else "complete",
-                        "description": context.get("uncertainty_description", "Checking epistemic humility and calibrating confidence"),
-                        "active": phase == "UNCERTAINTY"
+                        "status": "active"
+                        if phase == "UNCERTAINTY"
+                        else "pending"
+                        if phase in ["THINK", "INVESTIGATE"]
+                        else "complete",
+                        "description": context.get(
+                            "uncertainty_description", "Checking epistemic humility and calibrating confidence"
+                        ),
+                        "active": phase == "UNCERTAINTY",
                     },
                     "CHECK": {
-                        "status": "active" if phase == "CHECK" else "pending" if phase in ["THINK", "INVESTIGATE", "UNCERTAINTY"] else "complete",
+                        "status": "active"
+                        if phase == "CHECK"
+                        else "pending"
+                        if phase in ["THINK", "INVESTIGATE", "UNCERTAINTY"]
+                        else "complete",
                         "description": "Verifying understanding and approach",
-                        "active": phase == "CHECK"
+                        "active": phase == "CHECK",
                     },
                     "ACT": {
                         "status": "active" if phase == "ACT" else "pending",
                         "description": "Executing with confidence",
-                        "active": phase == "ACT"
-                    }
+                        "active": phase == "ACT",
+                    },
                 },
-                "context": context
+                "context": context,
             }
 
             output_file = REALTIME_DIR / "cascade_status.json"
-            with open(output_file, 'w') as f:
+            with open(output_file, "w") as f:
                 json.dump(cascade_data, f, indent=2)
 
             # Trigger immediate pane update
-            trigger_pane_update('cascade')
+            trigger_pane_update("cascade")
 
         except Exception as e:
             print(f"Warning: Could not update cascade status feed: {e}")
@@ -139,7 +154,7 @@ class EmpiricaActionHooks:
                 "timestamp": time.time(),
                 "phase": phase,
                 "thought": thought,
-                "goal": goal or chain_data.get("current_goal", "Processing")
+                "goal": goal or chain_data.get("current_goal", "Processing"),
             }
 
             # Keep last 10 thoughts
@@ -148,11 +163,11 @@ class EmpiricaActionHooks:
             chain_data["current_phase"] = phase
             chain_data["last_updated"] = time.time()
 
-            with open(output_file, 'w') as f:
+            with open(output_file, "w") as f:
                 json.dump(chain_data, f, indent=2)
 
             # Trigger immediate pane update
-            trigger_pane_update('thought')
+            trigger_pane_update("thought")
 
         except Exception as e:
             print(f"Warning: Could not update chain of thought feed: {e}")
@@ -174,23 +189,23 @@ class EmpiricaActionHooks:
                     "snapshot_tokens": snapshot.get("snapshot_tokens", 0),
                     "ratio": snapshot.get("compression_ratio", 0.0),
                     "fidelity": snapshot.get("fidelity_score", 1.0),
-                    "information_loss": snapshot.get("information_loss_estimate", 0.0)
+                    "information_loss": snapshot.get("information_loss_estimate", 0.0),
                 },
                 "transfer": {
                     "count": snapshot.get("transfer_count", 0),
                     "reliability": snapshot.get("reliability", 1.0),
                     "should_refresh": snapshot.get("should_refresh", False),
-                    "refresh_reason": snapshot.get("refresh_reason")
+                    "refresh_reason": snapshot.get("refresh_reason"),
                 },
-                "created_at": snapshot.get("created_at", "")
+                "created_at": snapshot.get("created_at", ""),
             }
 
             output_file = REALTIME_DIR / "snapshot_status.json"
-            with open(output_file, 'w') as f:
+            with open(output_file, "w") as f:
                 json.dump(snapshot_data, f, indent=2)
 
             # Trigger immediate pane update
-            trigger_pane_update('snapshot')
+            trigger_pane_update("snapshot")
 
         except Exception as e:
             print(f"Warning: Could not update snapshot monitor feed: {e}")
@@ -222,6 +237,7 @@ class EmpiricaActionHooks:
             # 1. Write to central cache (persistent, multi-instance)
             try:
                 from empirica.core.statusline_cache import write_statusline_cache
+
                 write_statusline_cache(
                     session_id=session_id,
                     ai_id=ai_id,
@@ -246,23 +262,26 @@ class EmpiricaActionHooks:
                 "phase": phase,
                 "vectors": vectors or {},
                 "gate_decision": gate_decision,
-                "display_mode": os.getenv('EMPIRICA_STATUS_MODE', 'balanced')
+                "display_mode": os.getenv("EMPIRICA_STATUS_MODE", "balanced"),
             }
 
             output_file = REALTIME_DIR / f"statusline_{ai_id}.json"
-            with open(output_file, 'w') as f:
+            with open(output_file, "w") as f:
                 json.dump(statusline_data, f, indent=2)
 
             # Trigger statusline pane update
-            trigger_pane_update('statusline')
+            trigger_pane_update("statusline")
 
         except Exception as e:
             print(f"Warning: Could not update statusline cache: {e}")
 
+
 def track_component_usage(component_name: str):
     """Decorator to track when Empirica components are used"""
+
     def decorator(func: Callable) -> Callable:
         """Wrap function with component usage tracking."""
+
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             """Execute function with usage tracking."""
@@ -271,9 +290,7 @@ def track_component_usage(component_name: str):
 
             # Log usage
             hooks.update_chain_of_thought(
-                f"Using {component_name}",
-                "ACT",
-                goal=kwargs.get("goal", f"Running {component_name}")
+                f"Using {component_name}", "ACT", goal=kwargs.get("goal", f"Running {component_name}")
             )
 
             # Execute function
@@ -285,13 +302,18 @@ def track_component_usage(component_name: str):
                     hooks.update_12d_monitor(result)
 
             return result
+
         return wrapper
+
     return decorator
+
 
 def track_cascade_phase(phase: str, goal: str | None = None):
     """Decorator to track metacognitive cascade phases"""
+
     def decorator(func: Callable) -> Callable:
         """Wrap function with cascade phase tracking."""
+
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             """Execute function with phase tracking."""
@@ -307,20 +329,19 @@ def track_cascade_phase(phase: str, goal: str | None = None):
                 "INVESTIGATE": "Investigating components and gathering information",
                 "UNCERTAINTY": "Assessing uncertainty and confidence levels",
                 "CHECK": "Checking understanding and verifying approach",
-                "ACT": "Taking action with validated confidence"
+                "ACT": "Taking action with validated confidence",
             }
-            hooks.update_chain_of_thought(
-                phase_descriptions.get(phase, f"Phase: {phase}"),
-                phase,
-                actual_goal
-            )
+            hooks.update_chain_of_thought(phase_descriptions.get(phase, f"Phase: {phase}"), phase, actual_goal)
 
             # Execute function
             result = func(*args, **kwargs)
 
             return result
+
         return wrapper
+
     return decorator
+
 
 # Convenience functions for direct usage
 def log_cascade_phase(phase: str, goal: str, context: dict[str, Any] | None = None):
@@ -328,15 +349,18 @@ def log_cascade_phase(phase: str, goal: str, context: dict[str, Any] | None = No
     hooks = EmpiricaActionHooks()
     hooks.update_cascade_status(phase, goal, context or {})
 
+
 def log_12d_state(state: dict[str, Any]):
     """Directly log 12D monitor state"""
     hooks = EmpiricaActionHooks()
     hooks.update_12d_monitor(state)
 
+
 def log_thought(thought: str, phase: str = "ACT", goal: str | None = None):
     """Directly log a thought to chain"""
     hooks = EmpiricaActionHooks()
     hooks.update_chain_of_thought(thought, phase, goal)
+
 
 def log_statusline(
     session_id: str,
@@ -371,7 +395,10 @@ def log_statusline(
     """
     hooks = EmpiricaActionHooks()
     hooks.update_statusline_cache(
-        session_id, ai_id, phase, vectors,
+        session_id,
+        ai_id,
+        phase,
+        vectors,
         gate_decision=gate_decision,
         project_path=project_path,
         project_name=project_name,
@@ -381,11 +408,13 @@ def log_statusline(
         open_unknowns=open_unknowns,
     )
 
+
 # Auto-initialize tmux dashboard when action hooks are imported
 def initialize_tmux_dashboard():
     """Initialize tmux dashboard for real-time monitoring"""
     try:
         from tmux_dashboard_manager import TMuxDashboardManager  # pyright: ignore[reportMissingImports]
+
         manager = TMuxDashboardManager()
 
         # Only create if session doesn't exist
@@ -402,6 +431,7 @@ def initialize_tmux_dashboard():
         print(f"   ⚠️ TMux dashboard initialization failed: {e}")
         return False
 
+
 # Initialize on import
 if __name__ == "__main__":
     print("🔗 Empirica Action Hooks initialized")
@@ -414,6 +444,7 @@ if __name__ == "__main__":
     print("\n🖥️ Testing TMux Dashboard Integration:")
     initialize_tmux_dashboard()
 
+
 # Trigger-based pane updates (no polling)
 def trigger_pane_update(pane_name: str):
     """Trigger immediate tmux pane update after JSON file change"""
@@ -421,11 +452,11 @@ def trigger_pane_update(pane_name: str):
         import subprocess
 
         pane_map = {
-            '12d': 'empirica:dashboard.0',
-            'cascade': 'empirica:dashboard.1',
-            'thought': 'empirica:dashboard.2',
-            'snapshot': 'empirica:dashboard.1',  # Upper-right pane for snapshot dashboard
-            'statusline': 'empirica:statusline'  # Dedicated statusline pane for audit trail
+            "12d": "empirica:dashboard.0",
+            "cascade": "empirica:dashboard.1",
+            "thought": "empirica:dashboard.2",
+            "snapshot": "empirica:dashboard.1",  # Upper-right pane for snapshot dashboard
+            "statusline": "empirica:statusline",  # Dedicated statusline pane for audit trail
         }
 
         pane = pane_map.get(pane_name)
@@ -434,8 +465,7 @@ def trigger_pane_update(pane_name: str):
 
         # Send refresh command to pane (Ctrl+L to refresh current display)
         # Suppress stderr to avoid "can't find session" messages when tmux session doesn't exist
-        subprocess.run(['tmux', 'send-keys', '-t', pane, 'C-l'], check=False, capture_output=True)
+        subprocess.run(["tmux", "send-keys", "-t", pane, "C-l"], check=False, capture_output=True)
 
     except Exception:  # noqa: S110 — tmux pane refresh is best-effort; silent fail OK
         pass
-

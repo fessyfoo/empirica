@@ -63,8 +63,7 @@ def test_sync_runs_when_creds_present(caplog):
     assert args[1] == "https://example.com"
     assert args[2] == "ctx_test_key"
     # Result counts logged
-    assert any("2 added" in r.message and "1 updated" in r.message
-               for r in caplog.records)
+    assert any("2 added" in r.message and "1 updated" in r.message for r in caplog.records)
 
 
 def test_sync_skips_when_creds_missing(caplog):
@@ -143,5 +142,4 @@ def test_sync_unexpected_exception_is_swallowed(caplog):
     ):
         _sync_mesh_sharing_agreements()  # must not raise
 
-    assert any("skipped" in r.message and "simulated" in r.message
-               for r in caplog.records)
+    assert any("skipped" in r.message and "simulated" in r.message for r in caplog.records)

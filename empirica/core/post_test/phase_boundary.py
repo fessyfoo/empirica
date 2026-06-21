@@ -8,6 +8,7 @@ The CHECK gate is the natural boundary — it already separates investigation
 from action. Phase-aware calibration respects this boundary instead of
 treating the entire transaction as one undifferentiated block.
 """
+
 import json
 import logging
 
@@ -47,13 +48,16 @@ def detect_phase_boundary(session_id: str, db) -> dict:
         cursor = db.conn.cursor()
 
         # Get PREFLIGHT vectors and timestamp
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT timestamp, know, uncertainty, completion, context,
                    do, signal, coherence, engagement
             FROM reflexes
             WHERE session_id = ? AND phase = 'PREFLIGHT'
             ORDER BY timestamp DESC LIMIT 1
-        """, (session_id,))
+        """,
+            (session_id,),
+        )
         preflight_row = cursor.fetchone()
 
         if preflight_row:
@@ -70,13 +74,16 @@ def detect_phase_boundary(session_id: str, db) -> dict:
             }
 
         # Get all CHECK entries
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT timestamp, reflex_data, know, uncertainty, completion,
                    context, do, signal, coherence, engagement
             FROM reflexes
             WHERE session_id = ? AND phase = 'CHECK'
             ORDER BY timestamp ASC
-        """, (session_id,))
+        """,
+            (session_id,),
+        )
         check_rows = cursor.fetchall()
 
         if not check_rows:

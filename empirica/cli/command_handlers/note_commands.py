@@ -68,23 +68,35 @@ def handle_note_command(args) -> dict | int | None:
             "INSERT INTO notes (note_id, session_id, transaction_id, project_id, "
             "ai_id, text, tag, created_at, triaged) VALUES (?,?,?,?,?,?,?,?,0)",
             (
-                note_id, ctx["session_id"], ctx["transaction_id"],
-                ctx["project_id"], ctx["ai_id"], text, tag, time.time(),
+                note_id,
+                ctx["session_id"],
+                ctx["transaction_id"],
+                ctx["project_id"],
+                ctx["ai_id"],
+                text,
+                tag,
+                time.time(),
             ),
         )
         conn.commit()
 
         if output_format == "json":
-            print(json.dumps({
-                "ok": True, "note_id": note_id, "tag": tag,
-                "transaction_id": ctx["transaction_id"],
-            }))
+            print(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "note_id": note_id,
+                        "tag": tag,
+                        "transaction_id": ctx["transaction_id"],
+                    }
+                )
+            )
             return None
         print(f"📝 Noted{f' [{tag}]' if tag else ''}: {text}")
         print("   (surfaces at POSTFLIGHT for triage)")
         return None
     except Exception as e:
-        if (db is None or getattr(args, "output", "human") == "json"):
+        if db is None or getattr(args, "output", "human") == "json":
             print(json.dumps({"ok": False, "error": str(e)}))
         else:
             print(f"❌ Failed to record note: {e}")
@@ -105,8 +117,7 @@ def _query_untriaged(conn, ctx):
         ).fetchall()
     else:
         rows = conn.execute(
-            "SELECT note_id, text, tag, created_at FROM notes "
-            "WHERE session_id = ? AND triaged = 0 ORDER BY created_at",
+            "SELECT note_id, text, tag, created_at FROM notes WHERE session_id = ? AND triaged = 0 ORDER BY created_at",
             (ctx["session_id"],),
         ).fetchall()
     return rows
@@ -114,10 +125,7 @@ def _query_untriaged(conn, ctx):
 
 def _list_notes(conn, ctx, output_format) -> dict | int | None:
     rows = _query_untriaged(conn, ctx)
-    notes = [
-        {"note_id": r[0], "text": r[1], "tag": r[2], "created_at": r[3]}
-        for r in rows
-    ]
+    notes = [{"note_id": r[0], "text": r[1], "tag": r[2], "created_at": r[3]} for r in rows]
     if output_format == "json":
         print(json.dumps({"ok": True, "count": len(notes), "notes": notes}))
         return None

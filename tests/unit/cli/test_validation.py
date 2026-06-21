@@ -40,8 +40,7 @@ def test_preflight_input_rejects_unknown_work_type():
 
 def test_preflight_input_accepts_existing_work_types():
     """Regression check: existing work_types should still validate."""
-    for wt in ("code", "infra", "research", "release", "debug",
-               "config", "docs", "data", "comms", "design", "audit"):
+    for wt in ("code", "infra", "research", "release", "debug", "config", "docs", "data", "comms", "design", "audit"):
         payload = {
             "session_id": "abc",
             "vectors": {"know": 0.5, "uncertainty": 0.5},

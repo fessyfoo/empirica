@@ -32,6 +32,7 @@ from empirica.core.post_test.mapper import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _git_item(value: float, vectors: list[str]) -> EvidenceItem:
     return EvidenceItem(
         source="git",
@@ -80,10 +81,22 @@ def _bundle(items: list[EvidenceItem]) -> EvidenceBundle:
 
 ACTUAL_SOURCE_IDS = {
     # Universal collectors (collector.py)
-    "noetic", "goals", "artifacts", "issues", "triage", "codebase_model",
-    "non_git_files", "sentinel", "pytest", "git", "code_quality",
+    "noetic",
+    "goals",
+    "artifacts",
+    "issues",
+    "triage",
+    "codebase_model",
+    "non_git_files",
+    "sentinel",
+    "pytest",
+    "git",
+    "code_quality",
     # Prose profile collectors (prose_collector.py)
-    "prose_quality", "document_metrics", "source_quality", "action_verification",
+    "prose_quality",
+    "document_metrics",
+    "source_quality",
+    "action_verification",
     # Web profile collector (web_collector.py)
     "web",
 }
@@ -134,16 +147,19 @@ class TestWorkTypeRelevanceKeys:
 # Exclusion semantics
 # ---------------------------------------------------------------------------
 
+
 class TestExclusionSemantic:
     """A relevance value of 0.0 means the source is filtered from the
     evidence pool entirely, not just down-weighted to near-zero."""
 
     def test_excluded_source_does_not_contribute_to_grounded(self):
         """For work_type=release, a git evidence item should be excluded entirely."""
-        bundle = _bundle([
-            _git_item(0.05, ["do", "completion"]),       # excluded for release
-            _goals_item(0.95, ["do", "completion"]),     # included
-        ])
+        bundle = _bundle(
+            [
+                _git_item(0.05, ["do", "completion"]),  # excluded for release
+                _goals_item(0.95, ["do", "completion"]),  # included
+            ]
+        )
         mapper = EvidenceMapper()
         assessment = mapper.map_evidence(
             bundle,
@@ -166,10 +182,12 @@ class TestExclusionSemantic:
         an average ~0.5 — which is exactly the bias we observed. This test
         ensures that bug doesn't come back.
         """
-        bundle = _bundle([
-            _git_item(0.0, ["do"]),     # would have dragged grounded down
-            _goals_item(1.0, ["do"]),
-        ])
+        bundle = _bundle(
+            [
+                _git_item(0.0, ["do"]),  # would have dragged grounded down
+                _goals_item(1.0, ["do"]),
+            ]
+        )
         mapper = EvidenceMapper()
         assessment = mapper.map_evidence(
             bundle,
@@ -186,6 +204,7 @@ class TestExclusionSemantic:
 # Insufficient evidence reporting
 # ---------------------------------------------------------------------------
 
+
 class TestInsufficientEvidence:
     """Vectors that had ALL their evidence excluded should be reported as
     insufficient_evidence and should NOT appear in grounded or gaps.
@@ -194,10 +213,12 @@ class TestInsufficientEvidence:
     def test_vector_with_only_excluded_sources_is_insufficient(self):
         """If 'change' is only supported by git, and git is excluded, change
         should be insufficient — not silently zero."""
-        bundle = _bundle([
-            _git_item(0.0, ["change"]),     # only source for change, excluded
-            _goals_item(1.0, ["completion"]),  # different vector, included
-        ])
+        bundle = _bundle(
+            [
+                _git_item(0.0, ["change"]),  # only source for change, excluded
+                _goals_item(1.0, ["completion"]),  # different vector, included
+            ]
+        )
         mapper = EvidenceMapper()
         assessment = mapper.map_evidence(
             bundle,
@@ -211,10 +232,12 @@ class TestInsufficientEvidence:
     def test_insufficient_does_not_pollute_score(self):
         """A vector marked insufficient should not contribute to the
         overall calibration_score."""
-        bundle = _bundle([
-            _git_item(0.0, ["change"]),
-            _goals_item(1.0, ["completion"]),
-        ])
+        bundle = _bundle(
+            [
+                _git_item(0.0, ["change"]),
+                _goals_item(1.0, ["completion"]),
+            ]
+        )
         mapper = EvidenceMapper()
         assessment = mapper.map_evidence(
             bundle,
@@ -228,10 +251,12 @@ class TestInsufficientEvidence:
     def test_multi_source_vector_with_one_included_is_not_insufficient(self):
         """If a vector has evidence from BOTH excluded and included sources,
         it should still be grounded (using only the included source)."""
-        bundle = _bundle([
-            _git_item(0.0, ["do"]),       # excluded
-            _goals_item(1.0, ["do"]),     # included
-        ])
+        bundle = _bundle(
+            [
+                _git_item(0.0, ["do"]),  # excluded
+                _goals_item(1.0, ["do"]),  # included
+            ]
+        )
         mapper = EvidenceMapper()
         assessment = mapper.map_evidence(
             bundle,
@@ -245,10 +270,12 @@ class TestInsufficientEvidence:
     def test_default_work_type_does_not_exclude(self):
         """For work_type=code (or None), nothing is excluded — default
         behavior preserved."""
-        bundle = _bundle([
-            _git_item(0.5, ["do"]),
-            _goals_item(0.8, ["do"]),
-        ])
+        bundle = _bundle(
+            [
+                _git_item(0.5, ["do"]),
+                _goals_item(0.8, ["do"]),
+            ]
+        )
         mapper = EvidenceMapper()
         assessment = mapper.map_evidence(
             bundle,
@@ -263,9 +290,11 @@ class TestInsufficientEvidence:
 
     def test_no_work_type_does_not_exclude(self):
         """work_type=None preserves default (all sources at 1.0)."""
-        bundle = _bundle([
-            _git_item(0.3, ["do"]),
-        ])
+        bundle = _bundle(
+            [
+                _git_item(0.3, ["do"]),
+            ]
+        )
         mapper = EvidenceMapper()
         assessment = mapper.map_evidence(
             bundle,
@@ -279,6 +308,7 @@ class TestInsufficientEvidence:
 # ---------------------------------------------------------------------------
 # Trajectory tracker integration
 # ---------------------------------------------------------------------------
+
 
 class TestTrajectoryTrackerSkipsInsufficient:
     """The trajectory tracker should skip insufficient_evidence_vectors
@@ -356,6 +386,7 @@ class TestTrajectoryTrackerSkipsInsufficient:
 # Regression: drift pattern from this session
 # ---------------------------------------------------------------------------
 
+
 class TestSessionDriftRegression:
     """Reproduces the specific bias pattern observed in session 659f0619 on
     2026-04-07. With the fix, release-typed transactions should NOT show
@@ -372,11 +403,13 @@ class TestSessionDriftRegression:
         """
         # Simulate the conditions: high self-report, git sees no changes
         # (mechanical version sweep), goals show completion.
-        bundle = _bundle([
-            _git_item(0.0, ["completion", "do", "change"]),   # version sweep
-            _goals_item(1.0, ["completion", "do"]),           # release goal complete
-            _artifacts_item(0.7, ["completion"]),             # findings logged
-        ])
+        bundle = _bundle(
+            [
+                _git_item(0.0, ["completion", "do", "change"]),  # version sweep
+                _goals_item(1.0, ["completion", "do"]),  # release goal complete
+                _artifacts_item(0.7, ["completion"]),  # findings logged
+            ]
+        )
         mapper = EvidenceMapper()
         assessment = mapper.map_evidence(
             bundle,
@@ -460,10 +493,22 @@ def test_remote_ops_covers_all_known_collector_sources():
     might emit, so nothing slips through with the default 1.0 multiplier."""
     weights = WORK_TYPE_RELEVANCE["remote-ops"]
     expected_sources = {
-        "artifacts", "noetic", "sentinel", "goals", "issues", "triage",
-        "codebase_model", "non_git_files", "git", "code_quality",
-        "pytest", "source_quality", "prose_quality", "document_metrics",
-        "action_verification", "web",
+        "artifacts",
+        "noetic",
+        "sentinel",
+        "goals",
+        "issues",
+        "triage",
+        "codebase_model",
+        "non_git_files",
+        "git",
+        "code_quality",
+        "pytest",
+        "source_quality",
+        "prose_quality",
+        "document_metrics",
+        "action_verification",
+        "web",
     }
     missing = expected_sources - set(weights.keys())
     assert not missing, (

@@ -44,6 +44,7 @@ def _resolve_project_root(explicit: Path | None) -> Path:
         return explicit.resolve()
     try:
         from empirica.utils.session_resolver import InstanceResolver
+
         resolved = InstanceResolver.project_path()
         if resolved:
             return Path(resolved).resolve()
@@ -146,7 +147,11 @@ def _execute_read(op: ReadOperation, project_root: Path, budgets: BatchBudgets) 
     try:
         text = data.decode("utf-8")
     except UnicodeDecodeError:
-        return ReadResult(path=op.path, lines=op.lines, error="binary or non-UTF-8 file (use Read tool with explicit encoding instead)")
+        return ReadResult(
+            path=op.path,
+            lines=op.lines,
+            error="binary or non-UTF-8 file (use Read tool with explicit encoding instead)",
+        )
 
     sliced, slice_err = _slice_lines(text, op.lines)
     if slice_err:
@@ -182,7 +187,7 @@ def _slice_lines(text: str, spec: str | None) -> tuple[str, str | None]:
         start = end = int(spec)
     start = max(1, min(start, total))
     end = max(start, min(end, total))
-    return "".join(lines[start - 1:end]), None
+    return "".join(lines[start - 1 : end]), None
 
 
 def _execute_grep(op: GrepOperation, project_root: Path, budgets: BatchBudgets) -> GrepResult:
@@ -199,7 +204,11 @@ def _execute_grep(op: GrepOperation, project_root: Path, budgets: BatchBudgets) 
 
 
 def _execute_grep_rg(
-    op: GrepOperation, grep_root: Path, rg_path: str, cap: int, started: float,
+    op: GrepOperation,
+    grep_root: Path,
+    rg_path: str,
+    cap: int,
+    started: float,
 ) -> GrepResult:
     """ripgrep-backed grep — fast path."""
     cmd = [rg_path, "--json", "--max-count", str(cap)]
@@ -211,7 +220,11 @@ def _execute_grep_rg(
 
     try:
         proc = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=GREP_TIMEOUT_SECONDS, check=False,
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=GREP_TIMEOUT_SECONDS,
+            check=False,
         )
     except subprocess.TimeoutExpired:
         return GrepResult(pattern=op.pattern, glob=op.glob, error="grep timed out")
@@ -238,7 +251,7 @@ def _execute_grep_rg(
         elif kind == "context" and op.context > 0:
             pending_before.append(_extract_text(data))
             if len(pending_before) > op.context:
-                pending_before = pending_before[-op.context:]
+                pending_before = pending_before[-op.context :]
         elif kind == "match":
             if len(matches) >= cap:
                 truncated = True
@@ -314,8 +327,8 @@ def _execute_grep_python(op: GrepOperation, grep_root: Path, cap: int, started: 
                 if len(matches) >= cap:
                     truncated = True
                     break
-                ctx_before = lines[max(0, i - op.context):i] if op.context else []
-                ctx_after = lines[i + 1:i + 1 + op.context] if op.context else []
+                ctx_before = lines[max(0, i - op.context) : i] if op.context else []
+                ctx_after = lines[i + 1 : i + 1 + op.context] if op.context else []
                 matches.append(
                     GrepMatch(
                         file=_relative_or_abs(str(file_path), grep_root),
@@ -384,15 +397,21 @@ def _resolve_glob(root: Path, pattern: str, max_files: int):
 
 
 def _execute_investigate(
-    op: InvestigateOperation, project_root: Path, budgets: BatchBudgets,
+    op: InvestigateOperation,
+    project_root: Path,
+    budgets: BatchBudgets,
 ) -> InvestigateResult:
     """Semantic search via empirica project-search CLI."""
     cap = min(op.limit, budgets.max_investigate_results)
     cmd = [
-        "empirica", "project-search",
-        "--task", op.query,
-        "--limit", str(cap),
-        "--output", "json",
+        "empirica",
+        "project-search",
+        "--task",
+        op.query,
+        "--limit",
+        str(cap),
+        "--output",
+        "json",
     ]
     if op.scope == "global":
         cmd.append("--global")
@@ -412,9 +431,12 @@ def _execute_investigate(
         return InvestigateResult(query=op.query, scope=op.scope, error="empirica CLI not found in PATH")
 
     if not proc.stdout.strip():
-        return InvestigateResult(query=op.query, scope=op.scope, error=f"empty result (stderr: {proc.stderr.strip()[:200]})")
+        return InvestigateResult(
+            query=op.query, scope=op.scope, error=f"empty result (stderr: {proc.stderr.strip()[:200]})"
+        )
 
     import json as _json
+
     try:
         payload = _json.loads(proc.stdout)
     except _json.JSONDecodeError:

@@ -86,7 +86,8 @@ def test_post_writes_url_and_token_preserves_topic(tmp_path, monkeypatch):
 
 
 def test_post_token_only_preserves_url_and_topic(tmp_path, monkeypatch):
-    _seed_creds(tmp_path,
+    _seed_creds(
+        tmp_path,
         "ntfy:\n"
         "  url: https://ntfy.existing\n"
         "  topic: empirica-orchestration-events-david\n"
@@ -108,11 +109,9 @@ def test_post_token_only_preserves_url_and_topic(tmp_path, monkeypatch):
 
 
 def test_post_url_only_preserves_token_and_topic(tmp_path, monkeypatch):
-    _seed_creds(tmp_path,
-        "ntfy:\n"
-        "  url: https://ntfy.old\n"
-        "  topic: empirica-orchestration-events-david\n"
-        "  token: tk_keep_this_99XY\n",
+    _seed_creds(
+        tmp_path,
+        "ntfy:\n  url: https://ntfy.old\n  topic: empirica-orchestration-events-david\n  token: tk_keep_this_99XY\n",
     )
     client = _mk_app_with_creds_dir(tmp_path, monkeypatch)
 
@@ -149,7 +148,8 @@ def test_post_never_returns_full_token(tmp_path, monkeypatch):
 
 
 def test_post_does_not_clobber_cortex_block(tmp_path, monkeypatch):
-    _seed_creds(tmp_path,
+    _seed_creds(
+        tmp_path,
         "cortex:\n"
         "  url: https://cortex.example\n"
         "  api_key: ctx_real_key_dontTouch\n"
@@ -172,7 +172,8 @@ def test_post_does_not_clobber_cortex_block(tmp_path, monkeypatch):
 
 
 def test_get_returns_url_topic_preview(tmp_path, monkeypatch):
-    _seed_creds(tmp_path,
+    _seed_creds(
+        tmp_path,
         "ntfy:\n"
         "  url: https://ntfy.example\n"
         "  topic: empirica-orchestration-events-david\n"

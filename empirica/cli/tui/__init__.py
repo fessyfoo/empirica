@@ -7,4 +7,4 @@ clickable + keyboard-driven controls for every state-changing verb.
 
 from empirica.cli.tui.cockpit_app import CockpitApp, run_tui
 
-__all__ = ['CockpitApp', 'run_tui']
+__all__ = ["CockpitApp", "run_tui"]

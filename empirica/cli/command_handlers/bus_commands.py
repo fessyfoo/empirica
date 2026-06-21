@@ -80,14 +80,17 @@ def handle_bus_register_command(args) -> int:
         capabilities=capabilities,
         subscribes=subscribes,
     )
-    return _output({
-        "ok": True,
-        "instance_id": info.instance_id,
-        "type": info.instance_type,
-        "capabilities": info.capabilities,
-        "subscribes": info.subscribes,
-        "registered_at": info.registered_at,
-    }, args.output)
+    return _output(
+        {
+            "ok": True,
+            "instance_id": info.instance_id,
+            "type": info.instance_type,
+            "capabilities": info.capabilities,
+            "subscribes": info.subscribes,
+            "registered_at": info.registered_at,
+        },
+        args.output,
+    )
 
 
 def handle_bus_dispatch_command(args) -> int:
@@ -186,7 +189,7 @@ def handle_bus_subscribe_command(args) -> int:
                     "from_instance": d.from_instance,
                     "payload": d.payload,
                     "correlation_id": d.correlation_id,
-                    "priority": d.priority.value if hasattr(d.priority, 'value') else d.priority,
+                    "priority": d.priority.value if hasattr(d.priority, "value") else d.priority,
                     "message_id": d.metadata.get("_message_id"),
                     "received_at": time.time(),
                 }

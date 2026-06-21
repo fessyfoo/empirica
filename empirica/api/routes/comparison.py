@@ -21,19 +21,21 @@ def get_ai_learning_curve(ai_id: str):
     request.args.get("since")
     min(int(request.args.get("limit", 100)), 1000)
 
-    return jsonify({
-        "ok": True,
-        "ai_id": ai_id,
-        "total_sessions": 0,
-        "time_period": "unknown",
-        "learning_trajectory": [],
-        "statistics": {
-            "average_know": 0.0,
-            "average_uncertainty": 0.0,
-            "learning_velocity": 0.0,
-            "trend": "unknown"
+    return jsonify(
+        {
+            "ok": True,
+            "ai_id": ai_id,
+            "total_sessions": 0,
+            "time_period": "unknown",
+            "learning_trajectory": [],
+            "statistics": {
+                "average_know": 0.0,
+                "average_uncertainty": 0.0,
+                "learning_velocity": 0.0,
+                "trend": "unknown",
+            },
         }
-    })
+    )
 
 
 @bp.route("/compare-ais", methods=["GET"])
@@ -57,18 +59,14 @@ def compare_ais():
 
     ai_list = [a.strip() for a in ai_ids.split(",")] if ai_ids else []
 
-    return jsonify({
-        "ok": True,
-        "comparison": [
-            {
-                "ai_id": ai_id,
-                "average_know": 0.0,
-                "average_uncertainty": 0.0,
-                "sessions": 0,
-                "trend": "unknown"
-            }
-            for ai_id in ai_list
-        ],
-        "best_performer": "unknown",
-        "most_improving": "unknown"
-    })
+    return jsonify(
+        {
+            "ok": True,
+            "comparison": [
+                {"ai_id": ai_id, "average_know": 0.0, "average_uncertainty": 0.0, "sessions": 0, "trend": "unknown"}
+                for ai_id in ai_list
+            ],
+            "best_performer": "unknown",
+            "most_improving": "unknown",
+        }
+    )

@@ -117,10 +117,7 @@ def extract_api_key() -> str | None:
     # Check query parameter (fallback, logs warning)
     api_key = request.args.get("api_key")
     if api_key:
-        logger.warning(
-            f"API key provided via query parameter for {request.path} - "
-            "use X-API-Key header instead"
-        )
+        logger.warning(f"API key provided via query parameter for {request.path} - use X-API-Key header instead")
         return api_key
 
     return None
@@ -136,6 +133,7 @@ def require_api_key(f: Callable) -> Callable:
         def list_sessions():
             ...
     """
+
     @wraps(f)
     def decorated(*args, **kwargs):
         # Skip auth if disabled
@@ -145,32 +143,33 @@ def require_api_key(f: Callable) -> Callable:
         # Check if API key is configured
         if not _get_api_key():
             logger.error("API authentication enabled but EMPIRICA_API_KEY not set")
-            return jsonify({
-                "ok": False,
-                "error": "server_configuration_error",
-                "message": "API authentication not configured",
-                "status_code": 500
-            }), 500
+            return jsonify(
+                {
+                    "ok": False,
+                    "error": "server_configuration_error",
+                    "message": "API authentication not configured",
+                    "status_code": 500,
+                }
+            ), 500
 
         # Extract and validate key
         provided_key = extract_api_key()
 
         if not provided_key:
-            return jsonify({
-                "ok": False,
-                "error": "authentication_required",
-                "message": "API key required. Provide via X-API-Key header.",
-                "status_code": 401
-            }), 401
+            return jsonify(
+                {
+                    "ok": False,
+                    "error": "authentication_required",
+                    "message": "API key required. Provide via X-API-Key header.",
+                    "status_code": 401,
+                }
+            ), 401
 
         if not validate_api_key(provided_key):
             logger.warning(f"Invalid API key attempt for {request.path}")
-            return jsonify({
-                "ok": False,
-                "error": "invalid_api_key",
-                "message": "Invalid API key",
-                "status_code": 403
-            }), 403
+            return jsonify(
+                {"ok": False, "error": "invalid_api_key", "message": "Invalid API key", "status_code": 403}
+            ), 403
 
         return f(*args, **kwargs)
 
@@ -184,6 +183,7 @@ def optional_api_key(f: Callable) -> Callable:
     Sets g.authenticated = True/False based on key presence.
     Does not reject unauthenticated requests.
     """
+
     @wraps(f)
     def decorated(*args, **kwargs):
         g.authenticated = False
@@ -242,10 +242,7 @@ class APIKeyMiddleware:
         if not api_key or not validate_api_key(api_key):
             status = "401 Unauthorized" if not api_key else "403 Forbidden"
             response_body = b'{"ok": false, "error": "authentication_required"}'
-            response_headers = [
-                ("Content-Type", "application/json"),
-                ("Content-Length", str(len(response_body)))
-            ]
+            response_headers = [("Content-Type", "application/json"), ("Content-Length", str(len(response_body)))]
             start_response(status, response_headers)
             return [response_body]
 

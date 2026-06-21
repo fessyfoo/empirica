@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 # ── Request/Response Models ──────────────────────────────────────────
 # These mirror the TypeScript interfaces in empirica-client.ts
 
+
 class HealthResponse(BaseModel):
     """Matches extension's HealthResponse interface.
 
@@ -39,6 +40,7 @@ class HealthResponse(BaseModel):
     extension can offer all of them in its dropdown without round-tripping
     Cortex.
     """
+
     ok: bool = True
     version: str = "0.1.0"
     api_version: str = "v1"
@@ -60,6 +62,7 @@ class HealthResponse(BaseModel):
 
 class ArtifactPayload(BaseModel):
     """Single artifact from the extension's extraction pipeline."""
+
     type: str = Field(..., description="Artifact type: finding, decision, dead_end, mistake, unknown")
     content: str = Field(..., description="Artifact content text")
     confidence: float = Field(0.5, ge=0.0, le=1.0)
@@ -70,11 +73,13 @@ class ArtifactPayload(BaseModel):
 
 class ArtifactImportRequest(BaseModel):
     """Matches what EmpiricaClient.importArtifacts() sends."""
+
     artifacts: list[ArtifactPayload] = Field(..., description="Pre-extracted artifacts from extension")
 
 
 class ArtifactImportResponse(BaseModel):
     """Matches extension's ImportResponse interface."""
+
     ok: bool
     imported: int = 0
     duplicates_skipped: int = 0
@@ -88,6 +93,7 @@ class CortexCredentialsRequest(BaseModel):
     extension POSTs to this endpoint, daemon writes to
     ~/.empirica/credentials.yaml so the CLI sees the same creds.
     """
+
     url: str | None = None
     api_key: str | None = None
 
@@ -96,6 +102,7 @@ class CortexCredentialsResponse(BaseModel):
     """Cortex creds GET/POST response. NEVER returns the full key over
     the wire — `api_key_preview` is last-4-chars only, so even if CORS
     gets loosened the secret doesn't leak via read."""
+
     ok: bool
     url: str | None = None
     api_key_set: bool = False
@@ -114,6 +121,7 @@ class NtfyCredentialsRequest(BaseModel):
     request shape — extension doesn't own the topic (cortex's channels
     endpoint dictates it), so partial-updates from this endpoint must
     preserve any existing `topic` key without clobbering."""
+
     url: str | None = None
     token: str | None = None
 
@@ -122,6 +130,7 @@ class NtfyCredentialsResponse(BaseModel):
     """ntfy creds GET/POST response. NEVER returns the full token over
     the wire — `token_preview` is last-4-chars only, same threat model
     as CortexCredentialsResponse."""
+
     ok: bool
     url: str | None = None
     topic: str | None = None
@@ -133,6 +142,7 @@ class NtfyCredentialsResponse(BaseModel):
 
 class ProfileStatusResponse(BaseModel):
     """Matches extension's ProfileStatus interface."""
+
     ok: bool = True
     artifact_counts: dict = Field(default_factory=dict)
     total_artifacts: int = 0
@@ -153,6 +163,7 @@ class ListenerRow(BaseModel):
     `topic` is kept raw (`ntfy:<topic>?tags=<tag>`) — the extension parses it
     and owns the red/amber render logic.
     """
+
     instance_id: str
     name: str
     description: str = ""
@@ -172,6 +183,7 @@ class ListenersResponse(BaseModel):
 
 
 # ── FastAPI App ──────────────────────────────────────────────────────
+
 
 def create_serve_app() -> FastAPI:
     """Create FastAPI app for the serve daemon."""
@@ -196,16 +208,19 @@ def create_serve_app() -> FastAPI:
 
     # v0.5+ artifact endpoints (per-type lists, per spec docs/v0.5-LOCAL-ARTIFACTS.md)
     from empirica.api.routes.artifacts import router as artifacts_router
+
     app.include_router(artifacts_router)
 
     # Credential-grant flow (UI-prompted token, goal 167fc8d4) —
     # extracted into its own router so create_serve_app stays simple.
     from empirica.api.routes.credentials import router as credentials_router
+
     app.include_router(credentials_router)
 
     # Entity mint (workspace entity_registry write surface — idempotent
     # contact creation for same-box consumers like CRM MCP servers).
     from empirica.api.routes.entities import router as entities_router
+
     app.include_router(entities_router)
 
     @app.get("/api/v1/health", response_model=HealthResponse)
@@ -214,6 +229,7 @@ def create_serve_app() -> FastAPI:
         the locally-known project registry (v1.9.6+)."""
         from empirica.api.daemon_project import get_cached_daemon_project
         from empirica.api.registry import list_known_projects
+
         project = get_cached_daemon_project() or {}
         return HealthResponse(
             ollama=_check_ollama(),
@@ -312,13 +328,16 @@ def _register_credentials_routes(app: FastAPI) -> None:
         tempfile + rename — never partial-corrupts the file."""
         if not req.url and not req.api_key:
             return CortexCredentialsResponse(
-                ok=False, error="url or api_key required",
+                ok=False,
+                error="url or api_key required",
             )
         try:
             from empirica.config.credentials_loader import CredentialsLoader
+
             loader = CredentialsLoader()
             path = loader.save_cortex_config(
-                url=req.url, api_key=req.api_key,
+                url=req.url,
+                api_key=req.api_key,
             )
             cfg = loader.get_cortex_config()
             key = cfg.get("api_key") or ""
@@ -343,6 +362,7 @@ def _register_credentials_routes(app: FastAPI) -> None:
         against the chrome.storage stored key)."""
         try:
             from empirica.config.credentials_loader import CredentialsLoader
+
             cfg = CredentialsLoader().get_cortex_config()
             key = cfg.get("api_key") or ""
             return CortexCredentialsResponse(
@@ -373,10 +393,12 @@ def _register_credentials_routes(app: FastAPI) -> None:
         derivation; this endpoint never touches it."""
         if not req.url and not req.token:
             return NtfyCredentialsResponse(
-                ok=False, error="url or token required",
+                ok=False,
+                error="url or token required",
             )
         try:
             from empirica.config.credentials_loader import CredentialsLoader
+
             loader = CredentialsLoader()
             path = loader.save_ntfy_config(url=req.url, token=req.token)
             cfg = loader.get_ntfy_config()
@@ -386,9 +408,7 @@ def _register_credentials_routes(app: FastAPI) -> None:
                 url=cfg.get("url"),
                 topic=cfg.get("topic"),
                 token_set=bool(token_val),
-                token_preview=(
-                    f"...{token_val[-4:]}" if len(token_val) >= 4 else None
-                ),
+                token_preview=(f"...{token_val[-4:]}" if len(token_val) >= 4 else None),
                 written_path=str(path),
             )
         except Exception as e:
@@ -405,6 +425,7 @@ def _register_credentials_routes(app: FastAPI) -> None:
         the extension side."""
         try:
             from empirica.config.credentials_loader import CredentialsLoader
+
             cfg = CredentialsLoader().get_ntfy_config()
             token_val = cfg.get("token") or ""
             return NtfyCredentialsResponse(
@@ -412,9 +433,7 @@ def _register_credentials_routes(app: FastAPI) -> None:
                 url=cfg.get("url"),
                 topic=cfg.get("topic"),
                 token_set=bool(token_val),
-                token_preview=(
-                    f"...{token_val[-4:]}" if len(token_val) >= 4 else None
-                ),
+                token_preview=(f"...{token_val[-4:]}" if len(token_val) >= 4 else None),
             )
         except Exception as e:
             logger.error(f"get_ntfy_credentials failed: {e}", exc_info=True)
@@ -422,6 +441,7 @@ def _register_credentials_routes(app: FastAPI) -> None:
 
 
 # ── Internal Handlers ────────────────────────────────────────────────
+
 
 def _config_ollama_url() -> str | None:
     """Read `embeddings.ollama_url` from ~/.empirica/config.yaml DIRECTLY.
@@ -434,6 +454,7 @@ def _config_ollama_url() -> str | None:
     """
     try:
         import yaml
+
         cfg_path = os.path.expanduser("~/.empirica/config.yaml")
         if not os.path.exists(cfg_path):
             return None
@@ -450,7 +471,8 @@ def _resolve_ollama_url() -> str:
     configured backend instead of false-negating on a remote-Ollama setup.
     """
     return os.environ.get(
-        "EMPIRICA_OLLAMA_URL", _config_ollama_url() or "http://localhost:11434",
+        "EMPIRICA_OLLAMA_URL",
+        _config_ollama_url() or "http://localhost:11434",
     ).rstrip("/")
 
 
@@ -466,6 +488,7 @@ def _check_ollama() -> bool:
     """Check if Ollama is reachable at the configured ollama_url."""
     try:
         import urllib.request
+
         req = urllib.request.Request(f"{_resolve_ollama_url()}/api/tags", method="GET")
         with urllib.request.urlopen(req, timeout=2):
             return True
@@ -477,6 +500,7 @@ def _check_qdrant() -> bool:
     """Check if Qdrant is reachable at the configured qdrant_url."""
     try:
         import urllib.request
+
         req = urllib.request.Request(f"{_resolve_qdrant_url()}/collections", method="GET")
         with urllib.request.urlopen(req, timeout=2):
             return True
@@ -491,10 +515,7 @@ _FIXTURE_INSTANCE_PREFIXES = ("tmux_",)
 
 
 def _is_fixture_instance(instance_id: str) -> bool:
-    return (
-        instance_id in _FIXTURE_INSTANCE_IDS
-        or any(instance_id.startswith(p) for p in _FIXTURE_INSTANCE_PREFIXES)
-    )
+    return instance_id in _FIXTURE_INSTANCE_IDS or any(instance_id.startswith(p) for p in _FIXTURE_INSTANCE_PREFIXES)
 
 
 def _gather_listeners() -> list[dict]:
@@ -530,19 +551,21 @@ def _gather_listeners() -> list[dict]:
                 health = {}
         for name, entry in (reg.get("listeners") or {}).items():
             entry = entry or {}
-            rows.append({
-                "instance_id": instance_id,
-                "name": name,
-                "description": entry.get("description", "") or "",
-                "topic": entry.get("topic", "") or "",
-                "wake_count": int(entry.get("wake_count", 0) or 0),
-                "last_wake_at": entry.get("last_wake_at"),
-                "last_message": entry.get("last_message"),
-                "registered_at": entry.get("registered_at"),
-                "health_status": health.get("status"),
-                "health_loop": health.get("loop"),
-                "health_ts": health.get("ts"),
-            })
+            rows.append(
+                {
+                    "instance_id": instance_id,
+                    "name": name,
+                    "description": entry.get("description", "") or "",
+                    "topic": entry.get("topic", "") or "",
+                    "wake_count": int(entry.get("wake_count", 0) or 0),
+                    "last_wake_at": entry.get("last_wake_at"),
+                    "last_message": entry.get("last_message"),
+                    "registered_at": entry.get("registered_at"),
+                    "health_status": health.get("status"),
+                    "health_loop": health.get("loop"),
+                    "health_ts": health.get("ts"),
+                }
+            )
     return rows
 
 
@@ -584,36 +607,39 @@ def _store_artifacts(artifacts: list[ArtifactPayload]) -> dict:
                 db.adapter.execute(
                     "INSERT INTO project_findings (id, project_id, session_id, finding, impact, created_timestamp) "
                     "VALUES (?, ?, ?, ?, ?, ?)",
-                    (artifact_id, "extension-import", None,
-                     content, meta.get("impact", 0.5), now),
+                    (artifact_id, "extension-import", None, content, meta.get("impact", 0.5), now),
                 )
             elif atype == "decision":
                 db.adapter.execute(
                     "INSERT INTO project_findings (id, project_id, session_id, finding, impact, created_timestamp) "
                     "VALUES (?, ?, ?, ?, ?, ?)",
-                    (artifact_id, "extension-import", None,
-                     f"[decision] {content}", meta.get("impact", 0.5), now),
+                    (artifact_id, "extension-import", None, f"[decision] {content}", meta.get("impact", 0.5), now),
                 )
             elif atype == "dead_end":
                 db.adapter.execute(
                     "INSERT INTO project_dead_ends (id, project_id, session_id, approach, why_failed, created_timestamp) "
                     "VALUES (?, ?, ?, ?, ?, ?)",
-                    (artifact_id, "extension-import", None,
-                     content, meta.get("whyFailed", ""), now),
+                    (artifact_id, "extension-import", None, content, meta.get("whyFailed", ""), now),
                 )
             elif atype == "mistake":
                 db.adapter.execute(
                     "INSERT INTO mistakes_made (id, project_id, session_id, mistake, why_wrong, prevention, created_timestamp) "
                     "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (artifact_id, "extension-import", None,
-                     content, meta.get("whyFailed", ""), meta.get("prevention", ""), now),
+                    (
+                        artifact_id,
+                        "extension-import",
+                        None,
+                        content,
+                        meta.get("whyFailed", ""),
+                        meta.get("prevention", ""),
+                        now,
+                    ),
                 )
             elif atype == "unknown":
                 db.adapter.execute(
                     "INSERT INTO project_unknowns (id, project_id, session_id, unknown, created_timestamp) "
                     "VALUES (?, ?, ?, ?, ?)",
-                    (artifact_id, "extension-import", None,
-                     content, now),
+                    (artifact_id, "extension-import", None, content, now),
                 )
             else:
                 errors.append(f"Unknown artifact type: {atype}")
@@ -667,7 +693,9 @@ def _run_profile_sync() -> dict:
 
     result = subprocess.run(
         ["empirica", "profile-sync", "--import-only", "--output", "json"],
-        capture_output=True, text=True, timeout=60,
+        capture_output=True,
+        text=True,
+        timeout=60,
     )
 
     if result.returncode == 0:

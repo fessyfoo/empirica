@@ -79,6 +79,7 @@ def _cortex_creds() -> tuple[str, str] | None:
     """Resolve (url, api_key) via the standard CLI loader. None when missing."""
     try:
         from empirica.config.credentials_loader import get_credentials_loader
+
         cfg = get_credentials_loader().get_cortex_config()
     except Exception as e:
         logger.debug(f"notification-channels: cortex creds load failed: {e}")
@@ -92,7 +93,8 @@ def _cortex_creds() -> tuple[str, str] | None:
 def _request(url: str, key: str) -> dict | None:
     """Bearer-authenticated GET. Returns parsed body or None on any error."""
     req = urllib.request.Request(
-        url, method="GET",
+        url,
+        method="GET",
         headers={"Authorization": f"Bearer {key}"},
     )
     try:
@@ -187,6 +189,7 @@ def _canonical_tag(ai_id: str) -> str:
         from empirica.core.loop_scheduler.content_poll import (
             _resolve_canonical_ai_id,
         )
+
         return _resolve_canonical_ai_id(creds[0], creds[1], ai_id)
     except Exception:
         return ai_id

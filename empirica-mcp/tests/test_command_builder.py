@@ -188,12 +188,14 @@ def test_err_text_returns_single_textcontent():
 
 def test_err_text_handles_nested_payload():
     """Nested structures (lists, dicts) round-trip through JSON."""
-    result = _err_text({
-        "ok": False,
-        "error": "Unknown tool",
-        "available": ["a", "b", "c"],
-        "meta": {"count": 3},
-    })
+    result = _err_text(
+        {
+            "ok": False,
+            "error": "Unknown tool",
+            "available": ["a", "b", "c"],
+            "meta": {"count": 3},
+        }
+    )
     payload = json.loads(result[0].text)
     assert payload["available"] == ["a", "b", "c"]
     assert payload["meta"]["count"] == 3

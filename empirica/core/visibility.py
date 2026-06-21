@@ -119,12 +119,12 @@ def _scan_active_agreements(repo=None) -> tuple[bool | None, bool]:
         with WorkspaceDBRepository.open(ensure_schema=True) as opened:
             return _scan_active_agreements(repo=opened)
 
-    rows = repo.list_entities(entity_type=ENTITY_TYPE, status='active', limit=1000)
+    rows = repo.list_entities(entity_type=ENTITY_TYPE, status="active", limit=1000)
     if not rows:
         # Also check the "all" status — a mirror with only revoked rows is still
         # a populated mirror (sync ran, agreements exist but inactive). Empty-all
         # is the unbootstrapped case.
-        all_rows = repo.list_entities(entity_type=ENTITY_TYPE, status='all', limit=1)
+        all_rows = repo.list_entities(entity_type=ENTITY_TYPE, status="all", limit=1)
         if not all_rows:
             return None, False
         return False, False
@@ -133,13 +133,13 @@ def _scan_active_agreements(repo=None) -> tuple[bool | None, bool]:
     has_l3 = False
     for row in rows:
         try:
-            meta = _json.loads(row.get('metadata') or '{}')
+            meta = _json.loads(row.get("metadata") or "{}")
         except _json.JSONDecodeError:
             continue
-        layer = meta.get('layer')
-        if layer == 'L2':
+        layer = meta.get("layer")
+        if layer == "L2":
             has_l2 = True
-        elif layer == 'L3':
+        elif layer == "L3":
             has_l3 = True
         if has_l2 and has_l3:
             break

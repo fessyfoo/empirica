@@ -40,9 +40,7 @@ class TestRenderSystemPrompt:
             render_system_prompt("p", "m", autonomy_mode="bogus")
 
     def test_user_instructions_appended(self):
-        prompt = render_system_prompt(
-            "p", "m", user_instructions="Reply only in haiku."
-        )
+        prompt = render_system_prompt("p", "m", user_instructions="Reply only in haiku.")
         assert "User-supplied instructions" in prompt
         assert "Reply only in haiku." in prompt
 

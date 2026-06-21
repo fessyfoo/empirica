@@ -23,21 +23,18 @@ def test_extract_known_canonical_skill_returns_cortex_body():
     """The canonical cortex-mailbox-poll skill exists in the repo and
     has a `## Cron Prompt Template` section with a code block. The
     extractor should find it and return the code-block contents."""
-    body = _extract_skill_prompt_template('cortex-mailbox-poll')
-    assert body is not None, (
-        "expected to find cortex-mailbox-poll skill — "
-        "did the canonical SKILL.md move?"
-    )
+    body = _extract_skill_prompt_template("cortex-mailbox-poll")
+    assert body is not None, "expected to find cortex-mailbox-poll skill — did the canonical SKILL.md move?"
     # The skill body invokes the MCP polling tools by name
-    assert 'cortex_inbox_poll' in body
-    assert 'cortex_outbox_poll' in body
+    assert "cortex_inbox_poll" in body
+    assert "cortex_outbox_poll" in body
     # And the self-throttle check
-    assert 'transaction' in body.lower()
+    assert "transaction" in body.lower()
 
 
 def test_extract_unknown_skill_returns_none():
     """Skill that doesn't exist on disk → None (graceful fall-through)."""
-    body = _extract_skill_prompt_template('this-skill-does-not-exist-zzz9')
+    body = _extract_skill_prompt_template("this-skill-does-not-exist-zzz9")
     assert body is None
 
 
@@ -46,28 +43,28 @@ def test_render_loop_cron_prompt_with_known_skill_uses_skill_body():
     prompt should be the skill body verbatim — NOT the generic template
     with a `[... your actual work ...]` placeholder."""
     rendered = render_loop_cron_prompt(
-        name='cortex-mailbox-poll',
-        interval='30s',
-        body_skill='cortex-mailbox-poll',
+        name="cortex-mailbox-poll",
+        interval="30s",
+        body_skill="cortex-mailbox-poll",
     )
     # Skill body present
-    assert 'cortex_inbox_poll' in rendered
+    assert "cortex_inbox_poll" in rendered
     # Generic placeholder is GONE
-    assert 'your actual work here' not in rendered
+    assert "your actual work here" not in rendered
 
 
 def test_render_loop_cron_prompt_with_unknown_skill_falls_back():
     """When body_skill is given BUT the skill doesn't exist, fall back
     to the generic template (don't crash)."""
     rendered = render_loop_cron_prompt(
-        name='some-loop',
-        interval='15m',
-        body_skill='this-skill-does-not-exist-zzz9',
+        name="some-loop",
+        interval="15m",
+        body_skill="this-skill-does-not-exist-zzz9",
     )
     # Generic placeholder IS there
-    assert 'your actual work here' in rendered
+    assert "your actual work here" in rendered
     # And the loop name was substituted into register call
-    assert 'some-loop' in rendered
+    assert "some-loop" in rendered
 
 
 def test_render_loop_cron_prompt_without_body_skill_uses_generic():
@@ -75,11 +72,11 @@ def test_render_loop_cron_prompt_without_body_skill_uses_generic():
     so CLI users without a paired skill still get a useful starting
     point."""
     rendered = render_loop_cron_prompt(
-        name='custom-loop',
-        interval='15m',
+        name="custom-loop",
+        interval="15m",
     )
-    assert 'your actual work here' in rendered
-    assert 'custom-loop' in rendered
+    assert "your actual work here" in rendered
+    assert "custom-loop" in rendered
 
 
 def test_handler_auto_resolves_body_skill_from_canonical_catalog(tmp_path, monkeypatch):
@@ -96,36 +93,35 @@ def test_handler_auto_resolves_body_skill_from_canonical_catalog(tmp_path, monke
 
     # Redirect the per-instance state files to a tmpdir
     monkeypatch.setattr(
-        'empirica.core.cockpit.loop_install_request.EMPIRICA_DIR',
+        "empirica.core.cockpit.loop_install_request.EMPIRICA_DIR",
         tmp_path,
     )
     monkeypatch.setattr(
-        'empirica.core.cockpit.loop_registry.EMPIRICA_DIR',
+        "empirica.core.cockpit.loop_registry.EMPIRICA_DIR",
         tmp_path,
     )
 
     args = SimpleNamespace(
-        instance='tmux_test',
-        name='cortex-mailbox-poll',
-        interval='30s',
-        description='',
+        instance="tmux_test",
+        name="cortex-mailbox-poll",
+        interval="30s",
+        description="",
         base_interval=None,
         max_interval=None,
         # body_skill NOT provided — should auto-resolve from canonical catalog
-        output='json',
+        output="json",
         verbose=False,
     )
     rc = handle_loop_install_request_command(args)
     assert rc == 0 or rc is None  # success
 
     # The pending file should now exist with the cortex body
-    pending = tmp_path / 'loop_install_pending_tmux_test_cortex-mailbox-poll.json'
+    pending = tmp_path / "loop_install_pending_tmux_test_cortex-mailbox-poll.json"
     assert pending.exists()
 
     import json
+
     data = json.loads(pending.read_text())
-    template = data.get('prompt_template', '')
-    assert 'cortex_inbox_poll' in template, (
-        "canonical body_skill should have been auto-resolved + baked in"
-    )
-    assert 'your actual work here' not in template
+    template = data.get("prompt_template", "")
+    assert "cortex_inbox_poll" in template, "canonical body_skill should have been auto-resolved + baked in"
+    assert "your actual work here" not in template

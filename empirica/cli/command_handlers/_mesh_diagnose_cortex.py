@@ -30,6 +30,7 @@ from typing import Any
 @dataclass
 class CheckResult:
     """One probe outcome."""
+
     name: str
     status: str  # 'pass' | 'warn' | 'fail'
     message: str
@@ -38,8 +39,11 @@ class CheckResult:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "name": self.name, "status": self.status, "message": self.message,
-            "fix": self.fix, "details": self.details,
+            "name": self.name,
+            "status": self.status,
+            "message": self.message,
+            "fix": self.fix,
+            "details": self.details,
         }
 
 
@@ -58,8 +62,9 @@ def _fail(name: str, message: str, *, fix: str | None = None, **details) -> Chec
 # ── HTTP helpers (no external deps) ────────────────────────────────────
 
 
-def _http_get_json(url: str, *, api_key: str | None = None,
-                   bearer: str | None = None, timeout: float = 6.0) -> dict[str, Any]:
+def _http_get_json(
+    url: str, *, api_key: str | None = None, bearer: str | None = None, timeout: float = 6.0
+) -> dict[str, Any]:
     """Tiny urllib wrapper returning parsed JSON. Caller handles exceptions.
 
     Cortex authenticates via `Authorization: Bearer <api_key>` (matches
@@ -77,8 +82,11 @@ def _http_get_json(url: str, *, api_key: str | None = None,
 
 
 def _http_head(
-    url: str, *, bearer: str | None = None,
-    user: str | None = None, password: str | None = None,
+    url: str,
+    *,
+    bearer: str | None = None,
+    user: str | None = None,
+    password: str | None = None,
     timeout: float = 4.0,
 ) -> int:
     """Probe returning HTTP status code. Uses GET (ntfy doesn't reliably
@@ -94,13 +102,12 @@ def _http_head(
     `prop_m7ns4zq3eva6rpeqcdemifksvu`.
     """
     import base64 as _base64
+
     req = urllib.request.Request(url, method="GET")
     if bearer:
         req.add_header("Authorization", f"Bearer {bearer}")
     elif user or password:
-        encoded = _base64.b64encode(
-            f"{user or ''}:{password or ''}".encode()
-        ).decode("ascii")
+        encoded = _base64.b64encode(f"{user or ''}:{password or ''}".encode()).decode("ascii")
         req.add_header("Authorization", f"Basic {encoded}")
     ctx = ssl.create_default_context()
     with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
@@ -123,11 +130,15 @@ def check_identity(ai_id: str, cortex_url: str, api_key: str) -> CheckResult:
     try:
         body = _http_get_json(
             f"{cortex_url.rstrip('/')}/v1/users/me/roster",
-            api_key=api_key, timeout=8.0,
+            api_key=api_key,
+            timeout=8.0,
         )
     except (TimeoutError, urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as e:
-        return _fail(name, f"roster fetch failed: {type(e).__name__}: {e}",
-                     fix="check cortex_url + api_key in ~/.empirica/credentials.yaml")
+        return _fail(
+            name,
+            f"roster fetch failed: {type(e).__name__}: {e}",
+            fix="check cortex_url + api_key in ~/.empirica/credentials.yaml",
+        )
     self_meta = body.get("self") or {}
     self_tenant = self_meta.get("tenant_slug") or "unknown"
     org = body.get("org") or {}
@@ -138,14 +149,19 @@ def check_identity(ai_id: str, cortex_url: str, api_key: str) -> CheckResult:
             if proj.get("ai_id_short") == ai_id:
                 mesh = proj.get("ai_id_mesh") or "?"
                 return _pass(
-                    name, f"resolves to {mesh}",
-                    canonical=mesh, ai_id_short=ai_id, tenant=self_tenant,
+                    name,
+                    f"resolves to {mesh}",
+                    canonical=mesh,
+                    ai_id_short=ai_id,
+                    tenant=self_tenant,
                 )
     return _fail(
         name,
         f"ai_id {ai_id!r} not found in roster for tenant {self_tenant!r}",
-        fix=("set .empirica/project.yaml `ai_id:` to the exact basename, then "
-             "re-run setup-claude-code, or verify cortex registered this project"),
+        fix=(
+            "set .empirica/project.yaml `ai_id:` to the exact basename, then "
+            "re-run setup-claude-code, or verify cortex registered this project"
+        ),
     )
 
 
@@ -158,7 +174,8 @@ def check_channels_endpoint(cortex_url: str, api_key: str) -> tuple[CheckResult,
     try:
         body = _http_get_json(
             f"{cortex_url.rstrip('/')}/v1/users/me/notification-channels",
-            api_key=api_key, timeout=6.0,
+            api_key=api_key,
+            timeout=6.0,
         )
     except (TimeoutError, urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as e:
         return _fail(name, f"channels fetch failed: {type(e).__name__}: {e}"), None
@@ -185,32 +202,37 @@ def check_channels_endpoint(cortex_url: str, api_key: str) -> tuple[CheckResult,
     base = topic.split("?", 1)[0] if (topic := orch_topic) else ""
     if base == "orchestration-events":
         return _warn(
-            name, f"channels advertises BARE topic {base!r} (retired)",
+            name,
+            f"channels advertises BARE topic {base!r} (retired)",
             fix="restart cortex; channels endpoint should advertise per-tenant",
             topic=base,
         ), orch_topic
     if base.endswith("-orchestration-events"):
         # No tenant segment — pre-T16/T17 per-org form
         return _warn(
-            name, f"channels advertises PER-ORG topic {base!r} (pre-T16/T17)",
+            name,
+            f"channels advertises PER-ORG topic {base!r} (pre-T16/T17)",
             fix="cortex maintainer — verify per-tenant topic rollout complete",
             topic=base,
         ), orch_topic
     # Reasonable per-tenant shape: `<something>-orchestration-events-<something>`
     if "-orchestration-events-" in base:
         return _pass(
-            name, f"channels advertises per-tenant topic {base!r}",
+            name,
+            f"channels advertises per-tenant topic {base!r}",
             topic=base,
         ), orch_topic
     return _warn(
-        name, f"unrecognized topic shape {base!r}",
+        name,
+        f"unrecognized topic shape {base!r}",
         fix="manual review — topic doesn't match per-tenant pattern",
         topic=base,
     ), orch_topic
 
 
 def check_listener_subscription_matches(
-    ai_id: str, expected_topic: str | None,
+    ai_id: str,
+    expected_topic: str | None,
 ) -> CheckResult:
     """Compare the persisted listener_active_*.json topic against what
     cortex's channels endpoint says the listener should be subscribed to.
@@ -234,7 +256,8 @@ def check_listener_subscription_matches(
                 candidates.append(p)
     if not candidates:
         return _warn(
-            name, f"no listener_active file matches ai_id={ai_id!r} — listener may not be armed",
+            name,
+            f"no listener_active file matches ai_id={ai_id!r} — listener may not be armed",
             fix=f"empirica listener on --ai-id {ai_id}",
         )
     expected_base = expected_topic.split("?", 1)[0].replace("ntfy:", "")
@@ -255,15 +278,20 @@ def check_listener_subscription_matches(
             mismatches=mismatches,
         )
     return _pass(
-        name, f"listener_active topic matches channels endpoint ({expected_base!r})",
-        topic=expected_base, files_checked=len(candidates),
+        name,
+        f"listener_active topic matches channels endpoint ({expected_base!r})",
+        topic=expected_base,
+        files_checked=len(candidates),
     )
 
 
-def check_ntfy_acl(topic: str | None, ntfy_url: str | None,
-                   ntfy_token: str | None,
-                   ntfy_user: str | None = None,
-                   ntfy_password: str | None = None) -> CheckResult:
+def check_ntfy_acl(
+    topic: str | None,
+    ntfy_url: str | None,
+    ntfy_token: str | None,
+    ntfy_user: str | None = None,
+    ntfy_password: str | None = None,
+) -> CheckResult:
     """HEAD probe of ntfy poll endpoint to confirm READ grant.
 
     403 = missing grant (publish-philipp pattern). 200 = grant present.
@@ -283,40 +311,52 @@ def check_ntfy_acl(topic: str | None, ntfy_url: str | None,
     probe_url = f"{ntfy_url.rstrip('/')}/{base}/json?poll=1"
     try:
         status = _http_head(
-            probe_url, bearer=ntfy_token,
-            user=ntfy_user, password=ntfy_password,
+            probe_url,
+            bearer=ntfy_token,
+            user=ntfy_user,
+            password=ntfy_password,
             timeout=4.0,
         )
     except urllib.error.HTTPError as e:
         if e.code == 403:
             return _fail(
-                name, f"403 Forbidden on {base!r} — missing READ grant",
-                fix=("verify ntfy token + ACL provisioning on cortex side; "
-                     "the bearer in credentials.yaml may not have read perms"),
-                topic=base, http_status=403,
+                name,
+                f"403 Forbidden on {base!r} — missing READ grant",
+                fix=(
+                    "verify ntfy token + ACL provisioning on cortex side; "
+                    "the bearer in credentials.yaml may not have read perms"
+                ),
+                topic=base,
+                http_status=403,
             )
         return _warn(
-            name, f"{e.code} {e.reason} on probe",
+            name,
+            f"{e.code} {e.reason} on probe",
             fix="manual review of ntfy server state",
-            topic=base, http_status=e.code,
+            topic=base,
+            http_status=e.code,
         )
     except (TimeoutError, urllib.error.URLError) as e:
         return _warn(
-            name, f"probe network error: {type(e).__name__}",
+            name,
+            f"probe network error: {type(e).__name__}",
             fix="check ntfy_url reachability",
             topic=base,
         )
     if status == 200:
-        return _pass(name, f"READ grant confirmed on {base!r}",
-                     topic=base, http_status=200)
+        return _pass(name, f"READ grant confirmed on {base!r}", topic=base, http_status=200)
     return _warn(
-        name, f"unexpected HTTP {status} on probe",
-        topic=base, http_status=status,
+        name,
+        f"unexpected HTTP {status} on probe",
+        topic=base,
+        http_status=status,
     )
 
 
 def check_mesh_agreement(
-    peer_canonical: str, cortex_url: str, api_key: str,
+    peer_canonical: str,
+    cortex_url: str,
+    api_key: str,
 ) -> CheckResult:
     """Verify an active mesh_sharing_agreement row exists for the peer.
 
@@ -327,26 +367,35 @@ def check_mesh_agreement(
     try:
         body = _http_get_json(
             f"{cortex_url.rstrip('/')}/v1/orgs/me/mesh_sharing_agreements",
-            api_key=api_key, timeout=6.0,
+            api_key=api_key,
+            timeout=6.0,
         )
     except (TimeoutError, urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError) as e:
         return _fail(
-            name, f"agreements fetch failed: {type(e).__name__}: {e}",
+            name,
+            f"agreements fetch failed: {type(e).__name__}: {e}",
             fix="check cortex_url + api_key in credentials.yaml",
             peer=peer_canonical,
         )
     agreements = body.get("agreements") or body.get("rows") or []
     for row in agreements:
         # Match by either source/target order; agreements are bidirectional
-        endpoints = {row.get("source_practice"), row.get("target_practice"),
-                     row.get("peer"), row.get("from"), row.get("to")}
+        endpoints = {
+            row.get("source_practice"),
+            row.get("target_practice"),
+            row.get("peer"),
+            row.get("from"),
+            row.get("to"),
+        }
         if peer_canonical in endpoints and row.get("active") is not False:
             return _pass(
-                name, f"active agreement with {peer_canonical!r}",
+                name,
+                f"active agreement with {peer_canonical!r}",
                 peer=peer_canonical,
             )
     return _fail(
-        name, f"no active mesh_sharing_agreement with {peer_canonical!r}",
+        name,
+        f"no active mesh_sharing_agreement with {peer_canonical!r}",
         fix="cortex admin: provision the bilateral agreement for this peer pair",
         peer=peer_canonical,
     )
@@ -356,9 +405,14 @@ def check_mesh_agreement(
 
 
 def run_cortex_checks(
-    ai_id: str, *, cortex_url: str, api_key: str,
-    ntfy_url: str | None = None, ntfy_token: str | None = None,
-    ntfy_user: str | None = None, ntfy_password: str | None = None,
+    ai_id: str,
+    *,
+    cortex_url: str,
+    api_key: str,
+    ntfy_url: str | None = None,
+    ntfy_token: str | None = None,
+    ntfy_user: str | None = None,
+    ntfy_password: str | None = None,
     peer: str | None = None,
 ) -> list[CheckResult]:
     """Run all read-only cortex-participation checks in order.
@@ -372,10 +426,15 @@ def run_cortex_checks(
     channels_result, expected_topic = check_channels_endpoint(cortex_url, api_key)
     results.append(channels_result)
     results.append(check_listener_subscription_matches(ai_id, expected_topic))
-    results.append(check_ntfy_acl(
-        expected_topic, ntfy_url, ntfy_token,
-        ntfy_user=ntfy_user, ntfy_password=ntfy_password,
-    ))
+    results.append(
+        check_ntfy_acl(
+            expected_topic,
+            ntfy_url,
+            ntfy_token,
+            ntfy_user=ntfy_user,
+            ntfy_password=ntfy_password,
+        )
+    )
     if peer:
         results.append(check_mesh_agreement(peer, cortex_url, api_key))
     return results
@@ -433,7 +492,9 @@ def render_results_human(results: list[CheckResult]) -> str:
         if r.fix:
             fix_prefix = "   → "
             fix_chunks = _wrap_message(
-                len(fix_prefix), r.fix, max_inner=inner_width,
+                len(fix_prefix),
+                r.fix,
+                max_inner=inner_width,
             )
             for i, chunk in enumerate(fix_chunks):
                 pre = fix_prefix if i == 0 else " " * len(fix_prefix)

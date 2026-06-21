@@ -17,6 +17,7 @@ from pathlib import Path
 
 try:
     from PIL import Image  # pyright: ignore[reportMissingImports]
+
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
@@ -25,6 +26,7 @@ except ImportError:
 @dataclass
 class BasicImageAssessment:
     """Basic image assessment without OCR"""
+
     image_path: str
     slide_number: int | None
 
@@ -75,10 +77,7 @@ class VisionAnalyzer:
     def __init__(self):
         """Initialize vision analyzer, requiring PIL/Pillow installation."""
         if not HAS_PIL:
-            raise ImportError(
-                "PIL/Pillow required for vision analysis. "
-                "Install: pip install pillow"
-            )
+            raise ImportError("PIL/Pillow required for vision analysis. Install: pip install pillow")
 
     def analyze_image(self, image_path: Path, slide_number: int | None = None) -> BasicImageAssessment:
         """Analyze single image - basic metadata only"""
@@ -91,8 +90,8 @@ class VisionAnalyzer:
 
         # Common presentation sizes: 16:9, 4:3, 16:10
         is_presentation_size = (
-            0.55 < aspect_ratio < 0.80 or  # 4:3 region
-            1.5 < aspect_ratio < 1.85       # 16:9, 16:10 region
+            0.55 < aspect_ratio < 0.80  # 4:3 region
+            or 1.5 < aspect_ratio < 1.85  # 16:9, 16:10 region
         )
 
         return BasicImageAssessment(
@@ -110,7 +109,7 @@ class VisionAnalyzer:
 
     def analyze_deck(self, pattern: str) -> list[BasicImageAssessment]:
         """Analyze slide deck matching pattern"""
-        slide_files = sorted(Path('.').glob(pattern))
+        slide_files = sorted(Path(".").glob(pattern))
 
         if not slide_files:
             raise FileNotFoundError(f"No images found matching: {pattern}")
@@ -139,16 +138,12 @@ def handle_vision_analyze(args):
     output = args.output or "json"
 
     if output == "json":
-        result = {
-            "ok": True,
-            "analyzed": len(assessments),
-            "images": [a.to_dict() for a in assessments]
-        }
+        result = {"ok": True, "analyzed": len(assessments), "images": [a.to_dict() for a in assessments]}
         print(json.dumps(result, indent=2))
     else:
         # Human-readable
         print("\n📸 Vision Analysis Results")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         for a in assessments:
             print(f"\n{Path(a.image_path).name}")
             if a.slide_number:
@@ -166,11 +161,7 @@ def handle_vision_analyze(args):
                 if a.slide_number:
                     finding = f"Slide #{a.slide_number}: {finding}"
 
-                db.log_finding(
-                    session_id=args.session_id,
-                    finding=finding,
-                    source="vision-analyze"
-                )
+                db.log_finding(session_id=args.session_id, finding=finding, source="vision-analyze")
 
             if output != "json":
                 print(f"\n✓ Logged {len(assessments)} findings to session")
@@ -187,11 +178,7 @@ def handle_vision_log(args):
     db = SessionDatabase()
     try:
         # Log as finding
-        db.log_finding(
-            session_id=args.session_id,
-            finding=args.observation,
-            source="vision-log"
-        )
+        db.log_finding(session_id=args.session_id, finding=args.observation, source="vision-log")
 
         if args.output == "json":
             print(json.dumps({"ok": True, "logged": True}))
@@ -207,24 +194,16 @@ def add_vision_parsers(subparsers):
     """Add vision command parsers"""
 
     # vision-analyze: Analyze image(s) with optional session logging
-    vision_analyze = subparsers.add_parser(
-        'vision-analyze',
-        help='Analyze image(s) and optionally log to session'
-    )
-    vision_analyze.add_argument('--image', help='Single image path')
-    vision_analyze.add_argument('--pattern', help='Image pattern (e.g., slides/*.png)')
-    vision_analyze.add_argument('--session-id', help='Session ID to log findings')
-    vision_analyze.add_argument('--output', choices=['json', 'human'], default='json',
-                               help='Output format')
+    vision_analyze = subparsers.add_parser("vision-analyze", help="Analyze image(s) and optionally log to session")
+    vision_analyze.add_argument("--image", help="Single image path")
+    vision_analyze.add_argument("--pattern", help="Image pattern (e.g., slides/*.png)")
+    vision_analyze.add_argument("--session-id", help="Session ID to log findings")
+    vision_analyze.add_argument("--output", choices=["json", "human"], default="json", help="Output format")
     vision_analyze.set_defaults(func=handle_vision_analyze)
 
     # vision-log: Manually log visual observation to session
-    vision_log = subparsers.add_parser(
-        'vision-log',
-        help='Log visual observation to session'
-    )
-    vision_log.add_argument('--session-id', required=True, help='Session ID')
-    vision_log.add_argument('--observation', required=True, help='Visual observation text')
-    vision_log.add_argument('--output', choices=['json', 'human'], default='json',
-                           help='Output format')
+    vision_log = subparsers.add_parser("vision-log", help="Log visual observation to session")
+    vision_log.add_argument("--session-id", required=True, help="Session ID")
+    vision_log.add_argument("--observation", required=True, help="Visual observation text")
+    vision_log.add_argument("--output", choices=["json", "human"], default="json", help="Output format")
     vision_log.set_defaults(func=handle_vision_log)

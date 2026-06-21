@@ -42,46 +42,45 @@ def test_unit_name_format():
 
 
 def test_backend_unavailable_when_no_systemd_no_launchd():
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=False), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=False):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=False),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=False),
+    ):
         service = PersistentListenerService()
     assert service.backend == "unavailable"
 
 
 def test_backend_systemd_when_only_systemd_available():
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=False), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=True):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=False),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=True),
+    ):
         service = PersistentListenerService()
     assert service.backend == "systemd"
 
 
 def test_backend_launchd_when_only_launchd_available():
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=True), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=False), \
-         patch("empirica.core.loop_scheduler.persistent_listener.sys") as mock_sys:
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=True),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=False),
+        patch("empirica.core.loop_scheduler.persistent_listener.sys") as mock_sys,
+    ):
         mock_sys.platform = "darwin"
         service = PersistentListenerService()
     assert service.backend == "launchd"
 
 
 def test_empirica_bin_resolves_to_absolute_path():
-    with patch("empirica.core.loop_scheduler.persistent_listener.shutil.which",
-               return_value="/usr/local/bin/empirica"), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=True):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.shutil.which", return_value="/usr/local/bin/empirica"),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=True),
+    ):
         service = PersistentListenerService()
     assert service.empirica_bin == "/usr/local/bin/empirica"
 
 
 def test_empirica_bin_explicit_override():
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=True):
+    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=True):
         service = PersistentListenerService(empirica_bin="/custom/path/empirica")
     assert service.empirica_bin == "/custom/path/empirica"
 
@@ -91,10 +90,10 @@ def test_empirica_bin_explicit_override():
 
 def test_unit_path_systemd(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=True), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=False):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=True),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=False),
+    ):
         service = PersistentListenerService(empirica_bin="empirica")
     path = service.unit_path("cortex")
     assert path is not None
@@ -103,10 +102,10 @@ def test_unit_path_systemd(tmp_path, monkeypatch):
 
 
 def test_unit_path_unavailable_returns_none():
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=False), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=False):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=False),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=False),
+    ):
         service = PersistentListenerService(empirica_bin="empirica")
     assert service.unit_path("cortex") is None
 
@@ -115,12 +114,13 @@ def test_unit_path_unavailable_returns_none():
 
 
 def test_install_raises_when_unavailable():
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=False), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=False):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=False),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=False),
+    ):
         service = PersistentListenerService(empirica_bin="empirica")
     import pytest
+
     with pytest.raises(ListenerServiceUnavailable):
         service.install("cortex")
 
@@ -128,12 +128,14 @@ def test_install_raises_when_unavailable():
 def test_install_systemd_writes_unit_file(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     fake_run = MagicMock(return_value=subprocess.CompletedProcess([], 0, "", ""))
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=True), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=False), \
-         patch("empirica.core.loop_scheduler.persistent_listener._systemctl",
-               side_effect=lambda *a, **kw: fake_run(*a, **kw)):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=True),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=False),
+        patch(
+            "empirica.core.loop_scheduler.persistent_listener._systemctl",
+            side_effect=lambda *a, **kw: fake_run(*a, **kw),
+        ),
+    ):
         service = PersistentListenerService(empirica_bin="/path/to/empirica")
         unit_file = service.install("cortex")
 
@@ -148,12 +150,14 @@ def test_install_systemd_writes_unit_file(tmp_path, monkeypatch):
 
 def test_install_systemd_log_path_in_unit(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=True), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=False), \
-         patch("empirica.core.loop_scheduler.persistent_listener._systemctl",
-               return_value=subprocess.CompletedProcess([], 0, "", "")):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=True),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=False),
+        patch(
+            "empirica.core.loop_scheduler.persistent_listener._systemctl",
+            return_value=subprocess.CompletedProcess([], 0, "", ""),
+        ),
+    ):
         service = PersistentListenerService(empirica_bin="empirica")
         unit_file = service.install("cortex")
     content = unit_file.read_text()
@@ -162,13 +166,15 @@ def test_install_systemd_log_path_in_unit(tmp_path, monkeypatch):
 
 def test_install_launchd_writes_plist(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=False), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=True), \
-         patch("empirica.core.loop_scheduler.persistent_listener.sys") as mock_sys, \
-         patch("empirica.core.loop_scheduler.persistent_listener._launchctl",
-               return_value=subprocess.CompletedProcess([], 0, "", "")):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=False),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=True),
+        patch("empirica.core.loop_scheduler.persistent_listener.sys") as mock_sys,
+        patch(
+            "empirica.core.loop_scheduler.persistent_listener._launchctl",
+            return_value=subprocess.CompletedProcess([], 0, "", ""),
+        ),
+    ):
         mock_sys.platform = "darwin"
         service = PersistentListenerService(empirica_bin="/path/to/empirica")
         plist_file = service.install("cortex")
@@ -228,19 +234,17 @@ def test_install_systemd_purges_legacy_stripped_unit(tmp_path, monkeypatch):
         systemctl_calls.append(args)
         return subprocess.CompletedProcess([], 0, "", "")
 
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=True), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=False), \
-         patch("empirica.core.loop_scheduler.persistent_listener._systemctl",
-               side_effect=_fake_systemctl):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=True),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=False),
+        patch("empirica.core.loop_scheduler.persistent_listener._systemctl", side_effect=_fake_systemctl),
+    ):
         service = PersistentListenerService(empirica_bin="/path/to/empirica")
         service.install("empirica-autonomy")
 
     # Legacy unit was disabled + removed before canonical install
     assert not legacy_unit.exists()
-    disable_calls = [a for a in systemctl_calls
-                     if "disable" in a and "empirica-listener-autonomy.service" in a]
+    disable_calls = [a for a in systemctl_calls if "disable" in a and "empirica-listener-autonomy.service" in a]
     assert disable_calls, f"legacy unit not disabled (calls: {systemctl_calls})"
 
     # Canonical unit now exists
@@ -257,18 +261,16 @@ def test_install_systemd_skips_purge_when_no_legacy_unit(tmp_path, monkeypatch):
         systemctl_calls.append(args)
         return subprocess.CompletedProcess([], 0, "", "")
 
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=True), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=False), \
-         patch("empirica.core.loop_scheduler.persistent_listener._systemctl",
-               side_effect=_fake_systemctl):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=True),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=False),
+        patch("empirica.core.loop_scheduler.persistent_listener._systemctl", side_effect=_fake_systemctl),
+    ):
         service = PersistentListenerService(empirica_bin="/path/to/empirica")
         service.install("empirica-cortex")
 
     # No legacy disable call — would target empirica-listener-cortex.service
-    disable_calls = [a for a in systemctl_calls
-                     if "disable" in a and "empirica-listener-cortex.service" in a]
+    disable_calls = [a for a in systemctl_calls if "disable" in a and "empirica-listener-cortex.service" in a]
     assert disable_calls == [], "purge fired despite no legacy unit on disk"
 
 
@@ -281,18 +283,18 @@ def test_install_systemd_skips_purge_for_root_practice(tmp_path, monkeypatch):
         systemctl_calls.append(args)
         return subprocess.CompletedProcess([], 0, "", "")
 
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=True), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=False), \
-         patch("empirica.core.loop_scheduler.persistent_listener._systemctl",
-               side_effect=_fake_systemctl):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=True),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=False),
+        patch("empirica.core.loop_scheduler.persistent_listener._systemctl", side_effect=_fake_systemctl),
+    ):
         service = PersistentListenerService(empirica_bin="/path/to/empirica")
         service.install("empirica")
 
     # Canonical install only — no disable on a stripped form
-    disable_calls = [a for a in systemctl_calls
-                     if "disable" in a and a != ("disable", "--now", "empirica-listener-empirica.service")]
+    disable_calls = [
+        a for a in systemctl_calls if "disable" in a and a != ("disable", "--now", "empirica-listener-empirica.service")
+    ]
     assert disable_calls == []
 
 
@@ -301,10 +303,10 @@ def test_install_systemd_skips_purge_for_root_practice(tmp_path, monkeypatch):
 
 def test_uninstall_returns_false_when_not_installed(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=True), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=False):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=True),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=False),
+    ):
         service = PersistentListenerService(empirica_bin="empirica")
         result = service.uninstall("cortex")
     assert result is False
@@ -318,12 +320,14 @@ def test_uninstall_removes_systemd_unit(tmp_path, monkeypatch):
     unit_file = unit_dir / "empirica-listener-cortex.service"
     unit_file.write_text("[Unit]")
 
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=True), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=False), \
-         patch("empirica.core.loop_scheduler.persistent_listener._systemctl",
-               return_value=subprocess.CompletedProcess([], 0, "", "")):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=True),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=False),
+        patch(
+            "empirica.core.loop_scheduler.persistent_listener._systemctl",
+            return_value=subprocess.CompletedProcess([], 0, "", ""),
+        ),
+    ):
         service = PersistentListenerService(empirica_bin="empirica")
         result = service.uninstall("cortex")
 
@@ -335,10 +339,10 @@ def test_uninstall_removes_systemd_unit(tmp_path, monkeypatch):
 
 
 def test_status_unavailable_backend():
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=False), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=False):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=False),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=False),
+    ):
         service = PersistentListenerService(empirica_bin="empirica")
     status = service.status("cortex")
     assert status.backend == "unavailable"
@@ -348,10 +352,10 @@ def test_status_unavailable_backend():
 
 def test_status_not_installed(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=True), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=False):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=True),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=False),
+    ):
         service = PersistentListenerService(empirica_bin="empirica")
     status = service.status("cortex")
     assert status.backend == "systemd"
@@ -365,12 +369,14 @@ def test_status_installed_and_active(tmp_path, monkeypatch):
     unit_dir.mkdir(parents=True)
     (unit_dir / "empirica-listener-cortex.service").write_text("[Unit]")
 
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=True), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=False), \
-         patch("empirica.core.loop_scheduler.persistent_listener._systemctl",
-               return_value=subprocess.CompletedProcess([], 0, "active\n", "")):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=True),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=False),
+        patch(
+            "empirica.core.loop_scheduler.persistent_listener._systemctl",
+            return_value=subprocess.CompletedProcess([], 0, "active\n", ""),
+        ),
+    ):
         service = PersistentListenerService(empirica_bin="empirica")
         status = service.status("cortex")
 
@@ -384,12 +390,14 @@ def test_status_installed_but_inactive(tmp_path, monkeypatch):
     unit_dir.mkdir(parents=True)
     (unit_dir / "empirica-listener-cortex.service").write_text("[Unit]")
 
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=True), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=False), \
-         patch("empirica.core.loop_scheduler.persistent_listener._systemctl",
-               return_value=subprocess.CompletedProcess([], 3, "inactive\n", "")):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=True),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=False),
+        patch(
+            "empirica.core.loop_scheduler.persistent_listener._systemctl",
+            return_value=subprocess.CompletedProcess([], 3, "inactive\n", ""),
+        ),
+    ):
         service = PersistentListenerService(empirica_bin="empirica")
         status = service.status("cortex")
 
@@ -408,32 +416,36 @@ def test_status_launchd_active_when_loaded_but_plist_elsewhere(tmp_path, monkeyp
     else session-monitor-arm reads active=False and arms a DUPLICATE listener."""
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     # Deliberately do NOT create the plist under ~/Library/LaunchAgents.
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=False), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=True), \
-         patch("empirica.core.loop_scheduler.persistent_listener.sys") as mock_sys, \
-         patch("empirica.core.loop_scheduler.persistent_listener._launchctl",
-               return_value=subprocess.CompletedProcess([], 0, "12345\t0\tcom.empirica.listener.cortex\n", "")):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=False),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=True),
+        patch("empirica.core.loop_scheduler.persistent_listener.sys") as mock_sys,
+        patch(
+            "empirica.core.loop_scheduler.persistent_listener._launchctl",
+            return_value=subprocess.CompletedProcess([], 0, "12345\t0\tcom.empirica.listener.cortex\n", ""),
+        ),
+    ):
         mock_sys.platform = "darwin"
         service = PersistentListenerService(empirica_bin="empirica")
         status = service.status("cortex")
 
     assert status.backend == "launchd"
-    assert status.active is True        # liveness from the label, not the plist file
-    assert status.installed is True     # loaded-but-plist-elsewhere still counts as installed
+    assert status.active is True  # liveness from the label, not the plist file
+    assert status.installed is True  # loaded-but-plist-elsewhere still counts as installed
 
 
 def test_status_launchd_inactive_when_label_not_loaded(tmp_path, monkeypatch):
     """launchctl list of an unknown label returns non-zero → not active."""
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=False), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=True), \
-         patch("empirica.core.loop_scheduler.persistent_listener.sys") as mock_sys, \
-         patch("empirica.core.loop_scheduler.persistent_listener._launchctl",
-               return_value=subprocess.CompletedProcess([], 113, "", "Could not find service")):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=False),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=True),
+        patch("empirica.core.loop_scheduler.persistent_listener.sys") as mock_sys,
+        patch(
+            "empirica.core.loop_scheduler.persistent_listener._launchctl",
+            return_value=subprocess.CompletedProcess([], 113, "", "Could not find service"),
+        ),
+    ):
         mock_sys.platform = "darwin"
         service = PersistentListenerService(empirica_bin="empirica")
         status = service.status("cortex")
@@ -446,13 +458,15 @@ def test_status_launchd_never_raises_on_launchctl_timeout(tmp_path, monkeypatch)
     """A slow launchctl must not propagate TimeoutExpired out of status()
     (would otherwise be swallowed by is_listener_running → silent false-negative)."""
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=False), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=True), \
-         patch("empirica.core.loop_scheduler.persistent_listener.sys") as mock_sys, \
-         patch("empirica.core.loop_scheduler.persistent_listener._launchctl",
-               side_effect=subprocess.TimeoutExpired(cmd="launchctl", timeout=5)):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=False),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=True),
+        patch("empirica.core.loop_scheduler.persistent_listener.sys") as mock_sys,
+        patch(
+            "empirica.core.loop_scheduler.persistent_listener._launchctl",
+            side_effect=subprocess.TimeoutExpired(cmd="launchctl", timeout=5),
+        ),
+    ):
         mock_sys.platform = "darwin"
         service = PersistentListenerService(empirica_bin="empirica")
         status = service.status("cortex")  # must not raise
@@ -465,8 +479,10 @@ def test_status_launchd_never_raises_on_launchctl_timeout(tmp_path, monkeypatch)
 
 def test_is_listener_running_never_raises_on_error():
     """The module-level is_listener_running is used by hooks — must never raise."""
-    with patch("empirica.core.loop_scheduler.persistent_listener.PersistentListenerService",
-               side_effect=RuntimeError("simulated failure")):
+    with patch(
+        "empirica.core.loop_scheduler.persistent_listener.PersistentListenerService",
+        side_effect=RuntimeError("simulated failure"),
+    ):
         result = is_listener_running("cortex")
     assert result is False
 
@@ -477,10 +493,12 @@ def test_is_listener_running_returns_true_when_active(tmp_path, monkeypatch):
     unit_dir.mkdir(parents=True)
     (unit_dir / "empirica-listener-cortex.service").write_text("[Unit]")
 
-    with patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available",
-               return_value=True), \
-         patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available",
-               return_value=False), \
-         patch("empirica.core.loop_scheduler.persistent_listener._systemctl",
-               return_value=subprocess.CompletedProcess([], 0, "active\n", "")):
+    with (
+        patch("empirica.core.loop_scheduler.persistent_listener.is_systemd_available", return_value=True),
+        patch("empirica.core.loop_scheduler.persistent_listener.is_launchd_available", return_value=False),
+        patch(
+            "empirica.core.loop_scheduler.persistent_listener._systemctl",
+            return_value=subprocess.CompletedProcess([], 0, "active\n", ""),
+        ),
+    ):
         assert is_listener_running("cortex") is True

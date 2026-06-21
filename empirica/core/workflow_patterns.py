@@ -41,10 +41,11 @@ MIN_FREQUENCY = 2
 @dataclass
 class WorkflowPattern:
     """A detected repeated workflow pattern."""
-    sequence: list[str]          # e.g. ["Read(n)", "Grep(n)", "Edit(p)", "Bash(p)"]
-    frequency: int               # Number of distinct transactions
-    transaction_ids: list[str]   # Which transactions exhibited this
-    avg_position: float = 0.0    # Average position in transaction (0.0=start, 1.0=end)
+
+    sequence: list[str]  # e.g. ["Read(n)", "Grep(n)", "Edit(p)", "Bash(p)"]
+    frequency: int  # Number of distinct transactions
+    transaction_ids: list[str]  # Which transactions exhibited this
+    avg_position: float = 0.0  # Average position in transaction (0.0=start, 1.0=end)
     example_targets: list[str] = field(default_factory=list)  # Example file/cmd targets
 
     @property
@@ -81,13 +82,14 @@ def normalize_trace(trace: list[list[str]]) -> list[str]:
     return tokens
 
 
-def extract_subsequences(tokens: list[str], min_len: int = MIN_SEQ_LEN,
-                         max_len: int = MAX_SEQ_LEN) -> list[tuple[str, ...]]:
+def extract_subsequences(
+    tokens: list[str], min_len: int = MIN_SEQ_LEN, max_len: int = MAX_SEQ_LEN
+) -> list[tuple[str, ...]]:
     """Extract all contiguous subsequences of the given length range."""
     subsequences = []
     for length in range(min_len, min(max_len + 1, len(tokens) + 1)):
         for start in range(len(tokens) - length + 1):
-            subseq = tuple(tokens[start:start + length])
+            subseq = tuple(tokens[start : start + length])
             subsequences.append(subseq)
     return subsequences
 
@@ -98,7 +100,7 @@ def remove_subsets(patterns: dict[tuple[str, ...], set[str]]) -> dict[tuple[str,
     sorted_patterns = sorted(patterns.keys(), key=len, reverse=True)
 
     for i, longer in enumerate(sorted_patterns):
-        for shorter in sorted_patterns[i + 1:]:
+        for shorter in sorted_patterns[i + 1 :]:
             if shorter in to_remove:
                 continue
             # Check if shorter is a contiguous subsequence of longer
@@ -112,8 +114,7 @@ def remove_subsets(patterns: dict[tuple[str, ...], set[str]]) -> dict[tuple[str,
     return {k: v for k, v in patterns.items() if k not in to_remove}
 
 
-def detect_patterns(traces: dict[str, list[list[str]]],
-                    min_frequency: int = MIN_FREQUENCY) -> list[WorkflowPattern]:
+def detect_patterns(traces: dict[str, list[list[str]]], min_frequency: int = MIN_FREQUENCY) -> list[WorkflowPattern]:
     """Detect repeated workflow patterns across transactions.
 
     Args:
@@ -156,8 +157,7 @@ def detect_patterns(traces: dict[str, list[list[str]]],
                 pattern_positions.setdefault(subseq, []).append(pos)
 
     # Step 3: Filter by minimum frequency
-    frequent = {seq: txs for seq, txs in pattern_txs.items()
-                if len(txs) >= min_frequency}
+    frequent = {seq: txs for seq, txs in pattern_txs.items() if len(txs) >= min_frequency}
 
     if not frequent:
         return []
@@ -180,13 +180,15 @@ def detect_patterns(traces: dict[str, list[list[str]]],
 
         avg_pos = sum(pattern_positions.get(seq, [0])) / max(len(pattern_positions.get(seq, [1])), 1)
 
-        patterns.append(WorkflowPattern(
-            sequence=list(seq),
-            frequency=len(tx_ids),
-            transaction_ids=sorted(tx_ids),
-            avg_position=avg_pos,
-            example_targets=example_targets,
-        ))
+        patterns.append(
+            WorkflowPattern(
+                sequence=list(seq),
+                frequency=len(tx_ids),
+                transaction_ids=sorted(tx_ids),
+                avg_position=avg_pos,
+                example_targets=example_targets,
+            )
+        )
 
     # Step 6: Sort by frequency (desc), then length (desc)
     patterns.sort(key=lambda p: (-p.frequency, -len(p.sequence)))
@@ -213,20 +215,23 @@ def load_traces_from_db(db_path: str, limit: int = 50) -> dict[str, list[list[st
     try:
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
-        rows = conn.execute("""
+        rows = conn.execute(
+            """
             SELECT transaction_id, reflex_data
             FROM reflexes
             WHERE phase = 'POSTFLIGHT'
             AND reflex_data IS NOT NULL
             ORDER BY timestamp DESC
             LIMIT ?
-        """, (limit,)).fetchall()
+        """,
+            (limit,),
+        ).fetchall()
 
         for row in rows:
             try:
-                data = json.loads(row['reflex_data'])
-                trace = data.get('tool_trace', [])
-                tx_id = row['transaction_id']
+                data = json.loads(row["reflex_data"])
+                trace = data.get("tool_trace", [])
+                tx_id = row["transaction_id"]
                 if trace and tx_id:
                     traces[tx_id] = trace
             except (json.JSONDecodeError, TypeError):
@@ -246,9 +251,11 @@ def format_patterns_human(patterns: list[WorkflowPattern], limit: int = 5) -> st
 
     lines = [f"Detected {len(patterns)} workflow pattern(s):\n"]
     for i, p in enumerate(patterns[:limit]):
-        lines.append(f"  {i+1}. {p.signature}")
-        lines.append(f"     Frequency: {p.frequency} transactions | "
-                      f"Position: {'early' if p.avg_position < 0.3 else 'mid' if p.avg_position < 0.7 else 'late'}")
+        lines.append(f"  {i + 1}. {p.signature}")
+        lines.append(
+            f"     Frequency: {p.frequency} transactions | "
+            f"Position: {'early' if p.avg_position < 0.3 else 'mid' if p.avg_position < 0.7 else 'late'}"
+        )
         if p.example_targets:
             lines.append(f"     Examples: {', '.join(p.example_targets)}")
         lines.append("")
@@ -263,9 +270,11 @@ def format_patterns_human(patterns: list[WorkflowPattern], limit: int = 5) -> st
 # Layer 3: Epistemic-Correlated Suggestions
 # =============================================================================
 
+
 @dataclass
 class TransactionOutcome:
     """A transaction's trace + epistemic outcome for correlation."""
+
     transaction_id: str
     trace: list[list[str]]
     pre_know: float = 0.0
@@ -279,6 +288,7 @@ class TransactionOutcome:
 @dataclass
 class WorkflowSuggestion:
     """An actionable suggestion derived from pattern-outcome correlation."""
+
     suggestion: str
     evidence: str
     confidence: float  # 0.0-1.0 based on sample size and effect size
@@ -309,7 +319,8 @@ def load_transaction_outcomes(db_path: str, limit: int = 50) -> list[Transaction
         conn.row_factory = sqlite3.Row
 
         # Get POSTFLIGHTs with traces
-        rows = conn.execute("""
+        rows = conn.execute(
+            """
             SELECT r.transaction_id, r.reflex_data, r.session_id
             FROM reflexes r
             WHERE r.phase = 'POSTFLIGHT'
@@ -317,57 +328,64 @@ def load_transaction_outcomes(db_path: str, limit: int = 50) -> list[Transaction
             AND json_extract(r.reflex_data, '$.tool_trace') IS NOT NULL
             ORDER BY r.timestamp DESC
             LIMIT ?
-        """, (limit,)).fetchall()
+        """,
+            (limit,),
+        ).fetchall()
 
         for row in rows:
             try:
-                post_data = json.loads(row['reflex_data'])
-                trace = post_data.get('tool_trace', [])
+                post_data = json.loads(row["reflex_data"])
+                trace = post_data.get("tool_trace", [])
                 if not trace:
                     continue
 
-                tx_id = row['transaction_id']
+                tx_id = row["transaction_id"]
 
                 # Get POSTFLIGHT vectors
-                post_vectors = post_data.get('vectors', {})
+                post_vectors = post_data.get("vectors", {})
                 if isinstance(post_vectors, str):
                     post_vectors = json.loads(post_vectors)
 
-                post_completion = float(post_vectors.get('completion', 0))
-                post_know = float(post_vectors.get('know', 0))
+                post_completion = float(post_vectors.get("completion", 0))
+                post_know = float(post_vectors.get("know", 0))
 
                 # Get calibration score if available
-                cal_score = post_data.get('calibration_score', 1.0)
+                cal_score = post_data.get("calibration_score", 1.0)
                 if cal_score is None:
                     cal_score = 1.0
 
                 # Get PREFLIGHT vectors for this transaction
-                pre_row = conn.execute("""
+                pre_row = conn.execute(
+                    """
                     SELECT reflex_data FROM reflexes
                     WHERE transaction_id = ? AND phase = 'PREFLIGHT'
                     ORDER BY timestamp ASC LIMIT 1
-                """, (tx_id,)).fetchone()
+                """,
+                    (tx_id,),
+                ).fetchone()
 
                 pre_know = 0.0
                 pre_uncertainty = 0.5
                 if pre_row:
-                    pre_data = json.loads(pre_row['reflex_data'])
-                    pre_vectors = pre_data.get('vectors', {})
+                    pre_data = json.loads(pre_row["reflex_data"])
+                    pre_vectors = pre_data.get("vectors", {})
                     if isinstance(pre_vectors, str):
                         pre_vectors = json.loads(pre_vectors)
-                    pre_know = float(pre_vectors.get('know', 0))
-                    pre_uncertainty = float(pre_vectors.get('uncertainty', 0.5))
+                    pre_know = float(pre_vectors.get("know", 0))
+                    pre_uncertainty = float(pre_vectors.get("uncertainty", 0.5))
 
-                outcomes.append(TransactionOutcome(
-                    transaction_id=tx_id,
-                    trace=trace,
-                    pre_know=pre_know,
-                    pre_uncertainty=pre_uncertainty,
-                    post_know=post_know,
-                    post_completion=post_completion,
-                    calibration_score=float(cal_score),
-                    success=post_completion >= 0.7,
-                ))
+                outcomes.append(
+                    TransactionOutcome(
+                        transaction_id=tx_id,
+                        trace=trace,
+                        pre_know=pre_know,
+                        pre_uncertainty=pre_uncertainty,
+                        post_know=post_know,
+                        post_completion=post_completion,
+                        calibration_score=float(cal_score),
+                        success=post_completion >= 0.7,
+                    )
+                )
             except (json.JSONDecodeError, TypeError, ValueError):
                 continue
 
@@ -382,7 +400,7 @@ def _noetic_before_praxic(trace: list[list[str]]) -> int:
     """Count noetic tools before first praxic tool."""
     count = 0
     for entry in trace:
-        if len(entry) >= 3 and entry[2] == 'p':
+        if len(entry) >= 3 and entry[2] == "p":
             break
         count += 1
     return count
@@ -392,15 +410,22 @@ def _has_grep_before_edit(trace: list[list[str]]) -> bool:
     """Check if any Grep appears before the first Edit."""
     seen_grep = False
     for entry in trace:
-        if entry[0] == 'Grep':
+        if entry[0] == "Grep":
             seen_grep = True
-        if entry[0] == 'Edit':
+        if entry[0] == "Edit":
             return seen_grep
     return False
 
 
-_ARTIFACT_CMDS = {'empirica', 'finding-log', 'unknown-log', 'deadend-log',
-                  'assumption-log', 'decision-log', 'mistake-log'}
+_ARTIFACT_CMDS = {
+    "empirica",
+    "finding-log",
+    "unknown-log",
+    "deadend-log",
+    "assumption-log",
+    "decision-log",
+    "mistake-log",
+}
 
 
 def _count_artifact_tools(trace: list[list[str]]) -> int:
@@ -408,8 +433,7 @@ def _count_artifact_tools(trace: list[list[str]]) -> int:
     return sum(1 for e in trace if len(e) >= 2 and e[1] in _ARTIFACT_CMDS)
 
 
-def _analyse_noetic_depth(successful: list, unsuccessful: list,
-                           total: int) -> WorkflowSuggestion | None:
+def _analyse_noetic_depth(successful: list, unsuccessful: list, total: int) -> WorkflowSuggestion | None:
     """Analysis 1: Do successful transactions investigate more before acting?"""
     if not successful or not unsuccessful:
         return None
@@ -420,7 +444,7 @@ def _analyse_noetic_depth(successful: list, unsuccessful: list,
     effect = avg_s - avg_f
     return WorkflowSuggestion(
         suggestion=f"Investigate more before acting — successful transactions average "
-                   f"{avg_s:.1f} noetic tools before first edit, unsuccessful average {avg_f:.1f}",
+        f"{avg_s:.1f} noetic tools before first edit, unsuccessful average {avg_f:.1f}",
         evidence=f"Based on {len(successful)} successful and {len(unsuccessful)} unsuccessful transactions",
         confidence=min(0.9, 0.4 + (total / 50) * 0.3 + (effect / 10) * 0.2),
         pattern="noetic-depth-before-praxic",
@@ -428,8 +452,7 @@ def _analyse_noetic_depth(successful: list, unsuccessful: list,
     )
 
 
-def _analyse_grep_before_edit(successful: list, unsuccessful: list,
-                               total: int) -> WorkflowSuggestion | None:
+def _analyse_grep_before_edit(successful: list, unsuccessful: list, total: int) -> WorkflowSuggestion | None:
     """Analysis 2: Does searching before editing improve outcomes?"""
     if not successful or not unsuccessful:
         return None
@@ -441,9 +464,9 @@ def _analyse_grep_before_edit(successful: list, unsuccessful: list,
     grep_f = sum(1 for o in unsuccessful if _has_grep_before_edit(o.trace))
     return WorkflowSuggestion(
         suggestion=f"Search before editing — {rate_s:.0%} of successful transactions "
-                   f"include Grep before first Edit vs {rate_f:.0%} of unsuccessful",
+        f"include Grep before first Edit vs {rate_f:.0%} of unsuccessful",
         evidence=f"Grep-before-Edit rate: {grep_s}/{len(successful)} successful, "
-                 f"{grep_f}/{len(unsuccessful)} unsuccessful",
+        f"{grep_f}/{len(unsuccessful)} unsuccessful",
         confidence=min(0.85, 0.3 + (total / 40) * 0.3 + (rate_s - rate_f) * 0.3),
         pattern="grep-before-edit",
         category="investigation",
@@ -465,7 +488,7 @@ def _analyse_uncertainty_depth(outcomes: list, min_sample: int) -> WorkflowSugge
         return None
     return WorkflowSuggestion(
         suggestion=f"When uncertain, take more steps — successful uncertain transactions "
-                   f"average {avg_s:.0f} tool calls vs {avg_f:.0f} for unsuccessful",
+        f"average {avg_s:.0f} tool calls vs {avg_f:.0f} for unsuccessful",
         evidence=f"Based on {len(uncertain)} transactions starting with uncertainty > 0.4",
         confidence=min(0.8, 0.3 + len(uncertain) / 30),
         pattern="uncertain-transaction-depth",
@@ -473,8 +496,7 @@ def _analyse_uncertainty_depth(outcomes: list, min_sample: int) -> WorkflowSugge
     )
 
 
-def _analyse_artifact_breadth(successful: list, unsuccessful: list,
-                               total: int) -> WorkflowSuggestion | None:
+def _analyse_artifact_breadth(successful: list, unsuccessful: list, total: int) -> WorkflowSuggestion | None:
     """Analysis 4: Does logging more artifacts correlate with success?"""
     if not successful or not unsuccessful:
         return None
@@ -484,7 +506,7 @@ def _analyse_artifact_breadth(successful: list, unsuccessful: list,
         return None
     return WorkflowSuggestion(
         suggestion=f"Log more artifacts — successful transactions average "
-                   f"{avg_s:.1f} epistemic logs vs {avg_f:.1f} in unsuccessful",
+        f"{avg_s:.1f} epistemic logs vs {avg_f:.1f} in unsuccessful",
         evidence="Artifact types: findings, unknowns, dead-ends, assumptions, decisions",
         confidence=min(0.75, 0.3 + total / 40),
         pattern="artifact-breadth-correlation",
@@ -504,17 +526,16 @@ def _analyse_calibration_correlation(outcomes: list) -> WorkflowSuggestion | Non
         return None
     return WorkflowSuggestion(
         suggestion=f"More investigation improves calibration — well-calibrated transactions "
-                   f"average {avg_good:.1f} noetic tools vs {avg_bad:.1f} for poorly calibrated",
+        f"average {avg_good:.1f} noetic tools vs {avg_bad:.1f} for poorly calibrated",
         evidence=f"Based on {len(well)} well-calibrated (score < 0.3) and "
-                 f"{len(poor)} poorly calibrated (score >= 0.5) transactions",
+        f"{len(poor)} poorly calibrated (score >= 0.5) transactions",
         confidence=min(0.85, 0.4 + len(outcomes) / 30),
         pattern="investigation-calibration-correlation",
         category="verification",
     )
 
 
-def generate_suggestions(outcomes: list[TransactionOutcome],
-                         min_sample: int = 3) -> list[WorkflowSuggestion]:
+def generate_suggestions(outcomes: list[TransactionOutcome], min_sample: int = 3) -> list[WorkflowSuggestion]:
     """Generate workflow suggestions by correlating patterns with outcomes."""
     if len(outcomes) < min_sample:
         return []

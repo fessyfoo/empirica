@@ -40,8 +40,7 @@ def db(tmp_path: Path):
     sdb = SessionDatabase(db_path)
     project_id = str(uuid.uuid4())
     sdb.conn.execute(
-        "INSERT INTO projects (id, name, created_timestamp, project_data) "
-        "VALUES (?, ?, ?, ?)",
+        "INSERT INTO projects (id, name, created_timestamp, project_data) VALUES (?, ?, ?, ?)",
         (project_id, "test-project", time.time(), "{}"),
     )
     sdb.conn.commit()
@@ -184,8 +183,7 @@ def test_migration_046_copies_legacy_rows_into_sources(db):
            (id, project_id, doc_path, doc_type, description,
             created_timestamp, doc_data)
            VALUES (?, ?, ?, ?, ?, ?, ?)""",
-        (legacy_id, project_id, "docs/legacy.md", "arch", "Legacy",
-         time.time(), '{"x": 1}'),
+        (legacy_id, project_id, "docs/legacy.md", "arch", "Legacy", time.time(), '{"x": 1}'),
     )
     db.conn.commit()
 
@@ -193,8 +191,7 @@ def test_migration_046_copies_legacy_rows_into_sources(db):
     db.conn.commit()
 
     src = db.conn.execute(
-        "SELECT source_type, source_url, description, source_metadata "
-        "FROM epistemic_sources WHERE id = ?",
+        "SELECT source_type, source_url, description, source_metadata FROM epistemic_sources WHERE id = ?",
         (legacy_id,),
     ).fetchone()
     assert src is not None
@@ -259,9 +256,12 @@ def test_refdoc_add_cli_command_is_removed():
     table; source_type='pointer' if they want strict equivalence).
     """
     import subprocess
+
     proc = subprocess.run(
         ["empirica", "refdoc-add", "--help"],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     # Argparse exits 2 on unknown command + writes "invalid choice" to stderr
     assert proc.returncode != 0
@@ -329,17 +329,23 @@ def test_migration_047_drops_legacy_table_when_present(db):
     )
     db.conn.commit()
     # Sanity: table exists
-    assert db.conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='project_reference_docs'"
-    ).fetchone() is not None
+    assert (
+        db.conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='project_reference_docs'"
+        ).fetchone()
+        is not None
+    )
 
     migration_047_drop_project_reference_docs(db.conn.cursor())
     db.conn.commit()
 
     # Verify table is gone
-    assert db.conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='project_reference_docs'"
-    ).fetchone() is None
+    assert (
+        db.conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='project_reference_docs'"
+        ).fetchone()
+        is None
+    )
 
 
 def test_migration_047_is_idempotent_when_table_absent(db):
@@ -358,8 +364,10 @@ def test_writer_still_works_after_phase3(db):
     and consumers get the same shape back from get_project_reference_docs."""
     project_id = db._test_project_id
     doc_id = db.add_reference_doc(
-        project_id=project_id, doc_path="docs/post-phase3.md",
-        doc_type="guide", description="Post-Phase-3 doc",
+        project_id=project_id,
+        doc_path="docs/post-phase3.md",
+        doc_type="guide",
+        description="Post-Phase-3 doc",
     )
     docs = db.get_project_reference_docs(project_id)
     assert len(docs) == 1

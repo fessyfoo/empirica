@@ -30,8 +30,7 @@ def test_overall_soft_only_is_warn():
 
 def test_overall_falls_back_to_passed_bool_on_unknown_status():
     overall, passed, total = se._overall_from_checks(
-        [{"check": "x", "status": "weird", "passed": True},
-         {"check": "y", "status": "weird", "passed": False}]
+        [{"check": "x", "status": "weird", "passed": True}, {"check": "y", "status": "weird", "passed": False}]
     )
     assert overall == "fail" and passed == 1 and total == 2
 
@@ -42,8 +41,11 @@ def test_overall_falls_back_to_passed_bool_on_unknown_status():
 def test_event_envelope_shape_pass():
     report = {"score": 100, "checks": _checks("pass", "pass")}
     ev = se.compliance_report_to_event(
-        report, ran_by="empirica.david.empirica", ran_at="2026-06-16T00:00:00Z",
-        suite="empirica-compliance", suite_version="1.0",
+        report,
+        ran_by="empirica.david.empirica",
+        ran_at="2026-06-16T00:00:00Z",
+        suite="empirica-compliance",
+        suite_version="1.0",
     )
     assert ev["category"] == "diagnostics"
     assert ev["event_type"] == "diagnostics_pass"
@@ -57,7 +59,9 @@ def test_event_envelope_shape_pass():
 
 def test_event_envelope_fail_is_critical():
     ev = se.compliance_report_to_event(
-        {"checks": _checks("fail")}, ran_by="x", ran_at="t",
+        {"checks": _checks("fail")},
+        ran_by="x",
+        ran_at="t",
     )
     assert ev["event_type"] == "diagnostics_fail"
     assert ev["severity"] == "critical"
@@ -65,7 +69,10 @@ def test_event_envelope_fail_is_critical():
 
 def test_event_envelope_includes_org_id_when_given():
     ev = se.compliance_report_to_event(
-        {"checks": _checks("unavailable")}, ran_by="x", ran_at="t", org_id="org-nle",
+        {"checks": _checks("unavailable")},
+        ran_by="x",
+        ran_at="t",
+        org_id="org-nle",
     )
     assert ev["org_id"] == "org-nle"
     assert ev["event_type"] == "diagnostics_warn"  # soft-only
@@ -79,8 +86,10 @@ def test_emit_posts_to_system_event_endpoint(monkeypatch):
 
     class _Resp(io.BytesIO):
         status = 200
+
         def __enter__(self):
             return self
+
         def __exit__(self, *a):
             return False
 
@@ -92,7 +101,9 @@ def test_emit_posts_to_system_event_endpoint(monkeypatch):
 
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
     status, body = se.emit_system_event(
-        {"category": "diagnostics"}, cortex_url="https://cortex.example", api_key="ctx_k",
+        {"category": "diagnostics"},
+        cortex_url="https://cortex.example",
+        api_key="ctx_k",
     )
     assert status == 200 and body["event_id"] == "ev_1"
     assert captured["url"] == "https://cortex.example/v1/system/event"

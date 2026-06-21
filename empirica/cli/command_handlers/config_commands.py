@@ -18,9 +18,9 @@ from ..cli_utils import handle_cli_error
 def handle_config_command(args):
     """Unified config handler (consolidates all 5 config commands)"""
     # Route based on flags and arguments
-    if getattr(args, 'init', False):
+    if getattr(args, "init", False):
         return handle_config_init_command(args)
-    elif getattr(args, 'validate', False):
+    elif getattr(args, "validate", False):
         return handle_config_validate_command(args)
     elif args.key and args.value:
         # Set: config KEY VALUE
@@ -68,7 +68,7 @@ def handle_config_init_command(args):
         print("   empirica config --validate - Validate configuration")
 
     except Exception as e:
-        handle_cli_error(e, "Config Init", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Config Init", getattr(args, "verbose", False))
 
 
 def handle_config_show_command(args):
@@ -85,8 +85,8 @@ def handle_config_show_command(args):
         mco = get_mco_config()
 
         # Determine output format
-        output_format = getattr(args, 'format', 'yaml')
-        section = getattr(args, 'section', None)
+        output_format = getattr(args, "format", "yaml")
+        section = getattr(args, "section", None)
 
         # Build config dict
         config = {
@@ -112,7 +112,7 @@ def handle_config_show_command(args):
         print("=" * 70)
 
         # Display config
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(config, indent=2))
         else:  # yaml
             print(yaml.dump(config, default_flow_style=False, sort_keys=False))
@@ -130,7 +130,7 @@ def handle_config_show_command(args):
             print("     • protocols.yaml - Tool schemas")
 
     except Exception as e:
-        handle_cli_error(e, "Config Show", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Config Show", getattr(args, "verbose", False))
 
 
 def _validate_model_profiles(mco):
@@ -141,7 +141,7 @@ def _validate_model_profiles(mco):
         warnings.append("No model profiles configured")
     else:
         for name, profile in mco.model_profiles.items():
-            bias = profile.get('bias_profile', {})
+            bias = profile.get("bias_profile", {})
             if not bias:
                 warnings.append(f"{name}: Missing bias_profile")
             else:
@@ -157,7 +157,7 @@ def _validate_personas(mco):
         warnings.append("No personas configured")
     else:
         for name, persona in mco.personas.items():
-            investigation = persona.get('investigation_style', {})
+            investigation = persona.get("investigation_style", {})
             if not investigation:
                 warnings.append(f"{name}: Missing investigation_style")
             else:
@@ -189,7 +189,7 @@ def handle_config_validate_command(args):
             print("   ✅ Epistemic conduct loaded")
 
         print("\n📂 Checking MCO Files...")
-        required_files = ['model_profiles.yaml', 'personas.yaml', 'epistemic_conduct.yaml']
+        required_files = ["model_profiles.yaml", "personas.yaml", "epistemic_conduct.yaml"]
         for filename in required_files:
             filepath = mco.config_dir / filename
             if filepath.exists():
@@ -212,7 +212,7 @@ def handle_config_validate_command(args):
         print("=" * 70)
 
     except Exception as e:
-        handle_cli_error(e, "Config Validate", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Config Validate", getattr(args, "verbose", False))
 
 
 def handle_config_get_command(args):
@@ -235,7 +235,7 @@ def handle_config_get_command(args):
         }
 
         # Navigate to value using dot notation
-        keys = key.split('.')
+        keys = key.split(".")
         value = config
         for k in keys:
             if isinstance(value, dict) and k in value:
@@ -247,7 +247,7 @@ def handle_config_get_command(args):
         print(f"✅ {key}: {value}")
 
     except Exception as e:
-        handle_cli_error(e, "Config Get", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Config Get", getattr(args, "verbose", False))
 
 
 def handle_config_set_command(args):
@@ -270,15 +270,15 @@ def handle_config_set_command(args):
         print(f"   {mco.config_dir}")
 
         # Suggest which file to edit based on key
-        if key.startswith('model_profiles'):
+        if key.startswith("model_profiles"):
             print("\n2. Edit: model_profiles.yaml")
-        elif key.startswith('personas'):
+        elif key.startswith("personas"):
             print("\n2. Edit: personas.yaml")
-        elif key.startswith('epistemic_conduct'):
+        elif key.startswith("epistemic_conduct"):
             print("\n2. Edit: epistemic_conduct.yaml")
-        elif key.startswith('ask_before_investigate'):
+        elif key.startswith("ask_before_investigate"):
             print("\n2. Edit: ask_before_investigate.yaml")
-        elif key.startswith('protocols'):
+        elif key.startswith("protocols"):
             print("\n2. Edit: protocols.yaml")
         else:
             print("\n2. Check available sections: model_profiles, personas, epistemic_conduct, protocols")
@@ -286,4 +286,4 @@ def handle_config_set_command(args):
         print("\n3. Restart your session to load the new configuration")
 
     except Exception as e:
-        handle_cli_error(e, "Config Set", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Config Set", getattr(args, "verbose", False))

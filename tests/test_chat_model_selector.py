@@ -41,10 +41,13 @@ class TestModelSelectorPopulate:
     def setup_method(self):
         # Build a real registry so set_active_model paths exist
         self.registry = ProviderRegistry()
-        self.registry.add(Provider(
-            name="ollama", base_url="http://localhost:11434/v1",
-            default_model="qwen3.5",
-        ))
+        self.registry.add(
+            Provider(
+                name="ollama",
+                base_url="http://localhost:11434/v1",
+                default_model="qwen3.5",
+            )
+        )
         self.modal = ModelSelectorModal(self.registry)
         # Bypass real Textual: stub query_one to return a mock OptionList
         self.mock_list = MagicMock()
@@ -76,9 +79,7 @@ class TestModelSelectorPopulate:
         self.registry.set_active_model("qwen3.5")
         self.modal._render_models(["llama3.1", "qwen3.5", "mistral"], None)
         # The qwen3.5 option should have ▶ marker prefix
-        added_prompts = [
-            call.args[0].prompt for call in self.mock_list.add_option.call_args_list
-        ]
+        added_prompts = [call.args[0].prompt for call in self.mock_list.add_option.call_args_list]
         qwen_prompt = next(p for p in added_prompts if "qwen3.5" in p)
         assert "▶" in qwen_prompt
 
@@ -86,6 +87,7 @@ class TestModelSelectorPopulate:
 class TestModelSelectorDismissHandling:
     def test_placeholder_ids_dont_dispatch(self, registry):
         from textual.widgets.option_list import Option
+
         modal = ModelSelectorModal(registry)
         modal.dismiss = MagicMock()  # type: ignore[method-assign]
         # Simulate event for a placeholder
@@ -96,6 +98,7 @@ class TestModelSelectorDismissHandling:
 
     def test_real_model_id_dispatches(self, registry):
         from textual.widgets.option_list import Option
+
         modal = ModelSelectorModal(registry)
         modal.dismiss = MagicMock()  # type: ignore[method-assign]
         evt = MagicMock()
@@ -105,6 +108,7 @@ class TestModelSelectorDismissHandling:
 
     def test_none_id_dont_dispatch(self, registry):
         from textual.widgets.option_list import Option
+
         modal = ModelSelectorModal(registry)
         modal.dismiss = MagicMock()  # type: ignore[method-assign]
         evt = MagicMock()

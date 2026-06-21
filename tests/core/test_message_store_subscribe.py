@@ -18,13 +18,13 @@ from empirica.core.canonical.empirica_git.message_store import GitMessageStore
 def git_repo():
     """Create a temporary git repo and initialize it with a commit."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        subprocess.run(['git', 'init', '-q'], cwd=tmpdir, check=True)
-        subprocess.run(['git', 'config', 'user.email', 'test@test.com'], cwd=tmpdir, check=True)
-        subprocess.run(['git', 'config', 'user.name', 'Test'], cwd=tmpdir, check=True)
+        subprocess.run(["git", "init", "-q"], cwd=tmpdir, check=True)
+        subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=tmpdir, check=True)
+        subprocess.run(["git", "config", "user.name", "Test"], cwd=tmpdir, check=True)
         # Create initial commit
         (Path(tmpdir) / "README.md").write_text("test")
-        subprocess.run(['git', 'add', '.'], cwd=tmpdir, check=True)
-        subprocess.run(['git', 'commit', '-q', '-m', 'init'], cwd=tmpdir, check=True)
+        subprocess.run(["git", "add", "."], cwd=tmpdir, check=True)
+        subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=tmpdir, check=True)
         yield tmpdir
 
 
@@ -37,6 +37,7 @@ def store(git_repo):
 # ---------------------------------------------------------------------------
 # get_inbox_since
 # ---------------------------------------------------------------------------
+
 
 class TestGetInboxSince:
     def test_empty_inbox_returns_empty(self, store):
@@ -57,7 +58,7 @@ class TestGetInboxSince:
         )
         msgs = store.get_inbox_since(ai_id="alice", since_timestamp=before)
         assert len(msgs) == 1
-        assert msgs[0]['subject'] == "hello"
+        assert msgs[0]["subject"] == "hello"
 
     def test_excludes_messages_before_timestamp(self, store):
         store.send_message(
@@ -80,24 +81,30 @@ class TestGetInboxSince:
 
         msgs = store.get_inbox_since(ai_id="alice", since_timestamp=after_old)
         assert len(msgs) == 1
-        assert msgs[0]['subject'] == "new"
+        assert msgs[0]["subject"] == "new"
 
     def test_channel_filter(self, store):
         before = time.time()
         time.sleep(0.01)
 
         store.send_message(
-            from_ai_id="bob", to_ai_id="alice",
-            channel="a", subject="msg-a", body="x",
+            from_ai_id="bob",
+            to_ai_id="alice",
+            channel="a",
+            subject="msg-a",
+            body="x",
         )
         store.send_message(
-            from_ai_id="bob", to_ai_id="alice",
-            channel="b", subject="msg-b", body="x",
+            from_ai_id="bob",
+            to_ai_id="alice",
+            channel="b",
+            subject="msg-b",
+            body="x",
         )
 
         msgs_a = store.get_inbox_since(ai_id="alice", since_timestamp=before, channel="a")
         assert len(msgs_a) == 1
-        assert msgs_a[0]['subject'] == "msg-a"
+        assert msgs_a[0]["subject"] == "msg-a"
 
     def test_limit(self, store):
         before = time.time()
@@ -105,8 +112,11 @@ class TestGetInboxSince:
 
         for i in range(5):
             store.send_message(
-                from_ai_id="bob", to_ai_id="alice",
-                channel="test", subject=f"msg-{i}", body="x",
+                from_ai_id="bob",
+                to_ai_id="alice",
+                channel="test",
+                subject=f"msg-{i}",
+                body="x",
             )
 
         msgs = store.get_inbox_since(ai_id="alice", since_timestamp=before, limit=3)
@@ -117,8 +127,11 @@ class TestGetInboxSince:
         time.sleep(0.01)
 
         store.send_message(
-            from_ai_id="bob", to_ai_id="charlie",
-            channel="test", subject="for-charlie", body="x",
+            from_ai_id="bob",
+            to_ai_id="charlie",
+            channel="test",
+            subject="for-charlie",
+            body="x",
         )
 
         msgs = store.get_inbox_since(ai_id="alice", since_timestamp=before)
@@ -129,18 +142,22 @@ class TestGetInboxSince:
         time.sleep(0.01)
 
         store.send_message(
-            from_ai_id="bob", to_ai_id="*",
-            channel="test", subject="broadcast", body="x",
+            from_ai_id="bob",
+            to_ai_id="*",
+            channel="test",
+            subject="broadcast",
+            body="x",
         )
 
         msgs = store.get_inbox_since(ai_id="alice", since_timestamp=before)
         assert len(msgs) == 1
-        assert msgs[0]['subject'] == "broadcast"
+        assert msgs[0]["subject"] == "broadcast"
 
 
 # ---------------------------------------------------------------------------
 # subscribe
 # ---------------------------------------------------------------------------
+
 
 class TestSubscribe:
     def test_no_callback_returns_early(self, store):
@@ -174,20 +191,26 @@ class TestSubscribe:
         time.sleep(0.3)
 
         store.send_message(
-            from_ai_id="bob", to_ai_id="alice",
-            channel="test", subject="first", body="x",
+            from_ai_id="bob",
+            to_ai_id="alice",
+            channel="test",
+            subject="first",
+            body="x",
         )
         time.sleep(0.3)
         store.send_message(
-            from_ai_id="bob", to_ai_id="alice",
-            channel="test", subject="second", body="x",
+            from_ai_id="bob",
+            to_ai_id="alice",
+            channel="test",
+            subject="second",
+            body="x",
         )
 
         # Wait for callbacks
         subscriber.join(timeout=3.0)
 
         assert len(received) >= 1
-        subjects = [m.get('subject') for m in received]
+        subjects = [m.get("subject") for m in received]
         assert "first" in subjects or "second" in subjects
 
     def test_stop_event_halts_subscription(self, store):
@@ -242,8 +265,11 @@ class TestSubscribe:
 
         # Now send the message so it arrives after the subscriber's first poll
         store.send_message(
-            from_ai_id="bob", to_ai_id="alice",
-            channel="test", subject="first", body="x",
+            from_ai_id="bob",
+            to_ai_id="alice",
+            channel="test",
+            subject="first",
+            body="x",
         )
 
         subscriber.join(timeout=5.0)

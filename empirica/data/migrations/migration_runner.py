@@ -1,4 +1,5 @@
 """Migration runner with tracking for database schema changes"""
+
 import sqlite3
 from collections.abc import Callable
 
@@ -26,18 +27,14 @@ class MigrationRunner:
     def has_run(self, migration_id: str) -> bool:
         """Check if a migration has already been executed"""
         cursor = self.conn.cursor()
-        cursor.execute(
-            "SELECT COUNT(*) FROM schema_migrations WHERE migration_id = ?",
-            (migration_id,)
-        )
+        cursor.execute("SELECT COUNT(*) FROM schema_migrations WHERE migration_id = ?", (migration_id,))
         return cursor.fetchone()[0] > 0
 
     def mark_as_run(self, migration_id: str, description: str = ""):
         """Mark a migration as executed"""
         cursor = self.conn.cursor()
         cursor.execute(
-            "INSERT INTO schema_migrations (migration_id, description) VALUES (?, ?)",
-            (migration_id, description)
+            "INSERT INTO schema_migrations (migration_id, description) VALUES (?, ?)", (migration_id, description)
         )
         self.conn.commit()
 
@@ -75,38 +72,56 @@ class MigrationRunner:
 def column_exists(cursor: sqlite3.Cursor, table: str, column: str) -> bool:
     """Check if a column exists in a table"""
     VALID_TABLES = {
-        'sessions', 'reflexes', 'cascades', 'findings', 'unknowns',
-        'dead_ends', 'reference_docs', 'mistakes', 'goals', 'subtasks',
-        'checkpoints', 'handoffs', 'schema_migrations', 'epistemic_snapshots',
-        'bayesian_beliefs', 'projects', 'project_findings', 'project_unknowns',
-        'project_dead_ends', 'mistakes_made', 'clients', 'engagements',
-        'client_interactions', 'client_projects', 'investigation_branches',
-        'epistemic_sources', 'assumptions', 'decisions',
+        "sessions",
+        "reflexes",
+        "cascades",
+        "findings",
+        "unknowns",
+        "dead_ends",
+        "reference_docs",
+        "mistakes",
+        "goals",
+        "subtasks",
+        "checkpoints",
+        "handoffs",
+        "schema_migrations",
+        "epistemic_snapshots",
+        "bayesian_beliefs",
+        "projects",
+        "project_findings",
+        "project_unknowns",
+        "project_dead_ends",
+        "mistakes_made",
+        "clients",
+        "engagements",
+        "client_interactions",
+        "client_projects",
+        "investigation_branches",
+        "epistemic_sources",
+        "assumptions",
+        "decisions",
         # Post-test grounded calibration tables
-        'grounded_beliefs', 'verification_evidence', 'grounded_verifications',
-        'calibration_trajectory',
+        "grounded_beliefs",
+        "verification_evidence",
+        "grounded_verifications",
+        "calibration_trajectory",
         # Subagent isolation (migration 034)
-        'subagent_sessions',
+        "subagent_sessions",
         # Composable epistemic patterns (migration 037)
-        'lessons', 'lesson_steps',
+        "lessons",
+        "lesson_steps",
     }
 
     if table not in VALID_TABLES:
         raise ValueError(f"Invalid table name: {table}")
 
-    cursor.execute(
-        "SELECT COUNT(*) FROM pragma_table_info(?) WHERE name=?",
-        (table, column)
-    )
+    cursor.execute("SELECT COUNT(*) FROM pragma_table_info(?) WHERE name=?", (table, column))
     return cursor.fetchone()[0] > 0
 
 
 def table_exists(cursor: sqlite3.Cursor, table: str) -> bool:
     """Check if a table exists in the database."""
-    cursor.execute(
-        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?",
-        (table,)
-    )
+    cursor.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", (table,))
     return cursor.fetchone()[0] > 0
 
 
@@ -116,30 +131,51 @@ def add_column_if_missing(cursor: sqlite3.Cursor, table: str, column: str, colum
     Silently skips if the table doesn't exist (schema will create it later).
     """
     VALID_TABLES = {
-        'sessions', 'reflexes', 'cascades', 'findings', 'unknowns',
-        'dead_ends', 'reference_docs', 'mistakes', 'goals', 'subtasks',
-        'checkpoints', 'handoffs', 'schema_migrations', 'epistemic_snapshots',
-        'bayesian_beliefs', 'projects', 'project_findings', 'project_unknowns',
-        'project_dead_ends', 'mistakes_made', 'clients', 'engagements',
-        'client_interactions', 'client_projects', 'investigation_branches',
-        'epistemic_sources', 'assumptions', 'decisions',
+        "sessions",
+        "reflexes",
+        "cascades",
+        "findings",
+        "unknowns",
+        "dead_ends",
+        "reference_docs",
+        "mistakes",
+        "goals",
+        "subtasks",
+        "checkpoints",
+        "handoffs",
+        "schema_migrations",
+        "epistemic_snapshots",
+        "bayesian_beliefs",
+        "projects",
+        "project_findings",
+        "project_unknowns",
+        "project_dead_ends",
+        "mistakes_made",
+        "clients",
+        "engagements",
+        "client_interactions",
+        "client_projects",
+        "investigation_branches",
+        "epistemic_sources",
+        "assumptions",
+        "decisions",
         # Post-test grounded calibration tables
-        'grounded_beliefs', 'verification_evidence', 'grounded_verifications',
-        'calibration_trajectory',
+        "grounded_beliefs",
+        "verification_evidence",
+        "grounded_verifications",
+        "calibration_trajectory",
         # Subagent isolation (migration 034)
-        'subagent_sessions',
+        "subagent_sessions",
         # Composable epistemic patterns (migration 037)
-        'lessons', 'lesson_steps',
+        "lessons",
+        "lesson_steps",
     }
-    VALID_COLUMN_TYPES = {
-        'TEXT', 'INTEGER', 'REAL', 'BLOB', 'NULL',
-        'TIMESTAMP', 'BOOLEAN', 'JSON'
-    }
+    VALID_COLUMN_TYPES = {"TEXT", "INTEGER", "REAL", "BLOB", "NULL", "TIMESTAMP", "BOOLEAN", "JSON"}
 
     if table not in VALID_TABLES:
         raise ValueError(f"Invalid table name: {table}")
 
-    column_type_upper = column_type.upper().split('(')[0]
+    column_type_upper = column_type.upper().split("(")[0]
     if column_type_upper not in VALID_COLUMN_TYPES:
         raise ValueError(f"Invalid column type: {column_type}")
 

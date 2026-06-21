@@ -11,6 +11,7 @@ from empirica.core.post_test.web_collector import (
 
 # --- HTML Validator Tests ---
 
+
 class TestHTMLValidator:
     def test_valid_html(self):
         v = _HTMLStructureValidator()
@@ -51,7 +52,9 @@ class TestHTMLValidator:
 
     def test_void_elements_no_close(self):
         v = _HTMLStructureValidator()
-        v.feed('<html><head><meta charset="utf-8"><link rel="stylesheet" href="style.css"></head><body><br><hr><img src="logo.png"></body></html>')
+        v.feed(
+            '<html><head><meta charset="utf-8"><link rel="stylesheet" href="style.css"></head><body><br><hr><img src="logo.png"></body></html>'
+        )
         v.finalize()
         # Void elements should NOT cause unclosed tag errors
         assert not any("Unclosed" in e for e in v.errors)
@@ -64,12 +67,13 @@ class TestHTMLValidator:
 
     def test_no_charset_warning(self):
         v = _HTMLStructureValidator()
-        v.feed('<html><head><title>T</title></head><body></body></html>')
+        v.feed("<html><head><title>T</title></head><body></body></html>")
         v.finalize()
         assert any("charset" in w for w in v.warnings)
 
 
 # --- Build Detection Tests ---
+
 
 class TestBuildDetection:
     def test_detect_astro(self, tmp_path):
@@ -114,6 +118,7 @@ class TestBuildDetection:
     def test_custom_build_command(self, tmp_path):
         (tmp_path / ".empirica").mkdir()
         import yaml
+
         config = {"web_evidence": {"build_command": "hugo build", "output_dir": "public"}}
         (tmp_path / ".empirica" / "project.yaml").write_text(yaml.dump(config))
         collector = WebEvidenceCollector(session_id="test")
@@ -132,6 +137,7 @@ class TestBuildDetection:
 
 
 # --- Link Integrity Tests ---
+
 
 class TestLinkIntegrity:
     def _setup_site(self, tmp_path):
@@ -172,9 +178,11 @@ class TestLinkIntegrity:
 
 # --- Terminology Tests ---
 
+
 class TestTerminologyConsistency:
     def _setup_glossary(self, tmp_path):
         import yaml
+
         empirica_dir = tmp_path / ".empirica"
         empirica_dir.mkdir()
         glossary = {
@@ -189,9 +197,7 @@ class TestTerminologyConsistency:
         self._setup_glossary(tmp_path)
         dist = tmp_path / "dist"
         dist.mkdir()
-        (dist / "index.html").write_text(
-            "<html><body>The Sentinel gates actions. CASCADE has 3 phases.</body></html>"
-        )
+        (dist / "index.html").write_text("<html><body>The Sentinel gates actions. CASCADE has 3 phases.</body></html>")
         collector = WebEvidenceCollector(session_id="test")
         collector._project_path = tmp_path
         collector._web_config = {"output_dir": "dist"}
@@ -226,14 +232,13 @@ class TestTerminologyConsistency:
 
 # --- Asset Verification Tests ---
 
+
 class TestAssetVerification:
     def test_assets_found(self, tmp_path):
         dist = tmp_path / "dist"
         dist.mkdir()
-        (dist / "logo.png").write_bytes(b'\x89PNG')
-        (dist / "index.html").write_text(
-            '<img src="/logo.png"><img src="https://cdn.example.com/remote.png">'
-        )
+        (dist / "logo.png").write_bytes(b"\x89PNG")
+        (dist / "index.html").write_text('<img src="/logo.png"><img src="https://cdn.example.com/remote.png">')
         collector = WebEvidenceCollector(session_id="test")
         collector._project_path = tmp_path
         collector._web_config = {"output_dir": "dist"}
@@ -262,7 +267,7 @@ class TestAssetVerification:
         dist.mkdir()
         public = tmp_path / "public"
         public.mkdir()
-        (public / "favicon.ico").write_bytes(b'\x00')
+        (public / "favicon.ico").write_bytes(b"\x00")
         (dist / "index.html").write_text('<link href="/favicon.ico">')
         collector = WebEvidenceCollector(session_id="test")
         collector._project_path = tmp_path
@@ -274,6 +279,7 @@ class TestAssetVerification:
 
 
 # --- Profile Auto-Detection Tests ---
+
 
 class TestProfileAutoDetection:
     def test_web_extensions(self):
@@ -293,6 +299,7 @@ class TestProfileAutoDetection:
 
 # --- HTML Validation on Real-ish Content ---
 
+
 class TestHTMLValidation:
     def test_validate_multiple_files(self, tmp_path):
         dist = tmp_path / "dist"
@@ -300,13 +307,11 @@ class TestHTMLValidation:
 
         # Good file
         (dist / "good.html").write_text(
-            '<html><head><meta charset="utf-8"><title>Good</title></head>'
-            '<body><h1>Good Page</h1></body></html>'
+            '<html><head><meta charset="utf-8"><title>Good</title></head><body><h1>Good Page</h1></body></html>'
         )
         # Bad file (unclosed div)
         (dist / "bad.html").write_text(
-            '<html><head><meta charset="utf-8"><title>Bad</title></head>'
-            '<body><div><p>Oops</body></html>'
+            '<html><head><meta charset="utf-8"><title>Bad</title></head><body><div><p>Oops</body></html>'
         )
 
         collector = WebEvidenceCollector(session_id="test")

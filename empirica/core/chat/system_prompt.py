@@ -111,10 +111,7 @@ autonomy by leaving good artifacts behind.
 
 def _validate_mode(mode: str) -> str:
     if mode not in AUTONOMY_MODES:
-        raise ValueError(
-            f"unknown autonomy_mode {mode!r}; "
-            f"valid: {', '.join(AUTONOMY_MODES)}"
-        )
+        raise ValueError(f"unknown autonomy_mode {mode!r}; valid: {', '.join(AUTONOMY_MODES)}")
     return mode
 
 

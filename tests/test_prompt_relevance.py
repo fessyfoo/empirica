@@ -60,7 +60,9 @@ def test_delegates_to_suggest_links_for_artifact():
         return_value=fake_results,
     ) as suggest:
         out = get_prompt_relevant_artifacts(
-            "proj-1", "a prompt over the length floor", top_k=2,
+            "proj-1",
+            "a prompt over the length floor",
+            top_k=2,
         )
     assert out == fake_results
     suggest.assert_called_once()
@@ -175,6 +177,8 @@ def test_build_passes_project_path_to_search():
         return_value=fake,
     ) as suggest:
         build_prompt_relevance_context(
-            "proj-1", "a substantive prompt here", project_path="/tmp/proj",
+            "proj-1",
+            "a substantive prompt here",
+            project_path="/tmp/proj",
         )
     assert suggest.call_args.kwargs["project_path"] == "/tmp/proj"

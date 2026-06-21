@@ -20,6 +20,7 @@ def _get_recalibration_attempts(session_id: str) -> int:
     """
     try:
         from empirica.data.session_database import SessionDatabase
+
         db = SessionDatabase()
         session_data = db.get_session(session_id)
 
@@ -29,12 +30,13 @@ def _get_recalibration_attempts(session_id: str) -> int:
         # Count CHECK commands with 'investigate' decision in this session
         # This is tracked in the reflexes table
         from empirica.core.canonical.git_enhanced_reflex_logger import GitEnhancedReflexLogger
+
         git_logger = GitEnhancedReflexLogger(session_id=session_id, enable_git_notes=True)
         checkpoints = git_logger.list_checkpoints(limit=100)
 
         investigate_count = 0
         for checkpoint in checkpoints:
-            if checkpoint and checkpoint.get('metadata', {}).get('decision') == 'investigate':
+            if checkpoint and checkpoint.get("metadata", {}).get("decision") == "investigate":
                 investigate_count += 1
 
         return investigate_count
@@ -51,28 +53,28 @@ def _get_profile_thresholds():
         universal = loader.universal_constraints
 
         try:
-            profile = loader.get_profile('balanced')
+            profile = loader.get_profile("balanced")
             constraints = profile.investigation
 
             return {
-                'confidence_low': getattr(constraints, 'confidence_low_threshold', 0.5),
-                'confidence_high': getattr(constraints, 'confidence_high_threshold', 0.7),
-                'engagement_gate': universal.engagement_gate,
-                'coherence_min': universal.coherence_min,
+                "confidence_low": getattr(constraints, "confidence_low_threshold", 0.5),
+                "confidence_high": getattr(constraints, "confidence_high_threshold", 0.7),
+                "engagement_gate": universal.engagement_gate,
+                "coherence_min": universal.coherence_min,
             }
         except Exception:
             return {
-                'confidence_low': 0.5,
-                'confidence_high': 0.7,
-                'engagement_gate': universal.engagement_gate,
-                'coherence_min': universal.coherence_min,
+                "confidence_low": 0.5,
+                "confidence_high": 0.7,
+                "engagement_gate": universal.engagement_gate,
+                "coherence_min": universal.coherence_min,
             }
     except Exception:
         return {
-            'confidence_low': 0.5,
-            'confidence_high': 0.7,
-            'engagement_gate': 0.6,
-            'coherence_min': 0.5,
+            "confidence_low": 0.5,
+            "confidence_high": 0.7,
+            "engagement_gate": 0.6,
+            "coherence_min": 0.5,
         }
 
 
@@ -93,12 +95,11 @@ def _investigate_load_bootstrap(session_id):
     bootstrap_context = {}
     try:
         result = run_empirica_subprocess(
-            ['empirica', 'project-bootstrap', '--session-id', session_id, '--output', 'json'],
-            timeout=30
+            ["empirica", "project-bootstrap", "--session-id", session_id, "--output", "json"], timeout=30
         )
         if result.returncode == 0:
             bootstrap_data = json.loads(result.stdout)
-            bootstrap_context = bootstrap_data.get('breadcrumbs', {})
+            bootstrap_context = bootstrap_data.get("breadcrumbs", {})
             print(f"📦 Loaded context anchor from bootstrap (attempt {recalibration_attempt + 1}/3)")
             print(f"   Findings: {len(bootstrap_context.get('findings', []))}")
             print(f"   Unknowns: {len(bootstrap_context.get('unknowns', []))}")
@@ -114,9 +115,9 @@ def _investigate_dispatch(investigation_type, target, args):
 
     Returns the investigation result dict.
     """
-    verbose = getattr(args, 'verbose', False)
+    verbose = getattr(args, "verbose", False)
 
-    if investigation_type == 'auto':
+    if investigation_type == "auto":
         if os.path.exists(target):
             if os.path.isfile(target):
                 return _investigate_file(target, verbose)
@@ -125,12 +126,12 @@ def _investigate_dispatch(investigation_type, target, args):
             else:
                 return {"error": "Target exists but is neither file nor directory"}
         else:
-            return _investigate_concept(target, getattr(args, 'context', None), verbose)
+            return _investigate_concept(target, getattr(args, "context", None), verbose)
 
     dispatch = {
-        'file': lambda: _investigate_file(target, verbose),
-        'directory': lambda: _investigate_directory(target, verbose),
-        'concept': lambda: _investigate_concept(target, getattr(args, 'context', None), verbose),
+        "file": lambda: _investigate_file(target, verbose),
+        "directory": lambda: _investigate_directory(target, verbose),
+        "concept": lambda: _investigate_concept(target, getattr(args, "context", None), verbose),
     }
     handler = dispatch.get(investigation_type)
     if handler:
@@ -144,25 +145,25 @@ def _investigate_display_results(target, result):
     print(f"   🎯 Target: {target}")
     print(f"   📊 Type: {result.get('type', 'unknown')}")
 
-    if result.get('summary'):
+    if result.get("summary"):
         print(f"   📝 Summary: {result['summary']}")
 
-    if result.get('findings'):
+    if result.get("findings"):
         print("🔍 Key findings:")
-        for finding in result['findings'][:5]:
+        for finding in result["findings"][:5]:
             print(f"   • {finding}")
 
-    if result.get('metrics'):
+    if result.get("metrics"):
         print("📊 Metrics:")
-        for metric, value in result['metrics'].items():
+        for metric, value in result["metrics"].items():
             print(f"   • {metric}: {value}")
 
-    if result.get('recommendations'):
+    if result.get("recommendations"):
         print("💡 Recommendations:")
-        for rec in result['recommendations']:
+        for rec in result["recommendations"]:
             print(f"   • {rec}")
 
-    if result.get('error'):
+    if result.get("error"):
         print(f"❌ Investigation error: {result['error']}")
 
 
@@ -175,11 +176,11 @@ def handle_investigate_command(args):
     - Investigation then rebuilds understanding from that anchor
     """
     try:
-        investigation_type = getattr(args, 'type', 'auto')
-        if investigation_type == 'comprehensive':
+        investigation_type = getattr(args, "type", "auto")
+        if investigation_type == "comprehensive":
             return handle_analyze_command(args)
 
-        session_id = getattr(args, 'session_id', None)
+        session_id = getattr(args, "session_id", None)
         if session_id:
             bootstrap_context, recalibration_attempt = _investigate_load_bootstrap(session_id)
             if bootstrap_context is None and recalibration_attempt >= 3:
@@ -192,14 +193,14 @@ def handle_investigate_command(args):
 
         _investigate_display_results(target, result)
 
-        output_format = getattr(args, 'output', 'default')
-        if output_format == 'json':
+        output_format = getattr(args, "output", "default")
+        if output_format == "json":
             print(json.dumps(result, indent=2))
 
         return None
 
     except Exception as e:
-        handle_cli_error(e, "Investigation", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Investigation", getattr(args, "verbose", False))
 
 
 def handle_analyze_command(args):
@@ -208,18 +209,18 @@ def handle_analyze_command(args):
         from empirica.components.empirical_performance_analyzer import EmpiricalPerformanceAnalyzer
 
         # Support both 'subject' (old analyze) and 'target' (new investigate)
-        subject = getattr(args, 'subject', None) or getattr(args, 'target', 'unknown')
+        subject = getattr(args, "subject", None) or getattr(args, "target", "unknown")
         print(f"📊 Analyzing: {subject}")
 
         analyzer = EmpiricalPerformanceAnalyzer()
-        context = parse_json_safely(getattr(args, 'context', None))
+        context = parse_json_safely(getattr(args, "context", None))
 
         # Run comprehensive analysis
         result = analyzer.analyze_performance(
             subject=args.subject,
             context=context,
-            analysis_type=getattr(args, 'type', 'general'),
-            detailed=getattr(args, 'detailed', False)
+            analysis_type=getattr(args, "type", "general"),
+            detailed=getattr(args, "detailed", False),
         )
 
         print("✅ Analysis complete")
@@ -228,23 +229,29 @@ def handle_analyze_command(args):
         print(f"   🏆 Score: {result.get('score', 0):.2f}")
 
         # Show analysis dimensions
-        if result.get('dimensions'):
+        if result.get("dimensions"):
             thresholds = _get_profile_thresholds()
             print("📏 Analysis dimensions:")
-            for dimension, score in result['dimensions'].items():
-                status = "✅" if score > thresholds['confidence_high'] else "⚠️" if score > thresholds['confidence_low'] else "❌"
+            for dimension, score in result["dimensions"].items():
+                status = (
+                    "✅"
+                    if score > thresholds["confidence_high"]
+                    else "⚠️"
+                    if score > thresholds["confidence_low"]
+                    else "❌"
+                )
                 print(f"   {status} {dimension}: {score:.2f}")
 
         # Show insights
-        if result.get('insights'):
+        if result.get("insights"):
             print("💭 Insights:")
-            for insight in result['insights']:
+            for insight in result["insights"]:
                 print(f"   • {insight}")
 
         # Show detailed breakdown if requested
-        if getattr(args, 'detailed', False) and result.get('detailed_breakdown'):
+        if getattr(args, "detailed", False) and result.get("detailed_breakdown"):
             print("🔍 Detailed breakdown:")
-            for category, details in result['detailed_breakdown'].items():
+            for category, details in result["detailed_breakdown"].items():
                 print(f"   📂 {category}:")
                 if isinstance(details, dict):
                     for key, value in details.items():
@@ -253,15 +260,15 @@ def handle_analyze_command(args):
                     print(f"     {details}")
 
         # Format output based on requested format
-        output_format = getattr(args, 'output', 'default')
-        if output_format == 'json':
+        output_format = getattr(args, "output", "default")
+        if output_format == "json":
             print(json.dumps(result, indent=2))
 
         # Return None to avoid exit code issues and duplicate output
         return None
 
     except Exception as e:
-        handle_cli_error(e, "Analysis", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Analysis", getattr(args, "verbose", False))
 
 
 def _investigate_file(file_path: str, verbose: bool = False) -> dict:
@@ -276,10 +283,10 @@ def _investigate_file(file_path: str, verbose: bool = False) -> dict:
 
         return {
             "type": "file",
-            "summary": result.get('summary', f"Analysis of {os.path.basename(file_path)}"),
-            "findings": result.get('key_findings', []),
-            "metrics": result.get('metrics', {}),
-            "recommendations": result.get('recommendations', [])
+            "summary": result.get("summary", f"Analysis of {os.path.basename(file_path)}"),
+            "findings": result.get("key_findings", []),
+            "metrics": result.get("metrics", {}),
+            "recommendations": result.get("recommendations", []),
         }
 
     except Exception as e:
@@ -296,10 +303,10 @@ def _investigate_directory(dir_path: str, verbose: bool = False) -> dict:
 
         return {
             "type": "directory",
-            "summary": result.get('summary', f"Analysis of {os.path.basename(dir_path)}"),
-            "findings": result.get('structure_insights', []),
-            "metrics": result.get('metrics', {}),
-            "recommendations": result.get('recommendations', [])
+            "summary": result.get("summary", f"Analysis of {os.path.basename(dir_path)}"),
+            "findings": result.get("structure_insights", []),
+            "metrics": result.get("metrics", {}),
+            "recommendations": result.get("recommendations", []),
         }
 
     except Exception as e:
@@ -314,18 +321,18 @@ def _investigate_concept(concept: str, context: str | None = None, verbose: bool
 
         # Use available method or create mock result
         result = {
-            'summary': f"Concept investigation: {concept}",
-            'insights': [f"Analyzing concept: {concept}"],
-            'confidence_metrics': {'analysis_depth': 0.7},
-            'recommendations': ['Further investigation recommended']
+            "summary": f"Concept investigation: {concept}",
+            "insights": [f"Analyzing concept: {concept}"],
+            "confidence_metrics": {"analysis_depth": 0.7},
+            "recommendations": ["Further investigation recommended"],
         }
 
         return {
             "type": "concept",
-            "summary": result.get('summary', f"Investigation of concept: {concept}"),
-            "findings": result.get('insights', []),
-            "metrics": result.get('confidence_metrics', {}),
-            "recommendations": result.get('recommendations', [])
+            "summary": result.get("summary", f"Investigation of concept: {concept}"),
+            "findings": result.get("insights", []),
+            "metrics": result.get("confidence_metrics", {}),
+            "recommendations": result.get("recommendations", []),
         }
 
     except Exception as e:
@@ -334,6 +341,7 @@ def _investigate_concept(concept: str, context: str | None = None, verbose: bool
 
 # ========== Epistemic Branching Commands ==========
 
+
 def handle_investigate_create_branch_command(args):
     """Handle investigate-create-branch command - Create parallel investigation path"""
     try:
@@ -341,7 +349,7 @@ def handle_investigate_create_branch_command(args):
 
         session_id = args.session_id
         investigation_path = args.investigation_path
-        description = getattr(args, 'description', None)
+        description = getattr(args, "description", None)
         preflight_vectors_str = args.preflight_vectors or "{}"
 
         # Parse epistemic vectors
@@ -361,7 +369,7 @@ def handle_investigate_create_branch_command(args):
             branch_name=branch_name,
             investigation_path=investigation_path,
             git_branch_name=git_branch_name,
-            preflight_vectors=preflight_vectors
+            preflight_vectors=preflight_vectors,
         )
 
         db.close()
@@ -372,11 +380,11 @@ def handle_investigate_create_branch_command(args):
             "branch_name": branch_name,
             "git_branch_name": git_branch_name,
             "investigation_path": investigation_path,
-            "message": f"Created investigation branch: {git_branch_name}"
+            "message": f"Created investigation branch: {git_branch_name}",
         }
 
         # Format output
-        if hasattr(args, 'output') and args.output == 'json':
+        if hasattr(args, "output") and args.output == "json":
             print(json.dumps(result, indent=2))
         else:
             print("✅ Investigation branch created")
@@ -389,7 +397,7 @@ def handle_investigate_create_branch_command(args):
         return result
 
     except Exception as e:
-        handle_cli_error(e, "Create investigation branch", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Create investigation branch", getattr(args, "verbose", False))
 
 
 def handle_investigate_checkpoint_branch_command(args):
@@ -414,7 +422,7 @@ def handle_investigate_checkpoint_branch_command(args):
             branch_id=branch_id,
             postflight_vectors=postflight_vectors,
             tokens_spent=tokens_spent,
-            time_spent_minutes=time_spent
+            time_spent_minutes=time_spent,
         )
 
         # Calculate merge score
@@ -428,14 +436,14 @@ def handle_investigate_checkpoint_branch_command(args):
             "branch_id": branch_id,
             "tokens_spent": tokens_spent,
             "time_spent_minutes": time_spent,
-            "merge_score": score_data.get('merge_score', 0),
-            "quality": score_data.get('quality', 0),
-            "confidence": score_data.get('confidence', 0),
-            "message": f"Branch checkpointed with merge score: {score_data.get('merge_score', 0):.4f}"
+            "merge_score": score_data.get("merge_score", 0),
+            "quality": score_data.get("quality", 0),
+            "confidence": score_data.get("confidence", 0),
+            "message": f"Branch checkpointed with merge score: {score_data.get('merge_score', 0):.4f}",
         }
 
         # Format output
-        if hasattr(args, 'output') and args.output == 'json':
+        if hasattr(args, "output") and args.output == "json":
             print(json.dumps(result, indent=2))
         else:
             print("✅ Branch checkpointed successfully")
@@ -449,7 +457,7 @@ def handle_investigate_checkpoint_branch_command(args):
         return result
 
     except Exception as e:
-        handle_cli_error(e, "Checkpoint investigation branch", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Checkpoint investigation branch", getattr(args, "verbose", False))
 
 
 def _merge_tag_losing_branches(db, session_id, merge_result):
@@ -480,27 +488,36 @@ def _merge_tag_losing_branches(db, session_id, merge_result):
         loser_branch_id = loser.get("branch_id")
         score_diff = winning_score - loser_score
         approach = f"Investigation branch: {loser_name}"
-        why_failed = (f"Lost epistemic merge to {winning_name} (score diff: {score_diff:.4f}). "
-                      f"Branch score: {loser_score:.4f} vs winner: {winning_score:.4f}")
+        why_failed = (
+            f"Lost epistemic merge to {winning_name} (score diff: {score_diff:.4f}). "
+            f"Branch score: {loser_score:.4f} vs winner: {winning_score:.4f}"
+        )
 
         db.log_project_dead_end(
-            project_id=None, session_id=session_id,
-            approach=approach, why_failed=why_failed,
-            goal_id=None, subtask_id=None
+            project_id=None,
+            session_id=session_id,
+            approach=approach,
+            why_failed=why_failed,
+            goal_id=None,
+            subtask_id=None,
         )
         dead_ends_logged += 1
 
         if project_id:
             try:
                 from empirica.core.qdrant.vector_store import embed_dead_end_with_branch_context
+
                 embedded = embed_dead_end_with_branch_context(
                     project_id=project_id,
                     dead_end_id=f"{session_id}_{loser_branch_id}",
-                    approach=approach, why_failed=why_failed,
-                    session_id=session_id, branch_id=loser_branch_id,
-                    winning_branch_id=winning_branch_id, score_diff=score_diff,
+                    approach=approach,
+                    why_failed=why_failed,
+                    session_id=session_id,
+                    branch_id=loser_branch_id,
+                    winning_branch_id=winning_branch_id,
+                    score_diff=score_diff,
                     preflight_vectors=loser.get("preflight_vectors"),
-                    postflight_vectors=loser.get("postflight_vectors")
+                    postflight_vectors=loser.get("postflight_vectors"),
                 )
                 if embedded:
                     dead_ends_embedded += 1
@@ -516,15 +533,12 @@ def handle_investigate_merge_branches_command(args):
         from empirica.data.session_database import SessionDatabase
 
         session_id = args.session_id
-        investigation_round = int(getattr(args, 'round', 1) or 1)
-        tag_losers = getattr(args, 'tag_losers', False)
+        investigation_round = int(getattr(args, "round", 1) or 1)
+        tag_losers = getattr(args, "tag_losers", False)
 
         db = SessionDatabase()
 
-        merge_result = db.merge_branches(
-            session_id=session_id,
-            investigation_round=investigation_round
-        )
+        merge_result = db.merge_branches(session_id=session_id, investigation_round=investigation_round)
 
         if "error" in merge_result:
             db.close()
@@ -533,9 +547,7 @@ def handle_investigate_merge_branches_command(args):
             dead_ends_logged = 0
             dead_ends_embedded = 0
             if tag_losers and merge_result.get("other_branches"):
-                dead_ends_logged, dead_ends_embedded = _merge_tag_losing_branches(
-                    db, session_id, merge_result
-                )
+                dead_ends_logged, dead_ends_embedded = _merge_tag_losing_branches(db, session_id, merge_result)
 
             db.close()
 
@@ -549,10 +561,10 @@ def handle_investigate_merge_branches_command(args):
                 "rationale": merge_result["rationale"],
                 "message": f"Auto-merged {merge_result['winning_branch_name']} (score: {merge_result['winning_score']:.4f})",
                 "dead_ends_logged": dead_ends_logged if tag_losers else None,
-                "dead_ends_embedded": dead_ends_embedded if tag_losers else None
+                "dead_ends_embedded": dead_ends_embedded if tag_losers else None,
             }
 
-        if hasattr(args, 'output') and args.output == 'json':
+        if hasattr(args, "output") and args.output == "json":
             print(json.dumps(result, indent=2))
         else:
             if result.get("ok"):
@@ -571,7 +583,7 @@ def handle_investigate_merge_branches_command(args):
         return result
 
     except Exception as e:
-        handle_cli_error(e, "Merge investigation branches", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Merge investigation branches", getattr(args, "verbose", False))
 
 
 def handle_investigate_multi_command(args):
@@ -592,12 +604,12 @@ def handle_investigate_multi_command(args):
         session_id = args.session_id
         task = args.task
         personas_str = args.personas
-        context = getattr(args, 'context', None)
-        strategy = getattr(args, 'aggregate_strategy', 'epistemic-score')
-        output_format = getattr(args, 'output', 'human')
+        context = getattr(args, "context", None)
+        strategy = getattr(args, "aggregate_strategy", "epistemic-score")
+        output_format = getattr(args, "output", "human")
 
         # Parse personas
-        persona_ids = [p.strip() for p in personas_str.split(',')]
+        persona_ids = [p.strip() for p in personas_str.split(",")]
 
         # Load personas
         manager = PersonaManager()
@@ -620,14 +632,14 @@ def handle_investigate_multi_command(args):
                 persona_id=pid,
                 persona=loaded_personas.get(pid),
                 investigation_path=f"multi-{pid}",
-                parent_context=context
+                parent_context=context,
             )
             result = spawn_epistemic_agent(config, execute_fn=None)
             branches[pid] = {
                 "branch_id": result.branch_id,
                 "persona_id": pid,
                 "preflight_vectors": result.preflight_vectors,
-                "prompt": result.output
+                "prompt": result.output,
             }
 
         # Build response
@@ -641,18 +653,20 @@ def handle_investigate_multi_command(args):
             "next_steps": [
                 "Execute each agent's prompt (see branches[persona_id].prompt)",
                 "Report results: empirica agent-report --branch-id <ID> --postflight '<json>'",
-                f"Aggregate: empirica agent-aggregate --session-id {session_id}"
-            ]
+                f"Aggregate: empirica agent-aggregate --session-id {session_id}",
+            ],
         }
 
         db.close()
 
         # Output
-        if output_format == 'json':
+        if output_format == "json":
             # Don't include full prompts in JSON output (too verbose)
             json_response = {**response}
-            for pid in json_response['branches']:
-                json_response['branches'][pid]['prompt'] = f"[{len(branches[pid]['prompt'])} chars - use --output human to see]"
+            for pid in json_response["branches"]:
+                json_response["branches"][pid]["prompt"] = (
+                    f"[{len(branches[pid]['prompt'])} chars - use --output human to see]"
+                )
             print(json.dumps(json_response, indent=2))
         else:
             print("✅ Multi-Persona Investigation Started")
@@ -662,7 +676,9 @@ def handle_investigate_multi_command(args):
             print("\n📋 Branches Created:")
             for pid, branch in branches.items():
                 print(f"\n   [{pid}] Branch: {branch['branch_id'][:8]}...")
-                print(f"   Priors: know={branch['preflight_vectors'].get('know', 0.5):.2f}, uncertainty={branch['preflight_vectors'].get('uncertainty', 0.5):.2f}")
+                print(
+                    f"   Priors: know={branch['preflight_vectors'].get('know', 0.5):.2f}, uncertainty={branch['preflight_vectors'].get('uncertainty', 0.5):.2f}"
+                )
 
             print("\n📝 Next Steps:")
             print("   1. Execute each agent prompt (shown below)")
@@ -671,12 +687,12 @@ def handle_investigate_multi_command(args):
 
             # Show prompts
             for pid, branch in branches.items():
-                print(f"\n{'='*60}")
+                print(f"\n{'=' * 60}")
                 print(f"PROMPT FOR [{pid}] (branch: {branch['branch_id'][:8]}...)")
-                print(f"{'='*60}")
-                print(branch['prompt'][:1500] + "..." if len(branch['prompt']) > 1500 else branch['prompt'])
+                print(f"{'=' * 60}")
+                print(branch["prompt"][:1500] + "..." if len(branch["prompt"]) > 1500 else branch["prompt"])
 
         return 0
 
     except Exception as e:
-        handle_cli_error(e, "Multi-persona investigation", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Multi-persona investigation", getattr(args, "verbose", False))

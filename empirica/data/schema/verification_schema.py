@@ -30,7 +30,6 @@ SCHEMAS = [
         FOREIGN KEY (session_id) REFERENCES sessions(session_id)
     )
     """,
-
     # Evidence records - what objective evidence was collected per session
     """
     CREATE TABLE IF NOT EXISTS verification_evidence (
@@ -51,7 +50,6 @@ SCHEMAS = [
         FOREIGN KEY (session_id) REFERENCES sessions(session_id)
     )
     """,
-
     # Per-session grounded verification results
     """
     CREATE TABLE IF NOT EXISTS grounded_verifications (
@@ -84,7 +82,6 @@ SCHEMAS = [
         FOREIGN KEY (session_id) REFERENCES sessions(session_id)
     )
     """,
-
     # POSTFLIGHT-to-POSTFLIGHT trajectory points
     """
     CREATE TABLE IF NOT EXISTS calibration_trajectory (
@@ -107,7 +104,6 @@ SCHEMAS = [
         FOREIGN KEY (session_id) REFERENCES sessions(session_id)
     )
     """,
-
     # Compliance check results — per-check pass/fail with Brier prediction fields (A3 Wave 1)
     """
     CREATE TABLE IF NOT EXISTS compliance_checks (
@@ -134,7 +130,6 @@ SCHEMAS = [
     CREATE INDEX IF NOT EXISTS idx_compliance_checks_check_id
         ON compliance_checks(check_id)
     """,
-
     # Calibration disputes - AI pushback on measurement artifacts
     """
     CREATE TABLE IF NOT EXISTS calibration_disputes (
@@ -153,7 +148,6 @@ SCHEMAS = [
         FOREIGN KEY (session_id) REFERENCES sessions(session_id)
     )
     """,
-
     # Indexes
     """
     CREATE INDEX IF NOT EXISTS idx_grounded_beliefs_ai_vector

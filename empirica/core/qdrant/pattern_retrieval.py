@@ -14,6 +14,7 @@ Defaults:
 - limit: 3
 - optional: True (graceful fail if Qdrant unavailable)
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,8 +32,8 @@ DEFAULT_LIMIT = 3
 # Time gap thresholds for human context awareness (in seconds)
 # These are metadata signals for Claude, not retrieval quantity controls
 TIME_GAP_THRESHOLDS = {
-    "continuation": 30 * 60,      # < 30 minutes = likely same work session
-    "short_break": 4 * 60 * 60,   # < 4 hours = human took a break
+    "continuation": 30 * 60,  # < 30 minutes = likely same work session
+    "short_break": 4 * 60 * 60,  # < 4 hours = human took a break
     # > 4 hours = human was away for extended period
 }
 
@@ -62,7 +63,7 @@ def compute_time_gap_info(last_session_timestamp: float | None = None) -> dict[s
             "gap_seconds": None,
             "gap_human_readable": "unknown",
             "gap_category": "unknown",
-            "note": "No previous session timestamp available"
+            "note": "No previous session timestamp available",
         }
 
     gap_seconds = time.time() - last_session_timestamp
@@ -90,7 +91,7 @@ def compute_time_gap_info(last_session_timestamp: float | None = None) -> dict[s
         "gap_seconds": gap_seconds,
         "gap_human_readable": gap_human_readable,
         "gap_category": category,
-        "note": note
+        "note": note,
     }
 
 
@@ -100,11 +101,7 @@ def get_qdrant_url() -> str | None:
 
 
 def _search_memory_by_type(
-    project_id: str,
-    query_text: str,
-    memory_type: str,
-    limit: int = DEFAULT_LIMIT,
-    min_score: float = DEFAULT_THRESHOLD
+    project_id: str, query_text: str, memory_type: str, limit: int = DEFAULT_LIMIT, min_score: float = DEFAULT_THRESHOLD
 ) -> list[dict]:
     """
     Search memory collection filtered by type.
@@ -121,32 +118,24 @@ def _search_memory_by_type(
             return []
 
         from qdrant_client.models import FieldCondition, Filter, MatchValue
+
         client = _get_qdrant_client()
         coll = _memory_collection(project_id)
 
         if not client.collection_exists(coll):
             return []
 
-        query_filter = Filter(must=[
-            FieldCondition(key="type", match=MatchValue(value=memory_type))
-        ])
+        query_filter = Filter(must=[FieldCondition(key="type", match=MatchValue(value=memory_type))])
 
         results = client.query_points(
-            collection_name=coll,
-            query=qvec,
-            query_filter=query_filter,
-            limit=limit,
-            with_payload=True
+            collection_name=coll, query=qvec, query_filter=query_filter, limit=limit, with_payload=True
         )
 
         # Filter by min_score and return
         return [
-            {
-                "score": getattr(r, 'score', 0.0) or 0.0,
-                **(r.payload or {})
-            }
+            {"score": getattr(r, "score", 0.0) or 0.0, **(r.payload or {})}
             for r in results.points
-            if (getattr(r, 'score', 0.0) or 0.0) >= min_score
+            if (getattr(r, "score", 0.0) or 0.0) >= min_score
         ]
     except Exception as e:
         logger.debug(f"_search_memory_by_type({memory_type}) failed: {e}")
@@ -154,10 +143,7 @@ def _search_memory_by_type(
 
 
 def _search_related_docs(
-    project_id: str,
-    query_text: str,
-    limit: int = DEFAULT_LIMIT,
-    min_score: float = DEFAULT_THRESHOLD
+    project_id: str, query_text: str, limit: int = DEFAULT_LIMIT, min_score: float = DEFAULT_THRESHOLD
 ) -> list[dict]:
     """
     Search docs collection for documents related to a query.
@@ -181,12 +167,7 @@ def _search_related_docs(
         if not client.collection_exists(coll):
             return []
 
-        results = client.query_points(
-            collection_name=coll,
-            query=qvec,
-            limit=limit,
-            with_payload=True
-        )
+        results = client.query_points(collection_name=coll, query=qvec, limit=limit, with_payload=True)
 
         # Format results
         return [
@@ -195,10 +176,10 @@ def _search_related_docs(
                 "description": (r.payload or {}).get("description", ""),
                 "doc_type": (r.payload or {}).get("doc_type", ""),
                 "tags": (r.payload or {}).get("tags", []),
-                "score": getattr(r, 'score', 0.0) or 0.0
+                "score": getattr(r, "score", 0.0) or 0.0,
             }
             for r in results.points
-            if (getattr(r, 'score', 0.0) or 0.0) >= min_score
+            if (getattr(r, "score", 0.0) or 0.0) >= min_score
         ]
     except Exception as e:
         logger.debug(f"_search_related_docs failed: {e}")
@@ -213,7 +194,21 @@ def _compute_adaptive_limits(vectors: dict | None, base_limit: int) -> dict[str,
     Low context → more episodic, goals, decisions.
     """
     if not vectors:
-        return dict.fromkeys(["lessons", "dead_ends", "findings", "eidetic", "episodic", "goals", "assumptions", "decisions", "global_dead_ends", "docs"], base_limit)
+        return dict.fromkeys(
+            [
+                "lessons",
+                "dead_ends",
+                "findings",
+                "eidetic",
+                "episodic",
+                "goals",
+                "assumptions",
+                "decisions",
+                "global_dead_ends",
+                "docs",
+            ],
+            base_limit,
+        )
 
     uncertainty = vectors.get("uncertainty", 0.5)
     know = vectors.get("know", 0.5)
@@ -250,90 +245,175 @@ def _enrich_memory_types(result, project_id, task_context, limits, include_eidet
     if include_eidetic:
         try:
             from .vector_store import search_eidetic
+
             # Over-fetch + recency-rerank (confidence as longevity modulator,
             # first_seen as the age) so stale eidetic facts sink.
             eidetic_raw = search_eidetic(
-                project_id, task_context, min_confidence=0.5,
-                limit=limits["eidetic"] * _RECENCY_OVERFETCH)
+                project_id, task_context, min_confidence=0.5, limit=limits["eidetic"] * _RECENCY_OVERFETCH
+            )
             eidetic_ranked = _apply_recency_rerank(
-                eidetic_raw, limits["eidetic"], modulator_key="confidence", ts_key="first_seen")
+                eidetic_raw, limits["eidetic"], modulator_key="confidence", ts_key="first_seen"
+            )
             result["eidetic_facts"] = [
-                {"content": e.get("content", ""), "confidence": e.get("confidence", 0.5),
-                 "domain": e.get("domain"), "confirmation_count": e.get("confirmation_count", 1),
-                 "score": e.get("score", 0.0), "recency_weight": e.get("recency_weight", 1.0),
-                 "effective_score": e.get("effective_score", e.get("score", 0.0))}
-                for e in eidetic_ranked]
+                {
+                    "content": e.get("content", ""),
+                    "confidence": e.get("confidence", 0.5),
+                    "domain": e.get("domain"),
+                    "confirmation_count": e.get("confirmation_count", 1),
+                    "score": e.get("score", 0.0),
+                    "recency_weight": e.get("recency_weight", 1.0),
+                    "effective_score": e.get("effective_score", e.get("score", 0.0)),
+                }
+                for e in eidetic_ranked
+            ]
         except Exception as e:
             logger.debug(f"Eidetic retrieval failed: {e}")
             result["eidetic_facts"] = []
     if include_episodic:
         try:
             from .vector_store import search_episodic
+
             result["episodic_narratives"] = [
-                {"narrative": ep.get("narrative", ""), "outcome": ep.get("outcome"),
-                 "learning_delta": ep.get("learning_delta", {}), "recency_weight": ep.get("recency_weight", 1.0), "score": ep.get("score", 0.0)}
-                for ep in search_episodic(project_id, task_context, limit=limits["episodic"], apply_recency_decay=True)]
+                {
+                    "narrative": ep.get("narrative", ""),
+                    "outcome": ep.get("outcome"),
+                    "learning_delta": ep.get("learning_delta", {}),
+                    "recency_weight": ep.get("recency_weight", 1.0),
+                    "score": ep.get("score", 0.0),
+                }
+                for ep in search_episodic(project_id, task_context, limit=limits["episodic"], apply_recency_decay=True)
+            ]
         except Exception as e:
             logger.debug(f"Episodic retrieval failed: {e}")
             result["episodic_narratives"] = []
     try:
         from .vector_store import search_global_dead_ends
+
         raw = search_global_dead_ends(f"Approach for: {task_context}", limit=limits["global_dead_ends"])
         if raw:
-            result["global_dead_ends"] = [{"approach": g.get("approach", g.get("text", "")), "why_failed": g.get("why_failed", ""),
-                "project": g.get("project_name", "other project"), "score": g.get("score", 0.0)} for g in raw]
+            result["global_dead_ends"] = [
+                {
+                    "approach": g.get("approach", g.get("text", "")),
+                    "why_failed": g.get("why_failed", ""),
+                    "project": g.get("project_name", "other project"),
+                    "score": g.get("score", 0.0),
+                }
+                for g in raw
+            ]
     except Exception as e:
         logger.debug(f"Global dead-ends retrieval failed: {e}")
 
 
-def _enrich_knowledge_graph(result, project_id, task_context, threshold, limits,
-                            include_goals, include_assumptions, include_decisions, include_related_docs):
+def _enrich_knowledge_graph(
+    result,
+    project_id,
+    task_context,
+    threshold,
+    limits,
+    include_goals,
+    include_assumptions,
+    include_decisions,
+    include_related_docs,
+):
     """Enrich with goals, assumptions, decisions, and docs."""
     if include_goals:
         try:
             from .vector_store import search_goals
+
             raw = search_goals(project_id, task_context, include_subtasks=True, limit=limits["goals"])
             if raw:
-                result["related_goals"] = [{"objective": g.get("objective") or g.get("description", ""), "status": g.get("status", ""),
-                    "type": g.get("type", "goal"), "goal_id": g.get("goal_id", ""), "score": g.get("score", 0.0)} for g in raw]
+                result["related_goals"] = [
+                    {
+                        "objective": g.get("objective") or g.get("description", ""),
+                        "status": g.get("status", ""),
+                        "type": g.get("type", "goal"),
+                        "goal_id": g.get("goal_id", ""),
+                        "score": g.get("score", 0.0),
+                    }
+                    for g in raw
+                ]
         except Exception as e:
             logger.debug(f"Goals retrieval failed: {e}")
     if include_assumptions:
         try:
             from .vector_store import search_assumptions
+
             raw = search_assumptions(project_id, task_context, status="unverified", limit=limits["assumptions"])
             if raw:
-                result["unverified_assumptions"] = [{"assumption": a.get("assumption", ""), "confidence": a.get("confidence", 0.5),
-                    "urgency_signal": a.get("urgency_signal", 0.0), "domain": a.get("domain"), "score": a.get("score", 0.0)} for a in raw]
+                result["unverified_assumptions"] = [
+                    {
+                        "assumption": a.get("assumption", ""),
+                        "confidence": a.get("confidence", 0.5),
+                        "urgency_signal": a.get("urgency_signal", 0.0),
+                        "domain": a.get("domain"),
+                        "score": a.get("score", 0.0),
+                    }
+                    for a in raw
+                ]
         except Exception as e:
             logger.debug(f"Assumptions retrieval failed: {e}")
     if include_decisions:
         try:
             from .vector_store import search_decisions
+
             raw = search_decisions(project_id, task_context, limit=limits["decisions"])
             if raw:
-                result["prior_decisions"] = [{"choice": d.get("choice", ""), "rationale": d.get("rationale", ""),
-                    "reversibility": d.get("reversibility", ""), "confidence_at_decision": d.get("confidence_at_decision", 0.5),
-                    "score": d.get("score", 0.0)} for d in raw]
+                result["prior_decisions"] = [
+                    {
+                        "choice": d.get("choice", ""),
+                        "rationale": d.get("rationale", ""),
+                        "reversibility": d.get("reversibility", ""),
+                        "confidence_at_decision": d.get("confidence_at_decision", 0.5),
+                        "score": d.get("score", 0.0),
+                    }
+                    for d in raw
+                ]
         except Exception as e:
             logger.debug(f"Decisions retrieval failed: {e}")
     if include_related_docs:
         try:
             raw = _search_related_docs(project_id, task_context, limit=limits["docs"], min_score=threshold)
-            result["related_docs"] = [{"doc_path": d.get("doc_path", ""), "description": d.get("description", ""),
-                "doc_type": d.get("doc_type", ""), "tags": d.get("tags", []), "score": d.get("score", 0.0)} for d in raw]
+            result["related_docs"] = [
+                {
+                    "doc_path": d.get("doc_path", ""),
+                    "description": d.get("description", ""),
+                    "doc_type": d.get("doc_type", ""),
+                    "tags": d.get("tags", []),
+                    "score": d.get("score", 0.0),
+                }
+                for d in raw
+            ]
         except Exception as e:
             logger.debug(f"Related docs retrieval failed: {e}")
             result["related_docs"] = []
 
 
-def _enrich_task_patterns(result, project_id, task_context, threshold, limits,
-                          include_eidetic, include_episodic, include_related_docs,
-                          include_goals, include_assumptions, include_decisions):
+def _enrich_task_patterns(
+    result,
+    project_id,
+    task_context,
+    threshold,
+    limits,
+    include_eidetic,
+    include_episodic,
+    include_related_docs,
+    include_goals,
+    include_assumptions,
+    include_decisions,
+):
     """Enrich task patterns with optional retrieval types."""
     _enrich_memory_types(result, project_id, task_context, limits, include_eidetic, include_episodic)
-    _enrich_knowledge_graph(result, project_id, task_context, threshold, limits,
-                            include_goals, include_assumptions, include_decisions, include_related_docs)
+    _enrich_knowledge_graph(
+        result,
+        project_id,
+        task_context,
+        threshold,
+        limits,
+        include_goals,
+        include_assumptions,
+        include_decisions,
+        include_related_docs,
+    )
 
 
 # Over-fetch factor so recency re-ranking can actually drop a stale-but-similar
@@ -342,8 +422,11 @@ _RECENCY_OVERFETCH = 3
 
 
 def _apply_recency_rerank(
-    items: list[dict], limit: int, *,
-    modulator_key: str = "impact", ts_key: str = "timestamp",
+    items: list[dict],
+    limit: int,
+    *,
+    modulator_key: str = "impact",
+    ts_key: str = "timestamp",
 ) -> list[dict]:
     """Re-rank artifacts by recency at READ time (decay P1): effective_score =
     cosine score x time-decay weight, then take top `limit`. Over-fetch upstream
@@ -387,7 +470,8 @@ def _apply_recency_rerank(
             unix_ts = _unix(it.get(ts_key))
             recency = (
                 FindingsDeprecationEngine.calculate_time_decay(unix_ts, longevity=it.get(modulator_key))
-                if unix_ts else 1.0
+                if unix_ts
+                else 1.0
             )
             it["recency_weight"] = round(recency, 4)
             it["effective_score"] = (it.get("score", 0.0) or 0.0) * recency
@@ -453,14 +537,11 @@ def retrieve_task_patterns(
     # Search for lessons (procedural knowledge). Over-fetch, then recency-rerank
     # with confidence as the longevity modulator so stale lessons sink.
     lessons_raw = _search_memory_by_type(
-        project_id,
-        f"How to: {task_context}",
-        "lesson",
-        limits["lessons"] * _RECENCY_OVERFETCH,
-        threshold
+        project_id, f"How to: {task_context}", "lesson", limits["lessons"] * _RECENCY_OVERFETCH, threshold
     )
     lessons_ranked = _apply_recency_rerank(
-        lessons_raw, limits["lessons"], modulator_key="confidence", ts_key="timestamp")
+        lessons_raw, limits["lessons"], modulator_key="confidence", ts_key="timestamp"
+    )
     lessons = [
         {
             "name": l.get("text", "").replace("LESSON: ", "").split(" - ")[0] if l.get("text") else "",
@@ -476,17 +557,13 @@ def retrieve_task_patterns(
 
     # Search for dead ends (what NOT to try)
     dead_ends_raw = _search_memory_by_type(
-        project_id,
-        f"Approach for: {task_context}",
-        "dead_end",
-        limits["dead_ends"],
-        threshold
+        project_id, f"Approach for: {task_context}", "dead_end", limits["dead_ends"], threshold
     )
     dead_ends = [
         {
             "approach": d.get("text", "").replace("DEAD END: ", "").split(" Why failed:")[0] if d.get("text") else "",
             "why_failed": d.get("text", "").split("Why failed: ")[1] if "Why failed:" in d.get("text", "") else "",
-            "score": d.get("score", 0.0)
+            "score": d.get("score", 0.0),
         }
         for d in dead_ends_raw
     ]
@@ -494,14 +571,11 @@ def retrieve_task_patterns(
     # Search for relevant findings (high-impact facts). Over-fetch, then re-rank
     # by recency at read-time so stale findings sink below fresh relevant ones.
     findings_raw = _search_memory_by_type(
-        project_id,
-        task_context,
-        "finding",
-        limits["findings"] * _RECENCY_OVERFETCH,
-        threshold
+        project_id, task_context, "finding", limits["findings"] * _RECENCY_OVERFETCH, threshold
     )
     findings_ranked = _apply_recency_rerank(
-        findings_raw, limits["findings"], modulator_key="impact", ts_key="timestamp")
+        findings_raw, limits["findings"], modulator_key="impact", ts_key="timestamp"
+    )
     relevant_findings = [
         {
             "finding": f.get("text", ""),
@@ -527,47 +601,97 @@ def retrieve_task_patterns(
     }
 
     # Enrich with optional retrieval types
-    _enrich_task_patterns(result, project_id, task_context, threshold, limits,
-        include_eidetic, include_episodic, include_related_docs,
-        include_goals, include_assumptions, include_decisions)
+    _enrich_task_patterns(
+        result,
+        project_id,
+        task_context,
+        threshold,
+        limits,
+        include_eidetic,
+        include_episodic,
+        include_related_docs,
+        include_goals,
+        include_assumptions,
+        include_decisions,
+    )
     return result
 
 
-def _enrich_check_warnings(warnings, project_id, current_approach, threshold, limit,
-                           include_findings, include_eidetic, include_goals, include_assumptions):
+def _enrich_check_warnings(
+    warnings,
+    project_id,
+    current_approach,
+    threshold,
+    limit,
+    include_findings,
+    include_eidetic,
+    include_goals,
+    include_assumptions,
+):
     """Enrich CHECK warnings with optional findings, eidetic, goals, and assumptions."""
     if include_findings and current_approach:
         try:
             raw = _search_memory_by_type(project_id, current_approach, "finding", limit, threshold)
             if raw:
-                warnings["related_findings"] = [{"finding": f.get("text", ""), "impact": f.get("impact", 0.5), "score": f.get("score", 0.0)} for f in raw]
+                warnings["related_findings"] = [
+                    {"finding": f.get("text", ""), "impact": f.get("impact", 0.5), "score": f.get("score", 0.0)}
+                    for f in raw
+                ]
         except Exception as e:
             logger.debug(f"CHECK findings retrieval failed: {e}")
     if include_eidetic and current_approach:
         try:
             from .vector_store import search_eidetic
+
             raw = search_eidetic(project_id, current_approach, min_confidence=0.5, limit=limit)
             if raw:
-                warnings["eidetic_context"] = [{"content": e.get("content", ""), "confidence": e.get("confidence", 0.5),
-                    "domain": e.get("domain"), "score": e.get("score", 0.0)} for e in raw]
+                warnings["eidetic_context"] = [
+                    {
+                        "content": e.get("content", ""),
+                        "confidence": e.get("confidence", 0.5),
+                        "domain": e.get("domain"),
+                        "score": e.get("score", 0.0),
+                    }
+                    for e in raw
+                ]
         except Exception as e:
             logger.debug(f"CHECK eidetic retrieval failed: {e}")
     if include_goals:
         try:
             from .vector_store import search_goals
-            raw = search_goals(project_id, current_approach or "current work", status="in_progress", include_subtasks=True, limit=limit)
+
+            raw = search_goals(
+                project_id, current_approach or "current work", status="in_progress", include_subtasks=True, limit=limit
+            )
             if raw:
-                warnings["active_goals"] = [{"objective": g.get("objective") or g.get("description", ""), "status": g.get("status", ""),
-                    "type": g.get("type", "goal"), "score": g.get("score", 0.0)} for g in raw]
+                warnings["active_goals"] = [
+                    {
+                        "objective": g.get("objective") or g.get("description", ""),
+                        "status": g.get("status", ""),
+                        "type": g.get("type", "goal"),
+                        "score": g.get("score", 0.0),
+                    }
+                    for g in raw
+                ]
         except Exception as e:
             logger.debug(f"CHECK goals retrieval failed: {e}")
     if include_assumptions:
         try:
             from .vector_store import search_assumptions
-            raw = search_assumptions(project_id, current_approach or "current approach", status="unverified", limit=limit)
+
+            raw = search_assumptions(
+                project_id, current_approach or "current approach", status="unverified", limit=limit
+            )
             if raw:
-                warnings["unverified_assumptions"] = [{"assumption": a.get("assumption", ""), "confidence": a.get("confidence", 0.5),
-                    "urgency_signal": a.get("urgency_signal", 0.0), "score": a.get("score", 0.0)} for a in raw]
+                warnings["unverified_assumptions"] = [
+                    {
+                        "assumption": a.get("assumption", ""),
+                        "confidence": a.get("confidence", 0.5),
+                        "urgency_signal": a.get("urgency_signal", 0.0),
+                        "score": a.get("score", 0.0),
+                    }
+                    for a in raw
+                ]
         except Exception as e:
             logger.debug(f"CHECK assumptions retrieval failed: {e}")
 
@@ -604,27 +728,19 @@ def check_against_patterns(
     if not get_qdrant_url():
         return {"dead_end_matches": [], "mistake_risk": None, "has_warnings": False}
 
-    warnings = {
-        "dead_end_matches": [],
-        "mistake_risk": None,
-        "has_warnings": False
-    }
+    warnings = {"dead_end_matches": [], "mistake_risk": None, "has_warnings": False}
 
     # Check if current approach matches known dead ends
     if current_approach:
-        dead_ends = _search_memory_by_type(
-            project_id,
-            f"Approach: {current_approach}",
-            "dead_end",
-            limit,
-            threshold
-        )
+        dead_ends = _search_memory_by_type(project_id, f"Approach: {current_approach}", "dead_end", limit, threshold)
 
         warnings["dead_end_matches"] = [
             {
-                "approach": d.get("text", "").replace("DEAD END: ", "").split(" Why failed:")[0] if d.get("text") else "",
+                "approach": d.get("text", "").replace("DEAD END: ", "").split(" Why failed:")[0]
+                if d.get("text")
+                else "",
                 "why_failed": d.get("text", "").split("Why failed: ")[1] if "Why failed:" in d.get("text", "") else "",
-                "similarity": d.get("score", 0.0)
+                "similarity": d.get("score", 0.0),
             }
             for d in dead_ends
         ]
@@ -655,8 +771,17 @@ def check_against_patterns(
     # but does not expose specifics to the AI.
 
     # Enrich with optional retrieval types
-    _enrich_check_warnings(warnings, project_id, current_approach, threshold, limit,
-                           include_findings, include_eidetic, include_goals, include_assumptions)
+    _enrich_check_warnings(
+        warnings,
+        project_id,
+        current_approach,
+        threshold,
+        limit,
+        include_findings,
+        include_eidetic,
+        include_goals,
+        include_assumptions,
+    )
 
     # Set has_warnings flag
     warnings["has_warnings"] = (
@@ -673,7 +798,7 @@ def search_lessons_for_task(
     task_context: str,
     domain: str | None = None,
     limit: int = DEFAULT_LIMIT,
-    min_score: float = DEFAULT_THRESHOLD
+    min_score: float = DEFAULT_THRESHOLD,
 ) -> list[dict]:
     """
     Search for relevant lessons for a specific task.
@@ -700,6 +825,7 @@ def search_lessons_for_task(
             return []
 
         from qdrant_client.models import FieldCondition, Filter, MatchValue
+
         client = _get_qdrant_client()
         coll = _memory_collection(project_id)
 
@@ -714,16 +840,12 @@ def search_lessons_for_task(
         query_filter = Filter(must=conditions)
 
         results = client.query_points(
-            collection_name=coll,
-            query=qvec,
-            query_filter=query_filter,
-            limit=limit,
-            with_payload=True
+            collection_name=coll, query=qvec, query_filter=query_filter, limit=limit, with_payload=True
         )
 
         lessons = []
         for r in results.points:
-            score = getattr(r, 'score', 0.0) or 0.0
+            score = getattr(r, "score", 0.0) or 0.0
             if score < min_score:
                 continue
 
@@ -734,14 +856,16 @@ def search_lessons_for_task(
             name = text.replace("LESSON: ", "").split(" - ")[0] if text else ""
             desc = text.split(" - ")[1].split(" Domain:")[0] if " - " in text else ""
 
-            lessons.append({
-                "name": name,
-                "description": desc,
-                "domain": payload.get("domain", ""),
-                "confidence": payload.get("confidence", 0.8),
-                "tags": payload.get("tags", []),
-                "score": score
-            })
+            lessons.append(
+                {
+                    "name": name,
+                    "description": desc,
+                    "domain": payload.get("domain", ""),
+                    "confidence": payload.get("confidence", 0.8),
+                    "tags": payload.get("tags", []),
+                    "score": score,
+                }
+            )
 
         return lessons
     except Exception as e:

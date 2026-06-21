@@ -51,22 +51,22 @@ class TestGoalArchitectureE2E:
                 id=str(uuid.uuid4()),
                 description="All input validation tests pass",
                 validation_method="completion",
-                is_required=True
+                is_required=True,
             ),
             SuccessCriterion(
                 id=str(uuid.uuid4()),
                 description="Code coverage >= 80%",
                 validation_method="metric_threshold",
                 threshold=0.8,
-                is_required=True
-            )
+                is_required=True,
+            ),
         ]
 
         goal = Goal.create(
             objective="Implement input validation for Goal Architecture",
             success_criteria=success_criteria,
             scope=ScopeVector(breadth=0.3, duration=0.2, coordination=0.1),
-            estimated_complexity=0.6
+            estimated_complexity=0.6,
         )
 
         # Save goal
@@ -86,16 +86,13 @@ class TestGoalArchitectureE2E:
             ("Add validation for invalid scope enum", EpistemicImportance.CRITICAL, 300),
             ("Add validation for success_criteria format", EpistemicImportance.HIGH, 600),
             ("Add validation for complexity range (0-1)", EpistemicImportance.MEDIUM, 200),
-            ("Write comprehensive test cases", EpistemicImportance.HIGH, 1000)
+            ("Write comprehensive test cases", EpistemicImportance.HIGH, 1000),
         ]
 
         subtasks = []
         for desc, importance, tokens in subtasks_data:
             subtask = SubTask.create(
-                goal_id=goal.id,
-                description=desc,
-                epistemic_importance=importance,
-                estimated_tokens=tokens
+                goal_id=goal.id, description=desc, epistemic_importance=importance, estimated_tokens=tokens
             )
             assert task_repo.save_subtask(subtask), f"Subtask '{desc}' should save"
             subtasks.append(subtask)
@@ -114,10 +111,9 @@ class TestGoalArchitectureE2E:
 
         # STEP 4: Complete subtasks incrementally
         # Complete first subtask (CRITICAL)
-        assert tracker.record_subtask_completion(
-            subtasks[0].id,
-            evidence="commit:abc123"
-        ), "First subtask completion should succeed"
+        assert tracker.record_subtask_completion(subtasks[0].id, evidence="commit:abc123"), (
+            "First subtask completion should succeed"
+        )
 
         progress = tracker.track_progress(goal.id)
         assert progress.completion_percentage == 0.2, "Progress should be 20% (1/5)"
@@ -160,7 +156,7 @@ class TestGoalArchitectureE2E:
             goal = Goal.create(
                 objective="",  # Invalid: empty
                 success_criteria=[],
-                scope=ScopeVector(breadth=0.3, duration=0.2, coordination=0.1)
+                scope=ScopeVector(breadth=0.3, duration=0.2, coordination=0.1),
             )
             goal_repo.save_goal(goal, session_id)
 
@@ -174,13 +170,9 @@ class TestGoalArchitectureE2E:
         goal = Goal.create(
             objective="Valid goal",
             success_criteria=[
-                SuccessCriterion(
-                    id=str(uuid.uuid4()),
-                    description="Test criterion",
-                    validation_method="completion"
-                )
+                SuccessCriterion(id=str(uuid.uuid4()), description="Test criterion", validation_method="completion")
             ],
-            scope=ScopeVector(breadth=0.3, duration=0.2, coordination=0.1)
+            scope=ScopeVector(breadth=0.3, duration=0.2, coordination=0.1),
         )
         assert goal_repo.save_goal(goal, session_id)
 
@@ -195,24 +187,18 @@ class TestGoalArchitectureE2E:
         goal_repo = GoalRepository(db_path=temp_db)
 
         # Valid success criteria
-        valid_sc = SuccessCriterion(
-            id=str(uuid.uuid4()),
-            description="Valid criterion",
-            validation_method="completion"
-        )
+        valid_sc = SuccessCriterion(id=str(uuid.uuid4()), description="Valid criterion", validation_method="completion")
 
         goal = Goal.create(
             objective="Test goal",
             success_criteria=[valid_sc],
-            scope=ScopeVector(breadth=0.3, duration=0.2, coordination=0.1)
+            scope=ScopeVector(breadth=0.3, duration=0.2, coordination=0.1),
         )
         assert goal_repo.save_goal(goal, session_id)
 
         # Invalid: missing required fields
         with pytest.raises(TypeError):
-            SuccessCriterion(
-                description="Missing id and validation_method"
-            )
+            SuccessCriterion(description="Missing id and validation_method")
 
         goal_repo.close()
 
@@ -221,12 +207,14 @@ class TestGoalArchitectureE2E:
         task_repo = TaskRepository(db_path=temp_db)
 
         # Valid importance levels
-        for importance in [EpistemicImportance.CRITICAL, EpistemicImportance.HIGH,
-                          EpistemicImportance.MEDIUM, EpistemicImportance.LOW]:
+        for importance in [
+            EpistemicImportance.CRITICAL,
+            EpistemicImportance.HIGH,
+            EpistemicImportance.MEDIUM,
+            EpistemicImportance.LOW,
+        ]:
             subtask = SubTask.create(
-                goal_id=str(uuid.uuid4()),
-                description="Test task",
-                epistemic_importance=importance
+                goal_id=str(uuid.uuid4()), description="Test task", epistemic_importance=importance
             )
             assert task_repo.save_subtask(subtask)
 
@@ -245,20 +233,16 @@ class TestGoalArchitectureE2E:
             ("Task 1", ScopeVector(breadth=0.2, duration=0.1, coordination=0.05), False),
             ("Session 1", ScopeVector(breadth=0.5, duration=0.6, coordination=0.3), False),
             ("Project 1", ScopeVector(breadth=0.9, duration=0.9, coordination=0.8), True),
-            ("Task 2", ScopeVector(breadth=0.2, duration=0.1, coordination=0.05), True)
+            ("Task 2", ScopeVector(breadth=0.2, duration=0.1, coordination=0.05), True),
         ]
 
         for obj, scope, completed in goals_data:
             goal = Goal.create(
                 objective=obj,
                 success_criteria=[
-                    SuccessCriterion(
-                        id=str(uuid.uuid4()),
-                        description="Test",
-                        validation_method="completion"
-                    )
+                    SuccessCriterion(id=str(uuid.uuid4()), description="Test", validation_method="completion")
                 ],
-                scope=scope
+                scope=scope,
             )
             goal.is_completed = completed
             if completed:
@@ -273,14 +257,14 @@ class TestGoalArchitectureE2E:
         assert len(incomplete_goals) == 2, "Should find 2 incomplete goals"
 
         # Query by scope
-        task_goals = goal_repo.query_goals(session_id=session_id, scope=ScopeVector(breadth=0.2, duration=0.1, coordination=0.05))
+        task_goals = goal_repo.query_goals(
+            session_id=session_id, scope=ScopeVector(breadth=0.2, duration=0.1, coordination=0.05)
+        )
         assert len(task_goals) == 2, "Should find 2 task-specific goals"
 
         # Query completed + specific scope
         completed_tasks = goal_repo.query_goals(
-            session_id=session_id,
-            is_completed=True,
-            scope=ScopeVector(breadth=0.2, duration=0.1, coordination=0.05)
+            session_id=session_id, is_completed=True, scope=ScopeVector(breadth=0.2, duration=0.1, coordination=0.05)
         )
         assert len(completed_tasks) == 1, "Should find 1 completed task-specific goal"
 
@@ -295,23 +279,20 @@ class TestGoalArchitectureE2E:
             objective="Test serialization",
             success_criteria=[
                 SuccessCriterion(
-                    id=str(uuid.uuid4()),
-                    description="Criterion 1",
-                    validation_method="completion",
-                    is_required=True
+                    id=str(uuid.uuid4()), description="Criterion 1", validation_method="completion", is_required=True
                 ),
                 SuccessCriterion(
                     id=str(uuid.uuid4()),
                     description="Criterion 2",
                     validation_method="metric_threshold",
                     threshold=0.9,
-                    is_required=False
-                )
+                    is_required=False,
+                ),
             ],
             scope=ScopeVector(breadth=0.6, duration=0.7, coordination=0.4),
             estimated_complexity=0.7,
             constraints={"max_iterations": 50, "token_budget": 10000},
-            metadata={"tags": ["testing", "serialization"], "priority": "high"}
+            metadata={"tags": ["testing", "serialization"], "priority": "high"},
         )
 
         # Save and retrieve

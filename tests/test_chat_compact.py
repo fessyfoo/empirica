@@ -152,9 +152,12 @@ class TestFormatRecoveryMessage:
 
     def test_omits_recent_section_when_empty(self):
         bc = Breadcrumb(
-            session_id="x", written_at_iso="t",
-            provider_name=None, model=None,
-            autonomy_mode="assistant", statusline_mode="default",
+            session_id="x",
+            written_at_iso="t",
+            provider_name=None,
+            model=None,
+            autonomy_mode="assistant",
+            statusline_mode="default",
             recent_turns=[],
         )
         msg = format_recovery_message(bc)

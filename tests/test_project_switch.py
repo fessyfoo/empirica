@@ -13,18 +13,16 @@ from empirica.data.session_database import SessionDatabase
 pytestmark = pytest.mark.integration
 
 
-
 def test_project_switch_resolves_by_name():
     """Test that project-switch can resolve project by name"""
     import uuid
+
     db = SessionDatabase()
 
     # Create test project with unique name
     unique_name = f"test-switch-{uuid.uuid4().hex[:8]}"
     project_id = db.projects.create_project(
-        name=unique_name,
-        description="Test project for switch command",
-        repos=["https://github.com/test/repo.git"]
+        name=unique_name, description="Test project for switch command", repos=["https://github.com/test/repo.git"]
     )
 
     # Test resolution by name
@@ -43,11 +41,7 @@ def test_project_switch_resolves_by_id():
     db = SessionDatabase()
 
     # Create test project
-    project_id = db.projects.create_project(
-        name="test-switch-by-id",
-        description="Test project",
-        repos=[]
-    )
+    project_id = db.projects.create_project(name="test-switch-by-id", description="Test project", repos=[])
 
     # Resolve by full UUID
     resolved_id = db.projects.resolve_project_id(project_id)
@@ -70,15 +64,12 @@ def test_project_switch_handles_not_found():
 def test_project_switch_case_insensitive():
     """Test that project name resolution is case-insensitive"""
     import uuid
+
     db = SessionDatabase()
 
     # Create test project with unique name
     unique_name = f"TestCase{uuid.uuid4().hex[:8]}"
-    project_id = db.projects.create_project(
-        name=unique_name,
-        description="Test case sensitivity",
-        repos=[]
-    )
+    project_id = db.projects.create_project(name=unique_name, description="Test case sensitivity", repos=[])
 
     # Resolve with different cases
     assert db.projects.resolve_project_id(unique_name) == project_id

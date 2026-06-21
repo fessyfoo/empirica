@@ -30,6 +30,7 @@ class AssessmentType(Enum):
     Note: CASCADE workflow phases (think, investigate, act) are implicit guidance,
     not tracked as explicit states. Only these assessment checkpoints are tracked.
     """
+
     PRE = "pre"
     CHECK = "check"
     POST = "post"
@@ -51,6 +52,7 @@ class CascadePhase(Enum):
 
     Note: Deprecation is documented here. Usage-site warnings will be added in Phase 2.
     """
+
     PREFLIGHT = "preflight"
     THINK = "think"
     INVESTIGATE = "investigate"
@@ -71,6 +73,7 @@ class VectorAssessment:
         warrants_investigation: Whether this vector triggers investigation
         investigation_priority: Priority if investigation warranted (0-10)
     """
+
     score: float
     rationale: str
     evidence: str | None = None
@@ -84,10 +87,7 @@ class VectorAssessment:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary"""
-        result = {
-            "score": self.score,
-            "rationale": self.rationale
-        }
+        result = {"score": self.score, "rationale": self.rationale}
         if self.evidence:
             result["evidence"] = self.evidence
         if self.warrants_investigation:
@@ -96,14 +96,14 @@ class VectorAssessment:
         return result
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> 'VectorAssessment':
+    def from_dict(cls, data: dict[str, Any]) -> "VectorAssessment":
         """Parse from dictionary"""
         return cls(
             score=float(data["score"]),
             rationale=str(data["rationale"]),
             evidence=data.get("evidence"),
             warrants_investigation=data.get("warrants_investigation", False),
-            investigation_priority=data.get("investigation_priority", 0)
+            investigation_priority=data.get("investigation_priority", 0),
         )
 
 
@@ -175,21 +175,21 @@ class EpistemicAssessmentSchema:
             "foundation": {
                 "know": self.foundation_know.to_dict(),
                 "do": self.foundation_do.to_dict(),
-                "context": self.foundation_context.to_dict()
+                "context": self.foundation_context.to_dict(),
             },
             "comprehension": {
                 "clarity": self.comprehension_clarity.to_dict(),
                 "coherence": self.comprehension_coherence.to_dict(),
                 "signal": self.comprehension_signal.to_dict(),
-                "density": self.comprehension_density.to_dict()
+                "density": self.comprehension_density.to_dict(),
             },
             "execution": {
                 "state": self.execution_state.to_dict(),
                 "change": self.execution_change.to_dict(),
                 "completion": self.execution_completion.to_dict(),
-                "impact": self.execution_impact.to_dict()
+                "impact": self.execution_impact.to_dict(),
             },
-            "uncertainty": self.uncertainty.to_dict()
+            "uncertainty": self.uncertainty.to_dict(),
         }
 
     def to_flat_dict(self) -> dict[str, float]:
@@ -216,11 +216,13 @@ class EpistemicAssessmentSchema:
             "change": self.execution_change.score,
             "completion": self.execution_completion.score,
             "impact": self.execution_impact.score,
-            "uncertainty": self.uncertainty.score
+            "uncertainty": self.uncertainty.score,
         }
 
     @classmethod
-    def from_nested_dict(cls, data: dict[str, Any], phase: CascadePhase = CascadePhase.PREFLIGHT) -> 'EpistemicAssessmentSchema':
+    def from_nested_dict(
+        cls, data: dict[str, Any], phase: CascadePhase = CascadePhase.PREFLIGHT
+    ) -> "EpistemicAssessmentSchema":
         """
         Parse from nested format (CLI/MCP input)
 
@@ -245,10 +247,12 @@ class EpistemicAssessmentSchema:
             execution_completion=VectorAssessment.from_dict(data["execution"]["completion"]),
             execution_impact=VectorAssessment.from_dict(data["execution"]["impact"]),
             uncertainty=VectorAssessment.from_dict(data["uncertainty"]),
-            phase=phase
+            phase=phase,
         )
 
-    def apply_persona_priors(self, persona_priors: dict[str, float], strength: float = 1.0) -> 'EpistemicAssessmentSchema':
+    def apply_persona_priors(
+        self, persona_priors: dict[str, float], strength: float = 1.0
+    ) -> "EpistemicAssessmentSchema":
         """
         Apply persona priors to this assessment
 
@@ -264,6 +268,7 @@ class EpistemicAssessmentSchema:
         Returns:
             New EpistemicAssessmentSchema with priors applied
         """
+
         def blend_vector(vector: VectorAssessment, prior: float, vector_name: str) -> VectorAssessment:
             """Blend baseline with persona prior"""
             blended_score = vector.score * (1 - strength) + prior * strength
@@ -274,26 +279,28 @@ class EpistemicAssessmentSchema:
                 rationale=blended_rationale,
                 evidence=vector.evidence,
                 warrants_investigation=vector.warrants_investigation,
-                investigation_priority=vector.investigation_priority
+                investigation_priority=vector.investigation_priority,
             )
 
         return EpistemicAssessmentSchema(
-            engagement=blend_vector(self.engagement, persona_priors['engagement'], 'engagement'),
-            foundation_know=blend_vector(self.foundation_know, persona_priors['know'], 'know'),
-            foundation_do=blend_vector(self.foundation_do, persona_priors['do'], 'do'),
-            foundation_context=blend_vector(self.foundation_context, persona_priors['context'], 'context'),
-            comprehension_clarity=blend_vector(self.comprehension_clarity, persona_priors['clarity'], 'clarity'),
-            comprehension_coherence=blend_vector(self.comprehension_coherence, persona_priors['coherence'], 'coherence'),
-            comprehension_signal=blend_vector(self.comprehension_signal, persona_priors['signal'], 'signal'),
-            comprehension_density=blend_vector(self.comprehension_density, persona_priors['density'], 'density'),
-            execution_state=blend_vector(self.execution_state, persona_priors['state'], 'state'),
-            execution_change=blend_vector(self.execution_change, persona_priors['change'], 'change'),
-            execution_completion=blend_vector(self.execution_completion, persona_priors['completion'], 'completion'),
-            execution_impact=blend_vector(self.execution_impact, persona_priors['impact'], 'impact'),
-            uncertainty=blend_vector(self.uncertainty, persona_priors['uncertainty'], 'uncertainty'),
+            engagement=blend_vector(self.engagement, persona_priors["engagement"], "engagement"),
+            foundation_know=blend_vector(self.foundation_know, persona_priors["know"], "know"),
+            foundation_do=blend_vector(self.foundation_do, persona_priors["do"], "do"),
+            foundation_context=blend_vector(self.foundation_context, persona_priors["context"], "context"),
+            comprehension_clarity=blend_vector(self.comprehension_clarity, persona_priors["clarity"], "clarity"),
+            comprehension_coherence=blend_vector(
+                self.comprehension_coherence, persona_priors["coherence"], "coherence"
+            ),
+            comprehension_signal=blend_vector(self.comprehension_signal, persona_priors["signal"], "signal"),
+            comprehension_density=blend_vector(self.comprehension_density, persona_priors["density"], "density"),
+            execution_state=blend_vector(self.execution_state, persona_priors["state"], "state"),
+            execution_change=blend_vector(self.execution_change, persona_priors["change"], "change"),
+            execution_completion=blend_vector(self.execution_completion, persona_priors["completion"], "completion"),
+            execution_impact=blend_vector(self.execution_impact, persona_priors["impact"], "impact"),
+            uncertainty=blend_vector(self.uncertainty, persona_priors["uncertainty"], "uncertainty"),
             phase=self.phase,
             round_num=self.round_num,
-            investigation_count=self.investigation_count
+            investigation_count=self.investigation_count,
         )
 
     def calculate_tier_confidences(self, weights: dict[str, float] | None = None) -> dict[str, float]:
@@ -309,45 +316,38 @@ class EpistemicAssessmentSchema:
             execution_confidence, overall_confidence
         """
         if weights is None:
-            weights = {
-                "foundation": 0.30,
-                "comprehension": 0.25,
-                "execution": 0.30,
-                "engagement": 0.15
-            }
+            weights = {"foundation": 0.30, "comprehension": 0.25, "execution": 0.30, "engagement": 0.15}
 
         foundation_confidence = (
-            self.foundation_know.score +
-            self.foundation_do.score +
-            self.foundation_context.score
+            self.foundation_know.score + self.foundation_do.score + self.foundation_context.score
         ) / 3
 
         comprehension_confidence = (
-            self.comprehension_clarity.score +
-            self.comprehension_coherence.score +
-            self.comprehension_signal.score +
-            self.comprehension_density.score
+            self.comprehension_clarity.score
+            + self.comprehension_coherence.score
+            + self.comprehension_signal.score
+            + self.comprehension_density.score
         ) / 4
 
         execution_confidence = (
-            self.execution_state.score +
-            self.execution_change.score +
-            self.execution_completion.score +
-            self.execution_impact.score
+            self.execution_state.score
+            + self.execution_change.score
+            + self.execution_completion.score
+            + self.execution_impact.score
         ) / 4
 
         overall_confidence = (
-            foundation_confidence * weights["foundation"] +
-            comprehension_confidence * weights["comprehension"] +
-            execution_confidence * weights["execution"] +
-            self.engagement.score * weights["engagement"]
+            foundation_confidence * weights["foundation"]
+            + comprehension_confidence * weights["comprehension"]
+            + execution_confidence * weights["execution"]
+            + self.engagement.score * weights["engagement"]
         )
 
         return {
             "foundation_confidence": foundation_confidence,
             "comprehension_confidence": comprehension_confidence,
             "execution_confidence": execution_confidence,
-            "overall_confidence": overall_confidence
+            "overall_confidence": overall_confidence,
         }
 
     def determine_action(self, thresholds: dict[str, float] | None = None) -> str:
@@ -362,11 +362,7 @@ class EpistemicAssessmentSchema:
             "proceed", "investigate", or "escalate"
         """
         if thresholds is None:
-            thresholds = {
-                "uncertainty_trigger": 0.40,
-                "confidence_to_proceed": 0.75,
-                "engagement_gate": 0.60
-            }
+            thresholds = {"uncertainty_trigger": 0.40, "confidence_to_proceed": 0.75, "engagement_gate": 0.60}
 
         # Gate check
         if self.engagement.score < thresholds["engagement_gate"]:
@@ -451,6 +447,7 @@ class EpistemicAssessmentSchema:
     def assessment_id(self):
         """Backwards compat: Generate assessment ID from phase and timestamp"""
         import uuid
+
         return f"assessment_{self.phase.value}_{uuid.uuid4().hex[:8]}"
 
     @property
@@ -462,20 +459,20 @@ class EpistemicAssessmentSchema:
     def comprehension_confidence(self):
         """Backwards compat: Calculate comprehension tier confidence"""
         return (
-            self.comprehension_clarity.score +
-            self.comprehension_coherence.score +
-            self.comprehension_signal.score +
-            (1.0 - self.comprehension_density.score)  # Density is inverted
+            self.comprehension_clarity.score
+            + self.comprehension_coherence.score
+            + self.comprehension_signal.score
+            + (1.0 - self.comprehension_density.score)  # Density is inverted
         ) / 4
 
     @property
     def execution_confidence(self):
         """Backwards compat: Calculate execution tier confidence"""
         return (
-            self.execution_state.score +
-            self.execution_change.score +
-            self.execution_completion.score +
-            self.execution_impact.score
+            self.execution_state.score
+            + self.execution_change.score
+            + self.execution_completion.score
+            + self.execution_impact.score
         ) / 4
 
     @property
@@ -483,10 +480,10 @@ class EpistemicAssessmentSchema:
         """Backwards compat: Calculate overall confidence using canonical weights"""
         # Canonical weights: Foundation 35%, Comprehension 25%, Execution 25%, Engagement 15%
         return (
-            self.foundation_confidence * 0.35 +
-            self.comprehension_confidence * 0.25 +
-            self.execution_confidence * 0.25 +
-            self.engagement.score * 0.15
+            self.foundation_confidence * 0.35
+            + self.comprehension_confidence * 0.25
+            + self.execution_confidence * 0.25
+            + self.engagement.score * 0.15
         )
 
     @property
@@ -596,7 +593,9 @@ def validate_assessment(data: dict[str, Any]) -> bool:
     return True
 
 
-def parse_assessment_dict(data: dict[str, Any], phase: CascadePhase = CascadePhase.PREFLIGHT) -> EpistemicAssessmentSchema:
+def parse_assessment_dict(
+    data: dict[str, Any], phase: CascadePhase = CascadePhase.PREFLIGHT
+) -> EpistemicAssessmentSchema:
     """
     Parse and validate assessment dictionary
 

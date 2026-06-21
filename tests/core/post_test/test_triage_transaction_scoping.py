@@ -31,6 +31,7 @@ from empirica.core.post_test.collector import PostTestCollector
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _setup_db() -> sqlite3.Connection:
     """Create an in-memory SQLite with minimal schema for triage metrics."""
     conn = sqlite3.connect(":memory:")
@@ -136,6 +137,7 @@ def _insert_unknown(
 # Transaction scoping tests
 # ---------------------------------------------------------------------------
 
+
 class TestTriageTransactionScoping:
     """With preflight_timestamp set, triage metrics should ONLY count work
     done within the transaction window, not since session start.
@@ -145,8 +147,8 @@ class TestTriageTransactionScoping:
         """Goals completed BEFORE preflight should not be counted."""
         conn = _setup_db()
         now = time.time()
-        session_start = now - 3600      # 1 hour ago
-        preflight = now - 60            # 1 minute ago
+        session_start = now - 3600  # 1 hour ago
+        preflight = now - 60  # 1 minute ago
         _insert_session(conn, "tx-test", session_start)
 
         # Goal completed 30 minutes ago — BEFORE preflight
@@ -238,9 +240,7 @@ class TestTriageUnknownResolution:
         collector = _make_collector(conn, "tx-test", preflight_timestamp=preflight)
         items = collector._collect_triage_metrics()
 
-        unknown_item = next(
-            (i for i in items if i.metric_name == "unknowns_resolved"), None
-        )
+        unknown_item = next((i for i in items if i.metric_name == "unknowns_resolved"), None)
         assert unknown_item is not None
         # Transaction scale: 0.5 + 1*0.2 = 0.7
         assert unknown_item.value == pytest.approx(0.7, abs=0.01)
@@ -282,6 +282,7 @@ class TestTriageUnknownResolution:
 # Regression: the 0.51 completion bias from session 659f0619
 # ---------------------------------------------------------------------------
 
+
 class TestCompletionBiasRegression:
     """Reproduces the specific pattern observed in session 659f0619 (2026-04-07):
     14 praxic POSTFLIGHTs all reported completion observation ~0.51 regardless
@@ -303,18 +304,24 @@ class TestCompletionBiasRegression:
         # Historical: 5 goals completed earlier in the session (pre-preflight)
         for i in range(5):
             _insert_goal(
-                conn, f"old{i}", "release-test", "completed",
-                session_start + 100, preflight - 100,
+                conn,
+                f"old{i}",
+                "release-test",
+                "completed",
+                session_start + 100,
+                preflight - 100,
             )
         # In-transaction: 1 goal completed
         _insert_goal(
-            conn, "new1", "release-test", "completed",
-            preflight - 10, now - 30,
+            conn,
+            "new1",
+            "release-test",
+            "completed",
+            preflight - 10,
+            now - 30,
         )
 
-        collector = _make_collector(
-            conn, "release-test", preflight_timestamp=preflight
-        )
+        collector = _make_collector(conn, "release-test", preflight_timestamp=preflight)
         items = collector._collect_triage_metrics()
 
         goals_item = next((i for i in items if i.metric_name == "goals_completed"), None)

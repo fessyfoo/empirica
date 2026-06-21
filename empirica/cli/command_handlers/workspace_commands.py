@@ -14,15 +14,15 @@ logger = logging.getLogger(__name__)
 
 def _overview_sort_and_filter(projects, sort_by, filter_status):
     """Sort and filter projects list based on user options. Returns filtered list."""
-    if sort_by == 'knowledge':
-        projects.sort(key=lambda p: p.get('health_score', 0), reverse=True)
-    elif sort_by == 'uncertainty':
-        projects.sort(key=lambda p: p.get('epistemic_state', {}).get('uncertainty', 0.5))
-    elif sort_by == 'name':
-        projects.sort(key=lambda p: p.get('name', ''))
+    if sort_by == "knowledge":
+        projects.sort(key=lambda p: p.get("health_score", 0), reverse=True)
+    elif sort_by == "uncertainty":
+        projects.sort(key=lambda p: p.get("epistemic_state", {}).get("uncertainty", 0.5))
+    elif sort_by == "name":
+        projects.sort(key=lambda p: p.get("name", ""))
 
     if filter_status:
-        projects = [p for p in projects if p.get('status') == filter_status]
+        projects = [p for p in projects if p.get("status") == filter_status]
     return projects
 
 
@@ -49,12 +49,12 @@ def _overview_print_dashboard(stats, projects):
     print("📁 Projects by Epistemic Health\n")
 
     tiers = [
-        (0.7, float('inf'), "🟢 HIGH KNOWLEDGE (know ≥ 0.7)"),
+        (0.7, float("inf"), "🟢 HIGH KNOWLEDGE (know ≥ 0.7)"),
         (0.5, 0.7, "🟡 MEDIUM KNOWLEDGE (0.5 ≤ know < 0.7)"),
         (0.0, 0.5, "🔴 LOW KNOWLEDGE (know < 0.5)"),
     ]
     for low, high, label in tiers:
-        tier_projects = [p for p in projects if low <= p['health_score'] < high]
+        tier_projects = [p for p in projects if low <= p["health_score"] < high]
         if tier_projects:
             print(label)
             for i, p in enumerate(tier_projects, 1):
@@ -78,46 +78,47 @@ def handle_workspace_overview_command(args):
         overview = db.get_workspace_overview()
         db.close()
 
-        output_format = getattr(args, 'output', 'dashboard')
-        sort_by = getattr(args, 'sort_by', 'activity')
-        filter_status = getattr(args, 'filter', None)
+        output_format = getattr(args, "output", "dashboard")
+        sort_by = getattr(args, "sort_by", "activity")
+        filter_status = getattr(args, "filter", None)
 
-        projects = _overview_sort_and_filter(overview['projects'], sort_by, filter_status)
+        projects = _overview_sort_and_filter(overview["projects"], sort_by, filter_status)
 
-        if output_format == 'json':
+        if output_format == "json":
             result = {
                 "ok": True,
-                "workspace_stats": overview['workspace_stats'],
+                "workspace_stats": overview["workspace_stats"],
                 "total_projects": len(projects),
-                "projects": projects
+                "projects": projects,
             }
             print(json.dumps(result, indent=2))
             return None
 
-        _overview_print_dashboard(overview['workspace_stats'], projects)
+        _overview_print_dashboard(overview["workspace_stats"], projects)
         return None
 
     except Exception as e:
-        handle_cli_error(e, "Workspace overview", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Workspace overview", getattr(args, "verbose", False))
         return None
 
 
 def _display_project(index, project):
     """Helper to display a single project in dashboard format"""
-    name = project['name']
-    health = project['health_score']
-    know = project['epistemic_state']['know']
-    uncertainty = project['epistemic_state']['uncertainty']
-    findings = project['findings_count']
-    unknowns = project['unknowns_count']
-    dead_ends = project['dead_ends_count']
-    sessions = project['total_sessions']
+    name = project["name"]
+    health = project["health_score"]
+    know = project["epistemic_state"]["know"]
+    uncertainty = project["epistemic_state"]["uncertainty"]
+    findings = project["findings_count"]
+    unknowns = project["unknowns_count"]
+    dead_ends = project["dead_ends_count"]
+    sessions = project["total_sessions"]
 
     # Format last activity
-    last_activity = project.get('last_activity')
+    last_activity = project.get("last_activity")
     if last_activity:
         try:
             from datetime import datetime
+
             last_dt = datetime.fromtimestamp(last_activity)
             now = datetime.now()
             delta = now - last_dt
@@ -152,7 +153,7 @@ def _display_project(index, project):
         print(f"      ❓ Many unresolved unknowns ({unknowns}) - systematically resolve them")
 
     # Show project ID (shortened)
-    project_id = project['project_id']
+    project_id = project["project_id"]
     print(f"      ID: {project_id[:8]}...")
 
 
@@ -167,25 +168,22 @@ def _wsmap_scan_git_repos(parent_dir):
     logger.info(f"Scanning {parent_dir} for git repositories...")
 
     for item in parent_dir.iterdir():
-        if not item.is_dir() or not (item / '.git').exists():
+        if not item.is_dir() or not (item / ".git").exists():
             continue
 
         try:
             result = subprocess.run(
-                ['git', '-C', str(item), 'remote', 'get-url', 'origin'],
-                capture_output=True, text=True, timeout=5
+                ["git", "-C", str(item), "remote", "get-url", "origin"], capture_output=True, text=True, timeout=5
             )
             remote_url = result.stdout.strip() if result.returncode == 0 else None
-            git_repos.append({
-                'path': str(item), 'name': item.name,
-                'remote_url': remote_url, 'has_remote': remote_url is not None
-            })
+            git_repos.append(
+                {"path": str(item), "name": item.name, "remote_url": remote_url, "has_remote": remote_url is not None}
+            )
         except Exception as e:
             logger.debug(f"Error getting remote for {item.name}: {e}")
-            git_repos.append({
-                'path': str(item), 'name': item.name,
-                'remote_url': None, 'has_remote': False, 'error': str(e)
-            })
+            git_repos.append(
+                {"path": str(item), "name": item.name, "remote_url": None, "has_remote": False, "error": str(e)}
+            )
 
     return git_repos
 
@@ -198,13 +196,14 @@ def _wsmap_match_empirica_projects(git_repos):
     cursor = db.conn.cursor()
 
     for repo in git_repos:
-        if not repo['has_remote']:
-            repo['empirica_project'] = None
+        if not repo["has_remote"]:
+            repo["empirica_project"] = None
             continue
 
         # total_sessions: live COUNT(*) because the projects.total_sessions
         # denormalized column is stale (never wired to insert trigger).
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, name, status,
                    (SELECT COUNT(*) FROM sessions s
                     WHERE s.project_id = projects.id) as total_sessions,
@@ -218,18 +217,22 @@ def _wsmap_match_empirica_projects(git_repos):
                     ORDER BY r.timestamp DESC LIMIT 1) as latest_uncertainty
             FROM projects
             WHERE repos LIKE ?
-        """, (f'%{repo["remote_url"]}%',))
+        """,
+            (f"%{repo['remote_url']}%",),
+        )
 
         row = cursor.fetchone()
         if row:
-            repo['empirica_project'] = {
-                'project_id': row[0], 'name': row[1], 'status': row[2],
-                'total_sessions': row[3],
-                'know': row[4] if row[4] else 0.5,
-                'uncertainty': row[5] if row[5] else 0.5
+            repo["empirica_project"] = {
+                "project_id": row[0],
+                "name": row[1],
+                "status": row[2],
+                "total_sessions": row[3],
+                "know": row[4] if row[4] else 0.5,
+                "uncertainty": row[5] if row[5] else 0.5,
             }
         else:
-            repo['empirica_project'] = None
+            repo["empirica_project"] = None
 
     db.close()
 
@@ -239,24 +242,27 @@ def _wsmap_enrich_ecosystem(git_repos, eco_graph):
     if not eco_graph:
         return
     for repo in git_repos:
-        eco_name = repo['name']
+        eco_name = repo["name"]
         if eco_name in eco_graph.projects:
             downstream = sorted(eco_graph.downstream(eco_name))
             upstream = sorted(eco_graph.upstream(eco_name))
             eco_config = eco_graph.projects[eco_name]
-            repo['ecosystem'] = {
-                'role': eco_config.get('role'), 'type': eco_config.get('type'),
-                'downstream': downstream, 'downstream_count': len(downstream),
-                'upstream': upstream, 'upstream_count': len(upstream),
+            repo["ecosystem"] = {
+                "role": eco_config.get("role"),
+                "type": eco_config.get("type"),
+                "downstream": downstream,
+                "downstream_count": len(downstream),
+                "upstream": upstream,
+                "upstream_count": len(upstream),
             }
         else:
-            repo['ecosystem'] = None
+            repo["ecosystem"] = None
 
 
 def _wsmap_print_dashboard(parent_dir, git_repos, eco_graph):
     """Print human-readable dashboard for workspace map."""
-    tracked = [r for r in git_repos if r['empirica_project']]
-    untracked = [r for r in git_repos if not r['empirica_project']]
+    tracked = [r for r in git_repos if r["empirica_project"]]
+    untracked = [r for r in git_repos if not r["empirica_project"]]
 
     print("╔════════════════════════════════════════════════════════════════╗")
     print("║  Git Workspace Map - Epistemic Health                         ║")
@@ -272,16 +278,20 @@ def _wsmap_print_dashboard(parent_dir, git_repos, eco_graph):
         print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
         print("🟢 Tracked in Empirica\n")
         for repo in tracked:
-            proj = repo['empirica_project']
-            status_icon = "🟢" if proj['status'] == 'active' else "🟡"
+            proj = repo["empirica_project"]
+            status_icon = "🟢" if proj["status"] == "active" else "🟡"
             print(f"{status_icon} {repo['name']}")
             print(f"   Path: {repo['path']}")
             print(f"   Project: {proj['name']}")
-            print(f"   Know: {proj['know']:.2f} | Uncertainty: {proj['uncertainty']:.2f} | Sessions: {proj['total_sessions']}")
+            print(
+                f"   Know: {proj['know']:.2f} | Uncertainty: {proj['uncertainty']:.2f} | Sessions: {proj['total_sessions']}"
+            )
             print(f"   ID: {proj['project_id'][:8]}...")
-            eco = repo.get('ecosystem')
+            eco = repo.get("ecosystem")
             if eco:
-                print(f"   Role: {eco['role']} | Deps: {eco['upstream_count']} upstream, {eco['downstream_count']} downstream")
+                print(
+                    f"   Role: {eco['role']} | Deps: {eco['upstream_count']} upstream, {eco['downstream_count']} downstream"
+                )
             print()
 
     if untracked:
@@ -290,9 +300,11 @@ def _wsmap_print_dashboard(parent_dir, git_repos, eco_graph):
         for repo in untracked:
             print(f"⚪ {repo['name']}")
             print(f"   Path: {repo['path']}")
-            if repo['has_remote']:
+            if repo["has_remote"]:
                 print(f"   Remote: {repo['remote_url']}")
-                print(f"   → To track: empirica project-create --name '{repo['name']}' --repos '[\"{repo['remote_url']}\"]'")
+                print(
+                    f"   → To track: empirica project-create --name '{repo['name']}' --repos '[\"{repo['remote_url']}\"]'"
+                )
             else:
                 print("   ⚠️  No remote configured")
             print()
@@ -300,7 +312,9 @@ def _wsmap_print_dashboard(parent_dir, git_repos, eco_graph):
     if eco_graph:
         print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
         summary = eco_graph.summary()
-        print(f"📋 Ecosystem Manifest: {summary['total_projects']} projects, {summary['dependency_edges']} dependency edges")
+        print(
+            f"📋 Ecosystem Manifest: {summary['total_projects']} projects, {summary['dependency_edges']} dependency edges"
+        )
         print()
 
     print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
@@ -318,7 +332,7 @@ def handle_workspace_map_command(args):
         from pathlib import Path
 
         parent_dir = Path.cwd().parent
-        output_format = getattr(args, 'output', 'dashboard')
+        output_format = getattr(args, "output", "dashboard")
 
         # Stage 1: Scan for git repos
         git_repos = _wsmap_scan_git_repos(parent_dir)
@@ -327,6 +341,7 @@ def handle_workspace_map_command(args):
         eco_graph = None
         try:
             from empirica.core.ecosystem import load_ecosystem
+
             eco_graph = load_ecosystem()
         except Exception:
             pass
@@ -338,15 +353,15 @@ def handle_workspace_map_command(args):
         _wsmap_enrich_ecosystem(git_repos, eco_graph)
 
         # Stage 5: Output
-        if output_format == 'json':
+        if output_format == "json":
             result = {
                 "ok": True,
                 "parent_directory": str(parent_dir),
                 "total_repos": len(git_repos),
-                "tracked_repos": sum(1 for r in git_repos if r['empirica_project']),
-                "untracked_repos": sum(1 for r in git_repos if not r['empirica_project']),
+                "tracked_repos": sum(1 for r in git_repos if r["empirica_project"]),
+                "untracked_repos": sum(1 for r in git_repos if not r["empirica_project"]),
                 "has_ecosystem_manifest": eco_graph is not None,
-                "repos": git_repos
+                "repos": git_repos,
             }
             print(json.dumps(result, indent=2))
             return None
@@ -355,7 +370,7 @@ def handle_workspace_map_command(args):
         return 0
 
     except Exception as e:
-        handle_cli_error(e, "Workspace map", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Workspace map", getattr(args, "verbose", False))
         return 1
 
 
@@ -379,12 +394,12 @@ def _wslist_query_projects(args):
     params = []
     conditions = []
 
-    filter_type = getattr(args, 'type', None)
+    filter_type = getattr(args, "type", None)
     if filter_type:
         conditions.append("project_type = ?")
         params.append(filter_type)
 
-    filter_parent = getattr(args, 'parent', None)
+    filter_parent = getattr(args, "parent", None)
     if filter_parent:
         conditions.append("parent_project_id = ?")
         params.append(filter_parent)
@@ -396,19 +411,19 @@ def _wslist_query_projects(args):
     cursor.execute(query, params)
     projects = [dict(row) for row in cursor.fetchall()]
 
-    filter_tags = getattr(args, 'tags', None)
+    filter_tags = getattr(args, "tags", None)
     if filter_tags:
-        tag_list = [t.strip().lower() for t in filter_tags.split(',')]
+        tag_list = [t.strip().lower() for t in filter_tags.split(",")]
         projects = [
-            p for p in projects
-            if any(tag in [t.lower() for t in json.loads(p.get('project_tags') or '[]')]
-                   for tag in tag_list)
+            p
+            for p in projects
+            if any(tag in [t.lower() for t in json.loads(p.get("project_tags") or "[]")] for tag in tag_list)
         ]
 
     db.close()
 
     for p in projects:
-        p['project_tags'] = json.loads(p.get('project_tags') or '[]')
+        p["project_tags"] = json.loads(p.get("project_tags") or "[]")
 
     return projects, filter_type, filter_tags, filter_parent
 
@@ -419,19 +434,19 @@ def _wslist_print_by_type(projects):
 
     types_order = ProjectRepository.PROJECT_TYPES
     for ptype in types_order:
-        type_projects = [p for p in projects if p.get('project_type') == ptype]
+        type_projects = [p for p in projects if p.get("project_type") == ptype]
         if type_projects:
             icon = _get_type_icon(ptype)
             print(f"{icon} {ptype.upper()}")
             print("─" * 60)
             for p in type_projects:
-                tags_str = ', '.join(p['project_tags']) if p['project_tags'] else ''
-                parent_str = f" (child of {p['parent_project_id'][:8]}...)" if p['parent_project_id'] else ''
+                tags_str = ", ".join(p["project_tags"]) if p["project_tags"] else ""
+                parent_str = f" (child of {p['parent_project_id'][:8]}...)" if p["parent_project_id"] else ""
                 print(f"   {p['name']}{parent_str}")
                 print(f"      ID: {p['id'][:8]}...  Sessions: {p['total_sessions']}")
                 if tags_str:
                     print(f"      Tags: {tags_str}")
-                if p['description']:
+                if p["description"]:
                     print(f"      {p['description'][:60]}...")
                 print()
             print()
@@ -442,15 +457,15 @@ def handle_workspace_list_command(args):
     try:
         projects, filter_type, filter_tags, filter_parent = _wslist_query_projects(args)
 
-        output_format = getattr(args, 'output', 'human')
-        show_tree = getattr(args, 'tree', False)
+        output_format = getattr(args, "output", "human")
+        show_tree = getattr(args, "tree", False)
 
-        if output_format == 'json':
+        if output_format == "json":
             result = {
                 "ok": True,
                 "filters": {"type": filter_type, "tags": filter_tags, "parent": filter_parent},
                 "total_projects": len(projects),
-                "projects": projects
+                "projects": projects,
             }
             print(json.dumps(result, indent=2))
             return None
@@ -470,7 +485,7 @@ def handle_workspace_list_command(args):
 
         type_counts = {}
         for p in projects:
-            ptype = p.get('project_type', 'product')
+            ptype = p.get("project_type", "product")
             type_counts[ptype] = type_counts.get(ptype, 0) + 1
 
         print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
@@ -482,22 +497,22 @@ def handle_workspace_list_command(args):
         return None
 
     except Exception as e:
-        handle_cli_error(e, "Workspace list", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Workspace list", getattr(args, "verbose", False))
         return None
 
 
 def _get_type_icon(project_type):
     """Get emoji icon for project type"""
     icons = {
-        'product': '📦',
-        'application': '🖥️',
-        'feature': '⚡',
-        'research': '🔬',
-        'documentation': '📚',
-        'infrastructure': '🏗️',
-        'operations': '⚙️'
+        "product": "📦",
+        "application": "🖥️",
+        "feature": "⚡",
+        "research": "🔬",
+        "documentation": "📚",
+        "infrastructure": "🏗️",
+        "operations": "⚙️",
     }
-    return icons.get(project_type, '📁')
+    return icons.get(project_type, "📁")
 
 
 def _display_project_tree(projects):
@@ -507,7 +522,7 @@ def _display_project_tree(projects):
     roots = []
 
     for p in projects:
-        parent_id = p.get('parent_project_id')
+        parent_id = p.get("parent_project_id")
         if parent_id:
             if parent_id not in children_map:
                 children_map[parent_id] = []
@@ -517,13 +532,13 @@ def _display_project_tree(projects):
 
     def print_tree(project, indent=0):
         prefix = "   " * indent
-        icon = _get_type_icon(project.get('project_type', 'product'))
-        tags_str = f" [{', '.join(project['project_tags'])}]" if project['project_tags'] else ''
+        icon = _get_type_icon(project.get("project_type", "product"))
+        tags_str = f" [{', '.join(project['project_tags'])}]" if project["project_tags"] else ""
         print(f"{prefix}{icon} {project['name']}{tags_str}")
         print(f"{prefix}   ID: {project['id'][:8]}... | Type: {project.get('project_type', 'product')}")
 
         # Print children
-        children = children_map.get(project['id'], [])
+        children = children_map.get(project["id"], [])
         for child in children:
             print_tree(child, indent + 1)
 
@@ -549,59 +564,68 @@ def handle_workspace_backfill_entities_command(args):
     try:
         from empirica.data.repositories.workspace_db import WorkspaceDBRepository
 
-        output_format = getattr(args, 'output', 'human')
-        dry_run = getattr(args, 'dry_run', False)
+        output_format = getattr(args, "output", "human")
+        dry_run = getattr(args, "dry_run", False)
 
         with WorkspaceDBRepository.open(ensure_schema=True) as repo:
-            projects = repo.list_projects(status='active')
+            projects = repo.list_projects(status="active")
             added = 0
             updated = 0
             results = []
 
             for p in projects:
-                pid = p['id']
-                name = p['name']
-                existing = repo.get_entity('project', pid)
-                action = 'update' if existing else 'add'
+                pid = p["id"]
+                name = p["name"]
+                existing = repo.get_entity("project", pid)
+                action = "update" if existing else "add"
 
                 if not dry_run:
-                    metadata = _json.dumps({
-                        'trajectory_path': p.get('trajectory_path'),
-                        'git_remote_url': p.get('git_remote_url'),
-                        'project_type': p.get('project_type'),
-                    })
+                    metadata = _json.dumps(
+                        {
+                            "trajectory_path": p.get("trajectory_path"),
+                            "git_remote_url": p.get("git_remote_url"),
+                            "project_type": p.get("project_type"),
+                        }
+                    )
                     repo.upsert_entity(
-                        entity_type='project',
+                        entity_type="project",
                         entity_id=pid,
                         display_name=name,
-                        description=p.get('description'),
-                        source_db='workspace',
-                        source_table='global_projects',
-                        status='active',
+                        description=p.get("description"),
+                        source_db="workspace",
+                        source_table="global_projects",
+                        status="active",
                         metadata=metadata,
                     )
 
-                if action == 'add':
+                if action == "add":
                     added += 1
                 else:
                     updated += 1
-                results.append({
-                    'project_id': pid,
-                    'name': name,
-                    'action': action,
-                })
+                results.append(
+                    {
+                        "project_id": pid,
+                        "name": name,
+                        "action": action,
+                    }
+                )
 
-        if output_format == 'json':
-            print(_json.dumps({
-                'ok': True,
-                'dry_run': dry_run,
-                'scanned': len(projects),
-                'added': added,
-                'updated': updated,
-                'rows': results,
-            }, indent=2))
+        if output_format == "json":
+            print(
+                _json.dumps(
+                    {
+                        "ok": True,
+                        "dry_run": dry_run,
+                        "scanned": len(projects),
+                        "added": added,
+                        "updated": updated,
+                        "rows": results,
+                    },
+                    indent=2,
+                )
+            )
         else:
-            tag = '🧪 DRY RUN' if dry_run else '✅'
+            tag = "🧪 DRY RUN" if dry_run else "✅"
             print(f"{tag} Backfilled entity_registry from global_projects")
             print(f"   Scanned:  {len(projects)}")
             print(f"   Added:    {added}")
@@ -609,8 +633,8 @@ def handle_workspace_backfill_entities_command(args):
             if dry_run and (added or updated):
                 print("\n   Run without --dry-run to apply.")
 
-        return {'ok': True, 'added': added, 'updated': updated, 'scanned': len(projects)}
+        return {"ok": True, "added": added, "updated": updated, "scanned": len(projects)}
 
     except Exception as e:
-        handle_cli_error(e, "Workspace backfill entities", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Workspace backfill entities", getattr(args, "verbose", False))
         return None

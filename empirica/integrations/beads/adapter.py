@@ -26,13 +26,7 @@ class BeadsAdapter:
             return self._available
 
         try:
-            result = subprocess.run(
-                ['bd', '--version'],
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=5
-            )
+            result = subprocess.run(["bd", "--version"], capture_output=True, text=True, check=True, timeout=5)
             self._available = True
             logger.debug(f"BEADS available: {result.stdout.strip()}")
             return True
@@ -47,7 +41,7 @@ class BeadsAdapter:
         description: str = "",
         priority: int = 2,
         issue_type: str = "task",
-        labels: list[str] | None = None
+        labels: list[str] | None = None,
     ) -> str | None:
         """Create BEADS issue, return hash ID (e.g., bd-a1b2)
 
@@ -66,24 +60,18 @@ class BeadsAdapter:
             return None
 
         try:
-            cmd = ['bd', 'create', title, '-p', str(priority), '-t', issue_type, '--json']
+            cmd = ["bd", "create", title, "-p", str(priority), "-t", issue_type, "--json"]
 
             if description:
-                cmd.extend(['-d', description])
+                cmd.extend(["-d", description])
 
             if labels:
-                cmd.extend(['-l', ','.join(labels)])
+                cmd.extend(["-l", ",".join(labels)])
 
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=10
-            )
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=10)
 
             issue = json.loads(result.stdout)
-            issue_id = issue.get('id')
+            issue_id = issue.get("id")
 
             logger.info(f"Created BEADS issue: {issue_id} - {title}")
             return issue_id
@@ -95,12 +83,7 @@ class BeadsAdapter:
             logger.error(f"Failed to parse BEADS response: {e}")
             return None
 
-    def add_dependency(
-        self,
-        child_id: str,
-        parent_id: str,
-        dep_type: str = 'blocks'
-    ) -> bool:
+    def add_dependency(self, child_id: str, parent_id: str, dep_type: str = "blocks") -> bool:
         """Add dependency between BEADS issues
 
         Args:
@@ -116,10 +99,10 @@ class BeadsAdapter:
 
         try:
             subprocess.run(
-                ['bd', 'dep', 'add', child_id, parent_id, '--type', dep_type],
+                ["bd", "dep", "add", child_id, parent_id, "--type", dep_type],
                 capture_output=True,
                 check=True,
-                timeout=10
+                timeout=10,
             )
             logger.info(f"Added dependency: {child_id} {dep_type} {parent_id}")
             return True
@@ -142,18 +125,12 @@ class BeadsAdapter:
             return []
 
         try:
-            cmd = ['bd', 'ready', '--json', '--limit', str(limit)]
+            cmd = ["bd", "ready", "--json", "--limit", str(limit)]
 
             if priority is not None:
-                cmd.extend(['--priority', str(priority)])
+                cmd.extend(["--priority", str(priority)])
 
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=10
-            )
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=10)
 
             issues = json.loads(result.stdout)
             logger.debug(f"Found {len(issues)} ready issues")
@@ -180,12 +157,7 @@ class BeadsAdapter:
             return False
 
         try:
-            subprocess.run(
-                ['bd', 'update', issue_id, '--status', status],
-                capture_output=True,
-                check=True,
-                timeout=10
-            )
+            subprocess.run(["bd", "update", issue_id, "--status", status], capture_output=True, check=True, timeout=10)
             logger.info(f"Updated {issue_id} status to {status}")
             return True
 
@@ -207,12 +179,7 @@ class BeadsAdapter:
             return False
 
         try:
-            subprocess.run(
-                ['bd', 'close', issue_id, '--reason', reason],
-                capture_output=True,
-                check=True,
-                timeout=10
-            )
+            subprocess.run(["bd", "close", issue_id, "--reason", reason], capture_output=True, check=True, timeout=10)
             logger.info(f"Closed {issue_id}: {reason}")
             return True
 
@@ -234,11 +201,7 @@ class BeadsAdapter:
 
         try:
             result = subprocess.run(
-                ['bd', 'show', issue_id, '--json'],
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=10
+                ["bd", "show", issue_id, "--json"], capture_output=True, text=True, check=True, timeout=10
             )
 
             issue = json.loads(result.stdout)
@@ -265,11 +228,7 @@ class BeadsAdapter:
 
         try:
             result = subprocess.run(
-                ['bd', 'dep', 'tree', issue_id],
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=10
+                ["bd", "dep", "tree", issue_id], capture_output=True, text=True, check=True, timeout=10
             )
             return result.stdout
 

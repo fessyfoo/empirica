@@ -35,18 +35,18 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-EMPIRICA_DIR = Path.home() / '.empirica'
-TTY_SESSIONS_DIR = EMPIRICA_DIR / 'tty_sessions'
+EMPIRICA_DIR = Path.home() / ".empirica"
+TTY_SESSIONS_DIR = EMPIRICA_DIR / "tty_sessions"
 
-TMUX_INSTANCE_PATTERN = re.compile(r'^tmux_(.+)$')
+TMUX_INSTANCE_PATTERN = re.compile(r"^tmux_(.+)$")
 
 
 def _safe_suffix(text: str) -> str:
-    return text.replace('/', '-').replace('%', '')
+    return text.replace("/", "-").replace("%", "")
 
 
 def label_file_path(instance_id: str) -> Path:
-    return EMPIRICA_DIR / f'instance_label_{_safe_suffix(instance_id)}'
+    return EMPIRICA_DIR / f"instance_label_{_safe_suffix(instance_id)}"
 
 
 def set_label(instance_id: str, label: str | None) -> str | None:
@@ -59,7 +59,7 @@ def set_label(instance_id: str, label: str | None) -> str | None:
         except FileNotFoundError:
             pass
         return None
-    path.write_text(label.strip() + '\n', encoding='utf-8')
+    path.write_text(label.strip() + "\n", encoding="utf-8")
     return label.strip()
 
 
@@ -68,7 +68,7 @@ def get_label(instance_id: str) -> str | None:
     if not path.exists():
         return None
     try:
-        text = path.read_text(encoding='utf-8').strip()
+        text = path.read_text(encoding="utf-8").strip()
         return text.splitlines()[0].strip() if text else None
     except OSError:
         return None
@@ -88,26 +88,26 @@ def _get_pid_from_tty(instance_id: str) -> int | None:
     """
 
     def _pick_alive(data: dict) -> int | None:
-        for key in ('ppid', 'pid'):
+        for key in ("ppid", "pid"):
             value = data.get(key)
             if isinstance(value, int) and value > 1 and _process_alive(value):
                 return value
         # Even if not alive, return ppid as a hint for the caller.
-        for key in ('ppid', 'pid'):
+        for key in ("ppid", "pid"):
             value = data.get(key)
             if isinstance(value, int) and value > 1:
                 return value
         return None
 
-    inst_file = EMPIRICA_DIR / 'instance_projects' / f'{instance_id}.json'
+    inst_file = EMPIRICA_DIR / "instance_projects" / f"{instance_id}.json"
     if inst_file.exists():
         try:
-            with open(inst_file, encoding='utf-8') as f:
+            with open(inst_file, encoding="utf-8") as f:
                 inst = json.load(f)
             pid = _pick_alive(inst)
             if pid:
                 return pid
-            tty_key = inst.get('tty_key')
+            tty_key = inst.get("tty_key")
         except (OSError, json.JSONDecodeError):
             tty_key = None
     else:
@@ -116,11 +116,11 @@ def _get_pid_from_tty(instance_id: str) -> int | None:
     if not tty_key:
         return None
 
-    tty_file = TTY_SESSIONS_DIR / f'{tty_key}.json'
+    tty_file = TTY_SESSIONS_DIR / f"{tty_key}.json"
     if not tty_file.exists():
         return None
     try:
-        with open(tty_file, encoding='utf-8') as f:
+        with open(tty_file, encoding="utf-8") as f:
             tty = json.load(f)
         return _pick_alive(tty)
     except (OSError, json.JSONDecodeError):
@@ -149,6 +149,7 @@ class KillResult:
 @dataclass
 class StopResult:
     """Result of a `stop` action — soft interrupt, recoverable."""
+
     instance_id: str
     success: bool
     detail: str
@@ -160,6 +161,7 @@ class WakeResult:
     """Result of a `wake` action — nudge an idle AI to submit a turn so
     UserPromptSubmit-stage hooks fire and surface queued pending state
     (install requests, listener arms, etc.)."""
+
     instance_id: str
     success: bool
     detail: str
@@ -186,46 +188,58 @@ def wake_instance(instance_id: str) -> WakeResult:
     and will fire on the user's next manual prompt (graceful degrade).
     """
     if not instance_id:
-        raise ValueError('instance_id required')
+        raise ValueError("instance_id required")
 
     m = TMUX_INSTANCE_PATTERN.match(instance_id)
     if not m:
         return WakeResult(
-            instance_id=instance_id, success=False, method='unreachable',
-            detail='non-tmux instance — pending request will fire on next user prompt',
+            instance_id=instance_id,
+            success=False,
+            method="unreachable",
+            detail="non-tmux instance — pending request will fire on next user prompt",
         )
 
     pane_n = m.group(1)
-    if shutil.which('tmux') is None:
+    if shutil.which("tmux") is None:
         return WakeResult(
-            instance_id=instance_id, success=False, method='unreachable',
-            detail='tmux binary not found in PATH',
+            instance_id=instance_id,
+            success=False,
+            method="unreachable",
+            detail="tmux binary not found in PATH",
         )
 
     try:
         result = subprocess.run(
-            ['tmux', 'send-keys', '-t', f'%{pane_n}', ' ', 'Enter'],
-            capture_output=True, text=True, timeout=3,
+            ["tmux", "send-keys", "-t", f"%{pane_n}", " ", "Enter"],
+            capture_output=True,
+            text=True,
+            timeout=3,
         )
     except subprocess.TimeoutExpired:
         return WakeResult(
-            instance_id=instance_id, success=False, method='tmux-send-keys',
-            detail='tmux send-keys timed out',
+            instance_id=instance_id,
+            success=False,
+            method="tmux-send-keys",
+            detail="tmux send-keys timed out",
         )
 
     if result.returncode == 0:
         return WakeResult(
-            instance_id=instance_id, success=True, method='tmux-send-keys',
-            detail=f'sent Space+Enter to pane %{pane_n}',
+            instance_id=instance_id,
+            success=True,
+            method="tmux-send-keys",
+            detail=f"sent Space+Enter to pane %{pane_n}",
         )
-    stderr = (result.stderr or '').strip() or '<no stderr>'
+    stderr = (result.stderr or "").strip() or "<no stderr>"
     return WakeResult(
-        instance_id=instance_id, success=False, method='tmux-send-keys',
-        detail=f'tmux send-keys returned {result.returncode}: {stderr}',
+        instance_id=instance_id,
+        success=False,
+        method="tmux-send-keys",
+        detail=f"tmux send-keys returned {result.returncode}: {stderr}",
     )
 
 
-def stop_instance(instance_id: str, key: str = 'Escape') -> StopResult:
+def stop_instance(instance_id: str, key: str = "Escape") -> StopResult:
     """Send a soft interrupt to a running Claude — the remote-spacebar.
 
     For tmux instances: `tmux send-keys -t %N <key>`. The default Escape
@@ -238,108 +252,120 @@ def stop_instance(instance_id: str, key: str = 'Escape') -> StopResult:
     user can interrupt manually in that terminal.
     """
     if not instance_id:
-        raise ValueError('instance_id required')
+        raise ValueError("instance_id required")
 
     m = TMUX_INSTANCE_PATTERN.match(instance_id)
     if not m:
         return StopResult(
-            instance_id=instance_id, success=False, method='unreachable',
-            detail='non-tmux instance — interrupt manually in that terminal',
+            instance_id=instance_id,
+            success=False,
+            method="unreachable",
+            detail="non-tmux instance — interrupt manually in that terminal",
         )
 
     pane_n = m.group(1)
-    if shutil.which('tmux') is None:
+    if shutil.which("tmux") is None:
         return StopResult(
-            instance_id=instance_id, success=False, method='unreachable',
-            detail='tmux binary not found in PATH',
+            instance_id=instance_id,
+            success=False,
+            method="unreachable",
+            detail="tmux binary not found in PATH",
         )
 
     try:
         result = subprocess.run(
-            ['tmux', 'send-keys', '-t', f'%{pane_n}', key],
-            capture_output=True, text=True, timeout=3,
+            ["tmux", "send-keys", "-t", f"%{pane_n}", key],
+            capture_output=True,
+            text=True,
+            timeout=3,
         )
     except subprocess.TimeoutExpired:
         return StopResult(
-            instance_id=instance_id, success=False, method='tmux-send-keys',
-            detail='tmux send-keys timed out',
+            instance_id=instance_id,
+            success=False,
+            method="tmux-send-keys",
+            detail="tmux send-keys timed out",
         )
 
     if result.returncode == 0:
         return StopResult(
-            instance_id=instance_id, success=True, method='tmux-send-keys',
-            detail=f'sent {key} to pane %{pane_n}',
+            instance_id=instance_id,
+            success=True,
+            method="tmux-send-keys",
+            detail=f"sent {key} to pane %{pane_n}",
         )
-    stderr = (result.stderr or '').strip() or '<no stderr>'
+    stderr = (result.stderr or "").strip() or "<no stderr>"
     return StopResult(
-        instance_id=instance_id, success=False, method='tmux-send-keys',
-        detail=f'tmux send-keys returned {result.returncode}: {stderr}',
+        instance_id=instance_id,
+        success=False,
+        method="tmux-send-keys",
+        detail=f"tmux send-keys returned {result.returncode}: {stderr}",
     )
 
 
 def _kill_via_tmux(instance_id: str, pane_n: str) -> KillResult:
-    if shutil.which('tmux') is None:
-        return KillResult(instance_id, 'tmux', False,
-                          'tmux binary not found in PATH')
+    if shutil.which("tmux") is None:
+        return KillResult(instance_id, "tmux", False, "tmux binary not found in PATH")
     try:
         result = subprocess.run(
-            ['tmux', 'kill-pane', '-t', f'%{pane_n}'],
-            capture_output=True, text=True, timeout=5,
+            ["tmux", "kill-pane", "-t", f"%{pane_n}"],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
     except subprocess.TimeoutExpired:
-        return KillResult(instance_id, 'tmux', False,
-                          'tmux kill-pane timed out after 5s')
+        return KillResult(instance_id, "tmux", False, "tmux kill-pane timed out after 5s")
 
     if result.returncode == 0:
-        return KillResult(instance_id, 'tmux', True,
-                          f'tmux pane %{pane_n} killed')
-    stderr = (result.stderr or '').strip() or '<no stderr>'
-    return KillResult(instance_id, 'tmux', False,
-                      f'tmux kill-pane returned {result.returncode}: {stderr}')
+        return KillResult(instance_id, "tmux", True, f"tmux pane %{pane_n} killed")
+    stderr = (result.stderr or "").strip() or "<no stderr>"
+    return KillResult(instance_id, "tmux", False, f"tmux kill-pane returned {result.returncode}: {stderr}")
 
 
 def _kill_via_signal(instance_id: str, force: bool) -> KillResult:
     pid = _get_pid_from_tty(instance_id)
     if pid is None:
-        return KillResult(instance_id, 'unreachable', False,
-                          'no tracked PID for this instance — '
-                          'kill the terminal manually, then `empirica instance forget`',
-                          pid=None)
+        return KillResult(
+            instance_id,
+            "unreachable",
+            False,
+            "no tracked PID for this instance — kill the terminal manually, then `empirica instance forget`",
+            pid=None,
+        )
 
     if not _process_alive(pid):
-        return KillResult(instance_id, 'sigterm', True,
-                          f'process {pid} already dead', pid=pid)
+        return KillResult(instance_id, "sigterm", True, f"process {pid} already dead", pid=pid)
 
     sig = signal.SIGKILL if force else signal.SIGTERM
-    method = 'sigkill' if force else 'sigterm'
+    method = "sigkill" if force else "sigterm"
     try:
         os.kill(pid, sig)
     except ProcessLookupError:
-        return KillResult(instance_id, method, True,
-                          f'process {pid} disappeared', pid=pid)
+        return KillResult(instance_id, method, True, f"process {pid} disappeared", pid=pid)
     except PermissionError as e:
-        return KillResult(instance_id, method, False,
-                          f'permission denied killing pid {pid}: {e}', pid=pid)
+        return KillResult(instance_id, method, False, f"permission denied killing pid {pid}: {e}", pid=pid)
 
     # SIGTERM is not always immediate — give the process a moment.
     if not force:
         for _ in range(10):
             time.sleep(0.1)
             if not _process_alive(pid):
-                return KillResult(instance_id, 'sigterm', True,
-                                  f'pid {pid} terminated', pid=pid)
-        return KillResult(instance_id, 'sigterm', True,
-                          f'sent SIGTERM to {pid} (still alive after 1s — '
-                          'use --force for SIGKILL)', pid=pid)
+                return KillResult(instance_id, "sigterm", True, f"pid {pid} terminated", pid=pid)
+        return KillResult(
+            instance_id,
+            "sigterm",
+            True,
+            f"sent SIGTERM to {pid} (still alive after 1s — use --force for SIGKILL)",
+            pid=pid,
+        )
 
-    return KillResult(instance_id, 'sigkill', True,
-                      f'sent SIGKILL to {pid}', pid=pid)
+    return KillResult(instance_id, "sigkill", True, f"sent SIGKILL to {pid}", pid=pid)
 
 
 def kill_instance(instance_id: str, force: bool = False) -> KillResult:
     """Terminate an instance. tmux pane for tmux_*, signal for others."""
     if not instance_id:
-        raise ValueError('instance_id required')
+        raise ValueError("instance_id required")
 
     m = TMUX_INSTANCE_PATTERN.match(instance_id)
     if m:
@@ -353,18 +379,18 @@ def kill_instance(instance_id: str, force: bool = False) -> KillResult:
 # File patterns that hold per-instance state. The braces are filled with
 # instance_id (sanitized). Both .json and bare-flag forms.
 _FORGET_PATTERNS = (
-    'instance_projects/{id}.json',
-    'sentinel_paused_{id}',
-    'loops_{id}.json',
-    'active_session_{id}',
-    'hook_counters_{id}.json',
-    'context_usage_{id}.json',
-    'cortex_remote_cache_{id}.json',
-    'pre_tx_calls_{id}.json',
-    'instance_label_{id}',
+    "instance_projects/{id}.json",
+    "sentinel_paused_{id}",
+    "loops_{id}.json",
+    "active_session_{id}",
+    "hook_counters_{id}.json",
+    "context_usage_{id}.json",
+    "cortex_remote_cache_{id}.json",
+    "pre_tx_calls_{id}.json",
+    "instance_label_{id}",
 )
 
-_LOOP_PAUSE_PATTERN = 'loop_paused_{id}_*'
+_LOOP_PAUSE_PATTERN = "loop_paused_{id}_*"
 
 
 @dataclass
@@ -381,7 +407,7 @@ def forget_instance(instance_id: str) -> ForgetResult:
     NOT touched — that's the project's record, not the instance's.
     """
     if not instance_id:
-        raise ValueError('instance_id required')
+        raise ValueError("instance_id required")
     safe_id = _safe_suffix(instance_id)
     removed: list[str] = []
     skipped: list[str] = []
@@ -393,7 +419,7 @@ def forget_instance(instance_id: str) -> ForgetResult:
                 path.unlink()
                 removed.append(str(path.relative_to(EMPIRICA_DIR)))
             except OSError as e:
-                skipped.append(f'{path.relative_to(EMPIRICA_DIR)}: {e}')
+                skipped.append(f"{path.relative_to(EMPIRICA_DIR)}: {e}")
 
     # Loop pause sidecars carry an extra _{loop_name} suffix — glob them.
     for path in EMPIRICA_DIR.glob(_LOOP_PAUSE_PATTERN.format(id=safe_id)):
@@ -401,18 +427,18 @@ def forget_instance(instance_id: str) -> ForgetResult:
             path.unlink()
             removed.append(str(path.relative_to(EMPIRICA_DIR)))
         except OSError as e:
-            skipped.append(f'{path.relative_to(EMPIRICA_DIR)}: {e}')
+            skipped.append(f"{path.relative_to(EMPIRICA_DIR)}: {e}")
 
     return ForgetResult(instance_id=instance_id, removed=removed, skipped=skipped)
 
 
 __all__ = [
-    'ForgetResult',
-    'KillResult',
-    'StopResult',
-    'forget_instance',
-    'get_label',
-    'kill_instance',
-    'set_label',
-    'stop_instance',
+    "ForgetResult",
+    "KillResult",
+    "StopResult",
+    "forget_instance",
+    "get_label",
+    "kill_instance",
+    "set_label",
+    "stop_instance",
 ]

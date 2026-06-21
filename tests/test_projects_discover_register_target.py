@@ -53,6 +53,7 @@ def test_api_registry_imports_without_flask():
             save_registry,
             upsert_project,
         )
+
         # Sanity — at least the functions are real callables
         assert callable(load_registry)
         assert callable(save_registry)
@@ -83,6 +84,7 @@ def test_projects_commands_handler_imports_without_flask():
             _filter_manifest_to_target,
             _register_discovered_to_registry,
         )
+
         assert callable(_filter_manifest_to_target)
         assert callable(_register_discovered_to_registry)
     finally:
@@ -96,6 +98,7 @@ def test_filter_matches_directory_basename(tmp_path):
     from empirica.cli.command_handlers.projects_commands import (
         _filter_manifest_to_target,
     )
+
     p1 = tmp_path / "empirica-cortex"
     p1.mkdir()
     manifest = {
@@ -113,6 +116,7 @@ def test_filter_matches_project_yaml_name(tmp_path):
     from empirica.cli.command_handlers.projects_commands import (
         _filter_manifest_to_target,
     )
+
     p1 = tmp_path / "weird-folder"
     (p1 / ".empirica").mkdir(parents=True)
     (p1 / ".empirica" / "project.yaml").write_text("name: actual-project-name\n")
@@ -129,6 +133,7 @@ def test_filter_no_match_returns_empty(tmp_path):
     from empirica.cli.command_handlers.projects_commands import (
         _filter_manifest_to_target,
     )
+
     manifest = {"projects": [{"path": str(tmp_path / "x"), "name": "x"}]}
     result = _filter_manifest_to_target(manifest, "nope")
     assert result["projects"] == []
@@ -138,6 +143,7 @@ def test_filter_preserves_other_manifest_keys(tmp_path):
     from empirica.cli.command_handlers.projects_commands import (
         _filter_manifest_to_target,
     )
+
     manifest: dict[str, Any] = {
         "projects": [{"path": str(tmp_path / "a"), "name": "a"}],
         "scan_time": "2026-06-04T10:00:00Z",
@@ -155,7 +161,9 @@ def _empirica_cli(*args) -> tuple[int, str, str]:
     """Run empirica CLI as a subprocess. Returns (rc, stdout, stderr)."""
     result = subprocess.run(
         ["empirica", *args],
-        capture_output=True, text=True, timeout=30,
+        capture_output=True,
+        text=True,
+        timeout=30,
     )
     return result.returncode, result.stdout, result.stderr
 
@@ -164,7 +172,8 @@ def test_cli_register_accepts_optional_name_arg():
     """`--register NAME` parses without error (regression: store_true would
     fail with `unrecognized arguments: NAME`)."""
     rc, _stdout, stderr = _empirica_cli(
-        "projects-discover", "--help",
+        "projects-discover",
+        "--help",
     )
     assert rc == 0
     # Help routing varies between stdout/stderr; both should contain --register
@@ -175,7 +184,11 @@ def test_cli_register_missing_name_warns_clean(tmp_path):
     """`--register doesnotexist` against a real discovery emits the
     'No discovered project matches' warning and exits cleanly."""
     rc, _stdout, stderr = _empirica_cli(
-        "projects-discover", "--root", str(tmp_path), "--register", "nope-nope",
+        "projects-discover",
+        "--root",
+        str(tmp_path),
+        "--register",
+        "nope-nope",
     )
     # rc 0 because the discover scan itself succeeded (just nothing to
     # register). The warning lives in stderr.

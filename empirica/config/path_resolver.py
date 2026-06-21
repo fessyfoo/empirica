@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 _git_root_cache: Path | None = None
 
 # Forbidden system paths for workspace/data directories
-FORBIDDEN_PATH_PREFIXES = ['/etc', '/var/log', '/usr', '/bin', '/sbin', '/root', '/boot', '/proc', '/sys']
+FORBIDDEN_PATH_PREFIXES = ["/etc", "/var/log", "/usr", "/bin", "/sbin", "/root", "/boot", "/proc", "/sys"]
 
 
 def _validate_user_path(path_str: str, env_var_name: str) -> Path:
@@ -66,10 +66,7 @@ def _validate_user_path(path_str: str, env_var_name: str) -> Path:
 
     for prefix in FORBIDDEN_PATH_PREFIXES:
         if resolved_str.startswith(prefix):
-            raise ValueError(
-                f"{env_var_name} cannot point to system directory: {prefix}. "
-                f"Got: {resolved_str}"
-            )
+            raise ValueError(f"{env_var_name} cannot point to system directory: {prefix}. Got: {resolved_str}")
 
     return resolved
 
@@ -88,11 +85,7 @@ def get_git_root() -> Path | None:
 
     try:
         result = subprocess.run(
-            ['git', 'rev-parse', '--show-toplevel'],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False
+            ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, timeout=2, check=False
         )
 
         if result.returncode == 0:
@@ -116,7 +109,7 @@ def load_empirica_config() -> dict | None:
     if not git_root:
         return None
 
-    config_path = git_root / '.empirica' / 'config.yaml'
+    config_path = git_root / ".empirica" / "config.yaml"
     if not config_path.exists():
         return None
 
@@ -148,10 +141,10 @@ def get_empirica_root() -> Path:
         ValueError: If no .empirica root can be determined (not in git repo and no env vars set).
     """
     # 1. Check workspace root (Docker/multi-AI environments)
-    if workspace_root := os.getenv('EMPIRICA_WORKSPACE_ROOT'):
+    if workspace_root := os.getenv("EMPIRICA_WORKSPACE_ROOT"):
         try:
-            workspace_path = _validate_user_path(workspace_root, 'EMPIRICA_WORKSPACE_ROOT')
-            empirica_root = workspace_path / '.empirica'
+            workspace_path = _validate_user_path(workspace_root, "EMPIRICA_WORKSPACE_ROOT")
+            empirica_root = workspace_path / ".empirica"
             if empirica_root.exists() or workspace_path.exists():
                 logger.debug(f"📍 Using EMPIRICA_WORKSPACE_ROOT: {empirica_root}")
                 return empirica_root
@@ -160,9 +153,9 @@ def get_empirica_root() -> Path:
             # Fall through to next option
 
     # 2. Check explicit data dir environment variable
-    if env_root := os.getenv('EMPIRICA_DATA_DIR'):
+    if env_root := os.getenv("EMPIRICA_DATA_DIR"):
         try:
-            root = _validate_user_path(env_root, 'EMPIRICA_DATA_DIR')
+            root = _validate_user_path(env_root, "EMPIRICA_DATA_DIR")
             logger.debug(f"📍 Using EMPIRICA_DATA_DIR: {root}")
             return root
         except ValueError as e:
@@ -171,15 +164,15 @@ def get_empirica_root() -> Path:
 
     # 3. Check .empirica/config.yaml
     config = load_empirica_config()
-    if config and 'root' in config:
-        root = Path(config['root']).expanduser().resolve()
+    if config and "root" in config:
+        root = Path(config["root"]).expanduser().resolve()
         logger.debug(f"📍 Using config.yaml root: {root}")
         return root
 
     # 4. Use git root if available
     git_root = get_git_root()
     if git_root:
-        root = git_root / '.empirica'
+        root = git_root / ".empirica"
         logger.debug(f"📍 Using git root: {root}")
         return root
 
@@ -193,15 +186,17 @@ def _has_open_transaction(context_project_path: str) -> bool:
     """Check if the context project has an open transaction."""
     try:
         from empirica.utils.session_resolver import InstanceResolver as R
+
         suffix = R.instance_suffix()
     except Exception:
         suffix = ""
-    tx_file = Path(context_project_path) / '.empirica' / f'active_transaction{suffix}.json'
+    tx_file = Path(context_project_path) / ".empirica" / f"active_transaction{suffix}.json"
     try:
         if tx_file.exists():
             import json as _json
+
             with open(tx_file) as _f:
-                return _json.load(_f).get('status') == 'open'
+                return _json.load(_f).get("status") == "open"
     except Exception:
         pass
     return False
@@ -212,18 +207,20 @@ def _try_context_project_db(context_project_path: str, git_root) -> Path | None:
 
     Returns the db_path if valid, None if context should be skipped.
     """
-    cwd_reliable = os.getenv('EMPIRICA_CWD_RELIABLE', '').lower() == 'true'
+    cwd_reliable = os.getenv("EMPIRICA_CWD_RELIABLE", "").lower() == "true"
     context_is_local = True
 
     if cwd_reliable and git_root and str(git_root) != context_project_path:
         if not _has_open_transaction(context_project_path):
-            local_db = Path(str(git_root)) / '.empirica' / 'sessions' / 'sessions.db'
+            local_db = Path(str(git_root)) / ".empirica" / "sessions" / "sessions.db"
             if local_db.exists():
-                logger.debug(f"📍 Cross-project bleed detected: context={context_project_path}, git_root={git_root}. Preferring git root.")
+                logger.debug(
+                    f"📍 Cross-project bleed detected: context={context_project_path}, git_root={git_root}. Preferring git root."
+                )
                 context_is_local = False
 
     if context_is_local:
-        db_path = Path(context_project_path) / '.empirica' / 'sessions' / 'sessions.db'
+        db_path = Path(context_project_path) / ".empirica" / "sessions" / "sessions.db"
         if db_path.exists():
             logger.debug(f"📍 Using unified context resolver: {db_path}")
             return db_path
@@ -256,9 +253,9 @@ def get_session_db_path() -> Path:
     # Used by: tests (subprocess isolation), CI/CD, Docker containers.
     # If someone explicitly sets this, they want THIS database, period.
     # Not instance-aware — intentionally bypasses multi-instance resolution.
-    if env_db := os.getenv('EMPIRICA_SESSION_DB'):
+    if env_db := os.getenv("EMPIRICA_SESSION_DB"):
         try:
-            db_path = _validate_user_path(env_db, 'EMPIRICA_SESSION_DB')
+            db_path = _validate_user_path(env_db, "EMPIRICA_SESSION_DB")
             logger.debug(f"📍 Using EMPIRICA_SESSION_DB (explicit override): {db_path}")
             return db_path
         except ValueError as e:
@@ -269,8 +266,9 @@ def get_session_db_path() -> Path:
     context_project_path = None
     try:
         from empirica.utils.session_resolver import InstanceResolver as R
+
         context = R.context()
-        context_project_path = context.get('project_path')
+        context_project_path = context.get("project_path")
     except Exception as e:
         logger.debug(f"📍 Unified context lookup failed: {e}")
 
@@ -292,19 +290,19 @@ def get_session_db_path() -> Path:
         if not git_root:
             git_root = get_git_root()
         if git_root:
-            workspace_db = Path.home() / '.empirica' / 'workspace' / 'workspace.db'
+            workspace_db = Path.home() / ".empirica" / "workspace" / "workspace.db"
             if workspace_db.exists():
                 conn = sqlite3.connect(str(workspace_db))
                 cursor = conn.cursor()
                 cursor.execute(
                     "SELECT trajectory_path FROM global_projects WHERE trajectory_path = ? AND status = 'active'",
-                    (str(git_root),)
+                    (str(git_root),),
                 )
                 row = cursor.fetchone()
                 conn.close()
                 if row:
                     project_path = Path(row[0])
-                    db_path = project_path / '.empirica' / 'sessions' / 'sessions.db'
+                    db_path = project_path / ".empirica" / "sessions" / "sessions.db"
                     if db_path.exists():
                         logger.debug(f"📍 Using workspace.db lookup: {db_path}")
                         return db_path
@@ -314,7 +312,7 @@ def get_session_db_path() -> Path:
     # 3. Git root based (for projects not yet registered in workspace but in a git repo)
     try:
         root = get_empirica_root()
-        db_path = root / 'sessions' / 'sessions.db'
+        db_path = root / "sessions" / "sessions.db"
         if db_path.exists():
             logger.debug(f"📍 Using git-root based path: {db_path}")
             return db_path
@@ -351,9 +349,9 @@ def resolve_session_db_path(session_id: str) -> Path | None:
     import json
 
     # Priority 0: EMPIRICA_SESSION_DB (explicit override — same as get_session_db_path)
-    if env_db := os.getenv('EMPIRICA_SESSION_DB'):
+    if env_db := os.getenv("EMPIRICA_SESSION_DB"):
         try:
-            db_path = _validate_user_path(env_db, 'EMPIRICA_SESSION_DB')
+            db_path = _validate_user_path(env_db, "EMPIRICA_SESSION_DB")
             logger.debug(f"📍 resolve_session_db_path: Using EMPIRICA_SESSION_DB override: {db_path}")
             return db_path
         except ValueError as e:
@@ -362,15 +360,16 @@ def resolve_session_db_path(session_id: str) -> Path | None:
     # Priority 1: instance_projects mapping (uses TMUX_PANE, works in subprocesses)
     try:
         from empirica.core.statusline_cache import get_instance_id as get_inst_id
+
         inst_id = get_inst_id()
         if inst_id:
-            instance_file = Path.home() / '.empirica' / 'instance_projects' / f'{inst_id}.json'
+            instance_file = Path.home() / ".empirica" / "instance_projects" / f"{inst_id}.json"
             if instance_file.exists():
                 with open(instance_file) as f:
                     instance_data = json.load(f)
-                instance_project_path = instance_data.get('project_path')
+                instance_project_path = instance_data.get("project_path")
                 if instance_project_path:
-                    db_path = Path(instance_project_path) / '.empirica' / 'sessions' / 'sessions.db'
+                    db_path = Path(instance_project_path) / ".empirica" / "sessions" / "sessions.db"
                     if db_path.exists():
                         return db_path
     except Exception:
@@ -379,11 +378,12 @@ def resolve_session_db_path(session_id: str) -> Path | None:
     # Priority 2: Try TTY session's project_path
     try:
         from empirica.utils.session_resolver import InstanceResolver as R
+
         tty_session = R.tty_session(warn_if_stale=False)
         if tty_session:
-            tty_project_path = tty_session.get('project_path')
+            tty_project_path = tty_session.get("project_path")
             if tty_project_path:
-                db_path = Path(tty_project_path) / '.empirica' / 'sessions' / 'sessions.db'
+                db_path = Path(tty_project_path) / ".empirica" / "sessions" / "sessions.db"
                 if db_path.exists():
                     return db_path
     except Exception:
@@ -409,7 +409,7 @@ def get_global_empirica_home() -> Path:
     Returns:
         Path to ~/.empirica/
     """
-    return Path.home() / '.empirica'
+    return Path.home() / ".empirica"
 
 
 def get_crm_db_path() -> Path:
@@ -427,16 +427,16 @@ def get_crm_db_path() -> Path:
         Path to crm.db
     """
     # Check environment variable
-    if env_db := os.getenv('EMPIRICA_CRM_DB'):
+    if env_db := os.getenv("EMPIRICA_CRM_DB"):
         try:
-            db_path = _validate_user_path(env_db, 'EMPIRICA_CRM_DB')
+            db_path = _validate_user_path(env_db, "EMPIRICA_CRM_DB")
             logger.debug(f"📍 Using EMPIRICA_CRM_DB: {db_path}")
             return db_path
         except ValueError as e:
             logger.warning(f"⚠️  Invalid EMPIRICA_CRM_DB: {e}")
 
     # Default: global home
-    return get_global_empirica_home() / 'crm' / 'crm.db'
+    return get_global_empirica_home() / "crm" / "crm.db"
 
 
 def ensure_crm_structure() -> None:
@@ -447,10 +447,10 @@ def ensure_crm_structure() -> None:
     global_home = get_global_empirica_home()
 
     # CRM database directory
-    (global_home / 'crm').mkdir(parents=True, exist_ok=True)
+    (global_home / "crm").mkdir(parents=True, exist_ok=True)
 
     # Client lessons directory
-    (global_home / 'lessons' / 'clients').mkdir(parents=True, exist_ok=True)
+    (global_home / "lessons" / "clients").mkdir(parents=True, exist_ok=True)
 
     logger.debug(f"✅ Ensured CRM structure at {global_home}")
 
@@ -463,11 +463,11 @@ def ensure_empirica_structure() -> None:
     root = get_empirica_root()
 
     # Create subdirectories
-    (root / 'sessions').mkdir(parents=True, exist_ok=True)
-    (root / 'identity').mkdir(parents=True, exist_ok=True)
-    (root / 'metrics').mkdir(parents=True, exist_ok=True)
-    (root / 'messages').mkdir(parents=True, exist_ok=True)
-    (root / 'personas').mkdir(parents=True, exist_ok=True)
+    (root / "sessions").mkdir(parents=True, exist_ok=True)
+    (root / "identity").mkdir(parents=True, exist_ok=True)
+    (root / "metrics").mkdir(parents=True, exist_ok=True)
+    (root / "messages").mkdir(parents=True, exist_ok=True)
+    (root / "personas").mkdir(parents=True, exist_ok=True)
 
     logger.debug(f"✅ Ensured .empirica structure at {root}")
 
@@ -482,7 +482,7 @@ def create_default_config() -> None:
         logger.debug("Not in git repo, skipping config.yaml creation")
         return
 
-    config_path = git_root / '.empirica' / 'config.yaml'
+    config_path = git_root / ".empirica" / "config.yaml"
     if config_path.exists():
         logger.debug(f"Config already exists: {config_path}")
         return
@@ -492,27 +492,20 @@ def create_default_config() -> None:
 
     # Create default config
     default_config = {
-        'version': '2.0',
-        'root': str(git_root / '.empirica'),
-        'paths': {
-            'sessions': 'sessions/sessions.db',
-            'identity': 'identity/',
-            'messages': 'messages/',
-            'metrics': 'metrics/',
-            'personas': 'personas/'
+        "version": "2.0",
+        "root": str(git_root / ".empirica"),
+        "paths": {
+            "sessions": "sessions/sessions.db",
+            "identity": "identity/",
+            "messages": "messages/",
+            "metrics": "metrics/",
+            "personas": "personas/",
         },
-        'settings': {
-            'auto_checkpoint': True,
-            'git_integration': True,
-            'log_level': 'info'
-        },
-        'env_overrides': [
-            'EMPIRICA_DATA_DIR',
-            'EMPIRICA_SESSION_DB'
-        ]
+        "settings": {"auto_checkpoint": True, "git_integration": True, "log_level": "info"},
+        "env_overrides": ["EMPIRICA_DATA_DIR", "EMPIRICA_SESSION_DB"],
     }
 
-    with open(config_path, 'w') as f:
+    with open(config_path, "w") as f:
         yaml.dump(default_config, f, default_flow_style=False, sort_keys=False)
 
     logger.info(f"✅ Created default config: {config_path}")
@@ -527,24 +520,24 @@ def debug_paths() -> dict:
     """
     root = get_empirica_root()
     return {
-        'git_root': str(get_git_root()) if get_git_root() else None,
-        'empirica_root': str(root),
-        'session_db': str(get_session_db_path()),
-        'identity_dir': str(root / 'identity'),
-        'metrics_dir': str(root / 'metrics'),
-        'messages_dir': str(root / 'messages'),
-        'global_home': str(get_global_empirica_home()),
-        'crm_db': str(get_crm_db_path()),
-        'env_vars': {
-            'EMPIRICA_DATA_DIR': os.getenv('EMPIRICA_DATA_DIR'),
-            'EMPIRICA_SESSION_DB': os.getenv('EMPIRICA_SESSION_DB'),
-            'EMPIRICA_CRM_DB': os.getenv('EMPIRICA_CRM_DB')
+        "git_root": str(get_git_root()) if get_git_root() else None,
+        "empirica_root": str(root),
+        "session_db": str(get_session_db_path()),
+        "identity_dir": str(root / "identity"),
+        "metrics_dir": str(root / "metrics"),
+        "messages_dir": str(root / "messages"),
+        "global_home": str(get_global_empirica_home()),
+        "crm_db": str(get_crm_db_path()),
+        "env_vars": {
+            "EMPIRICA_DATA_DIR": os.getenv("EMPIRICA_DATA_DIR"),
+            "EMPIRICA_SESSION_DB": os.getenv("EMPIRICA_SESSION_DB"),
+            "EMPIRICA_CRM_DB": os.getenv("EMPIRICA_CRM_DB"),
         },
-        'config_loaded': load_empirica_config() is not None
+        "config_loaded": load_empirica_config() is not None,
     }
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Test/debug mode
     import json
 

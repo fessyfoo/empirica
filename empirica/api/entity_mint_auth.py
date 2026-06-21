@@ -132,8 +132,7 @@ async def verify_mint_bearer(
     if not token or not _token_in_set(token, valid):
         raise HTTPException(
             status_code=401,
-            detail="entity-mint requires a valid service token "
-                   "(Authorization: Bearer emk_…)",
+            detail="entity-mint requires a valid service token (Authorization: Bearer emk_…)",
         )
 
 

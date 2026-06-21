@@ -25,9 +25,7 @@ def _make_project_with_db(tmp_path: Path, project_id: str) -> Path:
     proj = tmp_path / f"proj-{project_id[:8]}"
     proj.mkdir()
     (proj / ".empirica").mkdir()
-    (proj / ".empirica" / "project.yaml").write_text(
-        f"name: test\nproject_id: {project_id}\n", encoding="utf-8"
-    )
+    (proj / ".empirica" / "project.yaml").write_text(f"name: test\nproject_id: {project_id}\n", encoding="utf-8")
     db_dir = proj / ".empirica" / "sessions"
     db_dir.mkdir()
     db_path = db_dir / "sessions.db"
@@ -121,8 +119,7 @@ def _insert_decision(db_path, project_id, choice="D") -> str:
     art_id = str(uuid.uuid4())
     conn = sqlite3.connect(str(db_path))
     conn.execute(
-        "INSERT INTO decisions (id, project_id, choice, rationale, created_timestamp) "
-        "VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO decisions (id, project_id, choice, rationale, created_timestamp) VALUES (?, ?, ?, ?, ?)",
         (art_id, project_id, choice, "because", time.time()),
     )
     conn.commit()
@@ -156,6 +153,7 @@ def _insert_edge(db_path, from_id, to_id, relation="related"):
 @pytest.fixture
 def reset_daemon_cache():
     import empirica.api.daemon_project as dp
+
     dp._cached = False
     dp._cached_project = None
     yield

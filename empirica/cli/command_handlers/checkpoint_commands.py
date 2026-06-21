@@ -22,35 +22,36 @@ def _get_checkpoint_profile_thresholds():
         universal = loader.universal_constraints
 
         try:
-            profile = loader.get_profile('balanced')
+            profile = loader.get_profile("balanced")
             constraints = profile.investigation
 
             return {
-                'display_high': getattr(constraints, 'display_high_threshold', 0.7),
-                'display_medium': getattr(constraints, 'display_medium_threshold', 0.5),
-                'diff_threshold': getattr(constraints, 'diff_significance_threshold', 0.15),
-                'default_vector_score': getattr(constraints, 'default_vector_score', 0.5),
-                'engagement_gate': universal.engagement_gate,
-                'coherence_min': universal.coherence_min,
+                "display_high": getattr(constraints, "display_high_threshold", 0.7),
+                "display_medium": getattr(constraints, "display_medium_threshold", 0.5),
+                "diff_threshold": getattr(constraints, "diff_significance_threshold", 0.15),
+                "default_vector_score": getattr(constraints, "default_vector_score", 0.5),
+                "engagement_gate": universal.engagement_gate,
+                "coherence_min": universal.coherence_min,
             }
         except Exception:
             return {
-                'display_high': 0.7,
-                'display_medium': 0.5,
-                'diff_threshold': 0.15,
-                'default_vector_score': 0.5,
-                'engagement_gate': 0.6,
-                'coherence_min': 0.5,
+                "display_high": 0.7,
+                "display_medium": 0.5,
+                "diff_threshold": 0.15,
+                "default_vector_score": 0.5,
+                "engagement_gate": 0.6,
+                "coherence_min": 0.5,
             }
     except Exception:
         return {
-            'display_high': 0.7,
-            'display_medium': 0.5,
-            'diff_threshold': 0.15,
-            'default_vector_score': 0.5,
-            'engagement_gate': 0.6,
-            'coherence_min': 0.5,
+            "display_high": 0.7,
+            "display_medium": 0.5,
+            "diff_threshold": 0.15,
+            "default_vector_score": 0.5,
+            "engagement_gate": 0.6,
+            "coherence_min": 0.5,
         }
+
 
 def handle_checkpoint_create_command(args):
     """
@@ -69,7 +70,7 @@ def handle_checkpoint_create_command(args):
 
         # Parse metadata if provided
         metadata = {}
-        if hasattr(args, 'metadata') and args.metadata:
+        if hasattr(args, "metadata") and args.metadata:
             try:
                 metadata = json.loads(args.metadata)
             except json.JSONDecodeError:
@@ -97,16 +98,10 @@ def handle_checkpoint_create_command(args):
             db.close()
 
         # Create git checkpoint
-        git_logger = GitEnhancedReflexLogger(
-            session_id=session_id,
-            enable_git_notes=True
-        )
+        git_logger = GitEnhancedReflexLogger(session_id=session_id, enable_git_notes=True)
 
         checkpoint_id = git_logger.add_checkpoint(
-            phase=phase,
-            round_num=round_num,
-            vectors=vectors or {},
-            metadata=metadata
+            phase=phase, round_num=round_num, vectors=vectors or {}, metadata=metadata
         )
 
         logger.info(f"Checkpoint created: {checkpoint_id} (phase={phase}, round={round_num})")
@@ -121,6 +116,7 @@ def handle_checkpoint_create_command(args):
         logger.error(f"Failed to create checkpoint: {e}", exc_info=True)
         print(f"❌ Failed to create checkpoint: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 
@@ -137,19 +133,13 @@ def handle_checkpoint_load_command(args):
         from empirica.core.canonical.git_enhanced_reflex_logger import GitEnhancedReflexLogger
 
         session_id = args.session_id
-        max_age = args.max_age if hasattr(args, 'max_age') else 24
-        phase = args.phase if hasattr(args, 'phase') else None
-        args.format if hasattr(args, 'format') else 'table'
+        max_age = args.max_age if hasattr(args, "max_age") else 24
+        phase = args.phase if hasattr(args, "phase") else None
+        args.format if hasattr(args, "format") else "table"
 
-        git_logger = GitEnhancedReflexLogger(
-            session_id=session_id,
-            enable_git_notes=True
-        )
+        git_logger = GitEnhancedReflexLogger(session_id=session_id, enable_git_notes=True)
 
-        checkpoint = git_logger.get_last_checkpoint(
-            max_age_hours=max_age,
-            phase=phase
-        )
+        checkpoint = git_logger.get_last_checkpoint(max_age_hours=max_age, phase=phase)
 
         if not checkpoint:
             logger.info(f"No checkpoint found for session {session_id} (phase={phase}, max_age={max_age}h)")
@@ -161,11 +151,11 @@ def handle_checkpoint_load_command(args):
 
         # Display checkpoint
         # Handle both --output and --format for backward compatibility
-        output_format = getattr(args, 'output', 'table')
-        if hasattr(args, 'format') and args.format and output_format == 'table':
+        output_format = getattr(args, "output", "table")
+        if hasattr(args, "format") and args.format and output_format == "table":
             output_format = args.format
 
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(checkpoint, indent=2))
         else:
             # Table format
@@ -180,21 +170,27 @@ def handle_checkpoint_load_command(args):
 
             # Show vectors
             print("\nEpistemic Vectors:")
-            vectors = checkpoint.get('vectors', {})
+            vectors = checkpoint.get("vectors", {})
             for key, value in sorted(vectors.items()):
                 thresholds = _get_checkpoint_profile_thresholds()
-                indicator = "📈" if value >= thresholds['display_high'] else "📊" if value >= thresholds['display_medium'] else "📉"
+                indicator = (
+                    "📈"
+                    if value >= thresholds["display_high"]
+                    else "📊"
+                    if value >= thresholds["display_medium"]
+                    else "📉"
+                )
                 print(f"  {indicator} {key:12s}: {value:.2f}")
 
             # Show metadata if present
-            if checkpoint.get('metadata'):
+            if checkpoint.get("metadata"):
                 print("\nMetadata:")
-                for key, value in checkpoint['metadata'].items():
+                for key, value in checkpoint["metadata"].items():
                     print(f"  {key}: {value}")
 
             # Show token savings
             baseline = 6500  # Typical full history
-            saved = baseline - checkpoint.get('token_count', 450)
+            saved = baseline - checkpoint.get("token_count", 450)
             reduction = (saved / baseline) * 100
             print("\nToken Efficiency:")
             print(f"  Baseline:   {baseline} tokens")
@@ -205,6 +201,7 @@ def handle_checkpoint_load_command(args):
         logger.error(f"Failed to load checkpoint: {e}", exc_info=True)
         print(f"❌ Failed to load checkpoint: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 
@@ -221,35 +218,32 @@ def handle_checkpoint_list_command(args):
     try:
         from empirica.core.canonical.git_enhanced_reflex_logger import GitEnhancedReflexLogger
 
-        session_id = args.session_id if hasattr(args, 'session_id') and args.session_id else None
-        limit = args.limit if hasattr(args, 'limit') else 10
-        phase = args.phase if hasattr(args, 'phase') else None
-        output_format = getattr(args, 'output', 'default')
+        session_id = args.session_id if hasattr(args, "session_id") and args.session_id else None
+        limit = args.limit if hasattr(args, "limit") else 10
+        phase = args.phase if hasattr(args, "phase") else None
+        output_format = getattr(args, "output", "default")
 
         if not session_id:
             logger.error("Session ID required for listing checkpoints but not provided")
-            if output_format == 'json':
+            if output_format == "json":
                 print(json.dumps({"ok": False, "error": "Session ID required"}, indent=2))
             else:
                 print("⚠️  Session ID required for listing checkpoints")
             sys.exit(1)
 
-        git_logger = GitEnhancedReflexLogger(
-            session_id=session_id,
-            enable_git_notes=True
-        )
+        git_logger = GitEnhancedReflexLogger(session_id=session_id, enable_git_notes=True)
 
         checkpoints = git_logger.list_checkpoints(limit=limit, phase=phase)
 
         logger.info(f"Found {len(checkpoints)} checkpoints for session {session_id}")
 
-        if output_format == 'json':
+        if output_format == "json":
             result = {
                 "ok": True,
                 "session_id": session_id,
                 "checkpoints": checkpoints,
                 "count": len(checkpoints),
-                "limit": limit
+                "limit": limit,
             }
             if phase:
                 result["phase_filter"] = phase
@@ -275,11 +269,12 @@ def handle_checkpoint_list_command(args):
 
     except Exception as e:
         logger.error(f"Failed to list checkpoints: {e}", exc_info=True)
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps({"ok": False, "error": str(e)}, indent=2))
         else:
             print(f"❌ Failed to list checkpoints: {e}")
             import traceback
+
             traceback.print_exc()
         sys.exit(1)
 
@@ -297,13 +292,10 @@ def handle_checkpoint_diff_command(args):
 
         session_id = args.session_id
         thresholds = _get_checkpoint_profile_thresholds()
-        args.threshold if hasattr(args, 'threshold') else thresholds['diff_threshold']
-        output_format = getattr(args, 'output', 'default')
+        args.threshold if hasattr(args, "threshold") else thresholds["diff_threshold"]
+        output_format = getattr(args, "output", "default")
 
-        git_logger = GitEnhancedReflexLogger(
-            session_id=session_id,
-            enable_git_notes=True
-        )
+        git_logger = GitEnhancedReflexLogger(session_id=session_id, enable_git_notes=True)
 
         last_checkpoint = git_logger.get_last_checkpoint()
 
@@ -316,12 +308,12 @@ def handle_checkpoint_diff_command(args):
         # Prepare result for output
         result_data = {
             "checkpoint": last_checkpoint,
-            "vectors": last_checkpoint.get('vectors', {}),
-            "metadata": last_checkpoint.get('metadata', {})
+            "vectors": last_checkpoint.get("vectors", {}),
+            "metadata": last_checkpoint.get("metadata", {}),
         }
 
         # Output based on format
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(result_data, indent=2))
             return
 
@@ -330,21 +322,27 @@ def handle_checkpoint_diff_command(args):
         print(f"Created: {last_checkpoint['timestamp']}\n")
 
         print("Vector State:")
-        vectors = last_checkpoint.get('vectors', {})
+        vectors = last_checkpoint.get("vectors", {})
 
         # Group vectors by tier
-        gate = {'engagement': vectors.get('engagement', 0)}
-        foundation = {k: vectors.get(k, 0) for k in ['know', 'do', 'context']}
-        comprehension = {k: vectors.get(k, 0) for k in ['clarity', 'coherence', 'signal', 'density']}
-        execution = {k: vectors.get(k, 0) for k in ['state', 'change', 'completion', 'impact']}
-        meta = {'uncertainty': vectors.get('uncertainty', 0)}
+        gate = {"engagement": vectors.get("engagement", 0)}
+        foundation = {k: vectors.get(k, 0) for k in ["know", "do", "context"]}
+        comprehension = {k: vectors.get(k, 0) for k in ["clarity", "coherence", "signal", "density"]}
+        execution = {k: vectors.get(k, 0) for k in ["state", "change", "completion", "impact"]}
+        meta = {"uncertainty": vectors.get("uncertainty", 0)}
 
         def show_tier(name, tier_vectors):
             """Display vectors for a single tier with indicators."""
             print(f"\n{name}:")
             for key, value in tier_vectors.items():
                 thresholds = _get_checkpoint_profile_thresholds()
-                indicator = "📈" if value >= thresholds['display_high'] else "📊" if value >= thresholds['display_medium'] else "📉"
+                indicator = (
+                    "📈"
+                    if value >= thresholds["display_high"]
+                    else "📊"
+                    if value >= thresholds["display_medium"]
+                    else "📉"
+                )
                 print(f"  {indicator} {key:12s}: {value:.2f}")
 
         show_tier("GATE", gate)
@@ -354,14 +352,15 @@ def handle_checkpoint_diff_command(args):
         show_tier("META", meta)
 
         # Show metadata
-        if last_checkpoint.get('metadata'):
+        if last_checkpoint.get("metadata"):
             print("\nMetadata:")
-            for key, value in last_checkpoint['metadata'].items():
+            for key, value in last_checkpoint["metadata"].items():
                 print(f"  {key}: {value}")
 
     except Exception as e:
         print(f"❌ Failed to show diff: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 
@@ -379,16 +378,13 @@ def handle_efficiency_report_command(args):
         from empirica.metrics.token_efficiency import TokenEfficiencyMetrics
 
         session_id = args.session_id
-        format_type = args.format if hasattr(args, 'format') else 'markdown'
-        output_path = args.output if hasattr(args, 'output') else None
+        format_type = args.format if hasattr(args, "format") else "markdown"
+        output_path = args.output if hasattr(args, "output") else None
 
         metrics = TokenEfficiencyMetrics(session_id=session_id)
 
         # Generate report
-        report = metrics.export_report(
-            format=format_type,
-            output_path=output_path
-        )
+        report = metrics.export_report(format=format_type, output_path=output_path)
 
         # Get comparison summary
         try:
@@ -429,5 +425,6 @@ def handle_efficiency_report_command(args):
     except Exception as e:
         print(f"❌ Failed to generate efficiency report: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

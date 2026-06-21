@@ -34,8 +34,6 @@ from empirica.core.notify.config import NotifyConfig, load_config
 FAILURE_BANNER_WINDOW_SECONDS = 3600  # 1 hour
 
 
-
-
 def _failure_within_window(
     failure_row: dict[str, Any] | None,
     now: datetime,
@@ -44,7 +42,7 @@ def _failure_within_window(
     """Return failure row if it's within the alert window, else None."""
     if not failure_row:
         return None
-    ts_raw = failure_row.get('ts')
+    ts_raw = failure_row.get("ts")
     if not ts_raw:
         return None
     try:
@@ -55,18 +53,18 @@ def _failure_within_window(
     if age > window_seconds:
         return None
     out = dict(failure_row)
-    out['age_seconds'] = int(age)
+    out["age_seconds"] = int(age)
     return out
 
 
 _EMPTY_BLOCK: dict[str, Any] = {
-    'default_backend': None,
-    'backends': [],
-    'recent': [],
-    'last_failure': None,
-    'banner_failure': None,
-    'fell_back_count_24h': 0,
-    'emit_count_24h': 0,
+    "default_backend": None,
+    "backends": [],
+    "recent": [],
+    "last_failure": None,
+    "banner_failure": None,
+    "fell_back_count_24h": 0,
+    "emit_count_24h": 0,
 }
 
 
@@ -93,15 +91,17 @@ def build_notify_dispatcher_block(
         now = datetime.now(tz=timezone.utc)
         failure = last_failure()
         return {
-            'default_backend': cfg.default_backend,
-            'backends': backends_status_snapshot(cfg),
-            'recent': read_recent(limit=recent_limit),
-            'last_failure': failure,
-            'banner_failure': _failure_within_window(
-                failure, now, FAILURE_BANNER_WINDOW_SECONDS,
+            "default_backend": cfg.default_backend,
+            "backends": backends_status_snapshot(cfg),
+            "recent": read_recent(limit=recent_limit),
+            "last_failure": failure,
+            "banner_failure": _failure_within_window(
+                failure,
+                now,
+                FAILURE_BANNER_WINDOW_SECONDS,
             ),
-            'fell_back_count_24h': fell_back_count(window_hours=24.0),
-            'emit_count_24h': emit_count(window_hours=24.0),
+            "fell_back_count_24h": fell_back_count(window_hours=24.0),
+            "emit_count_24h": emit_count(window_hours=24.0),
         }
     except Exception:
         return dict(_EMPTY_BLOCK)
@@ -120,17 +120,17 @@ def annotate_loops_with_last_notify(
     """
     if not loops_dict:
         return
-    sources = [f'loop:{name}' for name in loops_dict]
+    sources = [f"loop:{name}" for name in loops_dict]
     by_source = last_emit_by_source(sources, path=audit_path)
     for name, loop in loops_dict.items():
-        row = by_source.get(f'loop:{name}')
-        loop['last_notify'] = (
+        row = by_source.get(f"loop:{name}")
+        loop["last_notify"] = (
             {
-                'ts': row.get('ts'),
-                'resolved_backend': row.get('resolved_backend'),
-                'topic': row.get('topic'),
-                'fell_back': bool(row.get('fell_back')),
-                'ok': bool(row.get('ok')),
+                "ts": row.get("ts"),
+                "resolved_backend": row.get("resolved_backend"),
+                "topic": row.get("topic"),
+                "fell_back": bool(row.get("fell_back")),
+                "ok": bool(row.get("ok")),
             }
             if row
             else None
@@ -138,7 +138,7 @@ def annotate_loops_with_last_notify(
 
 
 __all__ = [
-    'FAILURE_BANNER_WINDOW_SECONDS',
-    'annotate_loops_with_last_notify',
-    'build_notify_dispatcher_block',
+    "FAILURE_BANNER_WINDOW_SECONDS",
+    "annotate_loops_with_last_notify",
+    "build_notify_dispatcher_block",
 ]

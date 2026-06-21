@@ -20,9 +20,7 @@ from empirica.utils.session_resolver import InstanceResolver
 def test_explicit_path_reads_project_yaml_ai_id(tmp_path):
     """Priority: explicit ai_id in project.yaml wins over basename derivation."""
     (tmp_path / ".empirica").mkdir()
-    (tmp_path / ".empirica" / "project.yaml").write_text(
-        yaml.dump({"ai_id": "ecodex", "name": "test"})
-    )
+    (tmp_path / ".empirica" / "project.yaml").write_text(yaml.dump({"ai_id": "ecodex", "name": "test"}))
     # tmp_path basename is something like 'test_explicit_path_reads_project_yaml_ai_id0',
     # NOT 'ecodex'. The project.yaml ai_id should win.
     assert InstanceResolver.ai_id(project_path=str(tmp_path)) == "ecodex"
@@ -50,9 +48,7 @@ def test_explicit_path_basename_without_empirica_prefix(tmp_path):
 def test_explicit_path_accepts_pathlib_path(tmp_path):
     """Accepts Path objects, not just strings."""
     (tmp_path / ".empirica").mkdir()
-    (tmp_path / ".empirica" / "project.yaml").write_text(
-        yaml.dump({"ai_id": "extension"})
-    )
+    (tmp_path / ".empirica" / "project.yaml").write_text(yaml.dump({"ai_id": "extension"}))
     assert InstanceResolver.ai_id(project_path=tmp_path) == "extension"
 
 
@@ -80,9 +76,8 @@ def test_explicit_path_none_returns_none_without_resolver_fallback(monkeypatch):
     can't resolve, ai_id returns None (doesn't accidentally read cwd).
     """
     from empirica.utils import session_resolver
-    monkeypatch.setattr(
-        session_resolver, "get_active_project_path", lambda *args, **kwargs: None
-    )
+
+    monkeypatch.setattr(session_resolver, "get_active_project_path", lambda *args, **kwargs: None)
     assert InstanceResolver.ai_id(project_path=None) is None
 
 
@@ -94,6 +89,7 @@ def test_explicit_path_takes_precedence_over_resolver(monkeypatch, tmp_path):
     bogus_resolver_path = tmp_path / "bogus"
     bogus_resolver_path.mkdir()
     from empirica.utils import session_resolver
+
     monkeypatch.setattr(
         session_resolver,
         "get_active_project_path",
@@ -111,9 +107,8 @@ def test_empty_project_path_treated_as_none(monkeypatch):
     would never produce ''; this guards against caller accidents).
     """
     from empirica.utils import session_resolver
-    monkeypatch.setattr(
-        session_resolver, "get_active_project_path", lambda *args, **kwargs: None
-    )
+
+    monkeypatch.setattr(session_resolver, "get_active_project_path", lambda *args, **kwargs: None)
     # Empty string converts to truthy via `if project_path is not None`
     # check. The function then resolves it as a path with no useful name.
     # The behavior: Path("").name is "", derivation falls through to None.

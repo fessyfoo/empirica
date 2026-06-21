@@ -92,9 +92,13 @@ def test_mint_same_slug_different_email_disambiguates(repo):
 
 def test_mint_metadata_persisted(repo):
     mint_contact(
-        "Georg Tester", email="g@x.example", phone="+43 1 234",
-        role="CEO", company_name="NLE",
-        extra_metadata={"source": "crm-mcp"}, repo=repo,
+        "Georg Tester",
+        email="g@x.example",
+        phone="+43 1 234",
+        role="CEO",
+        company_name="NLE",
+        extra_metadata={"source": "crm-mcp"},
+        repo=repo,
     )
     row = repo.get_entity("contact", "c-georg-tester-nle")
     meta = json.loads(row["metadata"])
@@ -115,10 +119,16 @@ def test_mint_requires_name(repo):
 
 def _make_args(**overrides):
     defaults = {
-        "type": "contact", "name": "CLI Person", "email": None,
-        "phone": None, "role": None, "company": None,
-        "description": None, "metadata": None,
-        "output": "json", "verbose": False,
+        "type": "contact",
+        "name": "CLI Person",
+        "email": None,
+        "phone": None,
+        "role": None,
+        "company": None,
+        "description": None,
+        "metadata": None,
+        "output": "json",
+        "verbose": False,
     }
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
@@ -166,8 +176,7 @@ def test_http_endpoint_mints_and_is_idempotent(repo):
         "empirica.cli.command_handlers.entity_commands.mint_contact",
         side_effect=fake_mint,
     ):
-        body = {"type": "contact", "name": "HTTP Person",
-                "email": "http@x.example", "company_name": "NLE"}
+        body = {"type": "contact", "name": "HTTP Person", "email": "http@x.example", "company_name": "NLE"}
         r1 = client.post("/api/v1/entities", json=body)
         assert r1.status_code == 200
         assert r1.json()["created"] is True

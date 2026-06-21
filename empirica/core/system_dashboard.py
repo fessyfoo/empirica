@@ -45,9 +45,11 @@ logger = logging.getLogger(__name__)
 
 # --- Status Data Structures ---
 
+
 @dataclass
 class ConfigStatus:
     """MCOLoader state snapshot."""
+
     model: str = "unknown"
     persona: str = "unknown"
     cascade_style: str = "default"
@@ -62,6 +64,7 @@ class ConfigStatus:
 @dataclass
 class MemoryStatus:
     """ContextBudgetManager state snapshot."""
+
     node_id: str = "unknown"
     tokens_used: int = 0
     tokens_available: int = 0
@@ -81,6 +84,7 @@ class MemoryStatus:
 @dataclass
 class BusStatus:
     """EpistemicBus + BusPersistence state snapshot."""
+
     observer_count: int = 0
     event_count: int = 0
     sqlite_active: bool = False
@@ -95,6 +99,7 @@ class BusStatus:
 @dataclass
 class AttentionStatus:
     """AttentionBudgetCalculator state snapshot."""
+
     has_budget: bool = False
     total_budget: int = 0
     remaining: int = 0
@@ -109,6 +114,7 @@ class AttentionStatus:
 @dataclass
 class IntegrityStatus:
     """Placeholder for removed MemoryGapDetector — always returns healthy."""
+
     gaps_detected: bool = False
     gap_count: int = 0
     overall_gap: float = 0.0
@@ -122,6 +128,7 @@ class IntegrityStatus:
 @dataclass
 class GateStatus:
     """Sentinel gate state snapshot."""
+
     phase: str = "unknown"  # preflight, check, postflight, or loop_closed
     decision: str = "unknown"  # proceed, investigate, or escalate
     know: float = 0.0
@@ -136,6 +143,7 @@ class GateStatus:
 @dataclass
 class NodeIdentity:
     """Node metadata for multi-agent context."""
+
     ai_id: str = "unknown"
     session_id: str = "unknown"
     uptime_seconds: float = 0.0
@@ -148,6 +156,7 @@ class NodeIdentity:
 @dataclass
 class SystemStatus:
     """Complete system status - the unified /proc snapshot."""
+
     timestamp: float = 0.0
     node: NodeIdentity = field(default_factory=NodeIdentity)
     config: ConfigStatus = field(default_factory=ConfigStatus)
@@ -211,16 +220,11 @@ class SystemStatus:
             f"  Usage:    {m.tokens_used:,}t / {m.tokens_used + m.tokens_available:,}t"
             f"  ({m.utilization_pct:.1f}%)"
             f"{'  ⚠ PRESSURE' if m.under_pressure else ''}",
-            f"  Zones:    anchor={m.anchor_tokens:,}t"
-            f"  working={m.working_tokens:,}t"
-            f"  cache={m.cache_tokens:,}t",
-            f"  Items:    {m.item_count}"
-            f"  |  Page faults: {m.page_faults}"
-            f"  |  Evictions: {m.evictions}",
+            f"  Zones:    anchor={m.anchor_tokens:,}t  working={m.working_tokens:,}t  cache={m.cache_tokens:,}t",
+            f"  Items:    {m.item_count}  |  Page faults: {m.page_faults}  |  Evictions: {m.evictions}",
             "",
             "  ── Bus ─────────────────────────────────────────────────",
-            f"  Events:   {b.event_count} published"
-            f"  |  Observers: {b.observer_count}",
+            f"  Events:   {b.event_count} published  |  Observers: {b.observer_count}",
             f"  Storage:  SQLite={'on' if b.sqlite_active else 'off'}"
             f" ({b.sqlite_events} persisted)"
             f"  Qdrant={'on' if b.qdrant_active else 'off'}"
@@ -245,26 +249,17 @@ class SystemStatus:
         ]
         if i.gaps_detected:
             sev = ", ".join(f"{k}:{v}" for k, v in i.severity_counts.items())
-            lines.append(
-                f"  Gaps:     {i.gap_count} detected"
-                f"  (overall: {i.overall_gap:.2f})"
-                f"  [{sev}]"
-            )
+            lines.append(f"  Gaps:     {i.gap_count} detected  (overall: {i.overall_gap:.2f})  [{sev}]")
             if i.confabulation_risk > 0.2:
-                lines.append(
-                    f"  ⚠ Confabulation risk: {i.confabulation_risk:.2f}"
-                )
+                lines.append(f"  ⚠ Confabulation risk: {i.confabulation_risk:.2f}")
         else:
             lines.append("  Gaps:     none detected")
 
         lines += [
             "",
             "  ── Gate ────────────────────────────────────────────────",
-            f"  Phase:    {g.phase}"
-            f"  |  Decision: {g.decision}"
-            f"  |  Gate: {'PASSED' if g.gate_passed else 'BLOCKED'}",
-            f"  Vectors:  know={g.know:.2f}"
-            f"  uncertainty={g.uncertainty:.2f}",
+            f"  Phase:    {g.phase}  |  Decision: {g.decision}  |  Gate: {'PASSED' if g.gate_passed else 'BLOCKED'}",
+            f"  Vectors:  know={g.know:.2f}  uncertainty={g.uncertainty:.2f}",
             "",
         ]
 
@@ -272,6 +267,7 @@ class SystemStatus:
 
 
 # --- Dashboard Implementation ---
+
 
 class SystemDashboard(EpistemicObserver):
     """
@@ -282,7 +278,7 @@ class SystemDashboard(EpistemicObserver):
     pull for query-only subsystems (MCOLoader, Sentinel, MemoryGapDetector).
     """
 
-    _instance: Optional['SystemDashboard'] = None
+    _instance: Optional["SystemDashboard"] = None
 
     def __init__(
         self,
@@ -314,6 +310,7 @@ class SystemDashboard(EpistemicObserver):
         """Resolve ai_id from the session record in the database."""
         try:
             from empirica.data.session_database import SessionDatabase
+
             db = SessionDatabase()
             cursor = db.conn.cursor()
             cursor.execute("SELECT ai_id FROM sessions WHERE session_id = ?", (session_id,))
@@ -330,7 +327,7 @@ class SystemDashboard(EpistemicObserver):
         cls,
         session_id: str | None = None,
         node_id: str | None = None,
-    ) -> 'SystemDashboard':
+    ) -> "SystemDashboard":
         if cls._instance is None:
             if session_id is None:
                 raise ValueError("session_id required for first dashboard creation")
@@ -353,20 +350,14 @@ class SystemDashboard(EpistemicObserver):
 
         elif event.event_type == EventTypes.CONTEXT_EVICTED:
             evicted = event.data.get("items_evicted", 0)
-            self._memory_cache["evictions"] = (
-                self._memory_cache.get("evictions", 0) + evicted
-            )
+            self._memory_cache["evictions"] = self._memory_cache.get("evictions", 0) + evicted
 
         elif event.event_type == EventTypes.PAGE_FAULT:
-            self._memory_cache["page_faults"] = (
-                self._memory_cache.get("page_faults", 0) + 1
-            )
+            self._memory_cache["page_faults"] = self._memory_cache.get("page_faults", 0) + 1
 
         elif event.event_type == EventTypes.CONTEXT_INJECTED:
             tokens = event.data.get("tokens", 0)
-            self._memory_cache["tokens_used"] = (
-                self._memory_cache.get("tokens_used", 0) + tokens
-            )
+            self._memory_cache["tokens_used"] = self._memory_cache.get("tokens_used", 0) + tokens
 
         # Track persistence backend activity from agent_id patterns
         agent = event.agent_id or ""
@@ -379,6 +370,7 @@ class SystemDashboard(EpistemicObserver):
         """Pull MCOLoader state."""
         try:
             from empirica.config.mco_loader import get_mco_config
+
             mco = get_mco_config()
             return ConfigStatus(
                 model=mco.infer_model(self.node_id),
@@ -395,6 +387,7 @@ class SystemDashboard(EpistemicObserver):
         """Pull CBM state (supplements bus-pushed cache)."""
         try:
             from empirica.core.context_budget import get_budget_manager
+
             mgr = get_budget_manager()
             summary = mgr.get_inventory_summary()
             report = mgr.get_budget_report()
@@ -438,16 +431,16 @@ class SystemDashboard(EpistemicObserver):
         qdrant_events = 0
         try:
             from empirica.core.bus_persistence import SqliteBusObserver
+
             sqlite_active = True
-            session_events = SqliteBusObserver.query_events(
-                session_id=self.session_id, limit=1000
-            )
+            session_events = SqliteBusObserver.query_events(session_id=self.session_id, limit=1000)
             sqlite_events = len(session_events)
         except Exception:
             pass
 
         try:
             from empirica.core.bus_persistence import QdrantBusObserver
+
             qobs = QdrantBusObserver(self.session_id)
             qdrant_active = qobs._available
             if qdrant_active:
@@ -468,8 +461,9 @@ class SystemDashboard(EpistemicObserver):
         """Pull AttentionBudgetCalculator state."""
         try:
             from empirica.core.attention_budget import AttentionBudgetCalculator
+
             calc = AttentionBudgetCalculator(session_id=self.session_id)
-            budget = getattr(calc, '_current_budget', None)
+            budget = getattr(calc, "_current_budget", None)
             if budget:
                 b = budget
                 return AttentionStatus(
@@ -492,6 +486,7 @@ class SystemDashboard(EpistemicObserver):
         """Pull sentinel gate state from database."""
         try:
             from empirica.data.session_database import SessionDatabase
+
             db = SessionDatabase()
             if db.conn is None:
                 return GateStatus()
@@ -499,12 +494,15 @@ class SystemDashboard(EpistemicObserver):
             cursor = db.conn.cursor()
 
             # Get latest phase
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT phase, know, uncertainty, reflex_data, timestamp
                 FROM reflexes
                 WHERE session_id = ?
                 ORDER BY timestamp DESC LIMIT 1
-            """, (self.session_id,))
+            """,
+                (self.session_id,),
+            )
             row = cursor.fetchone()
 
             if not row:
@@ -520,6 +518,7 @@ class SystemDashboard(EpistemicObserver):
             transaction_id = None
             if reflex_data:
                 import json
+
                 try:
                     data = json.loads(reflex_data)
                     decision = data.get("decision", "unknown")

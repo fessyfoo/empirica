@@ -73,7 +73,7 @@ class GitEnhancedReflexLogger:
         enable_git_notes: bool = True,
         base_log_dir: str = ".empirica_reflex_logs",
         git_repo_path: str | None = None,
-        signing_persona: SigningPersona | None = None
+        signing_persona: SigningPersona | None = None,
     ):
         """
         Initialize checkpoint logger.
@@ -95,25 +95,19 @@ class GitEnhancedReflexLogger:
 
         # Initialize focused modules
         self.git_state_capture = GitStateCapture(self.git_repo_path) if self.git_available else None
-        self.git_notes_storage = GitNotesStorage(
-            session_id=session_id,
-            git_repo_path=self.git_repo_path,
-            signing_persona=signing_persona
-        ) if self.git_available else None
-        self.checkpoint_storage = CheckpointStorage(
-            session_id=session_id,
-            base_log_dir=self.base_log_dir
+        self.git_notes_storage = (
+            GitNotesStorage(session_id=session_id, git_repo_path=self.git_repo_path, signing_persona=signing_persona)
+            if self.git_available
+            else None
         )
+        self.checkpoint_storage = CheckpointStorage(session_id=session_id, base_log_dir=self.base_log_dir)
 
         # Track current round for vector diff calculation
         self.current_round = 0
         self.current_phase = None
 
         if not self.git_available:
-            logger.warning(
-                "Git not available. "
-                "Falling back to SQLite storage only."
-            )
+            logger.warning("Git not available. Falling back to SQLite storage only.")
 
     @property
     def git_enabled(self) -> bool:
@@ -123,21 +117,13 @@ class GitEnhancedReflexLogger:
     def _check_git_available(self) -> bool:
         """Check if git repository is available."""
         try:
-            result = subprocess.run(
-                ["git", "--version"],
-                capture_output=True,
-                timeout=2,
-                cwd=self.git_repo_path
-            )
+            result = subprocess.run(["git", "--version"], capture_output=True, timeout=2, cwd=self.git_repo_path)
 
             if result.returncode != 0:
                 return False
 
             result = subprocess.run(
-                ["git", "rev-parse", "--git-dir"],
-                capture_output=True,
-                timeout=2,
-                cwd=self.git_repo_path
+                ["git", "rev-parse", "--git-dir"], capture_output=True, timeout=2, cwd=self.git_repo_path
             )
 
             return result.returncode == 0
@@ -150,12 +136,16 @@ class GitEnhancedReflexLogger:
         """Get next round number for a phase by checking existing reflexes."""
         try:
             from empirica.data.session_database import SessionDatabase
+
             db = SessionDatabase()
             cursor = db.conn.cursor()
-            cursor.execute('''
+            cursor.execute(
+                """
                 SELECT MAX(round) FROM reflexes
                 WHERE session_id = ? AND phase = ?
-            ''', (self.session_id, phase))
+            """,
+                (self.session_id, phase),
+            )
             row = cursor.fetchone()
             db.close()
             max_round = row[0] if row and row[0] is not None else 0
@@ -171,7 +161,7 @@ class GitEnhancedReflexLogger:
         vectors: dict[str, float] | None = None,
         metadata: dict[str, Any] | None = None,
         epistemic_tags: dict[str, Any] | None = None,
-        noema: dict[str, Any] | None = None
+        noema: dict[str, Any] | None = None,
     ) -> str | None:
         """
         Add compressed checkpoint to git notes and SQLite with optional signing.
@@ -226,7 +216,7 @@ class GitEnhancedReflexLogger:
         self.checkpoint_storage.save_to_sqlite(
             checkpoint=checkpoint,
             git_commit_sha=git_commit_sha,
-            git_notes_ref=f"empirica/session/{self.session_id}/{phase}/{round_num}"
+            git_notes_ref=f"empirica/session/{self.session_id}/{phase}/{round_num}",
         )
 
         # Also save to JSON for fallback/audit trail
@@ -246,7 +236,7 @@ class GitEnhancedReflexLogger:
         vectors: dict[str, float],
         metadata: dict[str, Any] | None = None,
         epistemic_tags: dict[str, Any] | None = None,
-        noema: dict[str, Any] | None = None
+        noema: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Create compressed checkpoint (target: 200-500 tokens).
@@ -258,7 +248,7 @@ class GitEnhancedReflexLogger:
         - Calculate overall confidence from vectors
         """
         # Calculate overall confidence (weighted average of Tier 0)
-        tier0_keys = ['know', 'do', 'context']
+        tier0_keys = ["know", "do", "context"]
         tier0_values = [vectors.get(k, 0.5) for k in tier0_keys]
         overall_confidence = sum(tier0_values) / len(tier0_values) if tier0_values else 0.5
 
@@ -270,7 +260,7 @@ class GitEnhancedReflexLogger:
             "vectors": vectors,
             "overall_confidence": round(overall_confidence, 3),
             "meta": metadata or {},
-            "epistemic_tags": epistemic_tags or {}
+            "epistemic_tags": epistemic_tags or {},
         }
 
         if noema:
@@ -300,7 +290,7 @@ class GitEnhancedReflexLogger:
             if not last_checkpoint:
                 return {}
 
-            prev_vectors = last_checkpoint.get('vectors', {})
+            prev_vectors = last_checkpoint.get("vectors", {})
             if not prev_vectors:
                 return {}
 
@@ -311,11 +301,7 @@ class GitEnhancedReflexLogger:
                     curr_val = current_vectors[key]
                     delta = curr_val - prev_val
 
-                    deltas[key] = {
-                        "prev": round(prev_val, 3),
-                        "curr": round(curr_val, 3),
-                        "delta": round(delta, 3)
-                    }
+                    deltas[key] = {"prev": round(prev_val, 3), "curr": round(curr_val, 3), "delta": round(delta, 3)}
 
             return deltas
 
@@ -323,11 +309,7 @@ class GitEnhancedReflexLogger:
             logger.warning(f"Failed to calculate learning delta: {e}")
             return {}
 
-    def get_last_checkpoint(
-        self,
-        max_age_hours: int = 24,
-        phase: str | None = None
-    ) -> dict[str, Any] | None:
+    def get_last_checkpoint(self, max_age_hours: int = 24, phase: str | None = None) -> dict[str, Any] | None:
         """
         Load most recent checkpoint (git notes preferred, SQLite fallback).
 
@@ -350,17 +332,14 @@ class GitEnhancedReflexLogger:
     def _is_fresh(self, checkpoint: dict[str, Any], max_age_hours: int) -> bool:
         """Check if checkpoint is within acceptable age."""
         try:
-            checkpoint_time = datetime.fromisoformat(checkpoint['timestamp'])
+            checkpoint_time = datetime.fromisoformat(checkpoint["timestamp"])
             cutoff_time = datetime.now(UTC) - timedelta(hours=max_age_hours)
             return checkpoint_time >= cutoff_time
         except (KeyError, ValueError):
             return False
 
     def list_checkpoints(
-        self,
-        session_id: str | None = None,
-        limit: int | None = None,
-        phase: str | None = None
+        self, session_id: str | None = None, limit: int | None = None, phase: str | None = None
     ) -> list[dict[str, Any]]:
         """
         List checkpoints from git notes (using hierarchical namespace).
@@ -374,18 +353,10 @@ class GitEnhancedReflexLogger:
             List of checkpoint metadata dicts, sorted newest first
         """
         if self.git_enabled and self.git_notes_storage:
-            return self.git_notes_storage.list_checkpoints(
-                session_id=session_id,
-                limit=limit,
-                phase=phase
-            )
+            return self.git_notes_storage.list_checkpoints(session_id=session_id, limit=limit, phase=phase)
         return []
 
-    def get_vector_diff(
-        self,
-        since_checkpoint: dict[str, Any],
-        current_vectors: dict[str, float]
-    ) -> dict[str, Any]:
+    def get_vector_diff(self, since_checkpoint: dict[str, Any], current_vectors: dict[str, float]) -> dict[str, Any]:
         """
         Compute vector delta since last checkpoint.
 
@@ -412,12 +383,14 @@ class GitEnhancedReflexLogger:
 
             # Flag significant changes (>0.15 threshold)
             if abs(change) > 0.15:
-                significant_changes.append({
-                    "vector": key,
-                    "baseline": round(baseline_value, 3),
-                    "current": round(current_value, 3),
-                    "delta": round(change, 3)
-                })
+                significant_changes.append(
+                    {
+                        "vector": key,
+                        "baseline": round(baseline_value, 3),
+                        "current": round(current_value, 3),
+                        "delta": round(change, 3),
+                    }
+                )
 
         diff = {
             "baseline_phase": since_checkpoint.get("phase"),
@@ -425,7 +398,7 @@ class GitEnhancedReflexLogger:
             "current_round": self.current_round,
             "delta": delta,
             "significant_changes": significant_changes,
-            "timestamp": datetime.now(UTC).isoformat()
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         diff["token_count"] = self._estimate_token_count(diff)

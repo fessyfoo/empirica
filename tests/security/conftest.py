@@ -1,4 +1,5 @@
 """Shared fixtures for security tests"""
+
 import sqlite3
 
 import pytest
@@ -27,9 +28,4 @@ def temp_db(tmp_path):
 @pytest.fixture
 def mock_session():
     """Create mock session for testing"""
-    return {
-        "id": "test-session-123",
-        "ai_id": "test-ai",
-        "cwd": "/tmp/test",
-        "workspace": "/tmp/test"
-    }
+    return {"id": "test-session-123", "ai_id": "test-ai", "cwd": "/tmp/test", "workspace": "/tmp/test"}

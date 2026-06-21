@@ -25,8 +25,14 @@ from empirica.core.canonical.transcript_parser import (
 # --- Fixtures ---
 
 
-def make_user_record(content: str, uuid: str = "u1", timestamp: str = "2026-03-24T10:00:00Z",
-                     parent_uuid=None, session_id: str = "sess1", sidechain: bool = False) -> dict:
+def make_user_record(
+    content: str,
+    uuid: str = "u1",
+    timestamp: str = "2026-03-24T10:00:00Z",
+    parent_uuid=None,
+    session_id: str = "sess1",
+    sidechain: bool = False,
+) -> dict:
     """Create a user record matching Claude Code .jsonl format."""
     return {
         "type": "user",
@@ -59,15 +65,17 @@ def make_assistant_record(
     content = []
     if thinking:
         content.append({"type": "thinking", "thinking": thinking, "signature": "sig123"})
-    for text in (text_blocks or []):
+    for text in text_blocks or []:
         content.append({"type": "text", "text": text})
-    for tool in (tool_uses or []):
-        content.append({
-            "type": "tool_use",
-            "id": tool.get("id", "tool1"),
-            "name": tool.get("name", "Bash"),
-            "input": tool.get("input", {}),
-        })
+    for tool in tool_uses or []:
+        content.append(
+            {
+                "type": "tool_use",
+                "id": tool.get("id", "tool1"),
+                "name": tool.get("name", "Bash"),
+                "input": tool.get("input", {}),
+            }
+        )
 
     return {
         "type": "assistant",
@@ -155,9 +163,9 @@ def make_progress_record(uuid: str = "p1", timestamp: str = "2026-03-24T10:00:00
 
 def write_jsonl(path: Path, records: list):
     """Write records to a .jsonl file."""
-    with open(path, 'w') as f:
+    with open(path, "w") as f:
         for record in records:
-            f.write(json.dumps(record) + '\n')
+            f.write(json.dumps(record) + "\n")
 
 
 # --- TranscriptParser Tests ---
@@ -280,10 +288,10 @@ class TestSessionParsing:
 
     def test_parse_session_with_malformed_lines(self, tmp_path):
         jsonl_file = tmp_path / "test.jsonl"
-        with open(jsonl_file, 'w') as f:
-            f.write(json.dumps(make_user_record("valid message")) + '\n')
+        with open(jsonl_file, "w") as f:
+            f.write(json.dumps(make_user_record("valid message")) + "\n")
             f.write("this is not json\n")
-            f.write(json.dumps(make_assistant_record(text_blocks=["response"])) + '\n')
+            f.write(json.dumps(make_assistant_record(text_blocks=["response"])) + "\n")
 
         parser = TranscriptParser()
         parsed = parser.parse_session(str(jsonl_file))
@@ -411,7 +419,9 @@ class TestConversationTurns:
             make_user_record("Main question", uuid="u1", timestamp="2026-03-24T10:00:00Z"),
             make_assistant_record(text_blocks=["Main answer"], uuid="a1", timestamp="2026-03-24T10:00:01Z"),
             make_user_record("Subagent prompt", uuid="u2", timestamp="2026-03-24T10:00:02Z", sidechain=True),
-            make_assistant_record(text_blocks=["Subagent response"], uuid="a2", timestamp="2026-03-24T10:00:03Z", sidechain=True),
+            make_assistant_record(
+                text_blocks=["Subagent response"], uuid="a2", timestamp="2026-03-24T10:00:03Z", sidechain=True
+            ),
         ]
 
         jsonl_file = tmp_path / "test.jsonl"
@@ -430,7 +440,9 @@ class TestConversationTurns:
             make_user_record("Main question", uuid="u1", timestamp="2026-03-24T10:00:00Z"),
             make_assistant_record(text_blocks=["Main answer"], uuid="a1", timestamp="2026-03-24T10:00:01Z"),
             make_user_record("Subagent prompt", uuid="u2", timestamp="2026-03-24T10:00:02Z", sidechain=True),
-            make_assistant_record(text_blocks=["Subagent response"], uuid="a2", timestamp="2026-03-24T10:00:03Z", sidechain=True),
+            make_assistant_record(
+                text_blocks=["Subagent response"], uuid="a2", timestamp="2026-03-24T10:00:03Z", sidechain=True
+            ),
         ]
 
         jsonl_file = tmp_path / "test.jsonl"
@@ -551,7 +563,11 @@ class TestClaudeAIParser:
             {
                 "chat_messages": [
                     {"sender": "human", "text": "What is Python?", "created_at": "2026-03-20T10:00:00Z"},
-                    {"sender": "assistant", "text": "Python is a programming language.", "created_at": "2026-03-20T10:00:05Z"},
+                    {
+                        "sender": "assistant",
+                        "text": "Python is a programming language.",
+                        "created_at": "2026-03-20T10:00:05Z",
+                    },
                 ]
             }
         ]

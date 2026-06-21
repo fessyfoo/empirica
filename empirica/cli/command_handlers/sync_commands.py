@@ -24,20 +24,20 @@ logger = logging.getLogger(__name__)
 
 # Default sync configuration
 DEFAULT_SYNC_CONFIG = {
-    'enabled': True,
-    'remote': 'forgejo',
-    'visibility': 'private',  # 'private' or 'public' - determines warnings
-    'provider': 'forgejo',  # 'github', 'gitlab', 'forgejo', 'bitbucket', 'auto'
-    'auto_push_on': [],  # ['postflight', 'session_end'] - future auto-push triggers
-    'code_remote': 'origin',  # remote for code pushes (public)
-    'notes_remote': 'forgejo',  # remote for epistemic notes (private)
+    "enabled": True,
+    "remote": "forgejo",
+    "visibility": "private",  # 'private' or 'public' - determines warnings
+    "provider": "forgejo",  # 'github', 'gitlab', 'forgejo', 'bitbucket', 'auto'
+    "auto_push_on": [],  # ['postflight', 'session_end'] - future auto-push triggers
+    "code_remote": "origin",  # remote for code pushes (public)
+    "notes_remote": "forgejo",  # remote for epistemic notes (private)
 }
 
 
 def _get_config_path() -> Path:
     """Get path to .empirica/config.yaml"""
     workspace_root = _get_workspace_root()
-    return Path(workspace_root) / '.empirica' / 'config.yaml'
+    return Path(workspace_root) / ".empirica" / "config.yaml"
 
 
 def _load_sync_config() -> dict[str, Any]:
@@ -51,7 +51,7 @@ def _load_sync_config() -> dict[str, Any]:
         with open(config_path) as f:
             config = yaml.safe_load(f) or {}
 
-        sync_config = config.get('sync', {})
+        sync_config = config.get("sync", {})
 
         # Merge with defaults
         result = DEFAULT_SYNC_CONFIG.copy()
@@ -72,16 +72,16 @@ def _save_sync_config(sync_config: dict[str, Any]) -> bool:
             with open(config_path) as f:
                 config = yaml.safe_load(f) or {}
         else:
-            config = {'version': '2.0'}
+            config = {"version": "2.0"}
 
         # Update sync section
-        config['sync'] = sync_config
+        config["sync"] = sync_config
 
         # Ensure directory exists
         config_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Write back
-        with open(config_path, 'w') as f:
+        with open(config_path, "w") as f:
             yaml.dump(config, f, default_flow_style=False, sort_keys=False)
 
         return True
@@ -93,32 +93,29 @@ def _save_sync_config(sync_config: dict[str, Any]) -> bool:
 def _detect_provider(remote_url: str) -> str:
     """Detect git provider from remote URL"""
     remote_lower = remote_url.lower()
-    if 'github.com' in remote_lower:
-        return 'github'
-    elif 'gitlab.com' in remote_lower or 'gitlab' in remote_lower:
-        return 'gitlab'
-    elif 'forgejo' in remote_lower or 'codeberg.org' in remote_lower or 'getempirica.com' in remote_lower:
-        return 'forgejo'
-    elif 'bitbucket.org' in remote_lower:
-        return 'bitbucket'
-    elif 'gitea' in remote_lower:
-        return 'gitea'
+    if "github.com" in remote_lower:
+        return "github"
+    elif "gitlab.com" in remote_lower or "gitlab" in remote_lower:
+        return "gitlab"
+    elif "forgejo" in remote_lower or "codeberg.org" in remote_lower or "getempirica.com" in remote_lower:
+        return "forgejo"
+    elif "bitbucket.org" in remote_lower:
+        return "bitbucket"
+    elif "gitea" in remote_lower:
+        return "gitea"
     else:
         # Check configured provider as fallback
         sync_config = _load_sync_config()
-        configured = sync_config.get('provider', 'auto')
-        if configured != 'auto':
+        configured = sync_config.get("provider", "auto")
+        if configured != "auto":
             return configured
-        return 'unknown'
+        return "unknown"
 
 
-def _get_remote_url(remote: str = 'origin') -> str | None:
+def _get_remote_url(remote: str = "origin") -> str | None:
     """Get the URL for a remote"""
     try:
-        result = subprocess.run(
-            ['git', 'remote', 'get-url', remote],
-            capture_output=True, text=True, timeout=5
-        )
+        result = subprocess.run(["git", "remote", "get-url", remote], capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
             return result.stdout.strip()
     except Exception:
@@ -129,16 +126,13 @@ def _get_remote_url(remote: str = 'origin') -> str | None:
 def _list_remotes() -> dict[str, str]:
     """List all git remotes and their URLs"""
     try:
-        result = subprocess.run(
-            ['git', 'remote', '-v'],
-            capture_output=True, text=True, timeout=5
-        )
+        result = subprocess.run(["git", "remote", "-v"], capture_output=True, text=True, timeout=5)
         if result.returncode != 0:
             return {}
 
         remotes = {}
-        for line in result.stdout.strip().split('\n'):
-            if line and '(push)' in line:
+        for line in result.stdout.strip().split("\n"):
+            if line and "(push)" in line:
                 parts = line.split()
                 if len(parts) >= 2:
                     remotes[parts[0]] = parts[1]
@@ -149,27 +143,29 @@ def _list_remotes() -> dict[str, str]:
 
 # All empirica git notes refs
 EMPIRICA_NOTES_REFS = [
-    'empirica/goals',
-    'empirica/cascades',
-    'empirica/handoffs',
-    'empirica/findings',
-    'empirica/unknowns',
-    'empirica/dead_ends',
-    'empirica/mistakes',
-    'empirica/sessions',
-    'empirica/checkpoints',
-    'empirica/messages',
-    'empirica-precompact',
-    'breadcrumbs',
+    "empirica/goals",
+    "empirica/cascades",
+    "empirica/handoffs",
+    "empirica/findings",
+    "empirica/unknowns",
+    "empirica/dead_ends",
+    "empirica/mistakes",
+    "empirica/sessions",
+    "empirica/checkpoints",
+    "empirica/messages",
+    "empirica-precompact",
+    "breadcrumbs",
 ]
 
 
 def _get_workspace_root() -> str:
     """Get workspace root - checks active context, then git root, then cwd"""
     import os
+
     # Priority 0: Check active project context (respects project-switch)
     try:
         from empirica.utils.session_resolver import InstanceResolver as R
+
         context_project = R.project_path()
         if context_project:
             return context_project
@@ -177,10 +173,7 @@ def _get_workspace_root() -> str:
         pass
     # Priority 1: Git root
     try:
-        result = subprocess.run(
-            ['git', 'rev-parse', '--show-toplevel'],
-            capture_output=True, text=True, timeout=5
-        )
+        result = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
             return result.stdout.strip()
     except Exception:
@@ -189,13 +182,10 @@ def _get_workspace_root() -> str:
     return os.getcwd()
 
 
-def _check_remote(remote: str = 'origin') -> bool:
+def _check_remote(remote: str = "origin") -> bool:
     """Check if remote exists"""
     try:
-        result = subprocess.run(
-            ['git', 'remote', 'get-url', remote],
-            capture_output=True, text=True, timeout=5
-        )
+        result = subprocess.run(["git", "remote", "get-url", remote], capture_output=True, text=True, timeout=5)
         return result.returncode == 0
     except Exception:
         return False
@@ -207,11 +197,10 @@ def _count_local_notes() -> dict[str, int]:
     for ref in EMPIRICA_NOTES_REFS:
         try:
             result = subprocess.run(
-                ['git', 'for-each-ref', f'refs/notes/{ref}/'],
-                capture_output=True, text=True, timeout=5
+                ["git", "for-each-ref", f"refs/notes/{ref}/"], capture_output=True, text=True, timeout=5
             )
             if result.returncode == 0 and result.stdout.strip():
-                counts[ref] = len(result.stdout.strip().split('\n'))
+                counts[ref] = len(result.stdout.strip().split("\n"))
             else:
                 counts[ref] = 0
         except Exception:
@@ -219,39 +208,30 @@ def _count_local_notes() -> dict[str, int]:
     return counts
 
 
-
-
 def _handle_sync_config_command_helper(key, output_format, sync_config, value):
     """Extracted from handle_sync_config_command to reduce complexity."""
     if key and value is not None:
-        valid_keys = ['enabled', 'remote', 'visibility', 'provider', 'code_remote', 'notes_remote']
+        valid_keys = ["enabled", "remote", "visibility", "provider", "code_remote", "notes_remote"]
         if key not in valid_keys:
-            result = {
-                "ok": False,
-                "error": f"Unknown config key: {key}",
-                "valid_keys": valid_keys
-            }
+            result = {"ok": False, "error": f"Unknown config key: {key}", "valid_keys": valid_keys}
             print(json.dumps(result, indent=2))
             return 1
 
         # Parse boolean values
-        if key == 'enabled':
-            value = value.lower() in ('true', '1', 'yes', 'on')
+        if key == "enabled":
+            value = value.lower() in ("true", "1", "yes", "on")
 
         # Validate visibility
-        if key == 'visibility' and value not in ('public', 'private'):
-            result = {
-                "ok": False,
-                "error": f"visibility must be 'public' or 'private', got '{value}'"
-            }
+        if key == "visibility" and value not in ("public", "private"):
+            result = {"ok": False, "error": f"visibility must be 'public' or 'private', got '{value}'"}
             print(json.dumps(result, indent=2))
             return 1
 
         # Validate provider
-        if key == 'provider' and value not in ('github', 'gitlab', 'forgejo', 'gitea', 'bitbucket', 'auto', 'other'):
+        if key == "provider" and value not in ("github", "gitlab", "forgejo", "gitea", "bitbucket", "auto", "other"):
             result = {
                 "ok": False,
-                "error": "provider must be one of: github, gitlab, forgejo, gitea, bitbucket, auto, other"
+                "error": "provider must be one of: github, gitlab, forgejo, gitea, bitbucket, auto, other",
             }
             print(json.dumps(result, indent=2))
             return 1
@@ -259,30 +239,24 @@ def _handle_sync_config_command_helper(key, output_format, sync_config, value):
         # Update and save
         sync_config[key] = value
         if _save_sync_config(sync_config):
-            result = {
-                "ok": True,
-                "message": f"Set sync.{key} = {value}",
-                "config": sync_config
-            }
+            result = {"ok": True, "message": f"Set sync.{key} = {value}", "config": sync_config}
         else:
-            result = {
-                "ok": False,
-                "error": "Failed to save config"
-            }
+            result = {"ok": False, "error": "Failed to save config"}
 
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(result, indent=2))
         else:
             print(f"✅ Set sync.{key} = {value}")
 
-        return 0 if result['ok'] else 1
+        return 0 if result["ok"] else 1
+
 
 def handle_sync_config_command(args):
     """Handle sync config command - show/set sync configuration"""
     try:
-        output_format = getattr(args, 'output', 'json')
-        key = getattr(args, 'key', None)
-        value = getattr(args, 'value', None)
+        output_format = getattr(args, "output", "json")
+        key = getattr(args, "key", None)
+        value = getattr(args, "value", None)
 
         # Load current config
         sync_config = _load_sync_config()
@@ -293,21 +267,14 @@ def handle_sync_config_command(args):
         # Show config (with optional key filter)
         if key:
             if key in sync_config:
-                result = {
-                    "ok": True,
-                    "key": key,
-                    "value": sync_config[key]
-                }
+                result = {"ok": True, "key": key, "value": sync_config[key]}
             else:
-                result = {
-                    "ok": False,
-                    "error": f"Unknown config key: {key}"
-                }
+                result = {"ok": False, "error": f"Unknown config key: {key}"}
         else:
             # Get remote info for context
-            current_remote = sync_config.get('remote', 'origin')
+            current_remote = sync_config.get("remote", "origin")
             remote_url = _get_remote_url(current_remote)
-            detected_provider = _detect_provider(remote_url) if remote_url else 'unknown'
+            detected_provider = _detect_provider(remote_url) if remote_url else "unknown"
             all_remotes = _list_remotes()
 
             result = {
@@ -316,10 +283,10 @@ def handle_sync_config_command(args):
                 "remote_url": remote_url,
                 "detected_provider": detected_provider,
                 "available_remotes": all_remotes,
-                "config_path": str(_get_config_path())
+                "config_path": str(_get_config_path()),
             }
 
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(result, indent=2))
         else:
             print("📋 Sync Configuration")
@@ -341,15 +308,15 @@ def handle_sync_config_command(args):
             print(f"\n   Config file: {_get_config_path()}")
 
             # Show dual-remote config
-            notes_remote = sync_config.get('notes_remote', current_remote)
-            code_remote = sync_config.get('code_remote', 'origin')
+            notes_remote = sync_config.get("notes_remote", current_remote)
+            code_remote = sync_config.get("code_remote", "origin")
             if notes_remote != code_remote:
                 print("\n   Dual-remote mode:")
                 print(f"      Code:  {code_remote} (public)")
                 print(f"      Notes: {notes_remote} (private)")
 
             # Show private sync hint if notes remote is a public provider
-            if detected_provider in ('github', 'gitlab', 'bitbucket'):
+            if detected_provider in ("github", "gitlab", "bitbucket"):
                 print("\n   WARNING: Notes remote points to a public provider!")
                 print("      Epistemic notes contain private data (findings, mistakes, messages).")
                 print("      Switch to a private remote:")
@@ -359,18 +326,16 @@ def handle_sync_config_command(args):
             print("\n   Set with: empirica sync-config <key> <value>")
             print("   Keys: enabled, remote, visibility, provider")
 
-        return 0 if result['ok'] else 1
+        return 0 if result["ok"] else 1
 
     except Exception as e:
-        handle_cli_error(e, "Sync config", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Sync config", getattr(args, "verbose", False))
         return 1
-
-
 
 
 def _handle_sync_push_command_helper(errors, output_format, push_results, remote, result, success):
     """Extracted from handle_sync_push_command to reduce complexity."""
-    if output_format == 'json':
+    if output_format == "json":
         print(json.dumps(result, indent=2))
     else:
         if success:
@@ -383,6 +348,7 @@ def _handle_sync_push_command_helper(errors, output_format, push_results, remote
             for err in errors:
                 print(f"   Error: {err}")
 
+
 def handle_sync_push_command(args):
     """Handle sync push command - push all epistemic notes to remote"""
     try:
@@ -390,18 +356,18 @@ def handle_sync_push_command(args):
         sync_config = _load_sync_config()
 
         # Use CLI arg if provided, otherwise use config
-        remote = getattr(args, 'remote', None) or sync_config.get('remote', 'origin')
-        output_format = getattr(args, 'output', 'json')
-        dry_run = getattr(args, 'dry_run', False)
-        getattr(args, 'verbose', False)
-        force = getattr(args, 'force', False)
+        remote = getattr(args, "remote", None) or sync_config.get("remote", "origin")
+        output_format = getattr(args, "output", "json")
+        dry_run = getattr(args, "dry_run", False)
+        getattr(args, "verbose", False)
+        force = getattr(args, "force", False)
 
         # Check if sync is enabled
-        if not sync_config.get('enabled', True) and not force:
+        if not sync_config.get("enabled", True) and not force:
             result = {
                 "ok": False,
                 "error": "Sync is disabled in config",
-                "hint": "Run 'empirica sync-config enabled true' to enable or use --force"
+                "hint": "Run 'empirica sync-config enabled true' to enable or use --force",
             }
             print(json.dumps(result, indent=2))
             return 1
@@ -411,15 +377,15 @@ def handle_sync_push_command(args):
             result = {
                 "ok": False,
                 "error": f"Remote '{remote}' not found",
-                "hint": "Run 'git remote add origin <url>' to add a remote"
+                "hint": "Run 'git remote add origin <url>' to add a remote",
             }
             print(json.dumps(result, indent=2))
             return 1
 
         # Safety check: block pushing notes to public providers unless forced
         remote_url = _get_remote_url(remote)
-        detected = _detect_provider(remote_url) if remote_url else 'unknown'
-        public_providers = ('github', 'gitlab', 'bitbucket')
+        detected = _detect_provider(remote_url) if remote_url else "unknown"
+        public_providers = ("github", "gitlab", "bitbucket")
         if detected in public_providers and not force:
             result = {
                 "ok": False,
@@ -431,9 +397,9 @@ def handle_sync_push_command(args):
                     "Use a private remote: 'empirica sync-config remote forgejo' or "
                     "'empirica sync-config notes_remote <private-remote>'. "
                     "Use --force to override."
-                )
+                ),
             }
-            if output_format == 'json':
+            if output_format == "json":
                 print(json.dumps(result, indent=2))
             else:
                 print(f"BLOCKED: Won't push notes to {detected} ({remote_url})")
@@ -453,9 +419,9 @@ def handle_sync_push_command(args):
                 "remote": remote,
                 "refs_to_push": total_refs,
                 "note_counts": local_counts,
-                "command": f"git push {remote} 'refs/notes/empirica/*:refs/notes/empirica/*'"
+                "command": f"git push {remote} 'refs/notes/empirica/*:refs/notes/empirica/*'",
             }
-            if output_format == 'json':
+            if output_format == "json":
                 print(json.dumps(result, indent=2))
             else:
                 print(f"🔍 Dry run - would push {total_refs} note refs to {remote}")
@@ -471,10 +437,12 @@ def handle_sync_push_command(args):
         # Push all empirica notes at once
         try:
             result = subprocess.run(
-                ['git', 'push', remote, 'refs/notes/empirica/*:refs/notes/empirica/*'],
-                capture_output=True, text=True, timeout=60
+                ["git", "push", remote, "refs/notes/empirica/*:refs/notes/empirica/*"],
+                capture_output=True,
+                text=True,
+                timeout=60,
             )
-            push_results['empirica/*'] = result.returncode == 0
+            push_results["empirica/*"] = result.returncode == 0
             if result.returncode != 0 and result.stderr:
                 errors.append(f"empirica/*: {result.stderr.strip()}")
         except subprocess.TimeoutExpired:
@@ -485,31 +453,35 @@ def handle_sync_push_command(args):
         # Push breadcrumbs separately (different namespace)
         try:
             result = subprocess.run(
-                ['git', 'push', remote, 'refs/notes/breadcrumbs:refs/notes/breadcrumbs'],
-                capture_output=True, text=True, timeout=30
+                ["git", "push", remote, "refs/notes/breadcrumbs:refs/notes/breadcrumbs"],
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
-            push_results['breadcrumbs'] = result.returncode == 0
+            push_results["breadcrumbs"] = result.returncode == 0
         except Exception:
-            push_results['breadcrumbs'] = False
+            push_results["breadcrumbs"] = False
 
         # Push empirica-precompact separately
         try:
             result = subprocess.run(
-                ['git', 'push', remote, 'refs/notes/empirica-precompact:refs/notes/empirica-precompact'],
-                capture_output=True, text=True, timeout=30
+                ["git", "push", remote, "refs/notes/empirica-precompact:refs/notes/empirica-precompact"],
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
-            push_results['empirica-precompact'] = result.returncode == 0
+            push_results["empirica-precompact"] = result.returncode == 0
         except Exception:
-            push_results['empirica-precompact'] = False
+            push_results["empirica-precompact"] = False
 
-        success = push_results.get('empirica/*', False)
+        success = push_results.get("empirica/*", False)
 
         result = {
             "ok": success,
             "remote": remote,
             "push_results": push_results,
             "errors": errors if errors else None,
-            "message": f"Pushed epistemic notes to {remote}" if success else "Push failed"
+            "message": f"Pushed epistemic notes to {remote}" if success else "Push failed",
         }
 
         _handle_sync_push_command_helper(errors, output_format, push_results, remote, result, success)
@@ -517,15 +489,13 @@ def handle_sync_push_command(args):
         return 0 if success else 1
 
     except Exception as e:
-        handle_cli_error(e, "Sync push", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Sync push", getattr(args, "verbose", False))
         return 1
-
-
 
 
 def _handle_sync_pull_command_helper(changes, errors, output_format, rebuild, remote, result, success):
     """Extracted from handle_sync_pull_command to reduce complexity."""
-    if output_format == 'json':
+    if output_format == "json":
         print(json.dumps(result, indent=2))
     else:
         if success:
@@ -535,12 +505,13 @@ def _handle_sync_pull_command_helper(changes, errors, output_format, rebuild, re
                     print(f"   {ref}: {change['before']} → {change['after']} ({change['delta']:+d})")
             else:
                 print("   No changes (already up to date)")
-            if rebuild and 'rebuild' in result:
+            if rebuild and "rebuild" in result:
                 print("   🔄 Rebuilt SQLite from notes")
         else:
             print(f"❌ Pull failed from {remote}")
             for err in errors:
                 print(f"   Error: {err}")
+
 
 def handle_sync_pull_command(args):
     """Handle sync pull command - pull all epistemic notes from remote"""
@@ -549,28 +520,25 @@ def handle_sync_pull_command(args):
         sync_config = _load_sync_config()
 
         # Use CLI arg if provided, otherwise use config
-        remote = getattr(args, 'remote', None) or sync_config.get('remote', 'origin')
-        output_format = getattr(args, 'output', 'json')
-        rebuild = getattr(args, 'rebuild', False)
-        getattr(args, 'verbose', False)
-        force = getattr(args, 'force', False)
+        remote = getattr(args, "remote", None) or sync_config.get("remote", "origin")
+        output_format = getattr(args, "output", "json")
+        rebuild = getattr(args, "rebuild", False)
+        getattr(args, "verbose", False)
+        force = getattr(args, "force", False)
 
         # Check if sync is enabled
-        if not sync_config.get('enabled', True) and not force:
+        if not sync_config.get("enabled", True) and not force:
             result = {
                 "ok": False,
                 "error": "Sync is disabled in config",
-                "hint": "Run 'empirica sync-config enabled true' to enable or use --force"
+                "hint": "Run 'empirica sync-config enabled true' to enable or use --force",
             }
             print(json.dumps(result, indent=2))
             return 1
 
         # Check remote exists
         if not _check_remote(remote):
-            result = {
-                "ok": False,
-                "error": f"Remote '{remote}' not found"
-            }
+            result = {"ok": False, "error": f"Remote '{remote}' not found"}
             print(json.dumps(result, indent=2))
             return 1
 
@@ -584,13 +552,15 @@ def handle_sync_pull_command(args):
         # Fetch all empirica notes at once
         try:
             result = subprocess.run(
-                ['git', 'fetch', remote, 'refs/notes/empirica/*:refs/notes/empirica/*'],
-                capture_output=True, text=True, timeout=60
+                ["git", "fetch", remote, "refs/notes/empirica/*:refs/notes/empirica/*"],
+                capture_output=True,
+                text=True,
+                timeout=60,
             )
-            fetch_results['empirica/*'] = result.returncode == 0
+            fetch_results["empirica/*"] = result.returncode == 0
             if result.returncode != 0 and result.stderr:
                 # Check if it's just "no matching refs" (not an error)
-                if 'no matching refs' not in result.stderr.lower():
+                if "no matching refs" not in result.stderr.lower():
                     errors.append(f"empirica/*: {result.stderr.strip()}")
         except subprocess.TimeoutExpired:
             errors.append("Fetch timed out")
@@ -600,22 +570,26 @@ def handle_sync_pull_command(args):
         # Fetch breadcrumbs separately
         try:
             result = subprocess.run(
-                ['git', 'fetch', remote, 'refs/notes/breadcrumbs:refs/notes/breadcrumbs'],
-                capture_output=True, text=True, timeout=30
+                ["git", "fetch", remote, "refs/notes/breadcrumbs:refs/notes/breadcrumbs"],
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
-            fetch_results['breadcrumbs'] = result.returncode == 0
+            fetch_results["breadcrumbs"] = result.returncode == 0
         except Exception:
-            fetch_results['breadcrumbs'] = False
+            fetch_results["breadcrumbs"] = False
 
         # Fetch empirica-precompact separately
         try:
             result = subprocess.run(
-                ['git', 'fetch', remote, 'refs/notes/empirica-precompact:refs/notes/empirica-precompact'],
-                capture_output=True, text=True, timeout=30
+                ["git", "fetch", remote, "refs/notes/empirica-precompact:refs/notes/empirica-precompact"],
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
-            fetch_results['empirica-precompact'] = result.returncode == 0
+            fetch_results["empirica-precompact"] = result.returncode == 0
         except Exception:
-            fetch_results['empirica-precompact'] = False
+            fetch_results["empirica-precompact"] = False
 
         # Count local notes after pull
         local_after = _count_local_notes()
@@ -626,9 +600,9 @@ def handle_sync_pull_command(args):
             before = local_before.get(ref, 0)
             after = local_after.get(ref, 0)
             if after != before:
-                changes[ref] = {'before': before, 'after': after, 'delta': after - before}
+                changes[ref] = {"before": before, "after": after, "delta": after - before}
 
-        success = fetch_results.get('empirica/*', False) or not errors
+        success = fetch_results.get("empirica/*", False) or not errors
 
         result = {
             "ok": success,
@@ -636,28 +610,28 @@ def handle_sync_pull_command(args):
             "fetch_results": fetch_results,
             "changes": changes if changes else None,
             "errors": errors if errors else None,
-            "message": f"Pulled epistemic notes from {remote}"
+            "message": f"Pulled epistemic notes from {remote}",
         }
 
         # Rebuild if requested
         if rebuild and success:
             rebuild_result = _rebuild_from_notes()
-            result['rebuild'] = rebuild_result
+            result["rebuild"] = rebuild_result
 
         _handle_sync_pull_command_helper(changes, errors, output_format, rebuild, remote, result, success)
 
         return 0 if success else 1
 
     except Exception as e:
-        handle_cli_error(e, "Sync pull", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Sync pull", getattr(args, "verbose", False))
         return 1
 
 
 def handle_sync_status_command(args):
     """Handle sync status command - show sync status"""
     try:
-        remote = getattr(args, 'remote', 'origin') or 'origin'
-        output_format = getattr(args, 'output', 'json')
+        remote = getattr(args, "remote", "origin") or "origin"
+        output_format = getattr(args, "output", "json")
 
         # Check remote exists
         remote_configured = _check_remote(remote)
@@ -674,10 +648,10 @@ def handle_sync_status_command(args):
             "local_refs": refs_with_data,
             "total_notes": total_notes,
             "note_counts": {k: v for k, v in local_counts.items() if v > 0},
-            "sync_available": remote_configured
+            "sync_available": remote_configured,
         }
 
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(result, indent=2))
         else:
             print("📊 Empirica Sync Status")
@@ -696,7 +670,7 @@ def handle_sync_status_command(args):
         return 0
 
     except Exception as e:
-        handle_cli_error(e, "Sync status", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Sync status", getattr(args, "verbose", False))
         return 1
 
 
@@ -707,9 +681,9 @@ def _rebuild_collect_ids(all_items_lists):
     goal_ids_needed = set()
     for items in all_items_lists:
         for item in items:
-            pid = item.get('project_id')
-            sid = item.get('session_id')
-            gid = item.get('goal_id')
+            pid = item.get("project_id")
+            sid = item.get("session_id")
+            gid = item.get("goal_id")
             if pid:
                 project_ids.add(pid)
             if sid:
@@ -726,14 +700,13 @@ def _rebuild_ensure_projects(db, project_ids, now, rebuilt):
     for pid in project_ids:
         try:
             db.adapter.execute(
-                "INSERT INTO projects (id, name, description, created_timestamp, project_data) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (pid, f"project-{pid[:8]}", "Rebuilt from git notes", now, _json.dumps({"rebuilt": True}))
+                "INSERT INTO projects (id, name, description, created_timestamp, project_data) VALUES (?, ?, ?, ?, ?)",
+                (pid, f"project-{pid[:8]}", "Rebuilt from git notes", now, _json.dumps({"rebuilt": True})),
             )
             db.adapter.commit()
-            rebuilt['projects'] += 1
+            rebuilt["projects"] += 1
         except Exception:
-            db.adapter.conn.rollback() if hasattr(db.adapter, 'conn') else None
+            db.adapter.conn.rollback() if hasattr(db.adapter, "conn") else None
 
 
 def _rebuild_ensure_sessions(db, session_ids, all_items_lists, rebuilt):
@@ -745,8 +718,8 @@ def _rebuild_ensure_sessions(db, session_ids, all_items_lists, rebuilt):
             pid = None
             for items in all_items_lists:
                 for item in items:
-                    if item.get('session_id') == sid and item.get('project_id'):
-                        pid = item.get('project_id')
+                    if item.get("session_id") == sid and item.get("project_id"):
+                        pid = item.get("project_id")
                         break
                 if pid:
                     break
@@ -755,10 +728,10 @@ def _rebuild_ensure_sessions(db, session_ids, all_items_lists, rebuilt):
             db.adapter.execute(
                 "INSERT INTO sessions (session_id, ai_id, start_time, "
                 "components_loaded, project_id) VALUES (?, ?, ?, ?, ?)",
-                (sid, "rebuilt", now_ts, 0, pid)
+                (sid, "rebuilt", now_ts, 0, pid),
             )
             db.adapter.commit()
-            rebuilt['sessions'] += 1
+            rebuilt["sessions"] += 1
         except Exception:
             try:
                 db.adapter.conn.rollback()
@@ -776,33 +749,34 @@ def _rebuild_ensure_goals(db, now, rebuilt):
     goals = goal_store.discover_goals()
     for g in goals:
         try:
-            gid = g.get('goal_id')
-            gsid = g.get('session_id', '')
-            gdata = g.get('goal_data', {})
+            gid = g.get("goal_id")
+            gsid = g.get("session_id", "")
+            gdata = g.get("goal_data", {})
             db.adapter.execute(
                 "INSERT INTO goals (id, session_id, objective, scope, estimated_complexity, "
                 "created_timestamp, goal_data, status, project_id) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
-                    gid, gsid,
-                    gdata.get('objective', 'Rebuilt from notes'),
-                    _json.dumps(gdata.get('scope', {})),
-                    gdata.get('estimated_complexity'),
+                    gid,
+                    gsid,
+                    gdata.get("objective", "Rebuilt from notes"),
+                    _json.dumps(gdata.get("scope", {})),
+                    gdata.get("estimated_complexity"),
                     now,
                     _json.dumps(gdata),
-                    gdata.get('status', 'in_progress'),
-                    gdata.get('project_id')
-                )
+                    gdata.get("status", "in_progress"),
+                    gdata.get("project_id"),
+                ),
             )
             db.adapter.commit()
-            rebuilt['goals'] += 1
+            rebuilt["goals"] += 1
         except Exception:
             try:
                 db.adapter.conn.rollback()
             except Exception:
                 pass
 
-    return goals, {g.get('goal_id') for g in goals}
+    return goals, {g.get("goal_id") for g in goals}
 
 
 def _rebuild_ensure_orphan_goals(db, orphan_goal_ids, all_items_lists, now, rebuilt):
@@ -811,22 +785,21 @@ def _rebuild_ensure_orphan_goals(db, orphan_goal_ids, all_items_lists, now, rebu
 
     for gid in orphan_goal_ids:
         try:
-            gsid = ''
+            gsid = ""
             for items in all_items_lists:
                 for item in items:
-                    if item.get('goal_id') == gid and item.get('session_id'):
-                        gsid = item.get('session_id')
+                    if item.get("goal_id") == gid and item.get("session_id"):
+                        gsid = item.get("session_id")
                         break
                 if gsid:
                     break
             db.adapter.execute(
                 "INSERT INTO goals (id, session_id, objective, scope, "
                 "created_timestamp, goal_data) VALUES (?, ?, ?, ?, ?, ?)",
-                (gid, gsid, "Rebuilt stub (orphaned ref)", "{}", now,
-                 _json.dumps({"rebuilt": True, "orphan": True}))
+                (gid, gsid, "Rebuilt stub (orphaned ref)", "{}", now, _json.dumps({"rebuilt": True, "orphan": True})),
             )
             db.adapter.commit()
-            rebuilt['goals'] += 1
+            rebuilt["goals"] += 1
         except Exception:
             try:
                 db.adapter.conn.rollback()
@@ -834,29 +807,59 @@ def _rebuild_ensure_orphan_goals(db, orphan_goal_ids, all_items_lists, now, rebu
                 pass
 
 
-def _rebuild_insert_breadcrumbs(db, findings, unknowns, dead_ends, mistakes,
-                                valid_goal_ids, rebuilt):
+def _rebuild_insert_breadcrumbs(db, findings, unknowns, dead_ends, mistakes, valid_goal_ids, rebuilt):
     """Insert breadcrumb records using table-driven approach."""
     handlers = [
-        ('findings', findings, lambda db, item, vg: db.log_finding(
-            project_id=item.get('project_id'), session_id=item.get('session_id'),
-            finding=item.get('finding'), subject=item.get('subject'), impact=item.get('impact'),
-            goal_id=item.get('goal_id') if item.get('goal_id') in vg else None,
-            subtask_id=None)),
-        ('unknowns', unknowns, lambda db, item, vg: db.log_unknown(
-            project_id=item.get('project_id'), session_id=item.get('session_id'),
-            unknown=item.get('unknown'), subtask_id=None,
-            goal_id=item.get('goal_id') if item.get('goal_id') in vg else None)),
-        ('dead_ends', dead_ends, lambda db, item, vg: db.log_dead_end(
-            project_id=item.get('project_id'), session_id=item.get('session_id'),
-            approach=item.get('approach'), why_failed=item.get('why_failed'), subtask_id=None,
-            goal_id=item.get('goal_id') if item.get('goal_id') in vg else None)),
-        ('mistakes', mistakes, lambda db, item, vg: db.log_mistake(
-            session_id=item.get('session_id'), project_id=item.get('project_id'),
-            mistake=item.get('mistake'), why_wrong=item.get('why_wrong'),
-            prevention=item.get('prevention'), cost_estimate=item.get('cost_estimate'),
-            root_cause_vector=item.get('root_cause_vector'),
-            goal_id=item.get('goal_id') if item.get('goal_id') in vg else None)),
+        (
+            "findings",
+            findings,
+            lambda db, item, vg: db.log_finding(
+                project_id=item.get("project_id"),
+                session_id=item.get("session_id"),
+                finding=item.get("finding"),
+                subject=item.get("subject"),
+                impact=item.get("impact"),
+                goal_id=item.get("goal_id") if item.get("goal_id") in vg else None,
+                subtask_id=None,
+            ),
+        ),
+        (
+            "unknowns",
+            unknowns,
+            lambda db, item, vg: db.log_unknown(
+                project_id=item.get("project_id"),
+                session_id=item.get("session_id"),
+                unknown=item.get("unknown"),
+                subtask_id=None,
+                goal_id=item.get("goal_id") if item.get("goal_id") in vg else None,
+            ),
+        ),
+        (
+            "dead_ends",
+            dead_ends,
+            lambda db, item, vg: db.log_dead_end(
+                project_id=item.get("project_id"),
+                session_id=item.get("session_id"),
+                approach=item.get("approach"),
+                why_failed=item.get("why_failed"),
+                subtask_id=None,
+                goal_id=item.get("goal_id") if item.get("goal_id") in vg else None,
+            ),
+        ),
+        (
+            "mistakes",
+            mistakes,
+            lambda db, item, vg: db.log_mistake(
+                session_id=item.get("session_id"),
+                project_id=item.get("project_id"),
+                mistake=item.get("mistake"),
+                why_wrong=item.get("why_wrong"),
+                prevention=item.get("prevention"),
+                cost_estimate=item.get("cost_estimate"),
+                root_cause_vector=item.get("root_cause_vector"),
+                goal_id=item.get("goal_id") if item.get("goal_id") in vg else None,
+            ),
+        ),
     ]
     for key, items, handler in handlers:
         for item in items:
@@ -879,15 +882,7 @@ def _rebuild_from_notes() -> dict[str, Any]:
     Handles FK dependencies by ensuring referenced projects and sessions exist
     before inserting breadcrumbs.
     """
-    rebuilt = {
-        'projects': 0,
-        'sessions': 0,
-        'findings': 0,
-        'unknowns': 0,
-        'dead_ends': 0,
-        'mistakes': 0,
-        'goals': 0
-    }
+    rebuilt = {"projects": 0, "sessions": 0, "findings": 0, "unknowns": 0, "dead_ends": 0, "mistakes": 0, "goals": 0}
 
     try:
         import time
@@ -924,20 +919,18 @@ def _rebuild_from_notes() -> dict[str, Any]:
         _rebuild_ensure_orphan_goals(db, orphan_goal_ids, all_items_lists, now, rebuilt)
 
         logger.info(
-            f"Rebuild Phase 0: {rebuilt['projects']} projects, "
-            f"{rebuilt['sessions']} sessions, {rebuilt['goals']} goals"
+            f"Rebuild Phase 0: {rebuilt['projects']} projects, {rebuilt['sessions']} sessions, {rebuilt['goals']} goals"
         )
 
         # Phase 1: Insert breadcrumbs
         inserted_all_goal_ids = inserted_goal_ids | set(orphan_goal_ids)
-        _rebuild_insert_breadcrumbs(db, findings, unknowns, dead_ends, mistakes,
-                                    inserted_all_goal_ids, rebuilt)
+        _rebuild_insert_breadcrumbs(db, findings, unknowns, dead_ends, mistakes, inserted_all_goal_ids, rebuilt)
 
         db.close()
 
     except Exception as e:
         logger.warning(f"Rebuild failed: {e}")
-        rebuilt['error'] = str(e)
+        rebuilt["error"] = str(e)
 
     return rebuilt
 
@@ -945,54 +938,52 @@ def _rebuild_from_notes() -> dict[str, Any]:
 def handle_rebuild_command(args):
     """Handle rebuild command - reconstruct SQLite from git notes"""
     try:
-        output_format = getattr(args, 'output', 'json')
-        from_notes = getattr(args, 'from_notes', True)
-        qdrant = getattr(args, 'qdrant', False)
+        output_format = getattr(args, "output", "json")
+        from_notes = getattr(args, "from_notes", True)
+        qdrant = getattr(args, "qdrant", False)
 
         if not from_notes:
-            result = {
-                "ok": False,
-                "error": "Only --from-notes rebuild is currently supported"
-            }
+            result = {"ok": False, "error": "Only --from-notes rebuild is currently supported"}
             print(json.dumps(result, indent=2))
             return 1
 
         # Run rebuild
         rebuild_result = _rebuild_from_notes()
 
-        total_rebuilt = sum(v for k, v in rebuild_result.items() if k != 'error' and isinstance(v, int))
+        total_rebuilt = sum(v for k, v in rebuild_result.items() if k != "error" and isinstance(v, int))
 
         result = {
-            "ok": 'error' not in rebuild_result,
+            "ok": "error" not in rebuild_result,
             "rebuilt": rebuild_result,
             "total": total_rebuilt,
-            "message": f"Rebuilt {total_rebuilt} records from git notes"
+            "message": f"Rebuilt {total_rebuilt} records from git notes",
         }
 
         # Optionally rebuild Qdrant
         if qdrant:
             try:
                 from empirica.core.qdrant.vector_store import rebuild_qdrant_from_db
-                qdrant_result = rebuild_qdrant_from_db()
-                result['qdrant'] = qdrant_result
-            except Exception as e:
-                result['qdrant_error'] = str(e)
 
-        if output_format == 'json':
+                qdrant_result = rebuild_qdrant_from_db()
+                result["qdrant"] = qdrant_result
+            except Exception as e:
+                result["qdrant_error"] = str(e)
+
+        if output_format == "json":
             print(json.dumps(result, indent=2))
         else:
-            if result['ok']:
+            if result["ok"]:
                 print(f"✅ Rebuilt {total_rebuilt} records from git notes")
                 for type_name, count in rebuild_result.items():
-                    if type_name != 'error' and count > 0:
+                    if type_name != "error" and count > 0:
                         print(f"   {type_name}: {count}")
-                if qdrant and 'qdrant' in result:
+                if qdrant and "qdrant" in result:
                     print("   🔍 Qdrant: rebuilt")
             else:
                 print(f"❌ Rebuild failed: {rebuild_result.get('error', 'Unknown error')}")
 
-        return 0 if result['ok'] else 1
+        return 0 if result["ok"] else 1
 
     except Exception as e:
-        handle_cli_error(e, "Rebuild", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Rebuild", getattr(args, "verbose", False))
         return 1

@@ -1,4 +1,5 @@
 """Vector repository for epistemic vector storage and retrieval"""
+
 import hashlib
 import json
 import subprocess
@@ -21,10 +22,7 @@ def _get_project_id_from_session(conn, session_id: str) -> str | None:
         project_id from the session, or None if not found
     """
     try:
-        cursor = conn.execute(
-            "SELECT project_id FROM sessions WHERE session_id = ?",
-            (session_id,)
-        )
+        cursor = conn.execute("SELECT project_id FROM sessions WHERE session_id = ?", (session_id,))
         row = cursor.fetchone()
         if row and row[0]:
             return row[0]
@@ -44,18 +42,14 @@ def _get_project_id_fallback() -> str | None:
     """
     try:
         result = subprocess.run(
-            ['git', 'config', '--get', 'remote.origin.url'],
-            capture_output=True, text=True, timeout=5
+            ["git", "config", "--get", "remote.origin.url"], capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0 and result.stdout.strip():
             url = result.stdout.strip()
             return hashlib.sha256(url.encode()).hexdigest()[:16]
 
         # Git toplevel path hash as last resort
-        result = subprocess.run(
-            ['git', 'rev-parse', '--show-toplevel'],
-            capture_output=True, text=True, timeout=5
-        )
+        result = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
             path = result.stdout.strip()
             return hashlib.sha256(path.encode()).hexdigest()[:16]
@@ -77,7 +71,7 @@ class VectorRepository(BaseRepository):
         metadata: dict | None = None,
         reasoning: str | None = None,
         project_id: str | None = None,
-        transaction_id: str | None = None
+        transaction_id: str | None = None,
     ) -> int:
         """
         Store epistemic vectors in the reflexes table
@@ -104,9 +98,19 @@ class VectorRepository(BaseRepository):
 
         # Extract the 13 vectors, providing default values if not present
         vector_names = [
-            'engagement', 'know', 'do', 'context',
-            'clarity', 'coherence', 'signal', 'density',
-            'state', 'change', 'completion', 'impact', 'uncertainty'
+            "engagement",
+            "know",
+            "do",
+            "context",
+            "clarity",
+            "coherence",
+            "signal",
+            "density",
+            "state",
+            "change",
+            "completion",
+            "impact",
+            "uncertainty",
         ]
 
         vector_values = []
@@ -116,20 +120,21 @@ class VectorRepository(BaseRepository):
 
         # Create a reflex data entry with optional metadata
         reflex_data = {
-            'session_id': session_id,
-            'phase': phase,
-            'round': round_num,
-            'vectors': vectors,
-            'timestamp': time.time(),
-            'project_id': project_id,
-            'transaction_id': transaction_id
+            "session_id": session_id,
+            "phase": phase,
+            "round": round_num,
+            "vectors": vectors,
+            "timestamp": time.time(),
+            "project_id": project_id,
+            "transaction_id": transaction_id,
         }
 
         # Merge in any additional metadata if provided
         if metadata:
             reflex_data.update(metadata)
 
-        cursor = self._execute("""
+        cursor = self._execute(
+            """
             INSERT INTO reflexes (
                 session_id, cascade_id, phase, round, timestamp,
                 engagement, know, do, context,
@@ -137,23 +142,25 @@ class VectorRepository(BaseRepository):
                 state, change, completion, impact, uncertainty,
                 reflex_data, reasoning, project_id, transaction_id
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            session_id, cascade_id, phase, round_num, time.time(),
-            *vector_values,  # Unpack the 13 vector values
-            json.dumps(reflex_data),
-            reasoning,
-            project_id,
-            transaction_id
-        ))
+        """,
+            (
+                session_id,
+                cascade_id,
+                phase,
+                round_num,
+                time.time(),
+                *vector_values,  # Unpack the 13 vector values
+                json.dumps(reflex_data),
+                reasoning,
+                project_id,
+                transaction_id,
+            ),
+        )
 
         self.commit()
         return cursor.lastrowid or 0
 
-    def get_latest_vectors(
-        self,
-        session_id: str,
-        phase: str | None = None
-    ) -> dict | None:
+    def get_latest_vectors(self, session_id: str, phase: str | None = None) -> dict | None:
         """
         Get the latest epistemic vectors for a session from the reflexes table
 
@@ -184,9 +191,21 @@ class VectorRepository(BaseRepository):
 
             # Extract the 13 vector values from the result
             vectors = {}
-            for vector_name in ['engagement', 'know', 'do', 'context',
-                               'clarity', 'coherence', 'signal', 'density',
-                               'state', 'change', 'completion', 'impact', 'uncertainty']:
+            for vector_name in [
+                "engagement",
+                "know",
+                "do",
+                "context",
+                "clarity",
+                "coherence",
+                "signal",
+                "density",
+                "state",
+                "change",
+                "completion",
+                "impact",
+                "uncertainty",
+            ]:
                 if vector_name in row_dict:
                     value = row_dict[vector_name]
                     if value is not None:
@@ -194,15 +213,15 @@ class VectorRepository(BaseRepository):
 
             # Return full data structure
             return {
-                'session_id': row_dict['session_id'],
-                'cascade_id': row_dict.get('cascade_id'),
-                'phase': row_dict['phase'],
-                'round': row_dict.get('round', 1),
-                'timestamp': row_dict['timestamp'],
-                'vectors': vectors,
-                'metadata': json.loads(row_dict['reflex_data']) if row_dict.get('reflex_data') else {},
-                'reasoning': row_dict.get('reasoning'),
-                'evidence': row_dict.get('evidence')
+                "session_id": row_dict["session_id"],
+                "cascade_id": row_dict.get("cascade_id"),
+                "phase": row_dict["phase"],
+                "round": row_dict.get("round", 1),
+                "timestamp": row_dict["timestamp"],
+                "vectors": vectors,
+                "metadata": json.loads(row_dict["reflex_data"]) if row_dict.get("reflex_data") else {},
+                "reasoning": row_dict.get("reasoning"),
+                "evidence": row_dict.get("evidence"),
             }
 
         return None
@@ -215,7 +234,7 @@ class VectorRepository(BaseRepository):
         """Get CHECK phase vectors, optionally filtered by cycle"""
         vectors = self.get_vectors_by_phase(session_id, phase="CHECK")
         if cycle is not None:
-            return [v for v in vectors if v.get('round') == cycle]
+            return [v for v in vectors if v.get("round") == cycle]
         return vectors
 
     def get_postflight_vectors(self, session_id: str) -> dict | None:
@@ -224,45 +243,50 @@ class VectorRepository(BaseRepository):
 
     def get_vectors_by_phase(self, session_id: str, phase: str) -> list[dict]:
         """Get all vectors for a specific phase"""
-        cursor = self._execute("""
+        cursor = self._execute(
+            """
             SELECT * FROM reflexes
             WHERE session_id = ? AND phase = ?
             ORDER BY timestamp ASC
-        """, (session_id, phase))
+        """,
+            (session_id, phase),
+        )
 
         results = []
         for row in cursor.fetchall():
             row_dict = dict(row)
             # Build vectors dict from columns
             vectors = {
-                'engagement': row_dict.get('engagement'),
-                'know': row_dict.get('know'),
-                'do': row_dict.get('do'),
-                'context': row_dict.get('context'),
-                'clarity': row_dict.get('clarity'),
-                'coherence': row_dict.get('coherence'),
-                'signal': row_dict.get('signal'),
-                'density': row_dict.get('density'),
-                'state': row_dict.get('state'),
-                'change': row_dict.get('change'),
-                'completion': row_dict.get('completion'),
-                'impact': row_dict.get('impact'),
-                'uncertainty': row_dict.get('uncertainty')
+                "engagement": row_dict.get("engagement"),
+                "know": row_dict.get("know"),
+                "do": row_dict.get("do"),
+                "context": row_dict.get("context"),
+                "clarity": row_dict.get("clarity"),
+                "coherence": row_dict.get("coherence"),
+                "signal": row_dict.get("signal"),
+                "density": row_dict.get("density"),
+                "state": row_dict.get("state"),
+                "change": row_dict.get("change"),
+                "completion": row_dict.get("completion"),
+                "impact": row_dict.get("impact"),
+                "uncertainty": row_dict.get("uncertainty"),
             }
             # Remove None values
             vectors = {k: v for k, v in vectors.items() if v is not None}
 
-            results.append({
-                'session_id': row_dict['session_id'],
-                'cascade_id': row_dict.get('cascade_id'),
-                'phase': row_dict['phase'],
-                'round': row_dict.get('round', 1),
-                'timestamp': row_dict['timestamp'],
-                'vectors': vectors,
-                'metadata': json.loads(row_dict['reflex_data']) if row_dict.get('reflex_data') else {},
-                'reasoning': row_dict.get('reasoning'),
-                'evidence': row_dict.get('evidence')
-            })
+            results.append(
+                {
+                    "session_id": row_dict["session_id"],
+                    "cascade_id": row_dict.get("cascade_id"),
+                    "phase": row_dict["phase"],
+                    "round": row_dict.get("round", 1),
+                    "timestamp": row_dict["timestamp"],
+                    "vectors": vectors,
+                    "metadata": json.loads(row_dict["reflex_data"]) if row_dict.get("reflex_data") else {},
+                    "reasoning": row_dict.get("reasoning"),
+                    "evidence": row_dict.get("evidence"),
+                }
+            )
 
         return results
 
@@ -276,44 +300,49 @@ class VectorRepository(BaseRepository):
         Returns:
             List of all vector records
         """
-        cursor = self._execute("""
+        cursor = self._execute(
+            """
             SELECT * FROM reflexes
             WHERE session_id = ?
             ORDER BY timestamp ASC
-        """, (session_id,))
+        """,
+            (session_id,),
+        )
 
         results = []
         for row in cursor.fetchall():
             row_dict = dict(row)
             # Build vectors dict from columns
             vectors = {
-                'engagement': row_dict.get('engagement'),
-                'know': row_dict.get('know'),
-                'do': row_dict.get('do'),
-                'context': row_dict.get('context'),
-                'clarity': row_dict.get('clarity'),
-                'coherence': row_dict.get('coherence'),
-                'signal': row_dict.get('signal'),
-                'density': row_dict.get('density'),
-                'state': row_dict.get('state'),
-                'change': row_dict.get('change'),
-                'completion': row_dict.get('completion'),
-                'impact': row_dict.get('impact'),
-                'uncertainty': row_dict.get('uncertainty')
+                "engagement": row_dict.get("engagement"),
+                "know": row_dict.get("know"),
+                "do": row_dict.get("do"),
+                "context": row_dict.get("context"),
+                "clarity": row_dict.get("clarity"),
+                "coherence": row_dict.get("coherence"),
+                "signal": row_dict.get("signal"),
+                "density": row_dict.get("density"),
+                "state": row_dict.get("state"),
+                "change": row_dict.get("change"),
+                "completion": row_dict.get("completion"),
+                "impact": row_dict.get("impact"),
+                "uncertainty": row_dict.get("uncertainty"),
             }
             # Remove None values
             vectors = {k: v for k, v in vectors.items() if v is not None}
 
-            results.append({
-                'session_id': row_dict['session_id'],
-                'cascade_id': row_dict.get('cascade_id'),
-                'phase': row_dict['phase'],
-                'round': row_dict.get('round', 1),
-                'timestamp': row_dict['timestamp'],
-                'vectors': vectors,
-                'metadata': json.loads(row_dict['reflex_data']) if row_dict.get('reflex_data') else {},
-                'reasoning': row_dict.get('reasoning'),
-                'evidence': row_dict.get('evidence')
-            })
+            results.append(
+                {
+                    "session_id": row_dict["session_id"],
+                    "cascade_id": row_dict.get("cascade_id"),
+                    "phase": row_dict["phase"],
+                    "round": row_dict.get("round", 1),
+                    "timestamp": row_dict["timestamp"],
+                    "vectors": vectors,
+                    "metadata": json.loads(row_dict["reflex_data"]) if row_dict.get("reflex_data") else {},
+                    "reasoning": row_dict.get("reasoning"),
+                    "evidence": row_dict.get("evidence"),
+                }
+            )
 
         return results

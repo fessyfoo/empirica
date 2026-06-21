@@ -46,6 +46,7 @@ def fake_systemd_env(tmp_path, monkeypatch):
     (fake_home / ".empirica").mkdir(parents=True, exist_ok=True)
 
     from pathlib import Path
+
     monkeypatch.setattr(scheduler_mod, "_systemd_user_dir", lambda: sysd)
     monkeypatch.setattr(scheduler_mod, "_fires_log_path", lambda: empirica / "loop_fires.log")
     monkeypatch.setattr(scheduler_mod, "is_systemd_available", lambda: True)
@@ -56,7 +57,10 @@ def fake_systemd_env(tmp_path, monkeypatch):
 def _fake_run(stdout: str = "", stderr: str = "", returncode: int = 0):
     """Builds a fake subprocess.CompletedProcess for patching subprocess.run."""
     return subprocess.CompletedProcess(
-        args=[], returncode=returncode, stdout=stdout, stderr=stderr,
+        args=[],
+        returncode=returncode,
+        stdout=stdout,
+        stderr=stderr,
     )
 
 
@@ -314,8 +318,8 @@ def test_handler_writes_absolute_empirica_path_to_service_file(fake_systemd_env,
     silently in systemd-user environments where ~/.local/bin isn't on PATH."""
     import shutil
     from argparse import Namespace
-    monkeypatch.setattr(shutil, "which",
-                        lambda name: "/abs/pipx/bin/empirica" if name == "empirica" else None)
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/abs/pipx/bin/empirica" if name == "empirica" else None)
 
     captured: dict = {}
 
@@ -333,16 +337,24 @@ def test_handler_writes_absolute_empirica_path_to_service_file(fake_systemd_env,
         from empirica.cli.command_handlers.cockpit_commands import (
             handle_loop_enable_command,
         )
+
         monkeypatch.setattr(_sched_pkg, "is_systemd_available", lambda: True)
 
         class _NoopReg:
-            def __init__(self, *a, **kw): pass
+            def __init__(self, *a, **kw):
+                pass
+
             def register(self, **kw):
                 from types import SimpleNamespace
+
                 return SimpleNamespace(last_status="ok", last_result=None, last_message=None)
-            def heartbeat(self, **kw): pass
+
+            def heartbeat(self, **kw):
+                pass
+
             def get(self, name):
                 from types import SimpleNamespace
+
                 return SimpleNamespace(last_status="ok", last_result=None, last_message=None)
 
         monkeypatch.setattr(_mod, "LoopRegistry", _NoopReg)
@@ -371,11 +383,13 @@ def test_handler_errors_when_empirica_not_on_path(fake_systemd_env, monkeypatch)
     unit file that fails silently at fire time."""
     import shutil
     from argparse import Namespace
+
     monkeypatch.setattr(shutil, "which", lambda name: None)
 
     from empirica.cli.command_handlers.cockpit_commands import (
         handle_loop_enable_command,
     )
+
     args = Namespace(name="x", interval="30s", instance="i", output="json")
     rc = handle_loop_enable_command(args)
     assert rc != 0, "handler must surface the missing-binary case, not silently install a broken timer"

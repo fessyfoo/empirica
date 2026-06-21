@@ -123,13 +123,9 @@ def test_rekey_updates_all_matching_tables(tmp_path):
 
     conn = sqlite3.connect(str(db))
     assert conn.execute("SELECT project_id FROM sessions").fetchone()[0] == _UUID_A
-    assert conn.execute(
-        "SELECT project_id FROM findings WHERE id='f1'"
-    ).fetchone()[0] == _UUID_A
+    assert conn.execute("SELECT project_id FROM findings WHERE id='f1'").fetchone()[0] == _UUID_A
     # the unrelated project's row is untouched
-    assert conn.execute(
-        "SELECT project_id FROM findings WHERE id='f2'"
-    ).fetchone()[0] == "other-project"
+    assert conn.execute("SELECT project_id FROM findings WHERE id='f2'").fetchone()[0] == "other-project"
     conn.close()
 
 
@@ -186,9 +182,7 @@ def test_migrate_slug_via_cortex_rekeys_and_rewrites_yaml(tmp_path):
 
 def test_migrate_slug_via_mint(tmp_path):
     root = _make_project(tmp_path, "empirica-outreach")
-    result = migrate_project_to_uuid(
-        root, workspace_db=tmp_path / "nope.db", mint=lambda: _UUID_A
-    )
+    result = migrate_project_to_uuid(root, workspace_db=tmp_path / "nope.db", mint=lambda: _UUID_A)
     assert result["status"] == "migrated"
     assert result["source"] == "minted"
     assert result["project_id"] == _UUID_A

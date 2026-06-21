@@ -32,67 +32,70 @@ from empirica.core.scanner.read_surface import (
 
 class TestReadSurface:
     def test_default_surface_has_all_collector_fields(self):
-        for name in ('process', 'network', 'filesystem',
-                     'process_env', 'scheduled', 'mcp'):
+        for name in ("process", "network", "filesystem", "process_env", "scheduled", "mcp"):
             assert getattr(DEFAULT_READ_SURFACE, name)
 
     def test_default_process_surface_includes_self_flag(self):
-        assert 'is_scanner_self' in DEFAULT_READ_SURFACE.process
+        assert "is_scanner_self" in DEFAULT_READ_SURFACE.process
 
     def test_parse_drops_unknown_fields(self):
-        cfg = {'process': ['pid', 'cmdline', 'banana_count']}
+        cfg = {"process": ["pid", "cmdline", "banana_count"]}
         surface = parse_read_surface(cfg)
-        assert 'pid' in surface.process
-        assert 'cmdline' in surface.process
-        assert 'banana_count' not in surface.process
+        assert "pid" in surface.process
+        assert "cmdline" in surface.process
+        assert "banana_count" not in surface.process
 
     def test_parse_falls_back_to_default_when_missing(self):
-        cfg = {'process': ['pid']}
+        cfg = {"process": ["pid"]}
         surface = parse_read_surface(cfg)
         # 'process' was overridden; 'network' falls back to default.
-        assert surface.process == frozenset({'pid'})
+        assert surface.process == frozenset({"pid"})
         assert surface.network == DEFAULT_READ_SURFACE.network
 
     def test_load_read_surface_returns_default_when_no_yaml(self, tmp_path):
         # Path that doesn't exist → default
-        result = load_read_surface(tmp_path / 'missing.yaml')
+        result = load_read_surface(tmp_path / "missing.yaml")
         assert result == DEFAULT_READ_SURFACE
 
     def test_load_read_surface_parses_yaml(self, tmp_path):
         import yaml
 
-        yaml_path = tmp_path / 'project.yaml'
-        yaml_path.write_text(yaml.safe_dump({
-            'cockpit': {
-                'scanner': {
-                    'read_surface': {
-                        'process': ['pid', 'cmdline'],
-                        'network': ['pid', 'peer_host'],
-                    },
-                    'relevant_globs_for_coverage': {
-                        'code': ['empirica/**/*.py'],
-                    },
+        yaml_path = tmp_path / "project.yaml"
+        yaml_path.write_text(
+            yaml.safe_dump(
+                {
+                    "cockpit": {
+                        "scanner": {
+                            "read_surface": {
+                                "process": ["pid", "cmdline"],
+                                "network": ["pid", "peer_host"],
+                            },
+                            "relevant_globs_for_coverage": {
+                                "code": ["empirica/**/*.py"],
+                            },
+                        }
+                    }
                 }
-            }
-        }))
+            )
+        )
 
         surface = load_read_surface(yaml_path)
-        assert surface.process == frozenset({'pid', 'cmdline'})
-        assert surface.network == frozenset({'pid', 'peer_host'})
-        assert surface.relevant_globs_for_coverage == {'code': ['empirica/**/*.py']}
+        assert surface.process == frozenset({"pid", "cmdline"})
+        assert surface.network == frozenset({"pid", "peer_host"})
+        assert surface.relevant_globs_for_coverage == {"code": ["empirica/**/*.py"]}
 
     def test_filter_dict_drops_disallowed_keys(self):
         surface = ReadSurface(
-            process=frozenset({'pid', 'cmdline'}),
+            process=frozenset({"pid", "cmdline"}),
             network=frozenset(),
             filesystem=frozenset(),
             process_env=frozenset(),
             scheduled=frozenset(),
             mcp=frozenset(),
         )
-        row = {'pid': 1, 'cmdline': 'init', 'memory_mb': 99, 'username': 'root'}
-        filtered = surface.filter_dict('process', row)
-        assert filtered == {'pid': 1, 'cmdline': 'init'}
+        row = {"pid": 1, "cmdline": "init", "memory_mb": 99, "username": "root"}
+        filtered = surface.filter_dict("process", row)
+        assert filtered == {"pid": 1, "cmdline": "init"}
 
 
 # ── Process collector + self-detection ────────────────────────────────────
@@ -101,7 +104,7 @@ class TestReadSurface:
 class TestProcessCollector:
     def test_emits_only_surface_fields(self):
         surface = ReadSurface(
-            process=frozenset({'pid', 'cmdline', 'is_scanner_self'}),
+            process=frozenset({"pid", "cmdline", "is_scanner_self"}),
             network=frozenset(),
             filesystem=frozenset(),
             process_env=frozenset(),
@@ -119,23 +122,22 @@ class TestProcessCollector:
         if not rows:
             # psutil unavailable in this env — degrade gracefully
             return
-        self_rows = [r for r in rows if r.get('is_scanner_self')]
+        self_rows = [r for r in rows if r.get("is_scanner_self")]
         assert len(self_rows) == 1
-        assert self_rows[0]['pid'] == os.getpid()
+        assert self_rows[0]["pid"] == os.getpid()
 
     def test_coverage_meta_shape(self):
         rows, coverage = collect_processes(DEFAULT_READ_SURFACE)
         # When psutil is present, attempted should be > 0 and ratio should be set
         if rows:
-            assert coverage['attempted'] > 0
-            assert 'succeeded' in coverage
-            assert 'ratio' in coverage
-            assert 0.0 <= coverage['ratio'] <= 1.0
+            assert coverage["attempted"] > 0
+            assert "succeeded" in coverage
+            assert "ratio" in coverage
+            assert 0.0 <= coverage["ratio"] <= 1.0
 
     def test_universe_includes_documented_fields(self):
         # The universe should permit every field the proposal lists
-        for required in ('pid', 'cmdline', 'parent_pid', 'age_seconds',
-                         'working_dir', 'is_scanner_self'):
+        for required in ("pid", "cmdline", "parent_pid", "age_seconds", "working_dir", "is_scanner_self"):
             assert required in PROCESS_FIELDS
 
 
@@ -145,23 +147,23 @@ class TestProcessCollector:
 class TestEnvNameCollector:
     def test_only_returns_names(self):
         fake_env = {
-            'OPENAI_API_KEY': 'sk-this-must-never-be-emitted',
-            'PATH': '/usr/bin',
-            'ANTHROPIC_API_KEY': 'sk-ant-secret',
-            'HOME': '/home/test',
+            "OPENAI_API_KEY": "sk-this-must-never-be-emitted",
+            "PATH": "/usr/bin",
+            "ANTHROPIC_API_KEY": "sk-ant-secret",
+            "HOME": "/home/test",
         }
         payload, coverage = collect_env_var_names(DEFAULT_READ_SURFACE, env=fake_env)
-        names = payload['var_names_only']
-        assert 'OPENAI_API_KEY' in names
-        assert 'ANTHROPIC_API_KEY' in names
-        assert 'PATH' not in names  # not interesting
+        names = payload["var_names_only"]
+        assert "OPENAI_API_KEY" in names
+        assert "ANTHROPIC_API_KEY" in names
+        assert "PATH" not in names  # not interesting
         # The value must never appear anywhere in the result
         joined = repr((payload, coverage))
-        assert 'sk-this-must-never-be-emitted' not in joined
-        assert 'sk-ant-secret' not in joined
+        assert "sk-this-must-never-be-emitted" not in joined
+        assert "sk-ant-secret" not in joined
         # Coverage shape
-        assert coverage['total_env_vars'] == 4
-        assert coverage['interesting_matches'] == 2
+        assert coverage["total_env_vars"] == 4
+        assert coverage["interesting_matches"] == 2
 
     def test_empty_when_surface_disallows(self):
         surface = ReadSurface(
@@ -172,8 +174,8 @@ class TestEnvNameCollector:
             scheduled=frozenset(),
             mcp=frozenset(),
         )
-        payload, _coverage = collect_env_var_names(surface, env={'OPENAI_API_KEY': 'x'})
-        assert payload == {'var_names_only': []}
+        payload, _coverage = collect_env_var_names(surface, env={"OPENAI_API_KEY": "x"})
+        assert payload == {"var_names_only": []}
 
 
 # ── Snapshot orchestrator ─────────────────────────────────────────────────
@@ -191,11 +193,12 @@ class TestSnapshotOrchestrator:
     def test_snapshot_serializes_to_json(self):
         snap = collect_snapshot(DEFAULT_READ_SURFACE)
         text = snap.to_json()
-        assert text.startswith('{')
+        assert text.startswith("{")
         # round-trip
         import json as _json
+
         data = _json.loads(text)
-        assert data['scan_id'] == snap.scan_id
+        assert data["scan_id"] == snap.scan_id
 
     def test_collector_errors_are_captured_not_raised(self, monkeypatch):
         # Force one collector to raise; the snapshot should still complete
@@ -204,25 +207,24 @@ class TestSnapshotOrchestrator:
         def boom(_surface):
             raise RuntimeError("synthetic")
 
-        monkeypatch.setattr(snapshot_module, 'collect_processes', boom)
+        monkeypatch.setattr(snapshot_module, "collect_processes", boom)
         snap = collect_snapshot(DEFAULT_READ_SURFACE)
-        assert any('processes' in err for err in snap.errors)
-        assert snap.snapshot['processes'] == []
+        assert any("processes" in err for err in snap.errors)
+        assert snap.snapshot["processes"] == []
 
     def test_snapshot_has_coverage_block(self):
         snap = collect_snapshot(DEFAULT_READ_SURFACE)
-        cov = snap.snapshot.get('coverage')
+        cov = snap.snapshot.get("coverage")
         assert isinstance(cov, dict)
-        for key in ('processes', 'network', 'scheduled', 'process_env',
-                    'filesystem', 'relevant_globs'):
+        for key in ("processes", "network", "scheduled", "process_env", "filesystem", "relevant_globs"):
             assert key in cov
 
     def test_relevant_globs_coverage_counts_matches(self, tmp_path):
         # Plant a known set of files
-        (tmp_path / 'a.py').write_text('# a')
-        (tmp_path / 'b.py').write_text('# b')
-        (tmp_path / 'docs').mkdir()
-        (tmp_path / 'docs' / 'one.md').write_text('# one')
+        (tmp_path / "a.py").write_text("# a")
+        (tmp_path / "b.py").write_text("# b")
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "one.md").write_text("# one")
 
         surface = ReadSurface(
             process=frozenset(),
@@ -232,14 +234,14 @@ class TestSnapshotOrchestrator:
             scheduled=frozenset(),
             mcp=frozenset(),
             relevant_globs_for_coverage={
-                'code': ['*.py'],
-                'docs': ['docs/*.md'],
+                "code": ["*.py"],
+                "docs": ["docs/*.md"],
             },
         )
         snap = collect_snapshot(surface, project_root=tmp_path)
-        globs_cov = snap.snapshot['coverage']['relevant_globs']
-        assert globs_cov['code']['total_matches'] == 2
-        assert globs_cov['docs']['total_matches'] == 1
+        globs_cov = snap.snapshot["coverage"]["relevant_globs"]
+        assert globs_cov["code"]["total_matches"] == 2
+        assert globs_cov["docs"]["total_matches"] == 1
 
 
 # ── Markdown report renderer ─────────────────────────────────────────────
@@ -252,9 +254,9 @@ class TestMarkdownReport:
         snap = collect_snapshot(DEFAULT_READ_SURFACE)
         md = render_markdown(snap)
         # Coverage must appear before any per-collector section
-        assert '## Coverage' in md
-        cov_idx = md.index('## Coverage')
-        for section in ('## Processes', '## Network', '## Scheduled tasks'):
+        assert "## Coverage" in md
+        cov_idx = md.index("## Coverage")
+        for section in ("## Processes", "## Network", "## Scheduled tasks"):
             if section in md:
                 assert md.index(section) > cov_idx
 
@@ -266,14 +268,14 @@ class TestMarkdownReport:
         if not snap.processes:
             return  # psutil missing
         # The 🔍 marker for self-row must appear in the table
-        assert '🔍' in md or 'is_scanner_self' in md
+        assert "🔍" in md or "is_scanner_self" in md
 
     def test_phase1_footer(self):
         from empirica.core.scanner.report import render_markdown
 
         snap = collect_snapshot(DEFAULT_READ_SURFACE)
         md = render_markdown(snap)
-        assert 'Phase 1 deterministic snapshot' in md
+        assert "Phase 1 deterministic snapshot" in md
 
 
 # ── CLI handler end-to-end ───────────────────────────────────────────────
@@ -284,7 +286,7 @@ class TestScanCli:
         from empirica.cli.command_handlers.scan_commands import handle_scan_command
 
         class _Args:
-            output = 'json'
+            output = "json"
             save = False
             project_id = None
 
@@ -293,26 +295,27 @@ class TestScanCli:
 
         captured = capsys.readouterr()
         import json as _json
+
         envelope = _json.loads(captured.out)
-        assert envelope['ok'] is True
-        snap = envelope['snapshot']
-        assert snap['scan_id']
+        assert envelope["ok"] is True
+        snap = envelope["snapshot"]
+        assert snap["scan_id"]
         # Coverage block lives inside snapshot.snapshot.coverage
-        assert 'coverage' in snap['snapshot']
+        assert "coverage" in snap["snapshot"]
 
     def test_handler_emits_markdown(self, capsys):
         from empirica.cli.command_handlers.scan_commands import handle_scan_command
 
         class _Args:
-            output = 'markdown'
+            output = "markdown"
             save = False
             project_id = None
 
         rc = handle_scan_command(_Args())
         captured = capsys.readouterr()
         assert rc == 0
-        assert captured.out.startswith('# empirica scan')
-        assert '## Coverage' in captured.out
+        assert captured.out.startswith("# empirica scan")
+        assert "## Coverage" in captured.out
 
     def test_save_writes_json_files(self, capsys, tmp_path, monkeypatch):
         from empirica.cli.command_handlers import scan_commands
@@ -320,26 +323,27 @@ class TestScanCli:
         # Redirect ~/.empirica to tmp_path
         monkeypatch.setattr(
             scan_commands,
-            '_empirica_home',
+            "_empirica_home",
             lambda: tmp_path,
         )
 
         class _Args:
-            output = 'json'
+            output = "json"
             save = True
             explain = False
-            project_id = 'test-project'
+            project_id = "test-project"
 
         rc = scan_commands.handle_scan_command(_Args())
         assert rc == 0
 
         captured = capsys.readouterr()
         import json as _json
+
         envelope = _json.loads(captured.out)
-        scan_path = envelope['saved']['scan_path']
+        scan_path = envelope["saved"]["scan_path"]
         assert scan_path.startswith(str(tmp_path))
-        assert (tmp_path / 'last_scan_test-project.json').exists()
-        assert (tmp_path / 'scan_history_test-project.jsonl').exists()
+        assert (tmp_path / "last_scan_test-project.json").exists()
+        assert (tmp_path / "scan_history_test-project.jsonl").exists()
 
 
 class TestScanExplain:
@@ -348,62 +352,63 @@ class TestScanExplain:
     def test_explain_markdown_emits_handoff(self, capsys, tmp_path, monkeypatch):
         from empirica.cli.command_handlers import scan_commands
 
-        monkeypatch.setattr(scan_commands, '_empirica_home', lambda: tmp_path)
+        monkeypatch.setattr(scan_commands, "_empirica_home", lambda: tmp_path)
 
         class _Args:
-            output = 'markdown'
-            save = False           # --explain implies --save internally
+            output = "markdown"
+            save = False  # --explain implies --save internally
             explain = True
-            project_id = 'test-project'
+            project_id = "test-project"
 
         rc = scan_commands.handle_scan_command(_Args())
         captured = capsys.readouterr()
         assert rc == 0
         # Hand-off references the auditor skill explicitly
-        assert 'services-auditor' in captured.out
-        assert 'snapshot ready' in captured.out.lower()
+        assert "services-auditor" in captured.out
+        assert "snapshot ready" in captured.out.lower()
         # Snapshot was force-saved
-        assert (tmp_path / 'last_scan_test-project.json').exists()
+        assert (tmp_path / "last_scan_test-project.json").exists()
 
     def test_explain_json_envelope(self, capsys, tmp_path, monkeypatch):
         from empirica.cli.command_handlers import scan_commands
 
-        monkeypatch.setattr(scan_commands, '_empirica_home', lambda: tmp_path)
+        monkeypatch.setattr(scan_commands, "_empirica_home", lambda: tmp_path)
 
         class _Args:
-            output = 'json'
+            output = "json"
             save = False
             explain = True
-            project_id = 'test-project'
+            project_id = "test-project"
 
         rc = scan_commands.handle_scan_command(_Args())
         captured = capsys.readouterr()
         assert rc == 0
 
         import json as _json
+
         env = _json.loads(captured.out)
-        assert env['ok'] is True
-        assert env['mode'] == 'explain'
-        assert env['next_step']['skill'] == 'services-auditor'
-        assert env['next_step']['snapshot_path']
+        assert env["ok"] is True
+        assert env["mode"] == "explain"
+        assert env["next_step"]["skill"] == "services-auditor"
+        assert env["next_step"]["snapshot_path"]
         # The full snapshot is on disk, not in the envelope (kept lean)
-        assert 'snapshot' not in env  # only summary keys
+        assert "snapshot" not in env  # only summary keys
 
     def test_explain_implies_save(self, capsys, tmp_path, monkeypatch):
         """--explain auto-forces --save so the auditor has a file to read."""
         from empirica.cli.command_handlers import scan_commands
 
-        monkeypatch.setattr(scan_commands, '_empirica_home', lambda: tmp_path)
+        monkeypatch.setattr(scan_commands, "_empirica_home", lambda: tmp_path)
 
         class _Args:
-            output = 'json'
+            output = "json"
             save = False  # caller did not request save
             explain = True
-            project_id = 'test-project'
+            project_id = "test-project"
 
         scan_commands.handle_scan_command(_Args())
         # Scan was persisted regardless
-        assert (tmp_path / 'last_scan_test-project.json').exists()
+        assert (tmp_path / "last_scan_test-project.json").exists()
 
 
 class TestServicesAuditorSkill:
@@ -412,13 +417,12 @@ class TestServicesAuditorSkill:
     def test_skill_file_exists_with_frontmatter(self):
         from pathlib import Path
 
-        skill = Path('empirica/plugins/claude-code-integration/skills'
-                     '/services-auditor/SKILL.md')
+        skill = Path("empirica/plugins/claude-code-integration/skills/services-auditor/SKILL.md")
         assert skill.exists(), f"missing: {skill}"
-        text = skill.read_text(encoding='utf-8')
+        text = skill.read_text(encoding="utf-8")
         # YAML frontmatter contract
-        assert text.startswith('---\n')
-        assert 'name: services-auditor' in text
+        assert text.startswith("---\n")
+        assert "name: services-auditor" in text
         # The two load-bearing things every reader must see in the skill
-        assert 'two-tier' in text.lower() or 'tier 1' in text.lower()
-        assert 'citation' in text.lower()
+        assert "two-tier" in text.lower() or "tier 1" in text.lower()
+        assert "citation" in text.lower()

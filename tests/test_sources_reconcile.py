@@ -89,16 +89,33 @@ def db(tmp_path):
     fake.close()
 
 
-def _insert_source(db, source_id, title="src", content_hash=None,
-                   canonical_path=None, source_url=None, archived=0,
-                   archive_target_id=None, metadata=None):
+def _insert_source(
+    db,
+    source_id,
+    title="src",
+    content_hash=None,
+    canonical_path=None,
+    source_url=None,
+    archived=0,
+    archive_target_id=None,
+    metadata=None,
+):
     db.conn.execute(
         "INSERT INTO epistemic_sources (id, project_id, source_type, title, "
         "source_url, content_hash, canonical_path, archived, "
         "archive_target_id, source_metadata) VALUES (?,?,?,?,?,?,?,?,?,?)",
-        (source_id, PROJECT, "document", title, source_url, content_hash,
-         canonical_path, archived, archive_target_id,
-         json.dumps(metadata or {})),
+        (
+            source_id,
+            PROJECT,
+            "document",
+            title,
+            source_url,
+            content_hash,
+            canonical_path,
+            archived,
+            archive_target_id,
+            json.dumps(metadata or {}),
+        ),
     )
     db.conn.commit()
 
@@ -112,16 +129,22 @@ def test_backfill_computes_identity_for_file_backed_row(db, tmp_path):
     sid = str(uuid.uuid4())
     _insert_source(db, sid, source_url=str(f))
 
-    rows = [{"id": sid, "title": "src", "source_url": str(f),
-             "content_hash": None, "size_bytes": None,
-             "canonical_path": None, "mime_type": None,
-             "source_metadata": "{}"}]
+    rows = [
+        {
+            "id": sid,
+            "title": "src",
+            "source_url": str(f),
+            "content_hash": None,
+            "size_bytes": None,
+            "canonical_path": None,
+            "mime_type": None,
+            "source_metadata": "{}",
+        }
+    ]
     n = _backfill_identity(db, rows)
     assert n == 1
     assert rows[0]["content_hash"].startswith("sha256:")
-    cur = db.conn.execute(
-        "SELECT content_hash, size_bytes FROM epistemic_sources WHERE id=?",
-        (sid,))
+    cur = db.conn.execute("SELECT content_hash, size_bytes FROM epistemic_sources WHERE id=?", (sid,))
     row = cur.fetchone()
     assert row[0].startswith("sha256:")
     assert row[1] == len(b"backfill me")
@@ -129,12 +152,26 @@ def test_backfill_computes_identity_for_file_backed_row(db, tmp_path):
 
 def test_backfill_skips_url_and_already_hashed(db):
     rows = [
-        {"id": "a", "title": "url-row", "source_url": "https://x.example/d",
-         "content_hash": None, "size_bytes": None, "canonical_path": None,
-         "mime_type": None, "source_metadata": "{}"},
-        {"id": "b", "title": "hashed", "source_url": None,
-         "content_hash": "sha256:deadbeef", "size_bytes": 4,
-         "canonical_path": "/x", "mime_type": None, "source_metadata": "{}"},
+        {
+            "id": "a",
+            "title": "url-row",
+            "source_url": "https://x.example/d",
+            "content_hash": None,
+            "size_bytes": None,
+            "canonical_path": None,
+            "mime_type": None,
+            "source_metadata": "{}",
+        },
+        {
+            "id": "b",
+            "title": "hashed",
+            "source_url": None,
+            "content_hash": "sha256:deadbeef",
+            "size_bytes": 4,
+            "canonical_path": "/x",
+            "mime_type": None,
+            "source_metadata": "{}",
+        },
     ]
     assert _backfill_identity(db, rows) == 0
 
@@ -173,10 +210,7 @@ def test_discovery_chunks_to_server_cap():
 
     def fake_http(url, key, method="GET", payload=None, timeout=15.0):
         calls.append(len(payload["content_hashes"]))
-        return {"sources": [
-            {"id": f"cat-{h}", "content_hash": h}
-            for h in payload["content_hashes"][:2]
-        ]}
+        return {"sources": [{"id": f"cat-{h}", "content_hash": h} for h in payload["content_hashes"][:2]]}
 
     with patch(
         "empirica.cli.command_handlers.sources_reconcile_commands._http_json",
@@ -192,10 +226,12 @@ def test_discovery_returns_candidates_by_hash():
     rows = [{"content_hash": "sha256:ab"}]
     with patch(
         "empirica.cli.command_handlers.sources_reconcile_commands._http_json",
-        return_value={"sources": [
-            {"id": "cat-1", "content_hash": "sha256:ab"},
-            {"id": "cat-2", "content_hash": None},
-        ]},
+        return_value={
+            "sources": [
+                {"id": "cat-1", "content_hash": "sha256:ab"},
+                {"id": "cat-2", "content_hash": None},
+            ]
+        },
     ):
         candidates, status = _discover_candidates("https://c.test", "k", rows)
     assert status == "ok"
@@ -241,8 +277,7 @@ def _seed_swap_graph(db, local_id):
         (local_id, "some-goal", "attached_to"),
     )
     old = str(uuid.uuid4())
-    _insert_source(db, old, title="superseded", archived=1,
-                   archive_target_id=local_id)
+    _insert_source(db, old, title="superseded", archived=1, archive_target_id=local_id)
     db.conn.commit()
     return finding_id, old
 
@@ -253,8 +288,7 @@ def test_swap_cascades_all_local_references(db):
     finding_id, superseded_id = _seed_swap_graph(db, local_id)
 
     with patch(
-        "empirica.cli.command_handlers.sources_reconcile_commands."
-        "_swap_workspace_entity_links",
+        "empirica.cli.command_handlers.sources_reconcile_commands._swap_workspace_entity_links",
         return_value="updated_0",
     ):
         result = _swap_source_id(db, PROJECT, local_id, cortex_id)
@@ -264,18 +298,13 @@ def test_swap_cascades_all_local_references(db):
     assert result["archive_targets"] == 1
     assert result["finding_refs"] == 1
 
-    cur = db.conn.execute(
-        "SELECT id FROM epistemic_sources WHERE id = ?", (cortex_id,))
+    cur = db.conn.execute("SELECT id FROM epistemic_sources WHERE id = ?", (cortex_id,))
     assert cur.fetchone() is not None
-    cur = db.conn.execute(
-        "SELECT to_id FROM artifact_edges WHERE from_id = ?", (finding_id,))
+    cur = db.conn.execute("SELECT to_id FROM artifact_edges WHERE from_id = ?", (finding_id,))
     assert cur.fetchone()[0] == cortex_id
-    cur = db.conn.execute(
-        "SELECT archive_target_id FROM epistemic_sources WHERE id = ?",
-        (superseded_id,))
+    cur = db.conn.execute("SELECT archive_target_id FROM epistemic_sources WHERE id = ?", (superseded_id,))
     assert cur.fetchone()[0] == cortex_id
-    cur = db.conn.execute(
-        "SELECT source_refs FROM project_findings WHERE id = ?", (finding_id,))
+    cur = db.conn.execute("SELECT source_refs FROM project_findings WHERE id = ?", (finding_id,))
     refs = json.loads(cur.fetchone()[0])
     assert cortex_id in refs and local_id not in refs and "other-src" in refs
 
@@ -291,25 +320,31 @@ def test_swap_missing_row_reports_error_without_partial_writes(db):
 
 def _make_args(**overrides):
     defaults = {
-        "apply": False, "project_id": PROJECT,
-        "cortex_url": "https://c.test", "api_key": "k",
-        "output": "json", "verbose": False,
+        "apply": False,
+        "project_id": PROJECT,
+        "cortex_url": "https://c.test",
+        "api_key": "k",
+        "output": "json",
+        "verbose": False,
     }
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
 
 
 def _run(db_fixture, args, capsys, catalogue, confirm):
-    with patch(
-        "empirica.data.session_database.SessionDatabase",
-        lambda *a, **kw: db_fixture,
-    ), patch(
-        "empirica.cli.command_handlers.sources_reconcile_commands._http_json",
-        side_effect=[catalogue, confirm],
-    ), patch(
-        "empirica.cli.command_handlers.sources_reconcile_commands."
-        "_swap_workspace_entity_links",
-        return_value="updated_0",
+    with (
+        patch(
+            "empirica.data.session_database.SessionDatabase",
+            lambda *a, **kw: db_fixture,
+        ),
+        patch(
+            "empirica.cli.command_handlers.sources_reconcile_commands._http_json",
+            side_effect=[catalogue, confirm],
+        ),
+        patch(
+            "empirica.cli.command_handlers.sources_reconcile_commands._swap_workspace_entity_links",
+            return_value="updated_0",
+        ),
     ):
         rc = handle_sources_reconcile_command(args)
     assert rc == 0
@@ -323,16 +358,16 @@ def test_dry_run_confirms_but_never_swaps(db, capsys):
     db.close = lambda: None  # handler closes; fixture needs it after
 
     out = _run(
-        db, _make_args(apply=False), capsys,
+        db,
+        _make_args(apply=False),
+        capsys,
         catalogue={"sources": [{"id": cortex_id, "content_hash": "sha256:aa"}]},
-        confirm={"confirmed": [
-            {"local_uuid": local_id, "cortex_uuid": cortex_id}], "rejected": []},
+        confirm={"confirmed": [{"local_uuid": local_id, "cortex_uuid": cortex_id}], "rejected": []},
     )
     assert out["dry_run"] is True
     assert len(out["confirmed"]) == 1
     assert out["swapped"] == []
-    cur = db.conn.execute(
-        "SELECT id FROM epistemic_sources WHERE id = ?", (local_id,))
+    cur = db.conn.execute("SELECT id FROM epistemic_sources WHERE id = ?", (local_id,))
     assert cur.fetchone() is not None  # untouched
 
 
@@ -344,21 +379,23 @@ def test_apply_swaps_confirmed_and_passes_rejected_through(db, capsys):
     db.close = lambda: None
 
     out = _run(
-        db, _make_args(apply=True), capsys,
-        catalogue={"sources": [
-            {"id": c1, "content_hash": "sha256:aa"},
-            {"id": c2, "content_hash": "sha256:bb"},
-        ]},
+        db,
+        _make_args(apply=True),
+        capsys,
+        catalogue={
+            "sources": [
+                {"id": c1, "content_hash": "sha256:aa"},
+                {"id": c2, "content_hash": "sha256:bb"},
+            ]
+        },
         confirm={
             "confirmed": [{"local_uuid": l1, "cortex_uuid": c1}],
-            "rejected": [{"local_uuid": l2, "cortex_uuid": c2,
-                          "reason": "hash_mismatch"}],
+            "rejected": [{"local_uuid": l2, "cortex_uuid": c2, "reason": "hash_mismatch"}],
         },
     )
     assert out["dry_run"] is False
     assert out["swapped"][0]["swapped"] is True
     assert out["rejected"][0]["reason"] == "hash_mismatch"
-    cur = db.conn.execute(
-        "SELECT id FROM epistemic_sources WHERE id IN (?,?)", (c1, l2))
+    cur = db.conn.execute("SELECT id FROM epistemic_sources WHERE id IN (?,?)", (c1, l2))
     ids = {r[0] for r in cur.fetchall()}
     assert ids == {c1, l2}  # l1 swapped to c1; rejected l2 untouched

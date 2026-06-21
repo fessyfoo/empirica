@@ -67,7 +67,7 @@ class CompletionTracker:
                     blocked_subtasks=[],
                     estimated_remaining_tokens=0,
                     actual_tokens_used=0,
-                    completion_evidence={}
+                    completion_evidence={},
                 )
 
             # Categorize subtasks by status
@@ -115,7 +115,7 @@ class CompletionTracker:
                 blocked_subtasks=blocked,
                 estimated_remaining_tokens=remaining_tokens,
                 actual_tokens_used=total_actual_tokens,
-                completion_evidence=completion_evidence
+                completion_evidence=completion_evidence,
             )
 
             # Update goal completion status if 100%
@@ -123,8 +123,7 @@ class CompletionTracker:
                 self.goal_repo.update_goal_completion(goal_id, True)
 
             logger.info(
-                f"Goal {goal_id} progress: {completion_percentage:.1%} "
-                f"({len(completed)}/{len(subtasks)} tasks)"
+                f"Goal {goal_id} progress: {completion_percentage:.1%} ({len(completed)}/{len(subtasks)} tasks)"
             )
 
             return record
@@ -149,11 +148,7 @@ class CompletionTracker:
         # Future: Parse git log, map commits to subtasks, update evidence
         return self.track_progress(goal_id)
 
-    def record_subtask_completion(
-        self,
-        subtask_id: str,
-        evidence: str | None = None
-    ) -> bool:
+    def record_subtask_completion(self, subtask_id: str, evidence: str | None = None) -> bool:
         """
         Mark subtask as complete with optional evidence
 
@@ -167,11 +162,7 @@ class CompletionTracker:
             True if successful
         """
         try:
-            success = self.task_repo.update_subtask_status(
-                subtask_id,
-                TaskStatus.COMPLETED,
-                evidence
-            )
+            success = self.task_repo.update_subtask_status(subtask_id, TaskStatus.COMPLETED, evidence)
 
             if success:
                 logger.info(f"Marked subtask {subtask_id} as completed")
@@ -180,8 +171,8 @@ class CompletionTracker:
                 if self.git_available:
                     # Extract commit hash from evidence if present
                     commit_hash = None
-                    if evidence and evidence.startswith('commit:'):
-                        commit_hash = evidence.split(':', 1)[1]
+                    if evidence and evidence.startswith("commit:"):
+                        commit_hash = evidence.split(":", 1)[1]
 
                     self._add_task_note(subtask_id, commit_hash)
 
@@ -212,7 +203,7 @@ class CompletionTracker:
                     goals_blocked=0,
                     total_tokens_used=0,
                     average_completion_rate=0.0,
-                    efficiency_score=0.0
+                    efficiency_score=0.0,
                 )
 
             # Calculate metrics
@@ -251,18 +242,14 @@ class CompletionTracker:
                 goals_blocked=blocked_count,
                 total_tokens_used=total_tokens,
                 average_completion_rate=avg_completion,
-                efficiency_score=efficiency
+                efficiency_score=efficiency,
             )
 
         except Exception as e:
             logger.error(f"Error calculating session metrics: {e}")
             raise
 
-    def auto_update_from_recent_commits(
-        self,
-        goal_id: str,
-        since: str = "1 hour ago"
-    ) -> int:
+    def auto_update_from_recent_commits(self, goal_id: str, since: str = "1 hour ago") -> int:
         """
         Scan recent git commits and auto-mark subtasks complete
 
@@ -281,15 +268,14 @@ class CompletionTracker:
         try:
             # Get recent commits
             result = subprocess.run(
-                ['git', 'log', f'--since={since}', '--format=%H'],
-                capture_output=True, text=True, check=True, cwd='.'
+                ["git", "log", f"--since={since}", "--format=%H"], capture_output=True, text=True, check=True, cwd="."
             )
 
             if not result.stdout.strip():
                 logger.debug("No recent commits found")
                 return 0
 
-            commit_hashes = result.stdout.strip().split('\n')
+            commit_hashes = result.stdout.strip().split("\n")
             auto_completed = 0
 
             for commit_hash in commit_hashes:
@@ -298,15 +284,18 @@ class CompletionTracker:
 
                 # Get commit message
                 msg_result = subprocess.run(
-                    ['git', 'log', '-1', '--format=%B', commit_hash],
-                    capture_output=True, text=True, check=True, cwd='.'
+                    ["git", "log", "-1", "--format=%B", commit_hash],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                    cwd=".",
                 )
 
                 # Look for task completion markers
                 patterns = [
-                    r'✅\s*\[TASK:([a-f0-9-]+)\]',
-                    r'\[COMPLETE:([a-f0-9-]+)\]',
-                    r'Addresses subtask ([a-f0-9-]+)',
+                    r"✅\s*\[TASK:([a-f0-9-]+)\]",
+                    r"\[COMPLETE:([a-f0-9-]+)\]",
+                    r"Addresses subtask ([a-f0-9-]+)",
                 ]
 
                 for pattern in patterns:
@@ -320,14 +309,10 @@ class CompletionTracker:
                             # Check if already completed
                             if subtask.status != TaskStatus.COMPLETED:
                                 # Auto-mark complete
-                                if self.record_subtask_completion(
-                                    subtask_id,
-                                    evidence=f"commit:{commit_hash[:7]}"
-                                ):
+                                if self.record_subtask_completion(subtask_id, evidence=f"commit:{commit_hash[:7]}"):
                                     auto_completed += 1
                                     logger.info(
-                                        f"Auto-completed subtask {subtask_id[:8]} "
-                                        f"from commit {commit_hash[:7]}"
+                                        f"Auto-completed subtask {subtask_id[:8]} from commit {commit_hash[:7]}"
                                     )
 
             return auto_completed
@@ -350,21 +335,12 @@ class CompletionTracker:
             return False
 
         try:
-            result = subprocess.run(
-                ['git', 'rev-parse', '--git-dir'],
-                capture_output=True,
-                timeout=2,
-                cwd='.'
-            )
+            result = subprocess.run(["git", "rev-parse", "--git-dir"], capture_output=True, timeout=2, cwd=".")
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
             return False
 
-    def _add_task_note(
-        self,
-        subtask_id: str,
-        commit_hash: str | None = None
-    ) -> str | None:
+    def _add_task_note(self, subtask_id: str, commit_hash: str | None = None) -> str | None:
         """
         Add task completion note to git
 
@@ -390,14 +366,14 @@ class CompletionTracker:
 
             # Build note data
             note_data = {
-                'subtask_id': subtask.id,
-                'goal_id': subtask.goal_id,
-                'description': subtask.description,
-                'epistemic_importance': subtask.epistemic_importance.value,
-                'completed_timestamp': subtask.completed_timestamp or time.time(),
-                'completion_evidence': subtask.completion_evidence,
-                'actual_tokens': subtask.actual_tokens,
-                'estimated_tokens': subtask.estimated_tokens
+                "subtask_id": subtask.id,
+                "goal_id": subtask.goal_id,
+                "description": subtask.description,
+                "epistemic_importance": subtask.epistemic_importance.value,
+                "completed_timestamp": subtask.completed_timestamp or time.time(),
+                "completion_evidence": subtask.completion_evidence,
+                "actual_tokens": subtask.actual_tokens,
+                "estimated_tokens": subtask.estimated_tokens,
             }
 
             # Serialize to JSON
@@ -411,33 +387,24 @@ class CompletionTracker:
 
             # Add note to git
             result = subprocess.run(
-                ['git', 'notes', '--ref', note_ref, 'add', '-f', '-m', note_json, target],
+                ["git", "notes", "--ref", note_ref, "add", "-f", "-m", note_json, target],
                 capture_output=True,
                 timeout=5,
-                cwd='.',
-                text=True
+                cwd=".",
+                text=True,
             )
 
             if result.returncode != 0:
-                logger.warning(
-                    f"Failed to add task git note (ref={note_ref}): {result.stderr}"
-                )
+                logger.warning(f"Failed to add task git note (ref={note_ref}): {result.stderr}")
                 return None
 
             # Get note SHA
             result = subprocess.run(
-                ['git', 'notes', '--ref', note_ref, 'list', target],
-                capture_output=True,
-                timeout=2,
-                cwd='.',
-                text=True
+                ["git", "notes", "--ref", note_ref, "list", target], capture_output=True, timeout=2, cwd=".", text=True
             )
 
             note_sha = result.stdout.strip().split()[0] if result.stdout else None
-            logger.info(
-                f"Task git note added: {note_sha} (task={subtask_id[:8]}, "
-                f"goal={subtask.goal_id[:8]})"
-            )
+            logger.info(f"Task git note added: {note_sha} (task={subtask_id[:8]}, goal={subtask.goal_id[:8]})")
 
             return note_sha
 

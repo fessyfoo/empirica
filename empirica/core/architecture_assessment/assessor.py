@@ -82,9 +82,7 @@ class ComponentAssessor:
         risk_level = self._calculate_risk(vectors, coupling_metrics, stability_metrics)
 
         # Generate recommendations
-        recommendations = self._generate_recommendations(
-            vectors, coupling_metrics, stability_metrics
-        )
+        recommendations = self._generate_recommendations(vectors, coupling_metrics, stability_metrics)
 
         # Prioritize improvements
         priority = self._prioritize_improvements(vectors)
@@ -112,14 +110,14 @@ class ComponentAssessor:
         vectors = ArchitectureVectors()
 
         # From coupling analyzer
-        vectors.clarity = coupling.get('clarity', 0.5)
-        vectors.context = coupling.get('context', 0.5)
-        vectors.impact = coupling.get('impact', 0.5)
+        vectors.clarity = coupling.get("clarity", 0.5)
+        vectors.context = coupling.get("context", 0.5)
+        vectors.impact = coupling.get("impact", 0.5)
 
         # From stability estimator
-        vectors.change = stability.get('change', 0.5)
-        vectors.engagement = stability.get('engagement', 0.5)
-        vectors.signal = stability.get('signal', 0.5)
+        vectors.change = stability.get("change", 0.5)
+        vectors.engagement = stability.get("engagement", 0.5)
+        vectors.signal = stability.get("signal", 0.5)
 
         # Derived/estimated vectors (would need additional analyzers)
         # For now, use reasonable defaults based on available data
@@ -161,12 +159,16 @@ class ComponentAssessor:
             try:
                 content = py_file.read_text()
                 # Count function definitions
-                func_count = content.count('def ')
+                func_count = content.count("def ")
                 # Count docstrings (triple quotes after def)
-                doc_count = len([
-                    1 for line in content.split('def ')[1:]
-                    if '"""' in line.split('\n')[1] if len(line.split('\n')) > 1
-                ])
+                doc_count = len(
+                    [
+                        1
+                        for line in content.split("def ")[1:]
+                        if '"""' in line.split("\n")[1]
+                        if len(line.split("\n")) > 1
+                    ]
+                )
                 total_funcs += func_count
                 documented_funcs += min(doc_count, func_count)
             except (OSError, UnicodeDecodeError):
@@ -180,11 +182,7 @@ class ComponentAssessor:
         """Estimate single-responsibility adherence from size."""
         if path.is_dir():
             py_files = list(path.rglob("*.py"))
-            total_lines = sum(
-                len(f.read_text().splitlines())
-                for f in py_files
-                if f.exists()
-            )
+            total_lines = sum(len(f.read_text().splitlines()) for f in py_files if f.exists())
         else:
             try:
                 total_lines = len(path.read_text().splitlines())
@@ -216,10 +214,7 @@ class ComponentAssessor:
                 content = py_file.read_text()
                 lines = content.splitlines()
                 total_lines += len(lines)
-                todo_count += sum(
-                    1 for line in lines
-                    if 'TODO' in line or 'FIXME' in line or 'XXX' in line
-                )
+                todo_count += sum(1 for line in lines if "TODO" in line or "FIXME" in line or "XXX" in line)
             except (OSError, UnicodeDecodeError):
                 pass
 
@@ -264,9 +259,7 @@ class ComponentAssessor:
 
         # API surface issues
         if not coupling.clear_interface:
-            recommendations.append(
-                f"Clean up leaked internals: {coupling.leaked_internals}"
-            )
+            recommendations.append(f"Clean up leaked internals: {coupling.leaked_internals}")
 
         if coupling.api_surface_ratio < 0.3:
             recommendations.append(
@@ -282,8 +275,7 @@ class ComponentAssessor:
 
         if coupling.distance_from_main > 0.5:
             recommendations.append(
-                "Far from ideal balance of abstractness/stability. "
-                "Either add abstractions or reduce dependencies."
+                "Far from ideal balance of abstractness/stability. Either add abstractions or reduce dependencies."
             )
 
         # Stability issues
@@ -295,37 +287,26 @@ class ComponentAssessor:
 
         if stability.hotspot_score > 5.0:
             recommendations.append(
-                "Hotspot detected - frequently changed AND complex. "
-                "Priority candidate for refactoring."
+                "Hotspot detected - frequently changed AND complex. Priority candidate for refactoring."
             )
 
         if stability.unique_authors == 1 and stability.total_commits > 20:
-            recommendations.append(
-                "Single author for substantial code - bus factor risk. "
-                "Consider knowledge sharing."
-            )
+            recommendations.append("Single author for substantial code - bus factor risk. Consider knowledge sharing.")
 
         if stability.days_since_last_change > 365:
             recommendations.append(
-                "Not modified in over a year - may be stable OR abandoned. "
-                "Verify it still works as expected."
+                "Not modified in over a year - may be stable OR abandoned. Verify it still works as expected."
             )
 
         # Vector-based recommendations
         if vectors.know < 0.4:
-            recommendations.append(
-                "Low documentation - add docstrings and comments."
-            )
+            recommendations.append("Low documentation - add docstrings and comments.")
 
         if vectors.completion < 0.5:
-            recommendations.append(
-                "Many TODOs/FIXMEs - address technical debt markers."
-            )
+            recommendations.append("Many TODOs/FIXMEs - address technical debt markers.")
 
         if vectors.coherence < 0.5:
-            recommendations.append(
-                "Large module - consider splitting into focused components."
-            )
+            recommendations.append("Large module - consider splitting into focused components.")
 
         return recommendations
 
@@ -333,14 +314,14 @@ class ComponentAssessor:
         """Prioritize which vectors to improve first."""
         # Calculate which vectors are furthest from ideal
         scores = {
-            'know': vectors.know,
-            'clarity': vectors.clarity,
-            'coherence': vectors.coherence,
-            'completion': vectors.completion,
+            "know": vectors.know,
+            "clarity": vectors.clarity,
+            "coherence": vectors.coherence,
+            "completion": vectors.completion,
             # Inverted (low is good)
-            'uncertainty': 1.0 - vectors.uncertainty,
-            'change': 1.0 - vectors.change,
-            'impact': 1.0 - vectors.impact,
+            "uncertainty": 1.0 - vectors.uncertainty,
+            "change": 1.0 - vectors.change,
+            "impact": 1.0 - vectors.impact,
         }
 
         # Sort by lowest score (most needs improvement)
@@ -366,17 +347,14 @@ class ComponentAssessor:
         vectors_b = assessment_b.vectors.to_dict()
 
         comparison = {
-            'component_a': assessment_a.component_name,
-            'component_b': assessment_b.component_name,
-            'confidence_a': assessment_a.vectors.confidence_score(),
-            'confidence_b': assessment_b.vectors.confidence_score(),
-            'risk_a': assessment_a.risk_level,
-            'risk_b': assessment_b.risk_level,
-            'vector_differences': {
-                k: vectors_a[k] - vectors_b[k]
-                for k in vectors_a
-            },
-            'healthier': (
+            "component_a": assessment_a.component_name,
+            "component_b": assessment_b.component_name,
+            "confidence_a": assessment_a.vectors.confidence_score(),
+            "confidence_b": assessment_b.vectors.confidence_score(),
+            "risk_a": assessment_a.risk_level,
+            "risk_b": assessment_b.risk_level,
+            "vector_differences": {k: vectors_a[k] - vectors_b[k] for k in vectors_a},
+            "healthier": (
                 assessment_a.component_name
                 if assessment_a.vectors.confidence_score() > assessment_b.vectors.confidence_score()
                 else assessment_b.component_name

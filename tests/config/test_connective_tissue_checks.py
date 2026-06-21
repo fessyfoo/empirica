@@ -20,8 +20,12 @@ from empirica.config import service_registry as sr
 from empirica.config.service_registry import ServiceRegistry
 
 _ARTIFACT_TABLES = (
-    "project_findings", "project_unknowns", "project_dead_ends",
-    "mistakes_made", "assumptions", "decisions",
+    "project_findings",
+    "project_unknowns",
+    "project_dead_ends",
+    "mistakes_made",
+    "assumptions",
+    "decisions",
 )
 
 
@@ -37,13 +41,9 @@ def _make_conn() -> sqlite3.Connection:
     conn = sqlite3.connect(":memory:")
     cur = conn.cursor()
     for t in _ARTIFACT_TABLES:
-        cur.execute(
-            f"CREATE TABLE {t} (id TEXT PRIMARY KEY, session_id TEXT, transaction_id TEXT)"
-        )
+        cur.execute(f"CREATE TABLE {t} (id TEXT PRIMARY KEY, session_id TEXT, transaction_id TEXT)")
     cur.execute(
-        "CREATE TABLE artifact_edges ("
-        "from_id TEXT, to_id TEXT, relation TEXT, "
-        "PRIMARY KEY (from_id, to_id, relation))"
+        "CREATE TABLE artifact_edges (from_id TEXT, to_id TEXT, relation TEXT, PRIMARY KEY (from_id, to_id, relation))"
     )
     conn.commit()
     return conn
@@ -175,11 +175,14 @@ def test_dangling_na_when_no_edges(patched):
 
 
 # --- non-blocking contract: no session → skipped, never raises --------------- #
-@pytest.mark.parametrize("runner", [
-    sr._run_edge_density_check,
-    sr._run_orphan_artifacts_check,
-    sr._run_dangling_edges_check,
-])
+@pytest.mark.parametrize(
+    "runner",
+    [
+        sr._run_edge_density_check,
+        sr._run_orphan_artifacts_check,
+        sr._run_dangling_edges_check,
+    ],
+)
 def test_no_session_skips_cleanly(runner):
     r = runner({})
     assert r.passed is True

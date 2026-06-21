@@ -30,7 +30,10 @@ from empirica.core.loop_scheduler import (
 
 def _fake_run(stdout: str = "", returncode: int = 0):
     return subprocess.CompletedProcess(
-        args=[], returncode=returncode, stdout=stdout, stderr="",
+        args=[],
+        returncode=returncode,
+        stdout=stdout,
+        stderr="",
     )
 
 
@@ -96,6 +99,7 @@ def test_list_active_loops_skips_inactive_timers(monkeypatch):
 def _run_hook(monkeypatch, instance_id: str | None, active_loops: list[str]) -> dict:
     """Run the hook script's main() in-process, capturing stdout JSON."""
     import importlib.util as _ilu
+
     hook_path = Path(__file__).resolve().parents[1] / (
         "empirica/plugins/claude-code-integration/hooks/session-monitor-arm.py"
     )
@@ -106,22 +110,26 @@ def _run_hook(monkeypatch, instance_id: str | None, active_loops: list[str]) -> 
     spec.loader.exec_module(mod)
 
     monkeypatch.setattr(
-        mod.InstanceResolver, "instance_id",
+        mod.InstanceResolver,
+        "instance_id",
         classmethod(lambda cls: instance_id),
     )
     # Post-2026-05-16: hook now calls InstanceResolver.ai_id() first and
     # falls back to instance_id. Stub ai_id to return the same value so
     # tests stay deterministic regardless of the runner's project state.
     monkeypatch.setattr(
-        mod.InstanceResolver, "ai_id",
+        mod.InstanceResolver,
+        "ai_id",
         classmethod(lambda cls, *a, **k: instance_id),
     )
     monkeypatch.setattr(
-        mod, "list_active_loops_for_instance",
+        mod,
+        "list_active_loops_for_instance",
         lambda iid: list(active_loops),
     )
 
     from io import StringIO
+
     captured = StringIO()
     monkeypatch.setattr(sys, "stdout", captured)
     rc = mod.main()
@@ -162,10 +170,9 @@ def test_hook_arms_tail_monitor_when_persistent_service_running_no_loops(monkeyp
     """
     # Persistent service IS running for this ai_id (mocked)
     import importlib.util as _ilu
+
     hook_path = (
-        Path(__file__).parent.parent
-        / "empirica/plugins/claude-code-integration/hooks"
-        / "session-monitor-arm.py"
+        Path(__file__).parent.parent / "empirica/plugins/claude-code-integration/hooks" / "session-monitor-arm.py"
     )
     spec = _ilu.spec_from_file_location("session_monitor_arm_hook", hook_path)
     assert spec and spec.loader
@@ -173,34 +180,32 @@ def test_hook_arms_tail_monitor_when_persistent_service_running_no_loops(monkeyp
     sys.modules["session_monitor_arm_hook"] = mod
     spec.loader.exec_module(mod)
 
-    monkeypatch.setattr(mod.InstanceResolver, "instance_id",
-                        classmethod(lambda cls: "empirica"))
-    monkeypatch.setattr(mod.InstanceResolver, "ai_id",
-                        classmethod(lambda cls, *a, **k: "empirica"))
-    monkeypatch.setattr(mod, "list_active_loops_for_instance",
-                        lambda iid: [])  # No canonical loops
-    monkeypatch.setattr(mod, "is_listener_running",
-                        lambda iid: True)  # But persistent service IS up
+    monkeypatch.setattr(mod.InstanceResolver, "instance_id", classmethod(lambda cls: "empirica"))
+    monkeypatch.setattr(mod.InstanceResolver, "ai_id", classmethod(lambda cls, *a, **k: "empirica"))
+    monkeypatch.setattr(mod, "list_active_loops_for_instance", lambda iid: [])  # No canonical loops
+    monkeypatch.setattr(mod, "is_listener_running", lambda iid: True)  # But persistent service IS up
 
     # CLI subprocess returns tail-session payload
-    tail_payload = json.dumps({
-        "ok": True,
-        "status": "persistent_service_tail_session",
-        "next_step": {
-            "tool": "Monitor",
-            "args": {
-                "description": "Cortex orchestration log tail for empirica (persistent-service mode)",
-                "command": "tail -F -n 0 ~/.empirica/loop_fires.log 2>/dev/null | grep --line-buffered '\"instance_id\": \"empirica\"'",
-                "persistent": True,
-                "timeout_ms": 3600000,
+    tail_payload = json.dumps(
+        {
+            "ok": True,
+            "status": "persistent_service_tail_session",
+            "next_step": {
+                "tool": "Monitor",
+                "args": {
+                    "description": "Cortex orchestration log tail for empirica (persistent-service mode)",
+                    "command": 'tail -F -n 0 ~/.empirica/loop_fires.log 2>/dev/null | grep --line-buffered \'"instance_id": "empirica"\'',
+                    "persistent": True,
+                    "timeout_ms": 3600000,
+                },
+                "after_arm": "empirica listener arm <monitor_task_id> --name empirica-inbox",
             },
-            "after_arm": "empirica listener arm <monitor_task_id> --name empirica-inbox",
-        },
-    })
-    monkeypatch.setattr(subprocess, "run",
-        lambda *args, **kw: _fake_run(stdout=tail_payload, returncode=0))
+        }
+    )
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kw: _fake_run(stdout=tail_payload, returncode=0))
 
     from io import StringIO
+
     captured = StringIO()
     monkeypatch.setattr(sys, "stdout", captured)
     rc = mod.main()
@@ -227,7 +232,8 @@ def test_hook_emits_additional_context_with_active_loops(monkeypatch):
     approach. Listener handles per-instance filtering internally via the
     --instance flag."""
     result = _run_hook(
-        monkeypatch, instance_id="cortex",
+        monkeypatch,
+        instance_id="cortex",
         active_loops=["cortex-mailbox-poll"],
     )
     assert result["rc"] == 0
@@ -243,7 +249,8 @@ def test_hook_emits_additional_context_with_active_loops(monkeypatch):
 
 def test_hook_reaction_table_maps_loop_to_body_skill(monkeypatch):
     result = _run_hook(
-        monkeypatch, instance_id="empirica",
+        monkeypatch,
+        instance_id="empirica",
         active_loops=["cortex-mailbox-poll"],
     )
     ctx = result["parsed"]["hookSpecificOutput"]["additionalContext"]
@@ -255,7 +262,8 @@ def test_hook_reaction_table_maps_loop_to_body_skill(monkeypatch):
 def test_hook_handles_unknown_loop_name_gracefully(monkeypatch):
     """Loop not in canonical_loops → body_skill falls back to loop name."""
     result = _run_hook(
-        monkeypatch, instance_id="custom",
+        monkeypatch,
+        instance_id="custom",
         active_loops=["some-project-specific-loop"],
     )
     ctx = result["parsed"]["hookSpecificOutput"]["additionalContext"]
@@ -269,6 +277,7 @@ def test_hook_handles_unknown_loop_name_gracefully(monkeypatch):
 
 def _load_hook_module():
     import importlib.util as _ilu
+
     hook_path = Path(__file__).resolve().parents[1] / (
         "empirica/plugins/claude-code-integration/hooks/session-monitor-arm.py"
     )
@@ -282,38 +291,57 @@ def _load_hook_module():
 
 def test_query_listener_on_returns_parsed_json_on_success():
     mod = _load_hook_module()
-    fake_payload = {"ok": True, "status": "awaiting_arm",
-                    "next_step": {"tool": "Monitor"}}
-    with patch.object(subprocess, "run", return_value=_fake_run(
-        stdout=json.dumps(fake_payload), returncode=0,
-    )):
+    fake_payload = {"ok": True, "status": "awaiting_arm", "next_step": {"tool": "Monitor"}}
+    with patch.object(
+        subprocess,
+        "run",
+        return_value=_fake_run(
+            stdout=json.dumps(fake_payload),
+            returncode=0,
+        ),
+    ):
         result = mod._query_listener_on("cortex")
     assert result == fake_payload
 
 
 def test_query_listener_on_returns_none_on_nonzero_exit():
     mod = _load_hook_module()
-    with patch.object(subprocess, "run", return_value=_fake_run(
-        stdout="", returncode=1,
-    )):
+    with patch.object(
+        subprocess,
+        "run",
+        return_value=_fake_run(
+            stdout="",
+            returncode=1,
+        ),
+    ):
         result = mod._query_listener_on("cortex")
     assert result is None
 
 
 def test_query_listener_on_returns_none_on_empty_stdout():
     mod = _load_hook_module()
-    with patch.object(subprocess, "run", return_value=_fake_run(
-        stdout="", returncode=0,
-    )):
+    with patch.object(
+        subprocess,
+        "run",
+        return_value=_fake_run(
+            stdout="",
+            returncode=0,
+        ),
+    ):
         result = mod._query_listener_on("cortex")
     assert result is None
 
 
 def test_query_listener_on_returns_none_on_malformed_json():
     mod = _load_hook_module()
-    with patch.object(subprocess, "run", return_value=_fake_run(
-        stdout="not json", returncode=0,
-    )):
+    with patch.object(
+        subprocess,
+        "run",
+        return_value=_fake_run(
+            stdout="not json",
+            returncode=0,
+        ),
+    ):
         result = mod._query_listener_on("cortex")
     assert result is None
 
@@ -338,7 +366,7 @@ def test_build_monitor_block_persistent_service_tail_session():
             "tool": "Monitor",
             "args": {
                 "description": "Cortex orchestration log tail for myai (persistent-service mode)",
-                "command": "tail -F -n 0 /home/me/.empirica/loop_fires.log 2>/dev/null | grep --line-buffered '\"instance_id\": \"myai\"'",
+                "command": 'tail -F -n 0 /home/me/.empirica/loop_fires.log 2>/dev/null | grep --line-buffered \'"instance_id": "myai"\'',
                 "persistent": True,
                 "timeout_ms": 3600000,
             },
@@ -359,7 +387,8 @@ def test_build_monitor_block_persistent_service_tail_session():
 def test_build_monitor_block_uses_cli_command_when_awaiting_arm():
     mod = _load_hook_module()
     payload = {
-        "ok": True, "status": "awaiting_arm",
+        "ok": True,
+        "status": "awaiting_arm",
         "next_step": {
             "tool": "Monitor",
             "args": {
@@ -393,24 +422,26 @@ def test_hook_emits_tail_monitor_block_when_cli_reports_persistent(monkeypatch):
 
     Before the fix, the hook said 'no Monitor needed' and the session was
     deaf despite the persistent service writing events to loop_fires.log."""
-    persistent_payload = json.dumps({
-        "ok": True,
-        "status": "persistent_service_tail_session",
-        "next_step": {
-            "tool": "Monitor",
-            "args": {
-                "description": "Cortex orchestration log tail for cortex (persistent-service mode)",
-                "command": "tail -F -n 0 /tmp/.empirica/loop_fires.log 2>/dev/null | grep --line-buffered '\"instance_id\": \"cortex\"'",
-                "persistent": True,
-                "timeout_ms": 3600000,
+    persistent_payload = json.dumps(
+        {
+            "ok": True,
+            "status": "persistent_service_tail_session",
+            "next_step": {
+                "tool": "Monitor",
+                "args": {
+                    "description": "Cortex orchestration log tail for cortex (persistent-service mode)",
+                    "command": 'tail -F -n 0 /tmp/.empirica/loop_fires.log 2>/dev/null | grep --line-buffered \'"instance_id": "cortex"\'',
+                    "persistent": True,
+                    "timeout_ms": 3600000,
+                },
+                "after_arm": "empirica listener arm <monitor_task_id> --name cortex-inbox",
             },
-            "after_arm": "empirica listener arm <monitor_task_id> --name cortex-inbox",
-        },
-    })
-    monkeypatch.setattr(subprocess, "run",
-        lambda *args, **kw: _fake_run(stdout=persistent_payload, returncode=0))
+        }
+    )
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kw: _fake_run(stdout=persistent_payload, returncode=0))
     result = _run_hook(
-        monkeypatch, instance_id="cortex",
+        monkeypatch,
+        instance_id="cortex",
         active_loops=["cortex-mailbox-poll"],
     )
     ctx = result["parsed"]["hookSpecificOutput"]["additionalContext"]
@@ -466,16 +497,15 @@ def test_hook_emits_arm_block_when_prior_intent_exists(monkeypatch, tmp_path):
     (d / "listener_active_empirica-extension_empirica-extension-inbox.json").write_text(
         '{"monitor_task_id": null, "armed_at": 1234567890.0}'
     )
-    monkeypatch.setattr(mod.InstanceResolver, "instance_id",
-                        classmethod(lambda cls: "empirica-extension"))
-    monkeypatch.setattr(mod.InstanceResolver, "ai_id",
-                        classmethod(lambda cls, *a, **k: "empirica-extension"))
+    monkeypatch.setattr(mod.InstanceResolver, "instance_id", classmethod(lambda cls: "empirica-extension"))
+    monkeypatch.setattr(mod.InstanceResolver, "ai_id", classmethod(lambda cls, *a, **k: "empirica-extension"))
     monkeypatch.setattr(mod, "list_active_loops_for_instance", lambda iid: [])
     monkeypatch.setattr(mod, "is_listener_running", lambda iid: False)
     # _query_listener_on returns None (CLI unavailable) → fallback rendering
     monkeypatch.setattr(mod, "_query_listener_on", lambda iid: None)
 
     from io import StringIO
+
     captured = StringIO()
     monkeypatch.setattr(sys, "stdout", captured)
     rc = mod.main()
@@ -497,14 +527,13 @@ def test_hook_still_bails_when_no_signals_at_all(monkeypatch, tmp_path):
     mod = _load_hook_module()
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     # No ~/.empirica/ directory at all
-    monkeypatch.setattr(mod.InstanceResolver, "instance_id",
-                        classmethod(lambda cls: "brand-new-instance"))
-    monkeypatch.setattr(mod.InstanceResolver, "ai_id",
-                        classmethod(lambda cls, *a, **k: "brand-new-instance"))
+    monkeypatch.setattr(mod.InstanceResolver, "instance_id", classmethod(lambda cls: "brand-new-instance"))
+    monkeypatch.setattr(mod.InstanceResolver, "ai_id", classmethod(lambda cls, *a, **k: "brand-new-instance"))
     monkeypatch.setattr(mod, "list_active_loops_for_instance", lambda iid: [])
     monkeypatch.setattr(mod, "is_listener_running", lambda iid: False)
 
     from io import StringIO
+
     captured = StringIO()
     monkeypatch.setattr(sys, "stdout", captured)
     rc = mod.main()
@@ -522,7 +551,8 @@ def test_hook_requires_both_mesh_skills_when_listener_armed(monkeypatch):
     source AI's outbox visibly stalled. Loading at event-arrival time is too
     late — load both up front. David, 2026-05-17."""
     result = _run_hook(
-        monkeypatch, instance_id="empirica",
+        monkeypatch,
+        instance_id="empirica",
         active_loops=["cortex-mailbox-poll"],
     )
     ctx = result["parsed"]["hookSpecificOutput"]["additionalContext"]

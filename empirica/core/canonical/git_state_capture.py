@@ -54,7 +54,7 @@ class GitStateCapture:
                 capture_output=True,
                 text=True,
                 cwd=self.git_repo_path,
-                timeout=2
+                timeout=2,
             )
             self._is_git_repo = result.returncode == 0 and result.stdout.strip() == "true"
         except Exception:
@@ -85,11 +85,7 @@ class GitStateCapture:
         try:
             # Get HEAD commit SHA
             head_result = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                capture_output=True,
-                text=True,
-                cwd=self.git_repo_path,
-                timeout=5
+                ["git", "rev-parse", "HEAD"], capture_output=True, text=True, cwd=self.git_repo_path, timeout=5
             )
 
             if head_result.returncode != 0:
@@ -109,7 +105,7 @@ class GitStateCapture:
             return {
                 "head_commit": head_commit,
                 "commits_since_last_checkpoint": commits_since_last,
-                "uncommitted_changes": uncommitted_changes
+                "uncommitted_changes": uncommitted_changes,
             }
 
         except Exception as e:
@@ -118,7 +114,7 @@ class GitStateCapture:
 
     def _get_commits_since_last_checkpoint(
         self,
-        get_last_checkpoint_fn: Any  # callable
+        get_last_checkpoint_fn: Any,  # callable
     ) -> list[dict[str, Any]]:
         """
         Get commits made since last checkpoint.
@@ -135,7 +131,7 @@ class GitStateCapture:
             if not last_checkpoint:
                 return []
 
-            since_time = last_checkpoint.get('timestamp')
+            since_time = last_checkpoint.get("timestamp")
             if not since_time:
                 return []
 
@@ -145,18 +141,18 @@ class GitStateCapture:
                 capture_output=True,
                 text=True,
                 cwd=self.git_repo_path,
-                timeout=10
+                timeout=10,
             )
 
             if log_result.returncode != 0:
                 return []
 
             commits = []
-            for line in log_result.stdout.strip().split('\n'):
+            for line in log_result.stdout.strip().split("\n"):
                 if not line:
                     continue
 
-                parts = line.split('|', 3)
+                parts = line.split("|", 3)
                 if len(parts) < 4:
                     continue
 
@@ -168,18 +164,20 @@ class GitStateCapture:
                     capture_output=True,
                     text=True,
                     cwd=self.git_repo_path,
-                    timeout=5
+                    timeout=5,
                 )
 
-                files_changed = [f for f in files_result.stdout.strip().split('\n') if f]
+                files_changed = [f for f in files_result.stdout.strip().split("\n") if f]
 
-                commits.append({
-                    "sha": sha,
-                    "message": message,
-                    "author": author,
-                    "timestamp": timestamp,
-                    "files_changed": files_changed
-                })
+                commits.append(
+                    {
+                        "sha": sha,
+                        "message": message,
+                        "author": author,
+                        "timestamp": timestamp,
+                        "files_changed": files_changed,
+                    }
+                )
 
             return commits
 
@@ -197,11 +195,7 @@ class GitStateCapture:
         try:
             # Get status (porcelain format for easy parsing)
             status_result = subprocess.run(
-                ["git", "status", "--porcelain"],
-                capture_output=True,
-                text=True,
-                cwd=self.git_repo_path,
-                timeout=5
+                ["git", "status", "--porcelain"], capture_output=True, text=True, cwd=self.git_repo_path, timeout=5
             )
 
             if status_result.returncode != 0:
@@ -211,37 +205,28 @@ class GitStateCapture:
             added = []
             deleted = []
 
-            for line in status_result.stdout.split('\n'):
+            for line in status_result.stdout.split("\n"):
                 if not line:
                     continue
 
                 status = line[:2]
                 filepath = line[3:] if len(line) > 3 else ""
 
-                if 'M' in status:
+                if "M" in status:
                     modified.append(filepath)
-                elif 'A' in status:
+                elif "A" in status:
                     added.append(filepath)
-                elif 'D' in status:
+                elif "D" in status:
                     deleted.append(filepath)
 
             # Get diff stats
             diff_result = subprocess.run(
-                ["git", "diff", "--stat"],
-                capture_output=True,
-                text=True,
-                cwd=self.git_repo_path,
-                timeout=5
+                ["git", "diff", "--stat"], capture_output=True, text=True, cwd=self.git_repo_path, timeout=5
             )
 
             diff_stat = diff_result.stdout.strip() if diff_result.returncode == 0 else ""
 
-            return {
-                "files_modified": modified,
-                "files_added": added,
-                "files_deleted": deleted,
-                "diff_stat": diff_stat
-            }
+            return {"files_modified": modified, "files_added": added, "files_deleted": deleted, "diff_stat": diff_stat}
 
         except Exception as e:
             logger.warning(f"Failed to get uncommitted changes: {e}")

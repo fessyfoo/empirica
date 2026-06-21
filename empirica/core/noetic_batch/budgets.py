@@ -12,18 +12,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 # Per-op defaults. Hard caps are enforced separately in schema validation.
-DEFAULT_MAX_FILE_BYTES = 50 * 1024          # 50KB
+DEFAULT_MAX_FILE_BYTES = 50 * 1024  # 50KB
 DEFAULT_MAX_GREP_MATCHES = 100
 DEFAULT_MAX_GLOB_FILES = 200
 DEFAULT_MAX_INVESTIGATE_RESULTS = 5
-DEFAULT_MAX_TOTAL_BYTES = 200 * 1024        # 200KB
+DEFAULT_MAX_TOTAL_BYTES = 200 * 1024  # 200KB
 
 # Schema-level hard caps (refuse input that exceeds these — see schema.py)
-HARD_CAP_FILE_BYTES = 1024 * 1024           # 1MB
+HARD_CAP_FILE_BYTES = 1024 * 1024  # 1MB
 HARD_CAP_GREP_MATCHES = 500
 HARD_CAP_GLOB_FILES = 1000
 HARD_CAP_INVESTIGATE_RESULTS = 20
-HARD_CAP_TOTAL_BYTES = 2 * 1024 * 1024      # 2MB
+HARD_CAP_TOTAL_BYTES = 2 * 1024 * 1024  # 2MB
 
 
 @dataclass

@@ -18,20 +18,22 @@ def get_file_uncertainty(filepath: str):
     - List of changes with confidence scores
     - Aggregate confidence for file
     """
-    return jsonify({
-        "ok": True,
-        "filepath": filepath,
-        "uncertainty_metrics": {
-            "overall_uncertainty": 0.5,
-            "know": 0.75,
-            "do": 0.80,
-            "investigated_areas": [],
-            "not_investigated": [],
-            "risk_level": "moderate"
-        },
-        "changes_made": [],
-        "aggregate_confidence": 0.75
-    })
+    return jsonify(
+        {
+            "ok": True,
+            "filepath": filepath,
+            "uncertainty_metrics": {
+                "overall_uncertainty": 0.5,
+                "know": 0.75,
+                "do": 0.80,
+                "investigated_areas": [],
+                "not_investigated": [],
+                "risk_level": "moderate",
+            },
+            "changes_made": [],
+            "aggregate_confidence": 0.75,
+        }
+    )
 
 
 @bp.route("/modules/<module_name>/epistemic", methods=["GET"])
@@ -45,17 +47,19 @@ def get_module_epistemic(module_name: str):
     - Testing status
     - Last modification timestamp
     """
-    return jsonify({
-        "ok": True,
-        "module": module_name,
-        "epistemic_map": {
-            "submodules": {},
-            "overall_know": 0.75,
-            "overall_uncertainty": 0.25,
-            "coverage": "0%",
-            "risk_areas": [],
-            "tested": []
-        },
-        "recent_sessions": 0,
-        "last_modified": "unknown"
-    })
+    return jsonify(
+        {
+            "ok": True,
+            "module": module_name,
+            "epistemic_map": {
+                "submodules": {},
+                "overall_know": 0.75,
+                "overall_uncertainty": 0.25,
+                "coverage": "0%",
+                "risk_areas": [],
+                "tested": [],
+            },
+            "recent_sessions": 0,
+            "last_modified": "unknown",
+        }
+    )

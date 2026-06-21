@@ -28,7 +28,6 @@ SCHEMAS = [
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
     """,
-
     # Schema for subagent_sessions — child sessions spawned by Task tool
     # invocations. Kept separate from the main `sessions` table so subagent
     # rows don't pollute "recent sessions" diagnostics, dashboards, and
@@ -49,7 +48,6 @@ SCHEMAS = [
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
     """,
-
     # Schema 2
     """
     CREATE TABLE IF NOT EXISTS cascades (
@@ -84,5 +82,4 @@ SCHEMAS = [
                     FOREIGN KEY (session_id) REFERENCES sessions(session_id)
                 )
     """,
-
 ]

@@ -14,18 +14,18 @@ from pathlib import Path
 
 import pytest
 
-pytest_plugins = ['pytest_asyncio']
+pytest_plugins = ["pytest_asyncio"]
 
 
 @pytest.fixture
 def cockpit_env(tmp_path, monkeypatch):
-    fake_home = tmp_path / '.empirica'
+    fake_home = tmp_path / ".empirica"
     fake_home.mkdir()
-    (fake_home / 'instance_projects').mkdir()
-    (fake_home / 'tty_sessions').mkdir()
+    (fake_home / "instance_projects").mkdir()
+    (fake_home / "tty_sessions").mkdir()
 
-    project = tmp_path / 'project'
-    (project / '.empirica').mkdir(parents=True)
+    project = tmp_path / "project"
+    (project / ".empirica").mkdir(parents=True)
 
     from empirica.core.cockpit import (
         enrichment,
@@ -39,34 +39,35 @@ def cockpit_env(tmp_path, monkeypatch):
         sentinel_pause,
     )
 
-    monkeypatch.setattr(sentinel_pause, 'EMPIRICA_DIR', fake_home)
-    monkeypatch.setattr(sentinel_pause, 'GLOBAL_PAUSE_FILE', fake_home / 'sentinel_paused')
-    monkeypatch.setattr(instance_state, 'EMPIRICA_DIR', fake_home)
-    monkeypatch.setattr(instance_actions, 'EMPIRICA_DIR', fake_home)
-    monkeypatch.setattr(instance_actions, 'TTY_SESSIONS_DIR', fake_home / 'tty_sessions')
-    monkeypatch.setattr(loop_registry, 'EMPIRICA_DIR', fake_home)
-    monkeypatch.setattr(loop_install_request, 'EMPIRICA_DIR', fake_home)
-    monkeypatch.setattr(loop_uninstall_request, 'EMPIRICA_DIR', fake_home)
-    monkeypatch.setattr(listener_registry, 'EMPIRICA_DIR', fake_home)
-    monkeypatch.setattr(listener_install_request, 'EMPIRICA_DIR', fake_home)
-    monkeypatch.setattr(enrichment, 'EMPIRICA_DIR', fake_home)
+    monkeypatch.setattr(sentinel_pause, "EMPIRICA_DIR", fake_home)
+    monkeypatch.setattr(sentinel_pause, "GLOBAL_PAUSE_FILE", fake_home / "sentinel_paused")
+    monkeypatch.setattr(instance_state, "EMPIRICA_DIR", fake_home)
+    monkeypatch.setattr(instance_actions, "EMPIRICA_DIR", fake_home)
+    monkeypatch.setattr(instance_actions, "TTY_SESSIONS_DIR", fake_home / "tty_sessions")
+    monkeypatch.setattr(loop_registry, "EMPIRICA_DIR", fake_home)
+    monkeypatch.setattr(loop_install_request, "EMPIRICA_DIR", fake_home)
+    monkeypatch.setattr(loop_uninstall_request, "EMPIRICA_DIR", fake_home)
+    monkeypatch.setattr(listener_registry, "EMPIRICA_DIR", fake_home)
+    monkeypatch.setattr(listener_install_request, "EMPIRICA_DIR", fake_home)
+    monkeypatch.setattr(enrichment, "EMPIRICA_DIR", fake_home)
     monkeypatch.setattr(
-        enrichment, 'ENP_PENDING_PATH', fake_home / 'enp' / 'pending.json',
+        enrichment,
+        "ENP_PENDING_PATH",
+        fake_home / "enp" / "pending.json",
     )
     # Discovery now scans live tmux panes to surface pre-empirica Claude
     # sessions; isolate tests from the host tmux server so they only see
     # the instances they explicitly bind.
-    monkeypatch.setattr(instance_state, '_live_tmux_panes', lambda: None)
+    monkeypatch.setattr(instance_state, "_live_tmux_panes", lambda: None)
     return fake_home, project
 
 
 def _bind_instance(home: Path, project: Path, instance_id: str) -> None:
-    (home / 'instance_projects' / f'{instance_id}.json').write_text(
-        json.dumps({'project_path': str(project)})
-    )
+    (home / "instance_projects" / f"{instance_id}.json").write_text(json.dumps({"project_path": str(project)}))
 
 
 # ─── mount + structure ────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_tui_mounts_compact_widgets(cockpit_env):
@@ -79,14 +80,14 @@ async def test_tui_mounts_compact_widgets(cockpit_env):
         await pilot.pause()
         await pilot.pause()
 
-        assert app.query_one('#inst-table', DataTable) is not None
-        assert app.query_one('#summary', Static) is not None
-        assert app.query_one('#statusline', Static) is not None
+        assert app.query_one("#inst-table", DataTable) is not None
+        assert app.query_one("#summary", Static) is not None
+        assert app.query_one("#statusline", Static) is not None
         # v1.6: portrait layout — recent strip replaced with goals + notif
-        assert app.query_one('#goals', Static) is not None
-        assert app.query_one('#notif', Static) is not None
-        for btn_id in ('btn-sent', 'btn-events', 'btn-stop', 'btn-notif'):
-            assert app.query_one(f'#{btn_id}', Button) is not None, btn_id
+        assert app.query_one("#goals", Static) is not None
+        assert app.query_one("#notif", Static) is not None
+        for btn_id in ("btn-sent", "btn-events", "btn-stop", "btn-notif"):
+            assert app.query_one(f"#{btn_id}", Button) is not None, btn_id
 
 
 @pytest.mark.asyncio
@@ -101,7 +102,7 @@ async def test_tui_has_no_kill_button(cockpit_env):
         await pilot.pause()
         await pilot.pause()
         with pytest.raises(NoMatches):
-            app.query_one('#btn-kill')
+            app.query_one("#btn-kill")
 
 
 @pytest.mark.asyncio
@@ -118,30 +119,32 @@ async def test_table_has_six_columns(cockpit_env):
     async with app.run_test(headless=True, size=(60, 20)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        table = app.query_one('#inst-table', DataTable)
+        table = app.query_one("#inst-table", DataTable)
         col_labels = [c.label.plain for c in table.columns.values()]
-        assert col_labels == ['s', 'name', 'ph', 'dom', 'S', 'N']
+        assert col_labels == ["s", "name", "ph", "dom", "S", "N"]
 
 
 # ─── data loading ─────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_tui_loads_instances(cockpit_env):
     from empirica.cli.tui import CockpitApp
 
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_42')
-    _bind_instance(home, project, 'tmux_99')
+    _bind_instance(home, project, "tmux_42")
+    _bind_instance(home, project, "tmux_99")
 
     app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(54, 20)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        ids = sorted(i['instance_id'] for i in app.payload['instances'])
-        assert ids == ['tmux_42', 'tmux_99']
+        ids = sorted(i["instance_id"] for i in app.payload["instances"])
+        assert ids == ["tmux_42", "tmux_99"]
 
 
 # ─── toggle sentinel ──────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_p_toggles_sentinel(cockpit_env):
@@ -149,7 +152,7 @@ async def test_p_toggles_sentinel(cockpit_env):
     from empirica.cli.tui import CockpitApp
 
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_42')
+    _bind_instance(home, project, "tmux_42")
 
     app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(54, 20)) as pilot:
@@ -157,14 +160,14 @@ async def test_p_toggles_sentinel(cockpit_env):
         await pilot.pause()
 
         # First press: pauses
-        await pilot.press('p')
+        await pilot.press("p")
         await pilot.pause()
-        assert (home / 'sentinel_paused_tmux_42').exists()
+        assert (home / "sentinel_paused_tmux_42").exists()
 
         # Second press: resumes
-        await pilot.press('p')
+        await pilot.press("p")
         await pilot.pause()
-        assert not (home / 'sentinel_paused_tmux_42').exists()
+        assert not (home / "sentinel_paused_tmux_42").exists()
 
 
 @pytest.mark.asyncio
@@ -172,15 +175,15 @@ async def test_btn_sent_toggles_sentinel(cockpit_env):
     from empirica.cli.tui import CockpitApp
 
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_42')
+    _bind_instance(home, project, "tmux_42")
 
     app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(54, 20)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        await pilot.click('#btn-sent')
+        await pilot.click("#btn-sent")
         await pilot.pause()
-        assert (home / 'sentinel_paused_tmux_42').exists()
+        assert (home / "sentinel_paused_tmux_42").exists()
 
 
 # ─── auto-accept chip always visible ──────────────────────────────────────
@@ -202,24 +205,23 @@ async def test_auto_accept_chip_shows_off_state(cockpit_env, monkeypatch):
 
     def stub_aggregate(*args, **kwargs):
         payload = real_aggregate(*args, **kwargs)
-        payload.setdefault('summary', {})['auto_accept'] = False
+        payload.setdefault("summary", {})["auto_accept"] = False
         return payload
 
-    monkeypatch.setattr(cockpit_module, 'aggregate_all', stub_aggregate)
+    monkeypatch.setattr(cockpit_module, "aggregate_all", stub_aggregate)
 
     app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(80, 20)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        summary = app.query_one('#summary', Static)
+        summary = app.query_one("#summary", Static)
         from rich.console import Console
+
         c = Console(width=120, file=io.StringIO())
         with c.capture() as cap:
             c.print(summary.render())
         text = cap.get()
-        assert 'auto-accept:off' in text, (
-            f'OFF state should be visible in summary; got: {text!r}'
-        )
+        assert "auto-accept:off" in text, f"OFF state should be visible in summary; got: {text!r}"
 
 
 @pytest.mark.asyncio
@@ -234,27 +236,27 @@ async def test_auto_accept_chip_shows_on_state(cockpit_env, monkeypatch):
 
     def stub_aggregate(*args, **kwargs):
         payload = real_aggregate(*args, **kwargs)
-        payload.setdefault('summary', {})['auto_accept'] = True
+        payload.setdefault("summary", {})["auto_accept"] = True
         return payload
 
-    monkeypatch.setattr(cockpit_module, 'aggregate_all', stub_aggregate)
+    monkeypatch.setattr(cockpit_module, "aggregate_all", stub_aggregate)
 
     app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(80, 20)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        summary = app.query_one('#summary', Static)
+        summary = app.query_one("#summary", Static)
         from rich.console import Console
+
         c = Console(width=120, file=io.StringIO())
         with c.capture() as cap:
             c.print(summary.render())
         text = cap.get()
-        assert '⚡AUTO-ACCEPT' in text or 'AUTO-ACCEPT' in text, (
-            f'ON state should be loudly visible; got: {text!r}'
-        )
+        assert "⚡AUTO-ACCEPT" in text or "AUTO-ACCEPT" in text, f"ON state should be loudly visible; got: {text!r}"
 
 
 # ─── toggle loops ─────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_l_pauses_all_loops_when_any_unpaused(cockpit_env):
@@ -262,21 +264,22 @@ async def test_l_pauses_all_loops_when_any_unpaused(cockpit_env):
     from empirica.core.cockpit import LoopRegistry
 
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_42')
-    reg = LoopRegistry('tmux_42')
-    reg.register(name='loop-a', kind='monitor')
-    reg.register(name='loop-b', kind='monitor')
+    _bind_instance(home, project, "tmux_42")
+    reg = LoopRegistry("tmux_42")
+    reg.register(name="loop-a", kind="monitor")
+    reg.register(name="loop-b", kind="monitor")
 
     app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(54, 20)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        await pilot.press('e')
+        await pilot.press("e")
         await pilot.pause()
 
         from empirica.core.cockpit import is_loop_paused
-        assert is_loop_paused('tmux_42', 'loop-a')
-        assert is_loop_paused('tmux_42', 'loop-b')
+
+        assert is_loop_paused("tmux_42", "loop-a")
+        assert is_loop_paused("tmux_42", "loop-b")
 
 
 @pytest.mark.asyncio
@@ -285,25 +288,26 @@ async def test_l_resumes_all_loops_when_all_paused(cockpit_env):
     from empirica.core.cockpit import LoopRegistry, is_loop_paused, set_loop_paused
 
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_42')
-    reg = LoopRegistry('tmux_42')
-    reg.register(name='loop-a', kind='monitor')
-    reg.register(name='loop-b', kind='monitor')
-    set_loop_paused('tmux_42', 'loop-a', True)
-    set_loop_paused('tmux_42', 'loop-b', True)
+    _bind_instance(home, project, "tmux_42")
+    reg = LoopRegistry("tmux_42")
+    reg.register(name="loop-a", kind="monitor")
+    reg.register(name="loop-b", kind="monitor")
+    set_loop_paused("tmux_42", "loop-a", True)
+    set_loop_paused("tmux_42", "loop-b", True)
 
     app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(54, 20)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        await pilot.press('e')
+        await pilot.press("e")
         await pilot.pause()
 
-        assert not is_loop_paused('tmux_42', 'loop-a')
-        assert not is_loop_paused('tmux_42', 'loop-b')
+        assert not is_loop_paused("tmux_42", "loop-a")
+        assert not is_loop_paused("tmux_42", "loop-b")
 
 
 # ─── stop ─────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_stop_calls_stop_instance(cockpit_env, monkeypatch):
@@ -312,25 +316,25 @@ async def test_stop_calls_stop_instance(cockpit_env, monkeypatch):
 
     captured: list[str] = []
     monkeypatch.setattr(
-        'empirica.cli.tui.cockpit_app.stop_instance',
-        lambda iid, **k: (captured.append(iid),
-                          instance_actions.StopResult(iid, True, 'stub', 'tmux-send-keys'))[1],
+        "empirica.cli.tui.cockpit_app.stop_instance",
+        lambda iid, **k: (captured.append(iid), instance_actions.StopResult(iid, True, "stub", "tmux-send-keys"))[1],
     )
 
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_42')
+    _bind_instance(home, project, "tmux_42")
 
     app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(54, 20)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        await pilot.press('s')
+        await pilot.press("s")
         await pilot.pause()
 
-        assert captured == ['tmux_42']
+        assert captured == ["tmux_42"]
 
 
 # ─── notifications (placeholder) ──────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_n_clears_notifications(cockpit_env):
@@ -343,42 +347,50 @@ async def test_n_clears_notifications(cockpit_env):
     from empirica.cli.tui import CockpitApp
 
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_42')
+    _bind_instance(home, project, "tmux_42")
     # Open transaction so the instance has a project_path resolved.
     import time
-    suffix = '_tmux_42'
-    tx = {
-        'transaction_id': 'tx-1', 'session_id': 's-1',
-        'preflight_timestamp': time.time(),
-        'status': 'open', 'project_path': str(project),
-    }
-    (project / '.empirica').mkdir(exist_ok=True)
-    (project / '.empirica' / f'active_transaction{suffix}.json').write_text(json.dumps(tx))
 
-    enp_dir = home / 'enp'
+    suffix = "_tmux_42"
+    tx = {
+        "transaction_id": "tx-1",
+        "session_id": "s-1",
+        "preflight_timestamp": time.time(),
+        "status": "open",
+        "project_path": str(project),
+    }
+    (project / ".empirica").mkdir(exist_ok=True)
+    (project / ".empirica" / f"active_transaction{suffix}.json").write_text(json.dumps(tx))
+
+    enp_dir = home / "enp"
     enp_dir.mkdir()
-    pending_path = enp_dir / 'pending.json'
-    pending_path.write_text(json.dumps([
-        {'id': 'a', 'repo': str(project), 'title': 'open', 'acknowledged': False},
-        {'id': 'b', 'repo': '/other', 'title': 'other', 'acknowledged': False},
-    ]))
+    pending_path = enp_dir / "pending.json"
+    pending_path.write_text(
+        json.dumps(
+            [
+                {"id": "a", "repo": str(project), "title": "open", "acknowledged": False},
+                {"id": "b", "repo": "/other", "title": "other", "acknowledged": False},
+            ]
+        )
+    )
 
     app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(54, 20)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        await pilot.press('n')
+        await pilot.press("n")
         await pilot.pause()
 
         result = json.loads(pending_path.read_text())
         for n in result:
-            if n['repo'] == str(project):
-                assert n['acknowledged'] is True
+            if n["repo"] == str(project):
+                assert n["acknowledged"] is True
             else:
-                assert n['acknowledged'] is False
+                assert n["acknowledged"] is False
 
 
 # ─── ask state phase ──────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_phase_ask_when_asking_flag_present(cockpit_env):
@@ -388,35 +400,39 @@ async def test_phase_ask_when_asking_flag_present(cockpit_env):
     from empirica.cli.tui import CockpitApp
 
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_42')
+    _bind_instance(home, project, "tmux_42")
     # Create transaction so phase isn't no-transaction
     import time
-    suffix = '_tmux_42'
+
+    suffix = "_tmux_42"
     tx = {
-        'transaction_id': 'tx-1', 'session_id': 's-1',
-        'preflight_timestamp': time.time(),
-        'status': 'open', 'project_path': str(project),
+        "transaction_id": "tx-1",
+        "session_id": "s-1",
+        "preflight_timestamp": time.time(),
+        "status": "open",
+        "project_path": str(project),
     }
-    (project / '.empirica' / f'active_transaction{suffix}.json').write_text(json.dumps(tx))
+    (project / ".empirica" / f"active_transaction{suffix}.json").write_text(json.dumps(tx))
     # Trigger ask
-    (home / 'asking_tmux_42').write_text('')
+    (home / "asking_tmux_42").write_text("")
 
     app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(54, 20)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        table = app.query_one('#inst-table', DataTable)
+        table = app.query_one("#inst-table", DataTable)
         for row_key in table.rows:
-            if str(row_key.value) == 'tmux_42':
+            if str(row_key.value) == "tmux_42":
                 row = table.get_row(row_key)
                 # v1.6: phase column is shortened — 'ask⚠' with no space
                 phase_cell = str(row[2])
-                assert 'ask' in phase_cell, f'expected ask phase, got {phase_cell!r}'
+                assert "ask" in phase_cell, f"expected ask phase, got {phase_cell!r}"
                 return
-        pytest.fail('tmux_42 row not found')
+        pytest.fail("tmux_42 row not found")
 
 
 # ─── v1.6 statusline + open goals ─────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_statusline_format_includes_conf_and_goals(cockpit_env):
@@ -430,11 +446,11 @@ async def test_statusline_format_includes_conf_and_goals(cockpit_env):
     from empirica.cli.tui import CockpitApp
 
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_42')
+    _bind_instance(home, project, "tmux_42")
     # Create the project DB with a snapshot the cockpit can read.
-    db_dir = project / '.empirica' / 'sessions'
+    db_dir = project / ".empirica" / "sessions"
     db_dir.mkdir(parents=True, exist_ok=True)
-    db = db_dir / 'sessions.db'
+    db = db_dir / "sessions.db"
     conn = sqlite3.connect(db)
     conn.executescript("""
         CREATE TABLE epistemic_snapshots (
@@ -454,46 +470,53 @@ async def test_statusline_format_includes_conf_and_goals(cockpit_env):
         );
     """)
     import json as _json
+
     conn.execute(
-        "INSERT INTO epistemic_snapshots (snapshot_id, session_id, ai_id, timestamp, vectors) "
-        "VALUES (?, ?, ?, ?, ?)",
-        ('snap-1', 's-1', 'cc', '2026-04-27T10:00:00+00:00',
-         _json.dumps({'know': 0.8, 'uncertainty': 0.2, 'context': 0.7, 'completion': 0.3})),
+        "INSERT INTO epistemic_snapshots (snapshot_id, session_id, ai_id, timestamp, vectors) VALUES (?, ?, ?, ?, ?)",
+        (
+            "snap-1",
+            "s-1",
+            "cc",
+            "2026-04-27T10:00:00+00:00",
+            _json.dumps({"know": 0.8, "uncertainty": 0.2, "context": 0.7, "completion": 0.3}),
+        ),
     )
     conn.execute(
         "INSERT INTO goals (id, session_id, objective, scope, created_timestamp, goal_data, status) "
         "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        ('g-1', 's-1', 'finish cockpit v1.6', '{}', time.time(), '{}', 'in_progress'),
+        ("g-1", "s-1", "finish cockpit v1.6", "{}", time.time(), "{}", "in_progress"),
     )
     conn.execute(
         "INSERT INTO goals (id, session_id, objective, scope, created_timestamp, goal_data, status) "
         "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        ('g-2', 's-1', 'wire ENP integration', '{}', time.time(), '{}', 'in_progress'),
+        ("g-2", "s-1", "wire ENP integration", "{}", time.time(), "{}", "in_progress"),
     )
     conn.commit()
     conn.close()
 
     # Stub the active_transaction so session_id flows through.
     tx = {
-        'transaction_id': 'tx-1', 'session_id': 's-1',
-        'preflight_timestamp': time.time(),
-        'status': 'open', 'project_path': str(project),
+        "transaction_id": "tx-1",
+        "session_id": "s-1",
+        "preflight_timestamp": time.time(),
+        "status": "open",
+        "project_path": str(project),
     }
-    (project / '.empirica' / 'active_transaction_tmux_42.json').write_text(_json.dumps(tx))
+    (project / ".empirica" / "active_transaction_tmux_42.json").write_text(_json.dumps(tx))
 
     app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(40, 24)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        sl = app.query_one('#statusline', Static)
+        sl = app.query_one("#statusline", Static)
         c = Console(width=40, file=io.StringIO())
         with c.capture() as cap:
             c.print(sl.render())
         text = cap.get().strip()
-        assert 'k:0.80' in text, text
-        assert 'c:0.70' in text, text
-        assert 'conf:' in text, text
-        assert 'goals:2' in text, text
+        assert "k:0.80" in text, text
+        assert "c:0.70" in text, text
+        assert "conf:" in text, text
+        assert "goals:2" in text, text
 
 
 @pytest.mark.asyncio
@@ -508,10 +531,10 @@ async def test_open_goals_widget_shows_goals(cockpit_env):
     from empirica.cli.tui import CockpitApp
 
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_42')
-    db_dir = project / '.empirica' / 'sessions'
+    _bind_instance(home, project, "tmux_42")
+    db_dir = project / ".empirica" / "sessions"
     db_dir.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_dir / 'sessions.db')
+    conn = sqlite3.connect(db_dir / "sessions.db")
     conn.executescript("""
         CREATE TABLE sessions (
             session_id TEXT PRIMARY KEY, project_id TEXT
@@ -530,30 +553,35 @@ async def test_open_goals_widget_shows_goals(cockpit_env):
             status TEXT DEFAULT 'in_progress'
         );
     """)
-    conn.execute("INSERT INTO sessions VALUES (?, ?)", ('s-1', 'p-1'))
+    conn.execute("INSERT INTO sessions VALUES (?, ?)", ("s-1", "p-1"))
     conn.execute(
         "INSERT INTO goals VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        ('g-1', 's-1', 'distinctive goal A', '{}', time.time(), '{}', 0, 'p-1', 'in_progress'),
+        ("g-1", "s-1", "distinctive goal A", "{}", time.time(), "{}", 0, "p-1", "in_progress"),
     )
     conn.commit()
     conn.close()
 
-    tx = {'transaction_id': 'tx-1', 'session_id': 's-1',
-          'preflight_timestamp': time.time(), 'status': 'open',
-          'project_path': str(project)}
+    tx = {
+        "transaction_id": "tx-1",
+        "session_id": "s-1",
+        "preflight_timestamp": time.time(),
+        "status": "open",
+        "project_path": str(project),
+    }
     import json as _json
-    (project / '.empirica' / 'active_transaction_tmux_42.json').write_text(_json.dumps(tx))
+
+    (project / ".empirica" / "active_transaction_tmux_42.json").write_text(_json.dumps(tx))
 
     app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(40, 24)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        goals_w = app.query_one('#goals', Static)
+        goals_w = app.query_one("#goals", Static)
         c = Console(width=40, file=io.StringIO())
         with c.capture() as cap:
             c.print(goals_w.render())
         text = cap.get().strip()
-        assert 'distinctive goal A' in text, text
+        assert "distinctive goal A" in text, text
 
 
 @pytest.mark.asyncio
@@ -568,7 +596,7 @@ async def test_no_recent_widget(cockpit_env):
         await pilot.pause()
         await pilot.pause()
         with pytest.raises(NoMatches):
-            app.query_one('#recent')
+            app.query_one("#recent")
 
 
 # ─── L button mechanical-kill regression (1.9.6 + this commit) ────────────
@@ -582,19 +610,21 @@ async def test_l_button_writes_pending_uninstall_when_armed(cockpit_env):
     uninstall file when scheduler_kind=cron-create + job_id is recorded.
     """
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_test')
+    _bind_instance(home, project, "tmux_test")
 
     from empirica.cli.tui import CockpitApp
     from empirica.core.cockpit.loop_registry import LoopRegistry
 
     # Register a loop with a recorded job_id (mimics what a healthy
     # loop body's heartbeat call writes after CronCreate).
-    reg = LoopRegistry('tmux_test')
-    reg.register(name='foo', kind='cron', cron='*/15 * * * *', description='t')
+    reg = LoopRegistry("tmux_test")
+    reg.register(name="foo", kind="cron", cron="*/15 * * * *", description="t")
     reg.heartbeat(
-        name='foo', status='ok', result='empty',
-        next_scheduled_job_id='cron-job-xyz',
-        scheduler_kind='cron-create',
+        name="foo",
+        status="ok",
+        result="empty",
+        next_scheduled_job_id="cron-job-xyz",
+        scheduler_kind="cron-create",
     )
 
     app = CockpitApp(include_dead=True)
@@ -602,19 +632,19 @@ async def test_l_button_writes_pending_uninstall_when_armed(cockpit_env):
         await pilot.pause()
         await pilot.pause()
         # Press L — should toggle to paused, which now writes pending uninstall
-        await pilot.press('e')
+        await pilot.press("e")
         await pilot.pause()
         await pilot.pause()
 
     # The pending uninstall file should now exist.
-    pending = list(home.glob('loop_uninstall_pending_*.json'))
+    pending = list(home.glob("loop_uninstall_pending_*.json"))
     assert len(pending) == 1, (
-        f'Expected pending uninstall file after L press; found {pending}. '
-        'TUI L button must call handle_loop_pause_command, not set_loop_paused.'
+        f"Expected pending uninstall file after L press; found {pending}. "
+        "TUI L button must call handle_loop_pause_command, not set_loop_paused."
     )
     data = json.loads(pending[0].read_text())
-    assert data['name'] == 'foo'
-    assert data['job_id'] == 'cron-job-xyz'
+    assert data["name"] == "foo"
+    assert data["job_id"] == "cron-job-xyz"
 
 
 # ─── E binding (listener) ──────────────────────────────────────────────────
@@ -624,7 +654,7 @@ async def test_l_button_writes_pending_uninstall_when_armed(cockpit_env):
 async def test_e_button_toggles_listener_pause(cockpit_env):
     """E binding should toggle listener pause via handle_listener_pause_command."""
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_test')
+    _bind_instance(home, project, "tmux_test")
 
     from empirica.cli.tui import CockpitApp
     from empirica.core.cockpit.listener_registry import (
@@ -632,27 +662,26 @@ async def test_e_button_toggles_listener_pause(cockpit_env):
         is_listener_paused,
     )
 
-    reg = ListenerRegistry('tmux_test')
-    reg.register(name='inbox', topic='ntfy:t', description='cortex')
+    reg = ListenerRegistry("tmux_test")
+    reg.register(name="inbox", topic="ntfy:t", description="cortex")
 
-    assert not is_listener_paused('tmux_test', 'inbox')
+    assert not is_listener_paused("tmux_test", "inbox")
 
     app = CockpitApp(include_dead=True)
     async with app.run_test(headless=True, size=(40, 24)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        await pilot.press('e')
+        await pilot.press("e")
         await pilot.pause()
         await pilot.pause()
 
-    assert is_listener_paused('tmux_test', 'inbox'), (
-        'E press should have paused the listener via the proper handler.'
-    )
+    assert is_listener_paused("tmux_test", "inbox"), "E press should have paused the listener via the proper handler."
 
 
 @pytest.mark.asyncio
 async def test_e_button_empty_registry_falls_back_to_canonical(
-    cockpit_env, monkeypatch,
+    cockpit_env,
+    monkeypatch,
 ):
     """E with empty registries should bootstrap from the canonical catalog
     (cortex-mailbox-poll loop + inbox-listener). Tests the empty-state
@@ -671,12 +700,12 @@ async def test_e_button_empty_registry_falls_back_to_canonical(
         return 0
 
     monkeypatch.setattr(
-        'empirica.cli.tui.cockpit_app.handle_loop_enable_command',
+        "empirica.cli.tui.cockpit_app.handle_loop_enable_command",
         fake_enable,
     )
 
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_test')
+    _bind_instance(home, project, "tmux_test")
 
     from empirica.cli.tui import CockpitApp
 
@@ -684,22 +713,22 @@ async def test_e_button_empty_registry_falls_back_to_canonical(
     async with app.run_test(headless=True, size=(40, 24)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        await pilot.press('e')
+        await pilot.press("e")
         await pilot.pause()
         # Canonical loop catalog provides cortex-mailbox-poll by default —
         # pressing 'e' on an empty registry should install it via
         # handle_loop_enable_command (systemd-user path, post-d96bde0c8).
         # The instance arg should be the project's ai_id (basename
         # 'project' here, not the tmux pane id 'tmux_test').
-        assert ('project', 'cortex-mailbox-poll') in enable_calls, (
-            f'expected systemd install for project/cortex-mailbox-poll; '
-            f'got {enable_calls}'
+        assert ("project", "cortex-mailbox-poll") in enable_calls, (
+            f"expected systemd install for project/cortex-mailbox-poll; got {enable_calls}"
         )
 
 
 @pytest.mark.asyncio
 async def test_e_button_empty_registry_actively_wakes_target_pane(
-    cockpit_env, monkeypatch,
+    cockpit_env,
+    monkeypatch,
 ):
     """E press on empty registry should ALSO actively wake the target pane
     via tmux send-keys — without this, the AI doesn't process the pending
@@ -713,14 +742,16 @@ async def test_e_button_empty_registry_actively_wakes_target_pane(
     def fake_wake(instance_id):
         captured.append(instance_id)
         return instance_actions.WakeResult(
-            instance_id=instance_id, success=True, method='tmux-send-keys',
-            detail='stubbed',
+            instance_id=instance_id,
+            success=True,
+            method="tmux-send-keys",
+            detail="stubbed",
         )
 
-    monkeypatch.setattr('empirica.cli.tui.cockpit_app.wake_instance', fake_wake)
+    monkeypatch.setattr("empirica.cli.tui.cockpit_app.wake_instance", fake_wake)
 
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_test')
+    _bind_instance(home, project, "tmux_test")
 
     from empirica.cli.tui import CockpitApp
 
@@ -728,12 +759,10 @@ async def test_e_button_empty_registry_actively_wakes_target_pane(
     async with app.run_test(headless=True, size=(40, 24)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        await pilot.press('e')
+        await pilot.press("e")
         await pilot.pause()
 
-    assert captured == ['tmux_test'], (
-        f'wake_instance should fire exactly once for the target; got {captured}'
-    )
+    assert captured == ["tmux_test"], f"wake_instance should fire exactly once for the target; got {captured}"
 
 
 # ─── E column in instance table ────────────────────────────────────────────
@@ -744,7 +773,7 @@ async def test_listeners_surface_in_aggregate(cockpit_env):
     """aggregate_all should include a 'listeners' dict per instance + a
     listeners_registered/listeners_paused summary."""
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_test')
+    _bind_instance(home, project, "tmux_test")
 
     from empirica.core.cockpit import aggregate_all
     from empirica.core.cockpit.listener_registry import (
@@ -752,21 +781,21 @@ async def test_listeners_surface_in_aggregate(cockpit_env):
         set_listener_paused,
     )
 
-    reg = ListenerRegistry('tmux_test')
-    reg.register(name='a', topic='ntfy:1')
-    reg.register(name='b', topic='ntfy:2')
-    set_listener_paused('tmux_test', 'a', True)
+    reg = ListenerRegistry("tmux_test")
+    reg.register(name="a", topic="ntfy:1")
+    reg.register(name="b", topic="ntfy:2")
+    set_listener_paused("tmux_test", "a", True)
 
     payload = aggregate_all(include_dead=True)
-    [inst] = [i for i in payload['instances'] if i['instance_id'] == 'tmux_test']
-    assert 'listeners' in inst
-    assert set(inst['listeners'].keys()) == {'a', 'b'}
-    assert inst['listeners']['a']['paused'] is True
-    assert inst['listeners']['b']['paused'] is False
+    [inst] = [i for i in payload["instances"] if i["instance_id"] == "tmux_test"]
+    assert "listeners" in inst
+    assert set(inst["listeners"].keys()) == {"a", "b"}
+    assert inst["listeners"]["a"]["paused"] is True
+    assert inst["listeners"]["b"]["paused"] is False
 
-    summary = payload['summary']
-    assert summary['listeners_registered'] >= 2
-    assert summary['listeners_paused'] >= 1
+    summary = payload["summary"]
+    assert summary["listeners_registered"] >= 2
+    assert summary["listeners_paused"] >= 1
 
 
 # ─── Phase 2: install-on-click from project.yaml cockpit block ─────────────
@@ -774,9 +803,8 @@ async def test_listeners_surface_in_aggregate(cockpit_env):
 
 def _write_project_yaml(project: Path, cockpit: dict) -> None:
     import yaml
-    (project / '.empirica' / 'project.yaml').write_text(
-        yaml.safe_dump({'cockpit': cockpit})
-    )
+
+    (project / ".empirica" / "project.yaml").write_text(yaml.safe_dump({"cockpit": cockpit}))
 
 
 @pytest.mark.asyncio
@@ -784,16 +812,22 @@ async def test_l_click_empty_registry_installs_from_project_yaml(cockpit_env):
     """Phase 2: when registry is empty, L click should read cockpit.loops
     from project.yaml and queue install-request for each entry."""
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_test')
-    _write_project_yaml(project, {
-        'loops': [
-            {
-                'name': 'auto-poll', 'kind': 'cron',
-                'cron': '*/15 * * * *', 'description': 'auto-installed',
-                'base_interval': '15m', 'max_interval': '4h',
-            },
-        ],
-    })
+    _bind_instance(home, project, "tmux_test")
+    _write_project_yaml(
+        project,
+        {
+            "loops": [
+                {
+                    "name": "auto-poll",
+                    "kind": "cron",
+                    "cron": "*/15 * * * *",
+                    "description": "auto-installed",
+                    "base_interval": "15m",
+                    "max_interval": "4h",
+                },
+            ],
+        },
+    )
 
     from empirica.cli.tui import CockpitApp
     from empirica.core.cockpit.loop_registry import LoopRegistry
@@ -802,24 +836,25 @@ async def test_l_click_empty_registry_installs_from_project_yaml(cockpit_env):
     async with app.run_test(headless=True, size=(40, 24)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        await pilot.press('e')
+        await pilot.press("e")
         await pilot.pause()
         await pilot.pause()
 
     # Loop should now be in the registry (install-request registers).
-    reg = LoopRegistry('tmux_test')
-    entry = reg.get('auto-poll')
-    assert entry is not None, 'L on empty registry should have installed auto-poll'
-    assert entry.kind == 'cron'
+    reg = LoopRegistry("tmux_test")
+    entry = reg.get("auto-poll")
+    assert entry is not None, "L on empty registry should have installed auto-poll"
+    assert entry.kind == "cron"
 
     # Pending install request file should also exist for owning Claude pickup.
-    pending = list(home.glob('loop_install_pending_tmux_test_*.json'))
+    pending = list(home.glob("loop_install_pending_tmux_test_*.json"))
     assert len(pending) == 1
 
 
 @pytest.mark.asyncio
 async def test_l_click_empty_registry_no_yaml_falls_back_to_canonical_catalog(
-    cockpit_env, monkeypatch,
+    cockpit_env,
+    monkeypatch,
 ):
     """When project.yaml has no cockpit.loops block, L click should
     fall back to the system-level canonical catalog (v1.9.6+) and
@@ -845,12 +880,12 @@ async def test_l_click_empty_registry_no_yaml_falls_back_to_canonical_catalog(
         return 0
 
     monkeypatch.setattr(
-        'empirica.cli.tui.cockpit_app.handle_loop_enable_command',
+        "empirica.cli.tui.cockpit_app.handle_loop_enable_command",
         fake_enable,
     )
 
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_test')
+    _bind_instance(home, project, "tmux_test")
     _write_project_yaml(project, {})  # empty cockpit block
 
     from empirica.cli.tui import CockpitApp
@@ -859,19 +894,15 @@ async def test_l_click_empty_registry_no_yaml_falls_back_to_canonical_catalog(
     async with app.run_test(headless=True, size=(40, 24)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        await pilot.press('e')
+        await pilot.press("e")
         await pilot.pause()
 
-    systemd_loops = [
-        c for c in CANONICAL_LOOPS
-        if (c.get('scheduler_kind') or '').lower().startswith('systemd')
-    ]
+    systemd_loops = [c for c in CANONICAL_LOOPS if (c.get("scheduler_kind") or "").lower().startswith("systemd")]
     assert len(captured) == len(systemd_loops), (
-        f'expected {len(systemd_loops)} systemd loop installs, '
-        f'got {len(captured)}: {captured}'
+        f"expected {len(systemd_loops)} systemd loop installs, got {len(captured)}: {captured}"
     )
     captured_names = {name for _, name in captured}
-    expected_names = {c['name'] for c in systemd_loops}
+    expected_names = {c["name"] for c in systemd_loops}
     assert captured_names == expected_names
 
 
@@ -879,17 +910,20 @@ async def test_l_click_empty_registry_no_yaml_falls_back_to_canonical_catalog(
 async def test_e_click_empty_registry_installs_listener_from_project_yaml(cockpit_env):
     """Same as the loop test, but for listeners + cockpit.listeners block."""
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_test')
-    _write_project_yaml(project, {
-        'listeners': [
-            {
-                'name': 'auto-inbox',
-                'topic': 'ntfy:auto-channel',
-                'description': 'auto-installed listener',
-                'on_wake': 'Process new event',
-            },
-        ],
-    })
+    _bind_instance(home, project, "tmux_test")
+    _write_project_yaml(
+        project,
+        {
+            "listeners": [
+                {
+                    "name": "auto-inbox",
+                    "topic": "ntfy:auto-channel",
+                    "description": "auto-installed listener",
+                    "on_wake": "Process new event",
+                },
+            ],
+        },
+    )
 
     from empirica.cli.tui import CockpitApp
     from empirica.core.cockpit.listener_registry import ListenerRegistry
@@ -898,16 +932,16 @@ async def test_e_click_empty_registry_installs_listener_from_project_yaml(cockpi
     async with app.run_test(headless=True, size=(40, 24)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        await pilot.press('e')
+        await pilot.press("e")
         await pilot.pause()
         await pilot.pause()
 
-    reg = ListenerRegistry('tmux_test')
-    entry = reg.get('auto-inbox')
+    reg = ListenerRegistry("tmux_test")
+    entry = reg.get("auto-inbox")
     assert entry is not None
-    assert entry.topic == 'ntfy:auto-channel'
+    assert entry.topic == "ntfy:auto-channel"
 
-    pending = list(home.glob('listener_install_pending_tmux_test_*.json'))
+    pending = list(home.glob("listener_install_pending_tmux_test_*.json"))
     assert len(pending) == 1
 
 
@@ -918,11 +952,12 @@ def _write_project_id(project: Path, project_id: str) -> None:
     """Add project_id to .empirica/project.yaml so compliance_view can
     resolve project_path → project_id."""
     import yaml
-    p = project / '.empirica' / 'project.yaml'
+
+    p = project / ".empirica" / "project.yaml"
     data = {}
     if p.exists():
         data = yaml.safe_load(p.read_text()) or {}
-    data['project_id'] = project_id
+    data["project_id"] = project_id
     p.write_text(yaml.safe_dump(data))
 
 
@@ -930,46 +965,57 @@ def _write_active_transaction(
     home: Path,
     project: Path,
     instance_id: str,
-    domain: str = 'default',
-    criticality: str = 'medium',
+    domain: str = "default",
+    criticality: str = "medium",
 ) -> None:
     """Simulate an open transaction with domain + criticality fields so
     instance_state surfaces them in the transaction block."""
     import json
-    tx_path = project / '.empirica' / f'active_transaction_{instance_id}.json'
+
+    tx_path = project / ".empirica" / f"active_transaction_{instance_id}.json"
     tx_path.parent.mkdir(parents=True, exist_ok=True)
-    tx_path.write_text(json.dumps({
-        'transaction_id': 'test-tx-id',
-        'session_id': 'test-session',
-        'preflight_timestamp': 1775380000.0,
-        'status': 'open',
-        'project_path': str(project),
-        'work_type': 'code',
-        'domain': domain,
-        'criticality': criticality,
-    }))
+    tx_path.write_text(
+        json.dumps(
+            {
+                "transaction_id": "test-tx-id",
+                "session_id": "test-session",
+                "preflight_timestamp": 1775380000.0,
+                "status": "open",
+                "project_path": str(project),
+                "work_type": "code",
+                "domain": domain,
+                "criticality": criticality,
+            }
+        )
+    )
 
 
 @pytest.mark.asyncio
 async def test_compliance_widget_shows_passing_collapsed(cockpit_env, monkeypatch):
     """When all checks pass, the compliance widget collapses to a single line."""
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_test')
-    _write_project_id(project, 'test-project')
+    _bind_instance(home, project, "tmux_test")
+    _write_project_id(project, "test-project")
 
     # Persist a passing compliance result
     from empirica.core.cockpit import compliance_view
-    monkeypatch.setattr(compliance_view, 'EMPIRICA_DIR', home)
-    compliance_view.write_last_compliance('test-project', {
-        'overall': {
-            'status': 'compliant', 'score': 1.0,
-            'checks_passed': 11, 'checks_total': 11,
+
+    monkeypatch.setattr(compliance_view, "EMPIRICA_DIR", home)
+    compliance_view.write_last_compliance(
+        "test-project",
+        {
+            "overall": {
+                "status": "compliant",
+                "score": 1.0,
+                "checks_passed": 11,
+                "checks_total": 11,
+            },
+            "checks": [
+                {"check": "lint", "passed": True},
+                {"check": "complexity", "passed": True},
+            ],
         },
-        'checks': [
-            {'check': 'lint', 'passed': True},
-            {'check': 'complexity', 'passed': True},
-        ],
-    })
+    )
 
     from textual.widgets import Static
 
@@ -979,43 +1025,51 @@ async def test_compliance_widget_shows_passing_collapsed(cockpit_env, monkeypatc
     async with app.run_test(headless=True, size=(60, 30)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        widget = app.query_one('#compliance', Static)
+        widget = app.query_one("#compliance", Static)
         from rich.console import Console
+
         c = Console(width=120, file=io.StringIO())
         with c.capture() as cap:
             c.print(widget.render())
         text = cap.get()
-        assert '🛡' in text
-        assert '11/11' in text
+        assert "🛡" in text
+        assert "11/11" in text
         # Collapsed: should NOT contain a "press `c`" hint
-        assert '✗' not in text
+        assert "✗" not in text
 
 
 @pytest.mark.asyncio
 async def test_compliance_widget_failures_appear_in_header(
-    cockpit_env, monkeypatch,
+    cockpit_env,
+    monkeypatch,
 ):
     """Failing check names live in the header always — operator can never
     use a key to hide them, and the toggle-only-affects-passing rule keeps
     failure visibility independent of `compliance_expanded`."""
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_test')
-    _write_project_id(project, 'test-project')
+    _bind_instance(home, project, "tmux_test")
+    _write_project_id(project, "test-project")
 
     from empirica.core.cockpit import compliance_view
-    monkeypatch.setattr(compliance_view, 'EMPIRICA_DIR', home)
-    compliance_view.write_last_compliance('test-project', {
-        'overall': {
-            'status': 'non_compliant', 'score': 0.7273,
-            'checks_passed': 8, 'checks_total': 11,
+
+    monkeypatch.setattr(compliance_view, "EMPIRICA_DIR", home)
+    compliance_view.write_last_compliance(
+        "test-project",
+        {
+            "overall": {
+                "status": "non_compliant",
+                "score": 0.7273,
+                "checks_passed": 8,
+                "checks_total": 11,
+            },
+            "checks": [
+                {"check": "lint", "passed": False},
+                {"check": "complexity", "passed": False},
+                {"check": "type_safety", "passed": False},
+                {"check": "tests", "passed": True},
+            ],
         },
-        'checks': [
-            {'check': 'lint', 'passed': False},
-            {'check': 'complexity', 'passed': False},
-            {'check': 'type_safety', 'passed': False},
-            {'check': 'tests', 'passed': True},
-        ],
-    })
+    )
 
     from textual.widgets import Static
 
@@ -1025,24 +1079,25 @@ async def test_compliance_widget_failures_appear_in_header(
     async with app.run_test(headless=True, size=(60, 30)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        widget = app.query_one('#compliance', Static)
+        widget = app.query_one("#compliance", Static)
         from rich.console import Console
+
         c = Console(width=120, file=io.StringIO())
         with c.capture() as cap:
             c.print(widget.render())
         text = cap.get()
-        assert '8/11' in text
+        assert "8/11" in text
         # Default-expanded: failure labels visible
-        assert 'lint' in text
-        assert 'complexity' in text
-        assert 'type_safety' in text
+        assert "lint" in text
+        assert "complexity" in text
+        assert "type_safety" in text
 
 
 @pytest.mark.asyncio
 async def test_compliance_widget_no_data_message(cockpit_env):
     """When compliance hasn't been run, the widget shows a guidance hint."""
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_test')
+    _bind_instance(home, project, "tmux_test")
     # No project_id, no last_compliance file
 
     from textual.widgets import Static
@@ -1053,35 +1108,42 @@ async def test_compliance_widget_no_data_message(cockpit_env):
     async with app.run_test(headless=True, size=(60, 30)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        widget = app.query_one('#compliance', Static)
+        widget = app.query_one("#compliance", Static)
         from rich.console import Console
+
         c = Console(width=120, file=io.StringIO())
         with c.capture() as cap:
             c.print(widget.render())
         text = cap.get()
-        assert 'compliance-report' in text
+        assert "compliance-report" in text
 
 
 @pytest.mark.asyncio
 async def test_c_key_toggles_compliance_expansion(cockpit_env, monkeypatch):
     """`c` reveals per-passing-check rows when all green; default is head only."""
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_test')
-    _write_project_id(project, 'test-project')
+    _bind_instance(home, project, "tmux_test")
+    _write_project_id(project, "test-project")
 
     from empirica.core.cockpit import compliance_view
-    monkeypatch.setattr(compliance_view, 'EMPIRICA_DIR', home)
-    compliance_view.write_last_compliance('test-project', {
-        'overall': {
-            'status': 'compliant', 'score': 1.0,
-            'checks_passed': 3, 'checks_total': 3,
+
+    monkeypatch.setattr(compliance_view, "EMPIRICA_DIR", home)
+    compliance_view.write_last_compliance(
+        "test-project",
+        {
+            "overall": {
+                "status": "compliant",
+                "score": 1.0,
+                "checks_passed": 3,
+                "checks_total": 3,
+            },
+            "checks": [
+                {"check": "lint", "passed": True},
+                {"check": "complexity", "passed": True},
+                {"check": "tests", "passed": True},
+            ],
         },
-        'checks': [
-            {'check': 'lint', 'passed': True},
-            {'check': 'complexity', 'passed': True},
-            {'check': 'tests', 'passed': True},
-        ],
-    })
+    )
 
     from empirica.cli.tui import CockpitApp
 
@@ -1095,18 +1157,18 @@ async def test_c_key_toggles_compliance_expansion(cockpit_env, monkeypatch):
         # Default for passing = head only, no per-check rows
         assert app.compliance_expanded is False
         rendered_default = app._format_compliance(inst)
-        assert '3/3' in rendered_default
-        assert '  ✓ lint' not in rendered_default
-        assert '  ✓ complexity' not in rendered_default
+        assert "3/3" in rendered_default
+        assert "  ✓ lint" not in rendered_default
+        assert "  ✓ complexity" not in rendered_default
 
-        await pilot.press('c')
+        await pilot.press("c")
         await pilot.pause()
         assert app.compliance_expanded is True
         rendered_after = app._format_compliance(inst)
         # Each passing check listed individually
-        assert '  ✓ lint' in rendered_after
-        assert '  ✓ complexity' in rendered_after
-        assert '  ✓ tests' in rendered_after
+        assert "  ✓ lint" in rendered_after
+        assert "  ✓ complexity" in rendered_after
+        assert "  ✓ tests" in rendered_after
 
 
 @pytest.mark.asyncio
@@ -1116,24 +1178,30 @@ async def test_c_key_toggles_compliance_in_failure_state(cockpit_env, monkeypatc
     re-lists failures (they're already in the header).
     """
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_test')
-    _write_project_id(project, 'test-project')
+    _bind_instance(home, project, "tmux_test")
+    _write_project_id(project, "test-project")
 
     from empirica.core.cockpit import compliance_view
-    monkeypatch.setattr(compliance_view, 'EMPIRICA_DIR', home)
-    compliance_view.write_last_compliance('test-project', {
-        'overall': {
-            'status': 'fail', 'score': 0.6,
-            'checks_passed': 3, 'checks_total': 5,
+
+    monkeypatch.setattr(compliance_view, "EMPIRICA_DIR", home)
+    compliance_view.write_last_compliance(
+        "test-project",
+        {
+            "overall": {
+                "status": "fail",
+                "score": 0.6,
+                "checks_passed": 3,
+                "checks_total": 5,
+            },
+            "checks": [
+                {"check": "lint", "passed": False},
+                {"check": "complexity", "passed": False},
+                {"check": "tests", "passed": True},
+                {"check": "dep_audit", "passed": True},
+                {"check": "type_safety", "passed": True},
+            ],
         },
-        'checks': [
-            {'check': 'lint', 'passed': False},
-            {'check': 'complexity', 'passed': False},
-            {'check': 'tests', 'passed': True},
-            {'check': 'dep_audit', 'passed': True},
-            {'check': 'type_safety', 'passed': True},
-        ],
-    })
+    )
 
     from empirica.cli.tui import CockpitApp
 
@@ -1147,32 +1215,32 @@ async def test_c_key_toggles_compliance_in_failure_state(cockpit_env, monkeypatc
         # Default = head only. Failures live in the header.
         assert app.compliance_expanded is False
         rendered_default = app._format_compliance(inst)
-        assert 'failing: lint, complexity' in rendered_default
+        assert "failing: lint, complexity" in rendered_default
         # No passing-check rows yet
-        assert '  ✓ tests' not in rendered_default
-        assert '  ✓ dep_audit' not in rendered_default
+        assert "  ✓ tests" not in rendered_default
+        assert "  ✓ dep_audit" not in rendered_default
 
         # Press `c` — passing checks appear; failures stay in head; no
         # per-failure rows are added (header already lists them).
-        await pilot.press('c')
+        await pilot.press("c")
         await pilot.pause()
         assert app.compliance_expanded is True
         rendered_expanded = app._format_compliance(inst)
-        assert 'failing: lint, complexity' in rendered_expanded
-        assert '  ✓ tests' in rendered_expanded
-        assert '  ✓ dep_audit' in rendered_expanded
-        assert '  ✓ type_safety' in rendered_expanded
+        assert "failing: lint, complexity" in rendered_expanded
+        assert "  ✓ tests" in rendered_expanded
+        assert "  ✓ dep_audit" in rendered_expanded
+        assert "  ✓ type_safety" in rendered_expanded
         # Failures are NEVER duplicated as detail rows
-        assert '  ✗ lint' not in rendered_expanded
-        assert '  ✗ complexity' not in rendered_expanded
+        assert "  ✗ lint" not in rendered_expanded
+        assert "  ✗ complexity" not in rendered_expanded
 
         # Press `c` again — back to head-only
-        await pilot.press('c')
+        await pilot.press("c")
         await pilot.pause()
         assert app.compliance_expanded is False
         rendered_collapsed = app._format_compliance(inst)
-        assert 'failing: lint, complexity' in rendered_collapsed
-        assert '  ✓ tests' not in rendered_collapsed
+        assert "failing: lint, complexity" in rendered_collapsed
+        assert "  ✓ tests" not in rendered_collapsed
 
 
 @pytest.mark.asyncio
@@ -1180,10 +1248,13 @@ async def test_domain_chip_in_table_when_transaction_open(cockpit_env):
     """When an instance has an open transaction with domain + criticality,
     the table renders a 'dom·crit' chip in the dom column."""
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_test')
+    _bind_instance(home, project, "tmux_test")
     _write_active_transaction(
-        home, project, 'tmux_test',
-        domain='legal', criticality='high',
+        home,
+        project,
+        "tmux_test",
+        domain="legal",
+        criticality="high",
     )
 
     from textual.widgets import DataTable
@@ -1194,23 +1265,23 @@ async def test_domain_chip_in_table_when_transaction_open(cockpit_env):
     async with app.run_test(headless=True, size=(60, 20)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        table = app.query_one('#inst-table', DataTable)
+        table = app.query_one("#inst-table", DataTable)
         # Read the 'dom' cell directly via table API (column index 3,
         # zero-indexed: s, name, ph, dom, ...). The table renders as a
         # widget — we go via get_cell which works in headless tests.
         row_keys = list(table.rows.keys())
-        assert row_keys, 'expected at least one row'
+        assert row_keys, "expected at least one row"
         # First row, dom column
         dom_value = table.get_cell_at((0, 3))
         # 'leg·H' = legal/high domain chip
-        assert dom_value == 'leg·H', f'expected leg·H, got {dom_value!r}'
+        assert dom_value == "leg·H", f"expected leg·H, got {dom_value!r}"
 
 
 @pytest.mark.asyncio
 async def test_domain_chip_dash_when_no_transaction(cockpit_env):
     """No open transaction → '—' in dom column."""
     home, project = cockpit_env
-    _bind_instance(home, project, 'tmux_test')
+    _bind_instance(home, project, "tmux_test")
 
     from textual.widgets import DataTable
 
@@ -1220,8 +1291,8 @@ async def test_domain_chip_dash_when_no_transaction(cockpit_env):
     async with app.run_test(headless=True, size=(60, 20)) as pilot:
         await pilot.pause()
         await pilot.pause()
-        table = app.query_one('#inst-table', DataTable)
+        table = app.query_one("#inst-table", DataTable)
         row_keys = list(table.rows.keys())
-        assert row_keys, 'expected at least one row'
+        assert row_keys, "expected at least one row"
         dom_value = table.get_cell_at((0, 3))
-        assert dom_value == '—', f'expected —, got {dom_value!r}'
+        assert dom_value == "—", f"expected —, got {dom_value!r}"

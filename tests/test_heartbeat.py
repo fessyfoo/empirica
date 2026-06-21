@@ -22,13 +22,16 @@ def _record_post():
     calls = []
 
     def fn(url, body, headers, timeout):
-        calls.append({
-            "url": url,
-            "body": json.loads(body.decode("utf-8")) if body else None,
-            "headers": dict(headers),
-            "timeout": timeout,
-        })
+        calls.append(
+            {
+                "url": url,
+                "body": json.loads(body.decode("utf-8")) if body else None,
+                "headers": dict(headers),
+                "timeout": timeout,
+            }
+        )
         return 200
+
     return calls, fn
 
 
@@ -88,10 +91,8 @@ def test_emit_once_returns_zero_when_no_creds():
 
 def test_emit_once_returns_zero_when_partial_creds():
     """URL but no key, or key but no URL — both SKIP."""
-    e1 = HeartbeatEmitter("x", _post_fn=lambda *a: 200,
-                          _resolve_creds_fn=lambda: ("https://c.example", None))
-    e2 = HeartbeatEmitter("x", _post_fn=lambda *a: 200,
-                          _resolve_creds_fn=lambda: (None, "ctx_test"))
+    e1 = HeartbeatEmitter("x", _post_fn=lambda *a: 200, _resolve_creds_fn=lambda: ("https://c.example", None))
+    e2 = HeartbeatEmitter("x", _post_fn=lambda *a: 200, _resolve_creds_fn=lambda: (None, "ctx_test"))
     assert e1.emit_once() == 0
     assert e2.emit_once() == 0
 
@@ -99,6 +100,7 @@ def test_emit_once_returns_zero_when_partial_creds():
 def test_emit_once_defaults_instance_id_to_hostname():
     """No instance_id passed → falls back to socket.gethostname()."""
     import socket
+
     calls, post = _record_post()
     e = HeartbeatEmitter(
         ai_id="empirica",
@@ -204,8 +206,10 @@ def test_emit_failures_dont_crash_loop():
 
 def test_cortex_returns_4xx_does_not_crash_loop():
     """HTTP 401/500 returns from _post_fn → loop continues."""
+
     def post_401(*args):
         return 401
+
     e = HeartbeatEmitter(
         ai_id="empirica",
         interval_sec=0.05,
@@ -231,20 +235,29 @@ def test_run_listener_starts_and_stops_heartbeat(monkeypatch, tmp_path):
     class FakeEmitter:
         def __init__(self, ai_id, **kwargs):
             self.ai_id = ai_id
+
         def start(self):
             started.set()
+
         def stop(self, timeout=2.0):
             stopped.set()
 
     # Patch HeartbeatEmitter at import site inside listener
     import empirica.core.loop_scheduler.heartbeat as hb_mod
+
     monkeypatch.setattr(hb_mod, "HeartbeatEmitter", FakeEmitter)
 
     # Patch credentials_loader so we don't need real ntfy creds
     class FakeLoader:
         def get_ntfy_config(self):
-            return {"url": "https://ntfy.example.com", "topic": "test",
-                    "user": None, "password": None, "token": "tk_test"}
+            return {
+                "url": "https://ntfy.example.com",
+                "topic": "test",
+                "user": None,
+                "password": None,
+                "token": "tk_test",
+            }
+
     monkeypatch.setattr(
         "empirica.config.credentials_loader.get_credentials_loader",
         lambda: FakeLoader(),
@@ -288,10 +301,11 @@ def test_default_resolve_creds_handles_missing_loader(monkeypatch):
 def test_default_post_returns_neg_one_on_network_error():
     """_default_post should return -1 (not raise) on network failure."""
     from empirica.core.loop_scheduler.heartbeat import _default_post
+
     # Use a definitely-unreachable URL
     status = _default_post(
         "http://127.0.0.1:1/heartbeat",
-        b'{}',
+        b"{}",
         {"Authorization": "Bearer x", "Content-Type": "application/json"},
         timeout=0.5,
     )

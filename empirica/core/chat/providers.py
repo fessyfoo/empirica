@@ -91,9 +91,7 @@ class ProviderRegistry:
 def parse_provider_spec(spec: str) -> Provider:
     """Parse `NAME=URL[,key=val][,key=val]…` into a Provider."""
     if "=" not in spec:
-        raise ValueError(
-            f"--provider value must be NAME=URL[,…], got: {spec!r}"
-        )
+        raise ValueError(f"--provider value must be NAME=URL[,…], got: {spec!r}")
     name, _, rest = spec.partition("=")
     name = name.strip()
     if not name:

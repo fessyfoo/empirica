@@ -61,13 +61,13 @@ def test_migration_049_adds_visibility_column(tmp_path):
             discovered_at TIMESTAMP NOT NULL
         )
     """)
-    assert 'visibility' not in _epistemic_sources_columns(conn)
+    assert "visibility" not in _epistemic_sources_columns(conn)
 
     migration_049_source_visibility(conn.cursor())
     conn.commit()
 
     cols = _epistemic_sources_columns(conn)
-    assert 'visibility' in cols
+    assert "visibility" in cols
     conn.close()
 
 
@@ -95,7 +95,7 @@ def test_migration_049_is_idempotent(tmp_path):
     migration_049_source_visibility(conn.cursor())
     conn.commit()
     cols = list(_epistemic_sources_columns(conn))
-    assert cols.count('visibility') == 1
+    assert cols.count("visibility") == 1
     conn.close()
 
 
@@ -120,10 +120,7 @@ def test_migration_049_creates_index(tmp_path):
     conn.commit()
 
     cursor = conn.cursor()
-    cursor.execute(
-        "SELECT name FROM sqlite_master WHERE type='index' "
-        "AND name='idx_epistemic_sources_visibility'"
-    )
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_epistemic_sources_visibility'")
     assert cursor.fetchone() is not None
     conn.close()
 
@@ -135,9 +132,7 @@ def test_fresh_schema_includes_visibility():
     """CREATE TABLE in projects_schema.py carries visibility for fresh DBs."""
     from empirica.data.schema.projects_schema import SCHEMAS
 
-    sources_ddl = next(
-        (ddl for ddl in SCHEMAS if 'epistemic_sources' in ddl), None
-    )
+    sources_ddl = next((ddl for ddl in SCHEMAS if "epistemic_sources" in ddl), None)
     assert sources_ddl is not None, "epistemic_sources DDL missing"
     assert "visibility TEXT DEFAULT 'shared'" in sources_ddl
 
@@ -154,11 +149,11 @@ def test_source_in_artifact_tables_map():
     """
     from empirica.cli.command_handlers.visibility_commands import _ARTIFACT_TABLES
 
-    assert 'source' in _ARTIFACT_TABLES
-    table, content_col, ts_col = _ARTIFACT_TABLES['source']
-    assert table == 'epistemic_sources'
-    assert content_col == 'title'
-    assert ts_col == 'discovered_at'
+    assert "source" in _ARTIFACT_TABLES
+    table, content_col, ts_col = _ARTIFACT_TABLES["source"]
+    assert table == "epistemic_sources"
+    assert content_col == "title"
+    assert ts_col == "discovered_at"
 
 
 # ── CLI handler ────────────────────────────────────────────────────────
@@ -267,7 +262,8 @@ def _run_handler(args, capsys, _db_path) -> tuple[int, dict]:
     # Patch the git+qdrant persister so we don't shell out from tests.
     with (
         patch.object(
-            alc, "_source_persist_git_and_qdrant",
+            alc,
+            "_source_persist_git_and_qdrant",
             return_value=(False, False),
         ),
         patch(
@@ -326,12 +322,16 @@ def test_handler_human_output_surfaces_tier(fake_db, capsys):
     from empirica.cli.command_handlers import artifact_log_commands as alc
 
     args = _make_args(visibility="local", output="human")
-    with patch.object(
-        alc, "_source_persist_git_and_qdrant",
-        return_value=(False, False),
-    ), patch(
-        "empirica.utils.session_resolver.read_active_transaction_full",
-        return_value=None,
+    with (
+        patch.object(
+            alc,
+            "_source_persist_git_and_qdrant",
+            return_value=(False, False),
+        ),
+        patch(
+            "empirica.utils.session_resolver.read_active_transaction_full",
+            return_value=None,
+        ),
     ):
         rc = alc.handle_source_add_command(args)
     out = capsys.readouterr().out
@@ -342,11 +342,11 @@ def test_handler_human_output_surfaces_tier(fake_db, capsys):
 def test_normalize_visibility_invariants():
     """Sanity-check that the imported normaliser has the safety contract
     we rely on at the CLI boundary."""
-    assert normalize_visibility(None) == 'shared'
-    assert normalize_visibility('') == 'shared'
-    assert normalize_visibility('bogus') == 'shared'
-    assert normalize_visibility('PUBLIC') == 'public'
-    assert normalize_visibility('  Local  ') == 'local'
+    assert normalize_visibility(None) == "shared"
+    assert normalize_visibility("") == "shared"
+    assert normalize_visibility("bogus") == "shared"
+    assert normalize_visibility("PUBLIC") == "public"
+    assert normalize_visibility("  Local  ") == "local"
     # Critical: bogus must NOT promote to 'public'
-    for bogus in (None, '', 'x', 'pub', 'secret'):
-        assert normalize_visibility(bogus) != 'public'
+    for bogus in (None, "", "x", "pub", "secret"):
+        assert normalize_visibility(bogus) != "public"

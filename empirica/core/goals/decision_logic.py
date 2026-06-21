@@ -24,6 +24,7 @@ class GoalDecision:
 
     This is GUIDANCE, not prescription. AI can override.
     """
+
     should_create_goal_now: bool
     reasoning: str
     suggested_action: str  # 'create_goal', 'investigate_first', 'ask_clarification'
@@ -48,7 +49,7 @@ def decide_goal_creation(
     clarity_threshold: float = 0.6,
     signal_threshold: float = 0.5,
     know_threshold: float = 0.5,
-    context_threshold: float = 0.5
+    context_threshold: float = 0.5,
 ) -> GoalDecision:
     """
     Simple decision logic: Should we create a goal now?
@@ -85,13 +86,13 @@ def decide_goal_creation(
     # Step 1: Check CLARITY GATE (epistemic health)
     health_gate_passed = True
     if health_score is not None:
-        health_gate_passed = (health_score >= health_threshold)
+        health_gate_passed = health_score >= health_threshold
 
     # Step 2: Do I understand the request?
-    understands_request = (clarity >= clarity_threshold and signal >= signal_threshold)
+    understands_request = clarity >= clarity_threshold and signal >= signal_threshold
 
     # Step 3: Can I operate?
-    can_operate = (know >= know_threshold and context >= context_threshold)
+    can_operate = know >= know_threshold and context >= context_threshold
 
     # Step 4: Decide
     if not health_gate_passed:
@@ -102,14 +103,14 @@ def decide_goal_creation(
                 f"Epistemic health score ({health_score:.1f}) is below threshold ({health_threshold}). "
                 f"Should improve knowledge quality and reduce uncertainty before proceeding."
             ),
-            suggested_action='improve_epistemic_health',
+            suggested_action="improve_epistemic_health",
             confidence=0.4,  # Moderate confidence in health assessment
             clarity_score=clarity,
             signal_score=signal,
             know_score=know,
             context_score=context,
             health_score=health_score,
-            health_gate_passed=health_gate_passed
+            health_gate_passed=health_gate_passed,
         )
     elif understands_request and can_operate:
         # "I understand what to do AND I have the foundation"
@@ -120,14 +121,14 @@ def decide_goal_creation(
                 f"and sufficient foundation (know={know:.2f}, context={context:.2f}). "
                 f"{'Health score (' + str(health_score) + ') passes clarity gate. ' if health_score is not None else ''}Ready to create goal and act."
             ),
-            suggested_action='create_goal',
+            suggested_action="create_goal",
             confidence=min(clarity, signal, know, context),  # Most conservative
             clarity_score=clarity,
             signal_score=signal,
             know_score=know,
             context_score=context,
             health_score=health_score,
-            health_gate_passed=health_gate_passed
+            health_gate_passed=health_gate_passed,
         )
 
     elif understands_request and not can_operate:
@@ -150,14 +151,14 @@ def decide_goal_creation(
                 f"but low {investigate_what} ({know if investigate_what == 'know' else context:.2f}). "
                 f"{'Health score (' + str(health_score) + ') passes clarity gate. ' if health_score is not None else ''}Should investigate {focus} before creating goal."
             ),
-            suggested_action='investigate_first',
+            suggested_action="investigate_first",
             confidence=min(clarity, signal),  # Confident in understanding, not in ability
             clarity_score=clarity,
             signal_score=signal,
             know_score=know,
             context_score=context,
             health_score=health_score,
-            health_gate_passed=health_gate_passed
+            health_gate_passed=health_gate_passed,
         )
 
     else:
@@ -177,14 +178,14 @@ def decide_goal_creation(
                 f"Clarity={clarity:.2f}, signal={signal:.2f}. "
                 f"{'Health score (' + str(health_score) + ') passes clarity gate. ' if health_score is not None else ''}Should ask for clarification."
             ),
-            suggested_action='ask_clarification',
+            suggested_action="ask_clarification",
             confidence=0.3,  # Low confidence when unclear
             clarity_score=clarity,
             signal_score=signal,
             know_score=know,
             context_score=context,
             health_score=health_score,
-            health_gate_passed=health_gate_passed
+            health_gate_passed=health_gate_passed,
         )
 
 
@@ -195,7 +196,7 @@ def get_investigation_focus(decision: GoalDecision) -> str | None:
     Returns:
         String describing investigation focus, or None if not investigating
     """
-    if decision.suggested_action != 'investigate_first':
+    if decision.suggested_action != "investigate_first":
         return None
 
     # Identify weakest foundation component
@@ -225,7 +226,7 @@ def format_decision_for_ai(decision: GoalDecision) -> str:
         f"Suggested Action: {decision.suggested_action.upper()}",
     ]
 
-    if decision.suggested_action == 'investigate_first':
+    if decision.suggested_action == "investigate_first":
         focus = get_investigation_focus(decision)
         if focus:
             output.append(f"  → Investigation Focus: {focus}")
@@ -239,9 +240,4 @@ def format_decision_for_ai(decision: GoalDecision) -> str:
 
 
 # Default thresholds (can be overridden)
-DEFAULT_THRESHOLDS = {
-    'clarity': 0.6,
-    'signal': 0.5,
-    'know': 0.5,
-    'context': 0.5
-}
+DEFAULT_THRESHOLDS = {"clarity": 0.6, "signal": 0.5, "know": 0.5, "context": 0.5}

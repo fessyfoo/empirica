@@ -18,30 +18,60 @@ from typing import Any
 # Allow-lists — the universe of fields each collector can ever emit. The
 # read-surface yaml is intersected with these so a typo or stray entry can
 # never silently widen the boundary.
-PROCESS_FIELDS: frozenset[str] = frozenset({
-    'pid', 'cmdline', 'parent_pid', 'age_seconds', 'working_dir',
-    'num_open_files', 'cpu_percent', 'memory_mb', 'username', 'name',
-    'is_scanner_self',
-})
-NETWORK_FIELDS: frozenset[str] = frozenset({
-    'pid', 'family', 'type', 'local_address', 'local_port',
-    'peer_host', 'peer_port', 'status',
-    # Aliases the proposal uses that we accept as synonyms:
-    'listening_ports',
-})
-FILESYSTEM_FIELDS: frozenset[str] = frozenset({
-    'plugin_manifest_paths', 'recently_touched_model_weights',
-    'env_files_present',
-})
-PROCESS_ENV_FIELDS: frozenset[str] = frozenset({
-    'var_names_only',  # the only valid emission — values are never read
-})
-SCHEDULED_FIELDS: frozenset[str] = frozenset({
-    'cron_entries', 'systemd_user_units', 'launchd_agents',
-})
-MCP_FIELDS: frozenset[str] = frozenset({
-    'registered_servers', 'active_connections',
-})
+PROCESS_FIELDS: frozenset[str] = frozenset(
+    {
+        "pid",
+        "cmdline",
+        "parent_pid",
+        "age_seconds",
+        "working_dir",
+        "num_open_files",
+        "cpu_percent",
+        "memory_mb",
+        "username",
+        "name",
+        "is_scanner_self",
+    }
+)
+NETWORK_FIELDS: frozenset[str] = frozenset(
+    {
+        "pid",
+        "family",
+        "type",
+        "local_address",
+        "local_port",
+        "peer_host",
+        "peer_port",
+        "status",
+        # Aliases the proposal uses that we accept as synonyms:
+        "listening_ports",
+    }
+)
+FILESYSTEM_FIELDS: frozenset[str] = frozenset(
+    {
+        "plugin_manifest_paths",
+        "recently_touched_model_weights",
+        "env_files_present",
+    }
+)
+PROCESS_ENV_FIELDS: frozenset[str] = frozenset(
+    {
+        "var_names_only",  # the only valid emission — values are never read
+    }
+)
+SCHEDULED_FIELDS: frozenset[str] = frozenset(
+    {
+        "cron_entries",
+        "systemd_user_units",
+        "launchd_agents",
+    }
+)
+MCP_FIELDS: frozenset[str] = frozenset(
+    {
+        "registered_servers",
+        "active_connections",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -64,32 +94,51 @@ class ReadSurface:
 
 # Default surface — the proposal verbatim, intersected with allow-lists.
 DEFAULT_READ_SURFACE = ReadSurface(
-    process=frozenset({
-        'pid', 'cmdline', 'parent_pid', 'age_seconds', 'working_dir',
-        'num_open_files', 'cpu_percent', 'memory_mb', 'is_scanner_self',
-    }),
-    network=frozenset({
-        'pid', 'peer_host', 'peer_port', 'listening_ports',
-        'local_address', 'local_port', 'status',
-    }),
-    filesystem=frozenset({
-        'plugin_manifest_paths', 'recently_touched_model_weights',
-        'env_files_present',
-    }),
-    process_env=frozenset({'var_names_only'}),
-    scheduled=frozenset({'cron_entries', 'systemd_user_units', 'launchd_agents'}),
-    mcp=frozenset({'registered_servers', 'active_connections'}),
+    process=frozenset(
+        {
+            "pid",
+            "cmdline",
+            "parent_pid",
+            "age_seconds",
+            "working_dir",
+            "num_open_files",
+            "cpu_percent",
+            "memory_mb",
+            "is_scanner_self",
+        }
+    ),
+    network=frozenset(
+        {
+            "pid",
+            "peer_host",
+            "peer_port",
+            "listening_ports",
+            "local_address",
+            "local_port",
+            "status",
+        }
+    ),
+    filesystem=frozenset(
+        {
+            "plugin_manifest_paths",
+            "recently_touched_model_weights",
+            "env_files_present",
+        }
+    ),
+    process_env=frozenset({"var_names_only"}),
+    scheduled=frozenset({"cron_entries", "systemd_user_units", "launchd_agents"}),
+    mcp=frozenset({"registered_servers", "active_connections"}),
     relevant_globs_for_coverage={},
 )
 
 
 _COLLECTOR_FIELD_UNIVERSES: dict[str, frozenset[str]] = {
-    'process': PROCESS_FIELDS,
-    'network': NETWORK_FIELDS,
-    'filesystem': FILESYSTEM_FIELDS,
-    'process_env': PROCESS_ENV_FIELDS,
-    'scheduled': SCHEDULED_FIELDS,
-    'mcp': MCP_FIELDS,
+    "process": PROCESS_FIELDS,
+    "network": NETWORK_FIELDS,
+    "filesystem": FILESYSTEM_FIELDS,
+    "process_env": PROCESS_ENV_FIELDS,
+    "scheduled": SCHEDULED_FIELDS,
+    "mcp": MCP_FIELDS,
 }
 
 
@@ -111,17 +160,17 @@ def parse_read_surface(raw: dict[str, Any] | None) -> ReadSurface:
     if not raw or not isinstance(raw, dict):
         return DEFAULT_READ_SURFACE
 
-    coverage = raw.get('relevant_globs_for_coverage', {})
+    coverage = raw.get("relevant_globs_for_coverage", {})
     if not isinstance(coverage, dict):
         coverage = {}
 
     return ReadSurface(
-        process=_coerce_collector_fields('process', raw.get('process')),
-        network=_coerce_collector_fields('network', raw.get('network')),
-        filesystem=_coerce_collector_fields('filesystem', raw.get('filesystem')),
-        process_env=_coerce_collector_fields('process_env', raw.get('process_env')),
-        scheduled=_coerce_collector_fields('scheduled', raw.get('scheduled')),
-        mcp=_coerce_collector_fields('mcp', raw.get('mcp')),
+        process=_coerce_collector_fields("process", raw.get("process")),
+        network=_coerce_collector_fields("network", raw.get("network")),
+        filesystem=_coerce_collector_fields("filesystem", raw.get("filesystem")),
+        process_env=_coerce_collector_fields("process_env", raw.get("process_env")),
+        scheduled=_coerce_collector_fields("scheduled", raw.get("scheduled")),
+        mcp=_coerce_collector_fields("mcp", raw.get("mcp")),
         relevant_globs_for_coverage=coverage,
     )
 
@@ -130,7 +179,7 @@ def _find_project_yaml(start: Path | None = None) -> Path | None:
     """Walk upward from ``start`` looking for ``.empirica/project.yaml``."""
     cwd = (start or Path.cwd()).resolve()
     for candidate in (cwd, *cwd.parents):
-        path = candidate / '.empirica' / 'project.yaml'
+        path = candidate / ".empirica" / "project.yaml"
         if path.exists():
             return path
     return None
@@ -160,18 +209,17 @@ def load_read_surface(project_yaml: str | Path | None = None) -> ReadSurface:
         return DEFAULT_READ_SURFACE
 
     try:
-        with path.open('r', encoding='utf-8') as fh:
+        with path.open("r", encoding="utf-8") as fh:
             data = yaml.safe_load(fh) or {}
     except (OSError, yaml.YAMLError):
         return DEFAULT_READ_SURFACE
 
-    cockpit = data.get('cockpit') if isinstance(data, dict) else None
-    scanner_cfg = (cockpit or {}).get('scanner') if isinstance(cockpit, dict) else None
-    surface_cfg = (scanner_cfg or {}).get('read_surface') if isinstance(scanner_cfg, dict) else None
+    cockpit = data.get("cockpit") if isinstance(data, dict) else None
+    scanner_cfg = (cockpit or {}).get("scanner") if isinstance(cockpit, dict) else None
+    surface_cfg = (scanner_cfg or {}).get("read_surface") if isinstance(scanner_cfg, dict) else None
     surface = parse_read_surface(surface_cfg)
 
-    coverage_cfg = (scanner_cfg or {}).get('relevant_globs_for_coverage') \
-        if isinstance(scanner_cfg, dict) else None
+    coverage_cfg = (scanner_cfg or {}).get("relevant_globs_for_coverage") if isinstance(scanner_cfg, dict) else None
     if isinstance(coverage_cfg, dict) and coverage_cfg:
         surface = ReadSurface(
             process=surface.process,

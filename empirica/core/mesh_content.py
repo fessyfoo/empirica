@@ -105,10 +105,7 @@ def canonical_address(practice: str, content_type: str, uuid_str: str) -> str:
     if not uuid_str:
         raise ValueError("uuid required")
     if content_type not in MESH_CONTENT_TYPES:
-        raise ValueError(
-            f"unknown content_type {content_type!r}; "
-            f"expected one of {MESH_CONTENT_TYPES}"
-        )
+        raise ValueError(f"unknown content_type {content_type!r}; expected one of {MESH_CONTENT_TYPES}")
     return f"{practice}{CANONICAL_SEPARATOR}{content_type}_{uuid_str}"
 
 
@@ -125,10 +122,7 @@ def parse_canonical_address(addr: str) -> tuple[str, str, str]:
         raise ValueError(f"malformed canonical address: {addr!r}")
     content_type, _, uuid_str = rest.partition("_")
     if content_type not in MESH_CONTENT_TYPES:
-        raise ValueError(
-            f"unknown content_type {content_type!r} in {addr!r}; "
-            f"expected one of {MESH_CONTENT_TYPES}"
-        )
+        raise ValueError(f"unknown content_type {content_type!r} in {addr!r}; expected one of {MESH_CONTENT_TYPES}")
     if not uuid_str:
         raise ValueError(f"missing uuid in canonical address: {addr!r}")
     return practice, content_type, uuid_str

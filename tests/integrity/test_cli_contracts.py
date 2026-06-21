@@ -23,6 +23,7 @@ import pytest
 # Discovery: find every CLI command that declares --output with a json choice
 # ---------------------------------------------------------------------------
 
+
 def _discover_json_output_commands():
     """Parse CLI parser source files to find commands supporting --output json.
 
@@ -47,9 +48,7 @@ def _discover_json_output_commands():
             var_to_cmd[m.group(1)] = m.group(2)
 
         # Find lines where a parser variable adds '--output' with 'json' choice.
-        for m in re.finditer(
-            r"(\w+_parser)\.add_argument\(\s*'--output'.*?'json'", content
-        ):
+        for m in re.finditer(r"(\w+_parser)\.add_argument\(\s*'--output'.*?'json'", content):
             var_name = m.group(1)
             if var_name in var_to_cmd:
                 commands.add(var_to_cmd[var_name])
@@ -122,10 +121,7 @@ class TestValidJson:
 
         # Skip if no output at all (needs session state we can't provide)
         if not stdout:
-            pytest.skip(
-                f"{command} exited {result.returncode} with no stdout "
-                f"(likely needs session state)"
-            )
+            pytest.skip(f"{command} exited {result.returncode} with no stdout (likely needs session state)")
 
         try:
             data = json.loads(stdout)
@@ -133,14 +129,9 @@ class TestValidJson:
             # Non-JSON output means project/session resolution failed
             # under test isolation (EMPIRICA_INSTANCE_ID set, no live
             # instance_projects file) — skip gracefully.
-            pytest.skip(
-                f"{command} produced non-JSON output under test isolation: "
-                f"{stdout[:200]}"
-            )
+            pytest.skip(f"{command} produced non-JSON output under test isolation: {stdout[:200]}")
 
-        assert isinstance(data, (dict, list)), (
-            f"{command} JSON root must be a dict or list, got {type(data).__name__}"
-        )
+        assert isinstance(data, (dict, list)), f"{command} JSON root must be a dict or list, got {type(data).__name__}"
 
 
 # ===================================================================
@@ -178,8 +169,7 @@ class TestOkField:
             )
 
         assert "ok" in data, (
-            f"{command} returned a JSON dict without an 'ok' field. "
-            f"Top-level keys: {list(data.keys())}"
+            f"{command} returned a JSON dict without an 'ok' field. Top-level keys: {list(data.keys())}"
         )
 
 
@@ -211,8 +201,7 @@ class TestNoContradictoryState:
 
         if data.get("ok") is True:
             assert "error" not in data, (
-                f"{command} returned ok:true but also has a top-level 'error' key. "
-                f"error value: {data.get('error')!r}"
+                f"{command} returned ok:true but also has a top-level 'error' key. error value: {data.get('error')!r}"
             )
 
     @pytest.mark.parametrize("command", RUNNABLE_STATELESS)
@@ -238,8 +227,7 @@ class TestNoContradictoryState:
         high_severity = _find_high_severity_issues(data)
 
         assert not high_severity, (
-            f"{command} returned ok:true but contains high-severity "
-            f"auto-captured issue(s): {high_severity}"
+            f"{command} returned ok:true but contains high-severity auto-captured issue(s): {high_severity}"
         )
 
 
@@ -254,9 +242,7 @@ def _find_high_severity_issues(obj, path=""):
             if isinstance(issues, list):
                 for issue in issues:
                     if isinstance(issue, dict) and issue.get("severity") == "high":
-                        found.append(
-                            f"{path}.auto_captured_issues: {issue.get('message', issue)}"
-                        )
+                        found.append(f"{path}.auto_captured_issues: {issue.get('message', issue)}")
 
         # Recurse into all values
         for key, value in obj.items():
@@ -290,11 +276,7 @@ class TestErrorFormat:
     ]
 
     # Filter to only scenarios whose command actually supports --output json
-    VALID_SCENARIOS: ClassVar[list] = [
-        (cmd, args)
-        for cmd, args in ERROR_SCENARIOS
-        if cmd in ALL_JSON_COMMANDS
-    ]
+    VALID_SCENARIOS: ClassVar[list] = [(cmd, args) for cmd, args in ERROR_SCENARIOS if cmd in ALL_JSON_COMMANDS]
 
     @pytest.mark.parametrize(
         "command,extra_args",
@@ -333,21 +315,16 @@ class TestErrorFormat:
         # If the command actually succeeded (e.g. empty list is not an error),
         # skip -- we are only testing error paths here.
         if result.returncode == 0 and json_data.get("ok") is True:
-            pytest.skip(
-                f"{command} unexpectedly succeeded (rc=0, ok:true) "
-                f"-- not an error path"
-            )
+            pytest.skip(f"{command} unexpectedly succeeded (rc=0, ok:true) -- not an error path")
 
         # Core assertions for error responses
         if json_data.get("ok") is False:
             assert "error" in json_data, (
-                f"{command} returned ok:false but has no 'error' key. "
-                f"Keys present: {list(json_data.keys())}"
+                f"{command} returned ok:false but has no 'error' key. Keys present: {list(json_data.keys())}"
             )
             error_msg = json_data["error"]
             assert isinstance(error_msg, str) and len(error_msg) > 0, (
-                f"{command} 'error' field should be a non-empty string, "
-                f"got: {error_msg!r}"
+                f"{command} 'error' field should be a non-empty string, got: {error_msg!r}"
             )
 
 
@@ -391,8 +368,7 @@ class TestDiscovery:
     def test_discovered_commands_not_empty(self):
         """We should discover a substantial number of JSON-output commands."""
         assert len(ALL_JSON_COMMANDS) >= 30, (
-            f"Expected at least 30 commands with --output json, "
-            f"found {len(ALL_JSON_COMMANDS)}: {ALL_JSON_COMMANDS}"
+            f"Expected at least 30 commands with --output json, found {len(ALL_JSON_COMMANDS)}: {ALL_JSON_COMMANDS}"
         )
 
     def test_known_commands_in_discovered_set(self):
@@ -412,9 +388,7 @@ class TestDiscovery:
             "goals-complete",
         }
         missing = expected - set(ALL_JSON_COMMANDS)
-        assert not missing, (
-            f"Expected commands missing from discovered set: {missing}"
-        )
+        assert not missing, f"Expected commands missing from discovered set: {missing}"
 
 
 if __name__ == "__main__":

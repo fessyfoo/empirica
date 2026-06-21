@@ -68,11 +68,15 @@ class TestOldVerbsRemoved:
 
 class TestSubtaskIdFlagRemoved:
     def test_complete_task_rejects_subtask_id_flag(self):
-        rc, _out, err = _run([
-            "goals-complete-task",
-            "--subtask-id", "deadbeef",
-            "--evidence", "should not work",
-        ])
+        rc, _out, err = _run(
+            [
+                "goals-complete-task",
+                "--subtask-id",
+                "deadbeef",
+                "--evidence",
+                "should not work",
+            ]
+        )
         assert rc != 0
         # argparse reports the missing-required first, but the --subtask-id flag
         # must NOT have been silently accepted as --task-id (clean break, no alias).

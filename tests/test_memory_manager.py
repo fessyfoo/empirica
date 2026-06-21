@@ -79,7 +79,7 @@ def test_strip_stale_markers_no_op_on_clean_content():
 def test_collapse_blank_runs():
     content = "a\n\n\n\n\n\nb"
     result = _collapse_blank_runs(content)
-    assert result.count('\n') <= 3  # max 2 consecutive blanks
+    assert result.count("\n") <= 3  # max 2 consecutive blanks
 
 
 def test_collapse_blank_runs_preserves_single_blanks():
@@ -126,7 +126,7 @@ def test_replace_auto_section_no_excessive_blanks():
 
 
 def test_format_auto_section_empty_artifacts():
-    artifacts = {'findings': [], 'unknowns': [], 'dead_ends': [], 'goals': [], 'mistakes': []}
+    artifacts = {"findings": [], "unknowns": [], "dead_ends": [], "goals": [], "mistakes": []}
     result = _format_auto_section(artifacts, "test-session")
     assert MEMORY_AUTO_START in result
     assert "0 items ranked" in result
@@ -134,8 +134,11 @@ def test_format_auto_section_empty_artifacts():
 
 def test_format_auto_section_with_findings():
     artifacts = {
-        'findings': [{'finding': 'Test finding', 'impact': 0.8}],
-        'unknowns': [], 'dead_ends': [], 'goals': [], 'mistakes': [],
+        "findings": [{"finding": "Test finding", "impact": 0.8}],
+        "unknowns": [],
+        "dead_ends": [],
+        "goals": [],
+        "mistakes": [],
     }
     result = _format_auto_section(artifacts, "test-session")
     assert "Critical" in result
@@ -151,10 +154,19 @@ def test_update_hot_cache_creates_memory_md(tmp_path):
     memory_dir = tmp_path / ".claude" / "projects" / "test" / "memory"
     memory_dir.mkdir(parents=True)
 
-    with patch("empirica.core.memory_manager.get_memory_md_path", return_value=memory_dir / "MEMORY.md"), \
-         patch("empirica.core.memory_manager.fetch_ranked_artifacts", return_value={
-             'findings': [], 'unknowns': [], 'dead_ends': [], 'goals': [], 'mistakes': [],
-         }):
+    with (
+        patch("empirica.core.memory_manager.get_memory_md_path", return_value=memory_dir / "MEMORY.md"),
+        patch(
+            "empirica.core.memory_manager.fetch_ranked_artifacts",
+            return_value={
+                "findings": [],
+                "unknowns": [],
+                "dead_ends": [],
+                "goals": [],
+                "mistakes": [],
+            },
+        ),
+    ):
         result = update_hot_cache("test-session")
 
     assert result is True
@@ -190,8 +202,10 @@ def test_promote_no_memory_dir():
 
 def test_promote_qdrant_import_error():
     """ImportError should be handled gracefully."""
-    with patch("empirica.core.memory_manager.get_memory_dir", return_value=Path("/tmp/test")), \
-         patch("builtins.__import__", side_effect=ImportError("no qdrant")):
+    with (
+        patch("empirica.core.memory_manager.get_memory_dir", return_value=Path("/tmp/test")),
+        patch("builtins.__import__", side_effect=ImportError("no qdrant")),
+    ):
         result = promote_eidetic_to_memory(project_id="test-pid")
     assert result == []
 
@@ -212,6 +226,7 @@ def test_try_promote_point_already_promoted(tmp_path):
     point = MagicMock()
     point.payload = {"content": "test content", "confidence": 0.8}
     import hashlib
+
     h = hashlib.md5(b"test content").hexdigest()[:12]
     result = _try_promote_point(point, tmp_path, {h})
     assert result is None
@@ -270,6 +285,7 @@ def test_demote_stale_promoted_file(tmp_path):
 
     # Make the file look old
     import os
+
     old_time = time.time() - (31 * 86400)
     os.utime(promoted, (old_time, old_time))
 
@@ -339,10 +355,19 @@ def test_update_hot_cache_uses_lock_file(tmp_path):
     memory_dir.mkdir()
     _write_memory_md(memory_dir, "# Memory\n")
 
-    with patch("empirica.core.memory_manager.get_memory_md_path", return_value=memory_dir / "MEMORY.md"), \
-         patch("empirica.core.memory_manager.fetch_ranked_artifacts", return_value={
-             'findings': [], 'unknowns': [], 'dead_ends': [], 'goals': [], 'mistakes': [],
-         }):
+    with (
+        patch("empirica.core.memory_manager.get_memory_md_path", return_value=memory_dir / "MEMORY.md"),
+        patch(
+            "empirica.core.memory_manager.fetch_ranked_artifacts",
+            return_value={
+                "findings": [],
+                "unknowns": [],
+                "dead_ends": [],
+                "goals": [],
+                "mistakes": [],
+            },
+        ),
+    ):
         update_hot_cache("test-session")
 
     assert (memory_dir / ".memory_lock").exists()

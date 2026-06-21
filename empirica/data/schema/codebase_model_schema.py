@@ -28,7 +28,6 @@ SCHEMAS = [
     "CREATE INDEX IF NOT EXISTS idx_codebase_entities_file ON codebase_entities(file_path)",
     "CREATE INDEX IF NOT EXISTS idx_codebase_entities_name ON codebase_entities(name)",
     "CREATE INDEX IF NOT EXISTS idx_codebase_entities_project ON codebase_entities(project_id)",
-
     # Temporal facts: assertions about the codebase with validity windows
     """
     CREATE TABLE IF NOT EXISTS codebase_facts (
@@ -52,7 +51,6 @@ SCHEMAS = [
     "CREATE INDEX IF NOT EXISTS idx_codebase_facts_valid ON codebase_facts(valid_at, invalid_at)",
     "CREATE INDEX IF NOT EXISTS idx_codebase_facts_project ON codebase_facts(project_id)",
     "CREATE INDEX IF NOT EXISTS idx_codebase_facts_session ON codebase_facts(session_id)",
-
     # Entity relationships: directional links (calls, imports, depends_on)
     """
     CREATE TABLE IF NOT EXISTS codebase_relationships (
@@ -75,7 +73,6 @@ SCHEMAS = [
     "CREATE INDEX IF NOT EXISTS idx_codebase_rel_target ON codebase_relationships(target_entity_id)",
     "CREATE INDEX IF NOT EXISTS idx_codebase_rel_type ON codebase_relationships(relationship_type)",
     "CREATE INDEX IF NOT EXISTS idx_codebase_rel_project ON codebase_relationships(project_id)",
-
     # Constraints: learned patterns from corrections (extends lessons concept)
     """
     CREATE TABLE IF NOT EXISTS codebase_constraints (

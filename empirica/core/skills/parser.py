@@ -2,6 +2,7 @@
 Skill Parser - normalize markdown skill cards into YAML runtime objects.
 Very simple heuristic parser for headings/lists.
 """
+
 from __future__ import annotations
 
 import re
@@ -27,7 +28,7 @@ def parse_markdown_to_skill(md_text: str, name: str, tags: list[str] | None = No
         items: list[str] = []
         for ln in lines:
             s = ln.strip()
-            if s.startswith(('- ', '* ', '• ')):
+            if s.startswith(("- ", "* ", "• ")):
                 items.append(s[2:].strip())
         return items
 
@@ -36,13 +37,13 @@ def parse_markdown_to_skill(md_text: str, name: str, tags: list[str] | None = No
         return "\n".join([ln for ln in sections.get(sec_key, []) if ln.strip()])
 
     skill = {
-        'id': re.sub(r"[^a-z0-9]+", "-", name.lower()).strip('-'),
-        'title': name,
-        'tags': tags or [],
-        'preconditions': extract_list('preconditions') or extract_list('requirements'),
-        'steps': extract_list('steps') or extract_list('procedure'),
-        'gotchas': extract_list('gotchas') or extract_list('pitfalls') or extract_list('notes'),
-        'references': extract_list('references') or extract_list('links'),
-        'summary': extract_paragraph('body'),
+        "id": re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-"),
+        "title": name,
+        "tags": tags or [],
+        "preconditions": extract_list("preconditions") or extract_list("requirements"),
+        "steps": extract_list("steps") or extract_list("procedure"),
+        "gotchas": extract_list("gotchas") or extract_list("pitfalls") or extract_list("notes"),
+        "references": extract_list("references") or extract_list("links"),
+        "summary": extract_paragraph("body"),
     }
     return skill

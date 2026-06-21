@@ -122,15 +122,24 @@ def test_publish_happy_path_pushes_all_refspecs(tmp_path, monkeypatch, capsys):
         pushed.append((url, spec))
         return True, ""
 
-    with patch.object(fc, "_resolve_cortex_config", lambda: ("https://cortex.example", "ctx_k")), \
-         patch.object(fc, "_forgejo_publish_post", lambda *a, **k: (200, {
-             "forgejo_repo_url": _FORGEJO_URL,
-             "forgejo_token": _TOKEN,
-             "forgejo_token_user": _TOKEN_USER,
-             "refspecs": _REFSPECS,
-         })), \
-         patch.object(fc, "_set_forgejo_remote", lambda *a, **k: None), \
-         patch.object(fc, "_push_refspec", fake_push_refspec):
+    with (
+        patch.object(fc, "_resolve_cortex_config", lambda: ("https://cortex.example", "ctx_k")),
+        patch.object(
+            fc,
+            "_forgejo_publish_post",
+            lambda *a, **k: (
+                200,
+                {
+                    "forgejo_repo_url": _FORGEJO_URL,
+                    "forgejo_token": _TOKEN,
+                    "forgejo_token_user": _TOKEN_USER,
+                    "refspecs": _REFSPECS,
+                },
+            ),
+        ),
+        patch.object(fc, "_set_forgejo_remote", lambda *a, **k: None),
+        patch.object(fc, "_push_refspec", fake_push_refspec),
+    ):
         args = SimpleNamespace(path=str(root), output="json", rotate=False, description=None)
         code = fc.handle_forgejo_publish_command(args)
 
@@ -178,7 +187,7 @@ def test_push_refspec_notes_chunked_into_batches(tmp_path):
     with patch.object(fc, "_git", fake_git):
         ok, _ = fc._push_refspec(tmp_path, "URL", "+refs/notes/empirica/*:refs/notes/empirica/*")
     assert ok is True
-    assert len(push_batches) == 3                     # 250 + 250 + 100
+    assert len(push_batches) == 3  # 250 + 250 + 100
     assert len(push_batches[0]) == 250
     assert len(push_batches[2]) == 100
     # explicit force refspecs, never the wildcard
@@ -199,10 +208,20 @@ def test_push_refspec_notes_empty_is_benign(tmp_path):
 def test_publish_already_published_no_key_is_ok_with_note(tmp_path, monkeypatch):
     root = _make_project(tmp_path)
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-    with patch.object(fc, "_resolve_cortex_config", lambda: ("https://cortex.example", "ctx_k")), \
-         patch.object(fc, "_forgejo_publish_post", lambda *a, **k: (200, {
-             "forgejo_repo_url": _FORGEJO_URL, "already_published": True,
-         })):
+    with (
+        patch.object(fc, "_resolve_cortex_config", lambda: ("https://cortex.example", "ctx_k")),
+        patch.object(
+            fc,
+            "_forgejo_publish_post",
+            lambda *a, **k: (
+                200,
+                {
+                    "forgejo_repo_url": _FORGEJO_URL,
+                    "already_published": True,
+                },
+            ),
+        ),
+    ):
         args = SimpleNamespace(path=str(root), output="json", rotate=False, description=None)
         code = fc.handle_forgejo_publish_command(args)
     assert code == 0  # idempotent re-call is not an error
@@ -211,8 +230,10 @@ def test_publish_already_published_no_key_is_ok_with_note(tmp_path, monkeypatch)
 def test_publish_cortex_error_returns_nonzero(tmp_path, monkeypatch):
     root = _make_project(tmp_path)
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-    with patch.object(fc, "_resolve_cortex_config", lambda: ("https://cortex.example", "ctx_k")), \
-         patch.object(fc, "_forgejo_publish_post", lambda *a, **k: (403, {"error": "not owner"})):
+    with (
+        patch.object(fc, "_resolve_cortex_config", lambda: ("https://cortex.example", "ctx_k")),
+        patch.object(fc, "_forgejo_publish_post", lambda *a, **k: (403, {"error": "not owner"})),
+    ):
         args = SimpleNamespace(path=str(root), output="json", rotate=False, description=None)
         code = fc.handle_forgejo_publish_command(args)
     assert code == 1

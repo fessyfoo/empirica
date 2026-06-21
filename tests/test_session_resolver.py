@@ -19,9 +19,9 @@ from empirica.utils.session_resolver import (
 )
 
 # Fixed UUIDs — partial-UUID tests can assert exact prefixes
-SID_ACTIVE_CLAUDE = '88dbf132-cc7c-4a4b-9b59-77df3b13dbd2'
-SID_ACTIVE_GPT = '99eef241-aabb-4ccc-8ddd-eef0a1b2c3d4'
-SID_DONE_CLAUDE = 'aabbccdd-1111-2222-3333-444455556666'
+SID_ACTIVE_CLAUDE = "88dbf132-cc7c-4a4b-9b59-77df3b13dbd2"
+SID_ACTIVE_GPT = "99eef241-aabb-4ccc-8ddd-eef0a1b2c3d4"
+SID_DONE_CLAUDE = "aabbccdd-1111-2222-3333-444455556666"
 
 
 @pytest.fixture
@@ -36,27 +36,28 @@ def seeded_db(tmp_path, monkeypatch):
     isolation filter accepts NULL as a legacy match, so this DB is visible
     regardless of what EMPIRICA_INSTANCE_ID resolves to in the test env.
     """
-    db_path = tmp_path / 'sessions.db'
-    monkeypatch.setenv('EMPIRICA_SESSION_DB', str(db_path))
+    db_path = tmp_path / "sessions.db"
+    monkeypatch.setenv("EMPIRICA_SESSION_DB", str(db_path))
     # Ensure no cached SessionDatabase singleton points at the live DB
-    monkeypatch.setenv('EMPIRICA_INSTANCE_ID', 'test-isolated-resolver')
+    monkeypatch.setenv("EMPIRICA_INSTANCE_ID", "test-isolated-resolver")
 
     from empirica.data.session_database import SessionDatabase
+
     db = SessionDatabase()
 
     project_id = str(uuid.uuid4())
     now = time.time()
     rows = [
         # (session_id, ai_id, end_time, start_time)
-        (SID_DONE_CLAUDE, 'claude-code', now - 50, now - 300),
-        (SID_ACTIVE_GPT, 'gpt-5', None, now - 200),
-        (SID_ACTIVE_CLAUDE, 'claude-code', None, now - 100),
+        (SID_DONE_CLAUDE, "claude-code", now - 50, now - 300),
+        (SID_ACTIVE_GPT, "gpt-5", None, now - 200),
+        (SID_ACTIVE_CLAUDE, "claude-code", None, now - 100),
     ]
     for sid, ai_id, end_t, start_t in rows:
         db.conn.execute(
-            'INSERT INTO sessions (session_id, project_id, ai_id, '
-            'start_time, end_time, components_loaded) VALUES (?, ?, ?, ?, ?, ?)',
-            (sid, project_id, ai_id, start_t, end_t, '[]'),
+            "INSERT INTO sessions (session_id, project_id, ai_id, "
+            "start_time, end_time, components_loaded) VALUES (?, ?, ?, ?, ?, ?)",
+            (sid, project_id, ai_id, start_t, end_t, "[]"),
         )
     db.conn.commit()
     db.close()
@@ -181,23 +182,23 @@ class TestGetActiveProjectPath:
         read the developer's real ~/.empirica/instance_projects/. Pins an
         isolated instance_id that points at a non-existent file so the
         fallthrough paths return None rather than opportunistic matches."""
-        fake_home = tmp_path / 'home'
+        fake_home = tmp_path / "home"
         fake_home.mkdir(exist_ok=True)
-        monkeypatch.setenv('HOME', str(fake_home))
-        monkeypatch.setenv('USERPROFILE', str(fake_home))
-        monkeypatch.setenv('EMPIRICA_INSTANCE_ID', 'test-isolated')
+        monkeypatch.setenv("HOME", str(fake_home))
+        monkeypatch.setenv("USERPROFILE", str(fake_home))
+        monkeypatch.setenv("EMPIRICA_INSTANCE_ID", "test-isolated")
 
     def test_cwd_reliable_with_project_yaml(self, tmp_path, monkeypatch):
         """When EMPIRICA_CWD_RELIABLE=true and CWD has .empirica/project.yaml, return CWD."""
         from empirica.utils.session_resolver import get_active_project_path
 
         self._isolate_home(tmp_path, monkeypatch)
-        project_dir = tmp_path / 'project'
-        empirica_dir = project_dir / '.empirica'
+        project_dir = tmp_path / "project"
+        empirica_dir = project_dir / ".empirica"
         empirica_dir.mkdir(parents=True)
-        (empirica_dir / 'project.yaml').write_text('project_id: test-123\n')
+        (empirica_dir / "project.yaml").write_text("project_id: test-123\n")
 
-        monkeypatch.setenv('EMPIRICA_CWD_RELIABLE', 'true')
+        monkeypatch.setenv("EMPIRICA_CWD_RELIABLE", "true")
         monkeypatch.chdir(project_dir)
 
         result = get_active_project_path()
@@ -208,7 +209,7 @@ class TestGetActiveProjectPath:
         from empirica.utils.session_resolver import get_active_project_path
 
         self._isolate_home(tmp_path, monkeypatch)
-        monkeypatch.setenv('EMPIRICA_CWD_RELIABLE', 'true')
+        monkeypatch.setenv("EMPIRICA_CWD_RELIABLE", "true")
         monkeypatch.chdir(tmp_path)
 
         # No project.yaml guard, no instance_projects file, no active_work — must be None
@@ -220,12 +221,12 @@ class TestGetActiveProjectPath:
         from empirica.utils.session_resolver import get_active_project_path
 
         self._isolate_home(tmp_path, monkeypatch)
-        project_dir = tmp_path / 'project'
-        empirica_dir = project_dir / '.empirica'
+        project_dir = tmp_path / "project"
+        empirica_dir = project_dir / ".empirica"
         empirica_dir.mkdir(parents=True)
-        (empirica_dir / 'project.yaml').write_text('project_id: test-123\n')
+        (empirica_dir / "project.yaml").write_text("project_id: test-123\n")
 
-        monkeypatch.delenv('EMPIRICA_CWD_RELIABLE', raising=False)
+        monkeypatch.delenv("EMPIRICA_CWD_RELIABLE", raising=False)
         monkeypatch.chdir(project_dir)
 
         # No flag means CWD check never fires; with isolated HOME the fallthrough
@@ -240,25 +241,23 @@ class TestGetActiveProjectPath:
         from empirica.utils.session_resolver import get_active_project_path
 
         # Set up CWD project
-        cwd_project = tmp_path / 'current_project'
+        cwd_project = tmp_path / "current_project"
         cwd_project.mkdir()
-        empirica_dir = cwd_project / '.empirica'
+        empirica_dir = cwd_project / ".empirica"
         empirica_dir.mkdir()
-        (empirica_dir / 'project.yaml').write_text('project_id: current\n')
+        (empirica_dir / "project.yaml").write_text("project_id: current\n")
 
         # Set up stale instance_projects pointing to a different project
-        stale_project = tmp_path / 'stale_project'
+        stale_project = tmp_path / "stale_project"
         stale_project.mkdir()
-        instance_dir = tmp_path / 'home' / '.empirica' / 'instance_projects'
+        instance_dir = tmp_path / "home" / ".empirica" / "instance_projects"
         instance_dir.mkdir(parents=True)
-        (instance_dir / 'win-default.json').write_text(json.dumps({
-            'project_path': str(stale_project)
-        }))
+        (instance_dir / "win-default.json").write_text(json.dumps({"project_path": str(stale_project)}))
 
-        monkeypatch.setenv('EMPIRICA_CWD_RELIABLE', 'true')
-        monkeypatch.setenv('EMPIRICA_INSTANCE_ID', 'win-default')
-        monkeypatch.setenv('HOME', str(tmp_path / 'home'))
-        monkeypatch.setenv('USERPROFILE', str(tmp_path / 'home'))
+        monkeypatch.setenv("EMPIRICA_CWD_RELIABLE", "true")
+        monkeypatch.setenv("EMPIRICA_INSTANCE_ID", "win-default")
+        monkeypatch.setenv("HOME", str(tmp_path / "home"))
+        monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
         monkeypatch.chdir(cwd_project)
 
         result = get_active_project_path()

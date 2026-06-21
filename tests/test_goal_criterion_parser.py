@@ -96,12 +96,14 @@ def test_invalid_op_falls_back():
 
 
 def test_dict_entry_passed_through():
-    sc = _parse_criterion_entry({
-        "description": "custom",
-        "validation_method": "quality_gate",
-        "threshold": 0.42,
-        "is_required": False,
-    })
+    sc = _parse_criterion_entry(
+        {
+            "description": "custom",
+            "validation_method": "quality_gate",
+            "threshold": 0.42,
+            "is_required": False,
+        }
+    )
     assert sc.validation_method == "quality_gate"
     assert sc.description == "custom"
     assert sc.threshold == 0.42
@@ -194,7 +196,10 @@ def test_add_success_criterion_syncs_goal_data_json(repo_with_session):
     repo.save_goal(goal, session_id=session_id)
 
     new_id = repo.add_success_criterion(
-        goal.id, "metric_threshold", "coherence", threshold=0.7,
+        goal.id,
+        "metric_threshold",
+        "coherence",
+        threshold=0.7,
     )
 
     reloaded = repo.get_goal(goal.id)
@@ -210,7 +215,9 @@ def test_add_success_criterion_syncs_goal_data_json(repo_with_session):
 def test_add_success_criterion_returns_none_for_missing_goal(repo_with_session):
     repo, _ = repo_with_session
     result = repo.add_success_criterion(
-        "does-not-exist", "completion", "nope",
+        "does-not-exist",
+        "completion",
+        "nope",
     )
     assert result is None
 
@@ -222,11 +229,11 @@ def test_add_success_criterion_threshold_optional(repo_with_session):
     repo.save_goal(goal, session_id=session_id)
 
     new_id = repo.add_success_criterion(
-        goal.id, "completion", "auxiliary subtasks done",
+        goal.id,
+        "completion",
+        "auxiliary subtasks done",
     )
     assert new_id is not None
 
-    cursor = repo.db.conn.execute(
-        "SELECT threshold FROM success_criteria WHERE id = ?", (new_id,)
-    )
+    cursor = repo.db.conn.execute("SELECT threshold FROM success_criteria WHERE id = ?", (new_id,))
     assert cursor.fetchone()[0] is None

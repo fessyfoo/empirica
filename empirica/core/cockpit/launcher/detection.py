@@ -23,6 +23,7 @@ from empirica.core.cockpit.launcher.state import (
 @dataclass
 class AbnormalExit:
     """Set when start > clean and no live lock PID."""
+
     started_at: float
     duration_lost_seconds: float
     likely_cause: str  # 'reboot' | 'forced_kill' | 'oom' | 'unknown'
@@ -31,6 +32,7 @@ class AbnormalExit:
 @dataclass
 class SessionAlreadyRunning:
     """Set when start > clean and the lock PID is alive."""
+
     pid: int
     started_at: float
 
@@ -40,16 +42,16 @@ def _infer_cause(started_at: float) -> str:
     portably without root; the others are placeholders for richer
     detection (dmesg parsing, journalctl) in v1.1."""
     try:
-        with open('/proc/uptime', encoding='utf-8') as fh:
+        with open("/proc/uptime", encoding="utf-8") as fh:
             uptime_seconds = float(fh.read().split()[0])
         boot_time = time.time() - uptime_seconds
         # If the system rebooted after the session started, that's
         # the most likely cause.
         if boot_time > started_at:
-            return 'reboot'
+            return "reboot"
     except (OSError, ValueError, IndexError):
         pass
-    return 'unknown'
+    return "unknown"
 
 
 def detect_abnormal_exit() -> AbnormalExit | SessionAlreadyRunning | None:

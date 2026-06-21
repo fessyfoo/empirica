@@ -67,7 +67,7 @@ class GoalScopeLoader:
         Note: Use get_instance() for singleton pattern
         """
         if config_path is None:
-            config_path = Path(__file__).parent / 'mco' / 'goal_scopes.yaml'
+            config_path = Path(__file__).parent / "mco" / "goal_scopes.yaml"
 
         self.config_path = config_path
         self.scope_recommendations: dict[str, dict[str, Any]] = {}
@@ -88,14 +88,14 @@ class GoalScopeLoader:
             with open(self.config_path) as f:
                 data = yaml.safe_load(f)
 
-                if not data or 'scope_recommendations' not in data:
+                if not data or "scope_recommendations" not in data:
                     logger.error("Invalid goal scope config: missing 'scope_recommendations'")
                     self._load_hardcoded_defaults()
                     return
 
-                self.scope_recommendations = data.get('scope_recommendations', {})
-                self.adjustment_rules = data.get('adjustment_rules', {})
-                self.validation_rules = data.get('validation_coherence', {})
+                self.scope_recommendations = data.get("scope_recommendations", {})
+                self.adjustment_rules = data.get("adjustment_rules", {})
+                self.validation_rules = data.get("validation_coherence", {})
 
                 logger.info(f"✅ Loaded {len(self.scope_recommendations)} scope recommendations")
 
@@ -108,22 +108,20 @@ class GoalScopeLoader:
         logger.warning("⚠️  Using hardcoded goal scope defaults")
 
         self.scope_recommendations = {
-            'knowledge_leader': {
-                'epistemic_pattern': {'know': {'min': 0.80}, 'clarity': {'min': 0.75}},
-                'recommended_scope': {'breadth': 0.7, 'duration': 0.6, 'coordination': 0.4},
-                'rationale': 'High knowledge enables broader scope'
+            "knowledge_leader": {
+                "epistemic_pattern": {"know": {"min": 0.80}, "clarity": {"min": 0.75}},
+                "recommended_scope": {"breadth": 0.7, "duration": 0.6, "coordination": 0.4},
+                "rationale": "High knowledge enables broader scope",
             },
-            'learning_mode': {
-                'epistemic_pattern': {'know': {'max': 0.50}, 'uncertainty': {'min': 0.60}},
-                'recommended_scope': {'breadth': 0.2, 'duration': 0.2, 'coordination': 0.1},
-                'rationale': 'Uncertainty requires narrow scope'
-            }
+            "learning_mode": {
+                "epistemic_pattern": {"know": {"max": 0.50}, "uncertainty": {"min": 0.60}},
+                "recommended_scope": {"breadth": 0.2, "duration": 0.2, "coordination": 0.1},
+                "rationale": "Uncertainty requires narrow scope",
+            },
         }
 
     def get_scope_recommendations(
-        self,
-        epistemic_vectors: dict[str, float],
-        context: dict[str, Any] | None = None
+        self, epistemic_vectors: dict[str, float], context: dict[str, Any] | None = None
     ) -> dict[str, Any] | None:
         """
         Get scope recommendations based on epistemic vector pattern.
@@ -149,16 +147,13 @@ class GoalScopeLoader:
         best_score = 0.0
 
         for pattern_name, pattern_data in self.scope_recommendations.items():
-            score = self._calculate_pattern_match(
-                epistemic_vectors,
-                pattern_data.get('epistemic_pattern', {})
-            )
+            score = self._calculate_pattern_match(epistemic_vectors, pattern_data.get("epistemic_pattern", {}))
 
             if score > best_score and score >= 0.5:  # Minimum match threshold
                 best_score = score
                 best_match = pattern_data
-                best_match['pattern'] = pattern_name
-                best_match['match_score'] = score
+                best_match["pattern"] = pattern_name
+                best_match["match_score"] = score
 
         # If no good match, try conservative defaults
         if not best_match:
@@ -170,28 +165,26 @@ class GoalScopeLoader:
             best_match = self._apply_context_adjustments(best_match, context)
 
         # Extract scope recommendation
-        recommended_scope = best_match.get('recommended_scope', {})
+        recommended_scope = best_match.get("recommended_scope", {})
 
         logger.info(f"✅ Scope recommendation: {best_match['pattern']} (score: {best_score:.2f})")
-        logger.info(f"   Recommended: breadth={recommended_scope['breadth']:.2f}, "
-                   f"duration={recommended_scope['duration']:.2f}, "
-                   f"coordination={recommended_scope['coordination']:.2f}")
+        logger.info(
+            f"   Recommended: breadth={recommended_scope['breadth']:.2f}, "
+            f"duration={recommended_scope['duration']:.2f}, "
+            f"coordination={recommended_scope['coordination']:.2f}"
+        )
 
         return {
-            'breadth': recommended_scope['breadth'],
-            'duration': recommended_scope['duration'],
-            'coordination': recommended_scope['coordination'],
-            'pattern': best_match['pattern'],
-            'match_score': best_score,
-            'rationale': best_match.get('rationale', 'No rationale provided'),
-            'context_applied': context is not None
+            "breadth": recommended_scope["breadth"],
+            "duration": recommended_scope["duration"],
+            "coordination": recommended_scope["coordination"],
+            "pattern": best_match["pattern"],
+            "match_score": best_score,
+            "rationale": best_match.get("rationale", "No rationale provided"),
+            "context_applied": context is not None,
         }
 
-    def _calculate_pattern_match(
-        self,
-        epistemic_vectors: dict[str, float],
-        pattern: dict[str, Any]
-    ) -> float:
+    def _calculate_pattern_match(self, epistemic_vectors: dict[str, float], pattern: dict[str, Any]) -> float:
         """
         Calculate how well current epistemic state matches a pattern.
 
@@ -218,9 +211,9 @@ class GoalScopeLoader:
             # Check constraints
             constraint_met = True
 
-            if 'min' in constraints and value < constraints['min']:
+            if "min" in constraints and value < constraints["min"]:
                 constraint_met = False
-            if 'max' in constraints and value > constraints['max']:
+            if "max" in constraints and value > constraints["max"]:
                 constraint_met = False
 
             if constraint_met:
@@ -229,36 +222,29 @@ class GoalScopeLoader:
         # Return fraction of conditions met
         return matched_conditions / max(total_conditions, 1)
 
-    def _apply_context_adjustments(
-        self,
-        recommendation: dict[str, Any],
-        context: dict[str, Any]
-    ) -> dict[str, Any]:
+    def _apply_context_adjustments(self, recommendation: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
         """Apply context-based adjustments to scope recommendation"""
 
         # Deep copy to avoid modifying original
         adjusted = copy.deepcopy(recommendation)
 
         # Context-based adjustments
-        if context.get('priority') == 'high':
+        if context.get("priority") == "high":
             # High priority work might warrant broader scope
-            scope = adjusted['recommended_scope']
-            scope['breadth'] = min(scope['breadth'] + 0.1, 1.0)
-            adjusted['adjusted_for'] = 'high_priority'
+            scope = adjusted["recommended_scope"]
+            scope["breadth"] = min(scope["breadth"] + 0.1, 1.0)
+            adjusted["adjusted_for"] = "high_priority"
 
-        elif context.get('deadline_tight'):
+        elif context.get("deadline_tight"):
             # Tight deadlines might require scope reduction
-            scope = adjusted['recommended_scope']
-            scope['duration'] = max(scope['duration'] - 0.2, 0.1)
-            scope['breadth'] = max(scope['breadth'] - 0.1, 0.1)
-            adjusted['adjusted_for'] = 'tight_deadline'
+            scope = adjusted["recommended_scope"]
+            scope["duration"] = max(scope["duration"] - 0.2, 0.1)
+            scope["breadth"] = max(scope["breadth"] - 0.1, 0.1)
+            adjusted["adjusted_for"] = "tight_deadline"
 
         return adjusted
 
-    def _get_conservative_defaults(
-        self,
-        epistemic_vectors: dict[str, float]
-    ) -> dict[str, Any]:
+    def _get_conservative_defaults(self, epistemic_vectors: dict[str, float]) -> dict[str, Any]:
         """Get conservative scope defaults when no pattern matches well"""
 
         # Conservative baseline
@@ -267,11 +253,11 @@ class GoalScopeLoader:
         coordination = 0.2
 
         # Adjust based on key indicators
-        if epistemic_vectors.get('know', 0) > 0.7:
+        if epistemic_vectors.get("know", 0) > 0.7:
             breadth += 0.2
             duration += 0.2
 
-        if epistemic_vectors.get('engagement', 0) < 0.6:
+        if epistemic_vectors.get("engagement", 0) < 0.6:
             # Low engagement - be very conservative
             breadth *= 0.7
             duration *= 0.7
@@ -282,12 +268,12 @@ class GoalScopeLoader:
         coordination = max(0.1, min(coordination, 0.4))
 
         return {
-            'breadth': breadth,
-            'duration': duration,
-            'coordination': coordination,
-            'pattern': 'conservative_defaults',
-            'match_score': 0.0,
-            'rationale': 'Conservative defaults when no pattern matches well'
+            "breadth": breadth,
+            "duration": duration,
+            "coordination": coordination,
+            "pattern": "conservative_defaults",
+            "match_score": 0.0,
+            "rationale": "Conservative defaults when no pattern matches well",
         }
 
     def validate_scope_coherence(self, scope_vector: dict[str, float]) -> dict[str, Any]:
@@ -305,7 +291,7 @@ class GoalScopeLoader:
 
         # Check against validation rules (detect BAD combinations)
         for rule_name, rule_config in self.validation_rules.items():
-            rule_scope = rule_config.get('scope', {})
+            rule_scope = rule_config.get("scope", {})
 
             # Check if this specific bad combination is present
             bad_combination = True
@@ -317,45 +303,41 @@ class GoalScopeLoader:
                 value = scope_vector[scope_param]
 
                 # Check if this parameter violates the "good" combination
-                if 'min' in constraint and value < constraint['min']:
+                if "min" in constraint and value < constraint["min"]:
                     # This parameter is below the minimum, so the bad combination is NOT present
                     bad_combination = False
                     break
-                if 'max' in constraint and value > constraint['max']:
+                if "max" in constraint and value > constraint["max"]:
                     # This parameter is above the maximum, so the bad combination is NOT present
                     bad_combination = False
                     break
 
             # If we checked all parameters and none violated their good ranges, it's a bad combination
             if bad_combination:
-                warnings.append(rule_config.get('warning', f'Rule {rule_name} violated'))
+                warnings.append(rule_config.get("warning", f"Rule {rule_name} violated"))
 
         # Provide suggestions for improvement
-        if scope_vector.get('coordination', 0) > 0.7 and scope_vector.get('breadth', 0) < 0.4:
+        if scope_vector.get("coordination", 0) > 0.7 and scope_vector.get("breadth", 0) < 0.4:
             suggestions.append("Consider increasing scope breadth for heavy coordination tasks")
 
-        if scope_vector.get('duration', 0) < 0.3 and scope_vector.get('coordination', 0) > 0.6:
+        if scope_vector.get("duration", 0) < 0.3 and scope_vector.get("coordination", 0) > 0.6:
             suggestions.append("Consider increasing duration for heavy coordination tasks")
 
         return {
-            'coherent': len(warnings) == 0,
-            'warnings': warnings,
-            'suggestions': suggestions,
-            'severity': 'high' if len(warnings) > 1 else 'medium' if warnings else 'none'
+            "coherent": len(warnings) == 0,
+            "warnings": warnings,
+            "suggestions": suggestions,
+            "severity": "high" if len(warnings) > 1 else "medium" if warnings else "none",
         }
 
     def list_available_patterns(self) -> dict[str, str]:
         """List all available scope recommendation patterns"""
-        return {
-            name: data.get('description', 'No description')
-            for name, data in self.scope_recommendations.items()
-        }
+        return {name: data.get("description", "No description") for name, data in self.scope_recommendations.items()}
 
 
 # Global instance accessor
 def get_scope_recommendations(
-    epistemic_vectors: dict[str, float],
-    context: dict[str, Any] | None = None
+    epistemic_vectors: dict[str, float], context: dict[str, Any] | None = None
 ) -> dict[str, Any] | None:
     """
     Get scope recommendations based on epistemic state.

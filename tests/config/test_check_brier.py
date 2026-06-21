@@ -11,7 +11,6 @@ from empirica.core.post_test.dynamic_thresholds import compute_check_brier
 
 
 class TestComputeCheckBrier:
-
     def test_no_predictions_returns_none(self):
         """When no checks have predictions, returns None."""
         results = [

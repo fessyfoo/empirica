@@ -13,9 +13,12 @@ import jsonschema
 
 logger = logging.getLogger(__name__)
 
+
 class ValidationError(Exception):
     """Raised when persona profile validation fails"""
+
     pass
+
 
 def load_schema() -> dict:
     """Load the persona JSON schema"""
@@ -26,6 +29,7 @@ def load_schema() -> dict:
 
     with open(schema_path) as f:
         return json.load(f)
+
 
 def validate_persona_profile(profile_data: dict[str, Any]) -> None:
     """
@@ -44,14 +48,13 @@ def validate_persona_profile(profile_data: dict[str, Any]) -> None:
 
     except jsonschema.ValidationError as e:
         error_path = " -> ".join(str(p) for p in e.path)
-        raise ValidationError(
-            f"Schema validation failed at {error_path}: {e.message}"
-        ) from e
+        raise ValidationError(f"Schema validation failed at {error_path}: {e.message}") from e
     except jsonschema.SchemaError as e:
         raise ValidationError(f"Invalid schema: {e.message}") from e
 
     # Additional business logic validation
     _validate_business_logic(profile_data)
+
 
 def _validate_business_logic(profile_data: dict) -> None:
     """
@@ -65,41 +68,36 @@ def _validate_business_logic(profile_data: dict) -> None:
     """
 
     # Check weights sum to 1.0
-    weights = profile_data['epistemic_config']['weights']
+    weights = profile_data["epistemic_config"]["weights"]
     weight_sum = sum(weights.values())
 
     if not (0.99 <= weight_sum <= 1.01):
-        raise ValidationError(
-            f"Epistemic weights must sum to 1.0, got {weight_sum:.4f}"
-        )
+        raise ValidationError(f"Epistemic weights must sum to 1.0, got {weight_sum:.4f}")
 
     # Check thresholds are reasonable
-    thresholds = profile_data['epistemic_config']['thresholds']
+    thresholds = profile_data["epistemic_config"]["thresholds"]
 
-    if thresholds.get('uncertainty_trigger', 0.5) > thresholds.get('confidence_to_proceed', 0.75):
-        logger.warning(
-            "⚠️ uncertainty_trigger > confidence_to_proceed may cause investigation loops"
-        )
+    if thresholds.get("uncertainty_trigger", 0.5) > thresholds.get("confidence_to_proceed", 0.75):
+        logger.warning("⚠️ uncertainty_trigger > confidence_to_proceed may cause investigation loops")
 
     # Check focus domains not empty
-    if not profile_data['epistemic_config']['focus_domains']:
+    if not profile_data["epistemic_config"]["focus_domains"]:
         raise ValidationError("focus_domains cannot be empty")
 
     # Validate escalation triggers
-    for trigger in profile_data.get('sentinel_config', {}).get('escalation_triggers', []):
+    for trigger in profile_data.get("sentinel_config", {}).get("escalation_triggers", []):
         _validate_escalation_trigger(trigger)
+
 
 def _validate_escalation_trigger(trigger: dict) -> None:
     """Validate escalation trigger condition syntax"""
-    condition = trigger['condition']
+    condition = trigger["condition"]
 
     # Basic syntax check (just verify it's a string with expected operators)
-    valid_operators = ['>', '<', '>=', '<=', '==', '!=']
+    valid_operators = [">", "<", ">=", "<=", "==", "!="]
 
     if not any(op in condition for op in valid_operators):
-        raise ValidationError(
-            f"Escalation trigger condition invalid: {condition}"
-        )
+        raise ValidationError(f"Escalation trigger condition invalid: {condition}")
 
     # Could add more sophisticated parsing here
     logger.debug(f"Escalation trigger validated: {condition} -> {trigger['action']}")

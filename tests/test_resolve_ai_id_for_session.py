@@ -24,8 +24,7 @@ from pathlib import Path
 import yaml
 
 HOOK_PATH = (
-    Path(__file__).parent.parent
-    / "empirica" / "plugins" / "claude-code-integration" / "hooks" / "session-init.py"
+    Path(__file__).parent.parent / "empirica" / "plugins" / "claude-code-integration" / "hooks" / "session-init.py"
 )
 _spec = importlib.util.spec_from_file_location("session_init_resolve_ai_id", HOOK_PATH)
 assert _spec is not None and _spec.loader is not None
@@ -39,9 +38,7 @@ _resolve = session_init._resolve_ai_id_for_session
 def test_env_var_explicit_override_wins(tmp_path, monkeypatch):
     """EMPIRICA_AI_ID env always wins, even when project.yaml has a different value."""
     (tmp_path / ".empirica").mkdir()
-    (tmp_path / ".empirica" / "project.yaml").write_text(
-        yaml.dump({"ai_id": "from-yaml"})
-    )
+    (tmp_path / ".empirica" / "project.yaml").write_text(yaml.dump({"ai_id": "from-yaml"}))
     monkeypatch.setenv("EMPIRICA_AI_ID", "from-env")
     assert _resolve(str(tmp_path)) == "from-env"
 
@@ -51,9 +48,7 @@ def test_project_yaml_ai_id_takes_precedence_over_basename(tmp_path, monkeypatch
     monkeypatch.delenv("EMPIRICA_AI_ID", raising=False)
     project = tmp_path / "some-random-folder-name"
     (project / ".empirica").mkdir(parents=True)
-    (project / ".empirica" / "project.yaml").write_text(
-        yaml.dump({"ai_id": "ecodex-lab"})
-    )
+    (project / ".empirica" / "project.yaml").write_text(yaml.dump({"ai_id": "ecodex-lab"}))
     assert _resolve(str(project)) == "ecodex-lab"
 
 
@@ -94,9 +89,7 @@ def test_yaml_without_ai_id_falls_through_to_basename(tmp_path, monkeypatch):
     monkeypatch.delenv("EMPIRICA_AI_ID", raising=False)
     project = tmp_path / "empirica-extension"
     (project / ".empirica").mkdir(parents=True)
-    (project / ".empirica" / "project.yaml").write_text(
-        yaml.dump({"name": "extension", "version": "2.0"})
-    )
+    (project / ".empirica" / "project.yaml").write_text(yaml.dump({"name": "extension", "version": "2.0"}))
     assert _resolve(str(project)) == "empirica-extension"
 
 

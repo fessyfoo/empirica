@@ -66,6 +66,7 @@ def load_semantic_index(
     # Live scan
     try:
         from empirica.core.docs.semantic_scan import scan_project
+
         entries = scan_project(project_root)
     except Exception as e:
         logger.warning(f"semantic_index: live scan failed: {e}")
@@ -114,6 +115,7 @@ def _resolve_project_root(project_root: str | None) -> Path | None:
         return Path(project_root)
     try:
         from empirica.config.path_resolver import get_git_root
+
         git_root = get_git_root()
     except Exception as e:
         logger.debug(f"semantic_index: get_git_root raised: {e}")
@@ -142,6 +144,7 @@ def _is_cache_stale(cache_path: Path, project_root: Path) -> bool:
         return True
     try:
         from empirica.core.docs.semantic_scan import newest_source_mtime
+
         newest = newest_source_mtime(project_root)
     except Exception as e:
         logger.debug(f"semantic_index: newest-source check failed: {e}")
@@ -153,9 +156,7 @@ def _try_write_cache(target: Path, index: dict[str, Any]) -> None:
     """Best-effort write — never raises. Stale cache survival is fine."""
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        text = yaml.dump(
-            index, default_flow_style=False, sort_keys=False, allow_unicode=True
-        )
+        text = yaml.dump(index, default_flow_style=False, sort_keys=False, allow_unicode=True)
         target.write_text(text, encoding="utf-8")
         logger.debug(f"semantic_index: wrote refreshed cache to {target}")
     except Exception as e:

@@ -118,7 +118,9 @@ def add_projects_parsers(subparsers) -> None:
         help="The short code printed by `empirica serve` (e.g. AB23-CDEF).",
     )
     daemon_grant.add_argument(
-        "--output", choices=["human", "json"], default="human",
+        "--output",
+        choices=["human", "json"],
+        default="human",
         help="Output format (default: human).",
     )
 
@@ -136,7 +138,9 @@ def add_projects_parsers(subparsers) -> None:
         help="The short code printed by `empirica serve`.",
     )
     daemon_deny.add_argument(
-        "--output", choices=["human", "json"], default="human",
+        "--output",
+        choices=["human", "json"],
+        default="human",
         help="Output format (default: human).",
     )
 
@@ -150,7 +154,9 @@ def add_projects_parsers(subparsers) -> None:
         ),
     )
     daemon_grants_list.add_argument(
-        "--output", choices=["table", "json"], default="table",
+        "--output",
+        choices=["table", "json"],
+        default="table",
         help="Output format (default: table).",
     )
 

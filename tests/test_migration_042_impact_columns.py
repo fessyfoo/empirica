@@ -75,8 +75,7 @@ def test_migration_default_value_is_0_5(legacy_db):
     cursor = legacy_db.cursor()
     migration_042_impact_on_dead_ends_and_mistakes(cursor)
     cursor.execute(
-        "INSERT INTO project_dead_ends (id, approach, dead_end_data, created_timestamp) "
-        "VALUES (?, ?, ?, ?)",
+        "INSERT INTO project_dead_ends (id, approach, dead_end_data, created_timestamp) VALUES (?, ?, ?, ?)",
         ("d1", "tried X", "{}", 1.0),
     )
     legacy_db.commit()

@@ -48,9 +48,10 @@ def test_openai_provider_uses_rest_not_sdk():
     """The openai provider must embed via a requests.post to /v1/embeddings,
     carrying the API key as a bearer — with no openai client object."""
     env = {"EMPIRICA_EMBEDDINGS_PROVIDER": "openai", "OPENAI_API_KEY": "sk-test"}
-    with patch.dict("os.environ", env, clear=False), \
-            patch("empirica.core.qdrant.embeddings._load_config_file",
-                  return_value={}):
+    with (
+        patch.dict("os.environ", env, clear=False),
+        patch("empirica.core.qdrant.embeddings._load_config_file", return_value={}),
+    ):
         provider = EmbeddingsProvider()
         # No SDK client is instantiated — the provider talks REST.
         assert provider._client is None
@@ -64,8 +65,7 @@ def test_openai_provider_uses_rest_not_sdk():
 
         assert vec == [0.1, 0.2, 0.3]
         assert mock_post.call_count == 1
-        url = mock_post.call_args.args[0] if mock_post.call_args.args \
-            else mock_post.call_args.kwargs.get("url")
+        url = mock_post.call_args.args[0] if mock_post.call_args.args else mock_post.call_args.kwargs.get("url")
         assert "api.openai.com/v1/embeddings" in url
         headers = mock_post.call_args.kwargs["headers"]
         assert headers["Authorization"] == "Bearer sk-test"
@@ -73,12 +73,13 @@ def test_openai_provider_uses_rest_not_sdk():
 
 def test_openai_provider_requires_api_key():
     """Missing OPENAI_API_KEY must fail fast at construction, not at embed time."""
-    with patch.dict("os.environ", {"EMPIRICA_EMBEDDINGS_PROVIDER": "openai"},
-                    clear=False), \
-            patch("empirica.core.qdrant.embeddings._load_config_file",
-                  return_value={}):
+    with (
+        patch.dict("os.environ", {"EMPIRICA_EMBEDDINGS_PROVIDER": "openai"}, clear=False),
+        patch("empirica.core.qdrant.embeddings._load_config_file", return_value={}),
+    ):
         # Ensure no key leaks in from the ambient env.
         import os
+
         os.environ.pop("OPENAI_API_KEY", None)
         try:
             EmbeddingsProvider()

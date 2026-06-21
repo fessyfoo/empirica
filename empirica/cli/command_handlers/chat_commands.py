@@ -17,8 +17,8 @@ def handle_chat_command(args: Any) -> int:
     try:
         from empirica.cli.tui.chat_app import run_chat
     except ImportError as exc:
-        if 'textual' in str(exc).lower():
-            print('empirica chat needs the textual TUI library. Install with:')
+        if "textual" in str(exc).lower():
+            print("empirica chat needs the textual TUI library. Install with:")
             print('  pip install "empirica[tui]"')
             return 2
         raise
@@ -30,6 +30,7 @@ def handle_chat_command(args: Any) -> int:
 
     # Parse --provider flags (repeatable) into Provider objects
     from empirica.core.chat.providers import parse_provider_spec
+
     raw_providers = getattr(args, "provider", None) or []
     providers = []
     for spec in raw_providers:

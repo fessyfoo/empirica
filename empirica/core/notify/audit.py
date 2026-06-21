@@ -35,7 +35,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-AUDIT_PATH = Path.home() / '.empirica' / 'notify-dispatcher.jsonl'
+AUDIT_PATH = Path.home() / ".empirica" / "notify-dispatcher.jsonl"
 MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB — same convention as log backend
 KEEP_ROTATIONS = 5
 
@@ -52,11 +52,11 @@ def _maybe_rotate(path: Path) -> None:
         if path.stat().st_size <= MAX_SIZE_BYTES:
             return
         for i in range(KEEP_ROTATIONS - 1, 0, -1):
-            src = path.with_suffix(path.suffix + f'.{i}')
-            dst = path.with_suffix(path.suffix + f'.{i + 1}')
+            src = path.with_suffix(path.suffix + f".{i}")
+            dst = path.with_suffix(path.suffix + f".{i + 1}")
             if src.exists():
                 src.replace(dst)
-        path.replace(path.with_suffix(path.suffix + '.1'))
+        path.replace(path.with_suffix(path.suffix + ".1"))
     except OSError:
         pass
 
@@ -81,20 +81,20 @@ def append_audit(
         p.parent.mkdir(parents=True, exist_ok=True)
         _maybe_rotate(p)
         row = {
-            'ts': datetime.now(tz=timezone.utc).isoformat(),
-            'source': source,
-            'severity': severity,
-            'topic': topic,
-            'resolved_backend': resolved_backend,
-            'fell_back': fell_back,
-            'fallback_reason': fallback_reason,
-            'ok': ok,
-            'response_code': response_code,
-            'detail': detail,
-            'project_id': project_id,
+            "ts": datetime.now(tz=timezone.utc).isoformat(),
+            "source": source,
+            "severity": severity,
+            "topic": topic,
+            "resolved_backend": resolved_backend,
+            "fell_back": fell_back,
+            "fallback_reason": fallback_reason,
+            "ok": ok,
+            "response_code": response_code,
+            "detail": detail,
+            "project_id": project_id,
         }
-        with open(p, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(row) + '\n')
+        with open(p, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row) + "\n")
     except OSError:
         pass
 
@@ -111,7 +111,7 @@ def read_recent(limit: int = 5, path: Path | None = None) -> list[dict[str, Any]
 
     out: deque[dict[str, Any]] = deque(maxlen=max(1, limit))
     try:
-        with open(p, encoding='utf-8') as f:
+        with open(p, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -132,7 +132,7 @@ def last_failure(path: Path | None = None) -> dict[str, Any] | None:
         return None
     last: dict[str, Any] | None = None
     try:
-        with open(p, encoding='utf-8') as f:
+        with open(p, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -141,7 +141,7 @@ def last_failure(path: Path | None = None) -> dict[str, Any] | None:
                     row = json.loads(line)
                 except (json.JSONDecodeError, ValueError):
                     continue
-                if row.get('ok') is False:
+                if row.get("ok") is False:
                     last = row
     except OSError:
         return None
@@ -156,7 +156,7 @@ def fell_back_count(window_hours: float = 24.0, path: Path | None = None) -> int
     cutoff = datetime.now(tz=timezone.utc) - timedelta(hours=window_hours)
     count = 0
     try:
-        with open(p, encoding='utf-8') as f:
+        with open(p, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -165,9 +165,9 @@ def fell_back_count(window_hours: float = 24.0, path: Path | None = None) -> int
                     row = json.loads(line)
                 except (json.JSONDecodeError, ValueError):
                     continue
-                if not row.get('fell_back'):
+                if not row.get("fell_back"):
                     continue
-                ts_raw = row.get('ts')
+                ts_raw = row.get("ts")
                 if not ts_raw:
                     continue
                 try:
@@ -189,7 +189,7 @@ def emit_count(window_hours: float = 24.0, path: Path | None = None) -> int:
     cutoff = datetime.now(tz=timezone.utc) - timedelta(hours=window_hours)
     count = 0
     try:
-        with open(p, encoding='utf-8') as f:
+        with open(p, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -198,7 +198,7 @@ def emit_count(window_hours: float = 24.0, path: Path | None = None) -> int:
                     row = json.loads(line)
                 except (json.JSONDecodeError, ValueError):
                     continue
-                ts_raw = row.get('ts')
+                ts_raw = row.get("ts")
                 if not ts_raw:
                     continue
                 try:
@@ -213,7 +213,8 @@ def emit_count(window_hours: float = 24.0, path: Path | None = None) -> int:
 
 
 def last_emit_by_source(
-    sources: list[str], path: Path | None = None,
+    sources: list[str],
+    path: Path | None = None,
 ) -> dict[str, dict[str, Any]]:
     """For each source string, return the most recent audit row matching it.
 
@@ -227,7 +228,7 @@ def last_emit_by_source(
     wanted = set(sources)
     latest: dict[str, dict[str, Any]] = {}
     try:
-        with open(p, encoding='utf-8') as f:
+        with open(p, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -236,7 +237,7 @@ def last_emit_by_source(
                     row = json.loads(line)
                 except (json.JSONDecodeError, ValueError):
                     continue
-                src = row.get('source')
+                src = row.get("source")
                 if src in wanted:
                     latest[src] = row
     except OSError:
@@ -245,11 +246,11 @@ def last_emit_by_source(
 
 
 __all__ = [
-    'AUDIT_PATH',
-    'append_audit',
-    'emit_count',
-    'fell_back_count',
-    'last_emit_by_source',
-    'last_failure',
-    'read_recent',
+    "AUDIT_PATH",
+    "append_audit",
+    "emit_count",
+    "fell_back_count",
+    "last_emit_by_source",
+    "last_failure",
+    "read_recent",
 ]

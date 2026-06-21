@@ -26,9 +26,10 @@ from empirica.core.notify.event import EmitResult, NotifyEvent
 @dataclass
 class DispatchResult:
     """What dispatch() returns — covers both successful and fallback paths."""
+
     resolved_backend: str
     resolved_topic: str | None
-    fell_back: bool                # True when the resolved backend wasn't configured
+    fell_back: bool  # True when the resolved backend wasn't configured
     fallback_reason: str | None
     emit_result: EmitResult
 
@@ -44,24 +45,24 @@ def _rule_matches(rule: RoutingRule, event: NotifyEvent) -> bool:
         return True
 
     # severity is exact match
-    if 'severity' in match and match['severity'] != event.severity:
+    if "severity" in match and match["severity"] != event.severity:
         return False
 
     # source uses glob (e.g. "loop:*", "hook:postflight")
-    if 'source' in match:
-        pattern = str(match['source'])
+    if "source" in match:
+        pattern = str(match["source"])
         if not event.source or not fnmatch.fnmatch(event.source, pattern):
             return False
 
     # topic uses glob
-    if 'topic' in match:
-        pattern = str(match['topic'])
+    if "topic" in match:
+        pattern = str(match["topic"])
         if not event.topic or not fnmatch.fnmatch(event.topic, pattern):
             return False
 
     # tag matches if ANY event tag matches the glob
-    if 'tag' in match:
-        pattern = str(match['tag'])
+    if "tag" in match:
+        pattern = str(match["tag"])
         if not any(fnmatch.fnmatch(t, pattern) for t in event.tags):
             return False
 
@@ -141,22 +142,25 @@ def dispatch(
             fell_back=False,
             fallback_reason=None,
             emit_result=EmitResult(
-                backend=backend_name, ok=True,
-                detail=f'[dry-run] would emit via {backend_name}'
-                       f'{" topic=" + topic if topic else ""}',
+                backend=backend_name,
+                ok=True,
+                detail=f"[dry-run] would emit via {backend_name}{' topic=' + topic if topic else ''}",
             ),
         )
 
     backend = get_backend(backend_name, config.backend_config(backend_name))
     if backend is None:
         # Unknown backend name — fall back to stdout with a clear warning.
-        sys.stderr.write(
-            f'[empirica notify] WARN: unknown backend "{backend_name}" — '
-            f'falling back to stdout\n'
-        )
-        fb = get_backend('stdout', {})
-        result = fb.emit(event) if fb is not None else EmitResult(
-            backend='stdout', ok=False, detail='no backends available',
+        sys.stderr.write(f'[empirica notify] WARN: unknown backend "{backend_name}" — falling back to stdout\n')
+        fb = get_backend("stdout", {})
+        result = (
+            fb.emit(event)
+            if fb is not None
+            else EmitResult(
+                backend="stdout",
+                ok=False,
+                detail="no backends available",
+            )
         )
         fallback_reason = f'unknown backend "{backend_name}"'
         _audit(event, backend_name, topic, True, fallback_reason, result, project_id)
@@ -173,13 +177,19 @@ def dispatch(
         # back to stdout + warn. NEVER silently drop.
         sys.stderr.write(
             f'[empirica notify] WARN: backend "{backend_name}" not configured — '
-            f'falling back to stdout (was missing credentials or required config)\n'
+            f"falling back to stdout (was missing credentials or required config)\n"
         )
-        fb = get_backend('stdout', {})
-        result = fb.emit(event) if fb is not None else EmitResult(
-            backend='stdout', ok=False, detail='no backends available',
+        fb = get_backend("stdout", {})
+        result = (
+            fb.emit(event)
+            if fb is not None
+            else EmitResult(
+                backend="stdout",
+                ok=False,
+                detail="no backends available",
+            )
         )
-        fallback_reason = f'{backend_name} not configured'
+        fallback_reason = f"{backend_name} not configured"
         _audit(event, backend_name, topic, True, fallback_reason, result, project_id)
         return DispatchResult(
             resolved_backend=backend_name,
@@ -200,4 +210,4 @@ def dispatch(
     )
 
 
-__all__ = ['DispatchResult', 'dispatch']
+__all__ = ["DispatchResult", "dispatch"]

@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class RetryStrategy(Enum):
     """Retry strategies for different failure types"""
+
     EXPONENTIAL = "exponential"
     LINEAR = "linear"
     FIXED = "fixed"
@@ -34,7 +35,7 @@ class RetryPolicy:
         base_delay: float = 0.1,
         max_delay: float = 10.0,
         strategy: RetryStrategy = RetryStrategy.EXPONENTIAL,
-        jitter: bool = True
+        jitter: bool = True,
     ):
         """
         Initialize retry policy.
@@ -54,16 +55,16 @@ class RetryPolicy:
         self.retry_count = 0
         self.last_error = None
         self.telemetry: dict[str, int] = {
-            'total_attempts': 0,
-            'successful_retries': 0,
-            'failed_retries': 0,
-            'circuit_breaks': 0
+            "total_attempts": 0,
+            "successful_retries": 0,
+            "failed_retries": 0,
+            "circuit_breaks": 0,
         }
 
     def calculate_delay(self, attempt: int) -> float:
         """Calculate delay for retry attempt"""
         if self.strategy == RetryStrategy.EXPONENTIAL:
-            delay = self.base_delay * (2 ** attempt)
+            delay = self.base_delay * (2**attempt)
         elif self.strategy == RetryStrategy.LINEAR:
             delay = self.base_delay * attempt
         else:  # FIXED
@@ -75,6 +76,7 @@ class RetryPolicy:
         # Add jitter (±20% randomness)
         if self.jitter:
             import random
+
             jitter_amount = delay * 0.2
             delay += random.uniform(-jitter_amount, jitter_amount)  # noqa: S311 — jitter for retry backoff, not security
 
@@ -84,10 +86,10 @@ class RetryPolicy:
         """Determine if error is retryable"""
         retryable_errors = (
             sqlite3.OperationalError,  # Database locked, disk I/O
-            sqlite3.IntegrityError,     # Constraint violations (might be transient)
+            sqlite3.IntegrityError,  # Constraint violations (might be transient)
             TimeoutError,
             ConnectionError,
-            IOError
+            IOError,
         )
         return isinstance(error, retryable_errors)
 
@@ -106,14 +108,14 @@ class RetryPolicy:
         Raises:
             Last exception if all retries exhausted
         """
-        self.telemetry['total_attempts'] += 1
+        self.telemetry["total_attempts"] += 1
 
         for attempt in range(self.max_retries + 1):
             try:
                 result = func(*args, **kwargs)
 
                 if attempt > 0:
-                    self.telemetry['successful_retries'] += 1
+                    self.telemetry["successful_retries"] += 1
                     logger.info(f"✓ Retry succeeded after {attempt} attempt(s)")
 
                 return result
@@ -128,7 +130,7 @@ class RetryPolicy:
 
                 if attempt >= self.max_retries:
                     # Out of retries
-                    self.telemetry['failed_retries'] += 1
+                    self.telemetry["failed_retries"] += 1
                     logger.error(f"✗ Failed after {self.max_retries} retries: {e}")
                     raise
 
@@ -144,21 +146,16 @@ class RetryPolicy:
         """Get retry telemetry for observability"""
         return {
             **self.telemetry,
-            'last_error': str(self.last_error) if self.last_error else None,
-            'strategy': self.strategy.value,
-            'max_retries': self.max_retries
+            "last_error": str(self.last_error) if self.last_error else None,
+            "strategy": self.strategy.value,
+            "max_retries": self.max_retries,
         }
 
 
 class ConnectionPool:
     """Simple connection pool for database resilience"""
 
-    def __init__(
-        self,
-        connection_factory: Callable,
-        pool_size: int = 5,
-        enable_retry: bool = True
-    ):
+    def __init__(self, connection_factory: Callable, pool_size: int = 5, enable_retry: bool = True):
         """
         Initialize connection pool.
 
@@ -173,11 +170,7 @@ class ConnectionPool:
         self.available_connections = []
         self.in_use_connections = set()
         self.retry_policy = RetryPolicy() if enable_retry else None
-        self.telemetry: dict[str, int] = {
-            'connections_created': 0,
-            'connections_recycled': 0,
-            'pool_exhausted': 0
-        }
+        self.telemetry: dict[str, int] = {"connections_created": 0, "connections_recycled": 0, "pool_exhausted": 0}
 
     def get_connection(self, timeout: float = 5.0):
         """Get a connection from the pool"""
@@ -195,13 +188,13 @@ class ConnectionPool:
             if len(self.in_use_connections) < self.pool_size:
                 conn = self.connection_factory()
                 self.in_use_connections.add(id(conn))
-                self.telemetry['connections_created'] += 1
+                self.telemetry["connections_created"] += 1
                 logger.debug(f"✓ Created new connection (total: {len(self.in_use_connections)})")
                 return conn
 
             # Wait for connection to be released
             if time.time() - start > timeout:
-                self.telemetry['pool_exhausted'] += 1
+                self.telemetry["pool_exhausted"] += 1
                 raise TimeoutError(f"No connections available after {timeout}s")
 
             time.sleep(0.01)  # Brief sleep before retry
@@ -212,7 +205,7 @@ class ConnectionPool:
         if conn_id in self.in_use_connections:
             self.in_use_connections.remove(conn_id)
             self.available_connections.append(conn)
-            self.telemetry['connections_recycled'] += 1
+            self.telemetry["connections_recycled"] += 1
             logger.debug(f"✓ Returned connection to pool (available: {len(self.available_connections)})")
 
     def execute_with_retry(self, func: Callable, *args, **kwargs) -> Any:
@@ -226,21 +219,16 @@ class ConnectionPool:
         """Get pool telemetry"""
         return {
             **self.telemetry,
-            'available_connections': len(self.available_connections),
-            'in_use_connections': len(self.in_use_connections),
-            'retry_telemetry': self.retry_policy.get_telemetry() if self.retry_policy else None
+            "available_connections": len(self.available_connections),
+            "in_use_connections": len(self.in_use_connections),
+            "retry_telemetry": self.retry_policy.get_telemetry() if self.retry_policy else None,
         }
 
 
 class CircuitBreaker:
     """Circuit breaker pattern for cascading failure prevention"""
 
-    def __init__(
-        self,
-        failure_threshold: int = 5,
-        recovery_timeout: float = 60.0,
-        name: str = "CircuitBreaker"
-    ):
+    def __init__(self, failure_threshold: int = 5, recovery_timeout: float = 60.0, name: str = "CircuitBreaker"):
         """
         Initialize circuit breaker.
 
@@ -289,9 +277,7 @@ class CircuitBreaker:
             self.last_failure_time = time.time()
 
             if self.failure_count >= self.failure_threshold:
-                logger.error(
-                    f"🚫 {self.name}: Circuit OPEN after {self.failure_count} failures"
-                )
+                logger.error(f"🚫 {self.name}: Circuit OPEN after {self.failure_count} failures")
                 self.state = "open"
 
             raise

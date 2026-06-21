@@ -52,7 +52,7 @@ class ThresholdLoader:
     - Fallback to hardcoded defaults if YAML fails
     """
 
-    _instance: Optional['ThresholdLoader'] = None
+    _instance: Optional["ThresholdLoader"] = None
     _initialized: bool = False
 
     def __init__(self, config_path: Path | None = None):
@@ -65,11 +65,11 @@ class ThresholdLoader:
         Note: Use get_instance() instead of direct instantiation for singleton pattern
         """
         if config_path is None:
-            config_path = Path(__file__).parent / 'mco' / 'cascade_styles.yaml'
+            config_path = Path(__file__).parent / "mco" / "cascade_styles.yaml"
 
         self.config_path = config_path
         self.profiles: dict[str, dict[str, Any]] = {}
-        self.current_profile_name: str = 'default'
+        self.current_profile_name: str = "default"
         self.current_profile: dict[str, Any] = {}
         self.overrides: dict[str, Any] = {}
         self.metadata: dict[str, Any] = {}
@@ -78,7 +78,7 @@ class ThresholdLoader:
         self._load_profiles()
 
     @classmethod
-    def get_instance(cls, config_path: Path | None = None) -> 'ThresholdLoader':
+    def get_instance(cls, config_path: Path | None = None) -> "ThresholdLoader":
         """
         Get singleton instance of ThresholdLoader.
 
@@ -110,23 +110,23 @@ class ThresholdLoader:
             with open(self.config_path) as f:
                 data = yaml.safe_load(f)
 
-                if not data or 'profiles' not in data:
+                if not data or "profiles" not in data:
                     logger.error("Invalid threshold config: missing 'profiles' key")
                     self._load_hardcoded_defaults()
                     return
 
-                self.profiles = data.get('profiles', {})
-                self.metadata = data.get('metadata', {})
+                self.profiles = data.get("profiles", {})
+                self.metadata = data.get("metadata", {})
 
                 # Set default profile
-                default_profile_name = self.metadata.get('default_profile', 'default')
+                default_profile_name = self.metadata.get("default_profile", "default")
                 if default_profile_name in self.profiles:
                     self.current_profile_name = default_profile_name
                     self.current_profile = self.profiles[default_profile_name]
                 else:
                     logger.warning(f"Default profile '{default_profile_name}' not found, using 'default'")
-                    self.current_profile_name = 'default'
-                    self.current_profile = self.profiles.get('default', {})
+                    self.current_profile_name = "default"
+                    self.current_profile = self.profiles.get("default", {})
 
                 logger.info(f"✅ Loaded {len(self.profiles)} threshold profiles from {self.config_path}")
                 logger.info(f"   Active profile: {self.current_profile_name}")
@@ -148,57 +148,57 @@ class ThresholdLoader:
             from empirica.core import thresholds
 
             # Build default profile from hardcoded constants
-            self.profiles['default'] = {
-                'name': 'Default (Hardcoded)',
-                'description': 'Fallback to original hardcoded thresholds',
-                'engagement_threshold': thresholds.ENGAGEMENT_THRESHOLD,
-                'critical': thresholds.CRITICAL_THRESHOLDS,
-                'uncertainty': {
-                    'low': thresholds.UNCERTAINTY_LOW,
-                    'moderate': thresholds.UNCERTAINTY_MODERATE,
+            self.profiles["default"] = {
+                "name": "Default (Hardcoded)",
+                "description": "Fallback to original hardcoded thresholds",
+                "engagement_threshold": thresholds.ENGAGEMENT_THRESHOLD,
+                "critical": thresholds.CRITICAL_THRESHOLDS,
+                "uncertainty": {
+                    "low": thresholds.UNCERTAINTY_LOW,
+                    "moderate": thresholds.UNCERTAINTY_MODERATE,
                 },
-                'comprehension': {
-                    'high': thresholds.COMPREHENSION_HIGH,
-                    'moderate': thresholds.COMPREHENSION_MODERATE,
-                    'clarity_min': thresholds.CLARITY_THRESHOLD,
-                    'signal_min': thresholds.SIGNAL_THRESHOLD,
-                    'coherence_min': thresholds.COHERENCE_THRESHOLD,
+                "comprehension": {
+                    "high": thresholds.COMPREHENSION_HIGH,
+                    "moderate": thresholds.COMPREHENSION_MODERATE,
+                    "clarity_min": thresholds.CLARITY_THRESHOLD,
+                    "signal_min": thresholds.SIGNAL_THRESHOLD,
+                    "coherence_min": thresholds.COHERENCE_THRESHOLD,
                 },
-                'execution': {
-                    'high': thresholds.EXECUTION_HIGH,
-                    'moderate': thresholds.EXECUTION_MODERATE,
-                    'state_mapping_min': thresholds.STATE_MAPPING_THRESHOLD,
-                    'completion_min': thresholds.COMPLETION_THRESHOLD,
-                    'impact_min': thresholds.IMPACT_THRESHOLD,
+                "execution": {
+                    "high": thresholds.EXECUTION_HIGH,
+                    "moderate": thresholds.EXECUTION_MODERATE,
+                    "state_mapping_min": thresholds.STATE_MAPPING_THRESHOLD,
+                    "completion_min": thresholds.COMPLETION_THRESHOLD,
+                    "impact_min": thresholds.IMPACT_THRESHOLD,
                 },
-                'confidence': {
-                    'high': thresholds.CONFIDENCE_HIGH,
-                    'moderate': thresholds.CONFIDENCE_MODERATE,
-                    'low': thresholds.CONFIDENCE_LOW,
-                    'goal_orchestrator': thresholds.GOAL_CONFIDENCE_THRESHOLD,
+                "confidence": {
+                    "high": thresholds.CONFIDENCE_HIGH,
+                    "moderate": thresholds.CONFIDENCE_MODERATE,
+                    "low": thresholds.CONFIDENCE_LOW,
+                    "goal_orchestrator": thresholds.GOAL_CONFIDENCE_THRESHOLD,
                 },
-                'cascade': {
-                    'max_investigation_rounds': 7,
-                    'check_confidence_to_proceed': 0.70,
+                "cascade": {
+                    "max_investigation_rounds": 7,
+                    "check_confidence_to_proceed": 0.70,
                 },
             }
 
-            self.current_profile_name = 'default'
-            self.current_profile = self.profiles['default']
+            self.current_profile_name = "default"
+            self.current_profile = self.profiles["default"]
 
             logger.info("✅ Hardcoded defaults loaded successfully")
 
         except ImportError as e:
             logger.error(f"Cannot load hardcoded defaults: {e}")
             # Absolute fallback - minimal hardcoded values
-            self.profiles['default'] = {
-                'engagement_threshold': 0.60,
-                'critical': {'coherence_min': 0.50, 'density_max': 0.90, 'change_min': 0.50},
-                'uncertainty': {'low': 0.70, 'moderate': 0.30, 'high': 0.70},
-                'confidence': {'high': 0.85, 'moderate': 0.70, 'low': 0.50},
-                'cascade': {'max_investigation_rounds': 7, 'check_confidence_to_proceed': 0.70},
+            self.profiles["default"] = {
+                "engagement_threshold": 0.60,
+                "critical": {"coherence_min": 0.50, "density_max": 0.90, "change_min": 0.50},
+                "uncertainty": {"low": 0.70, "moderate": 0.30, "high": 0.70},
+                "confidence": {"high": 0.85, "moderate": 0.70, "low": 0.50},
+                "cascade": {"max_investigation_rounds": 7, "check_confidence_to_proceed": 0.70},
             }
-            self.current_profile = self.profiles['default']
+            self.current_profile = self.profiles["default"]
 
     def load_profile(self, profile_name: str) -> bool:
         """
@@ -245,29 +245,29 @@ class ThresholdLoader:
         """
         # work_context → profile (primary signal)
         context_map = {
-            'greenfield': 'exploratory',
-            'investigation': 'exploratory',
-            'refactor': 'default',
-            'iteration': 'default',
+            "greenfield": "exploratory",
+            "investigation": "exploratory",
+            "refactor": "default",
+            "iteration": "default",
         }
 
         # work_type overrides within iteration context
         type_overrides = {
-            'research': 'exploratory',
-            'audit': 'rigorous',
-            'release': 'rigorous',
-            'design': 'exploratory',
+            "research": "exploratory",
+            "audit": "rigorous",
+            "release": "rigorous",
+            "design": "exploratory",
         }
 
         # Start with context-based selection
-        profile = context_map.get(work_context, 'default')
+        profile = context_map.get(work_context, "default")
 
         # work_type can override for specific combinations
         if work_type in type_overrides:
             type_profile = type_overrides[work_type]
             # Only override if context didn't already set a stronger profile
             # e.g., investigation + audit → keep exploratory (investigation wins)
-            if profile == 'default':
+            if profile == "default":
                 profile = type_profile
 
         return profile
@@ -298,7 +298,7 @@ class ThresholdLoader:
             return self.overrides[key_path]
 
         # Navigate nested dictionary
-        keys = key_path.split('.')
+        keys = key_path.split(".")
         value = self.current_profile
 
         for key in keys:
@@ -332,8 +332,7 @@ class ThresholdLoader:
             logger.info(f"🔧 Cleared {len(self.overrides)} threshold overrides")
             self.overrides = {}
 
-    def create_custom_profile(self, name: str, base: str = 'default',
-                            overrides: dict[str, Any] | None = None) -> bool:
+    def create_custom_profile(self, name: str, base: str = "default", overrides: dict[str, Any] | None = None) -> bool:
         """
         Create a custom profile based on existing profile with overrides.
 
@@ -365,8 +364,8 @@ class ThresholdLoader:
 
         # Deep copy base profile
         custom = copy.deepcopy(self.profiles[base])
-        custom['name'] = name
-        custom['description'] = f"Custom profile based on {base}"
+        custom["name"] = name
+        custom["description"] = f"Custom profile based on {base}"
 
         # Apply overrides
         if overrides:
@@ -381,7 +380,7 @@ class ThresholdLoader:
 
     def _set_nested_value(self, d: dict, key_path: str, value: Any):
         """Set value in nested dictionary using dot notation"""
-        keys = key_path.split('.')
+        keys = key_path.split(".")
         for key in keys[:-1]:
             d = d.setdefault(key, {})
         d[keys[-1]] = value
@@ -394,10 +393,10 @@ class ThresholdLoader:
             Dictionary with profile name, description, and active overrides
         """
         return {
-            'name': self.current_profile_name,
-            'description': self.current_profile.get('description', ''),
-            'overrides': self.overrides,
-            'override_count': len(self.overrides)
+            "name": self.current_profile_name,
+            "description": self.current_profile.get("description", ""),
+            "overrides": self.overrides,
+            "override_count": len(self.overrides),
         }
 
     def list_profiles(self) -> dict[str, str]:
@@ -407,10 +406,7 @@ class ThresholdLoader:
         Returns:
             Dictionary mapping profile names to descriptions
         """
-        return {
-            name: profile.get('description', '')
-            for name, profile in self.profiles.items()
-        }
+        return {name: profile.get("description", "") for name, profile in self.profiles.items()}
 
     def get_all_thresholds(self) -> dict[str, Any]:
         """
@@ -438,10 +434,7 @@ class ThresholdLoader:
         Returns:
             Minimal handoff data (profile name + overrides)
         """
-        return {
-            'profile_name': self.current_profile_name,
-            'overrides': self.overrides
-        }
+        return {"profile_name": self.current_profile_name, "overrides": self.overrides}
 
 
 # Global instance accessor

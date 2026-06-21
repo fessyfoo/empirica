@@ -155,9 +155,7 @@ def write_record(record: GrantRecord) -> Path:
     d = grants_dir()
     d.mkdir(parents=True, exist_ok=True)
     target = _record_path(record.device_code)
-    tmp_fd, tmp_path = tempfile.mkstemp(
-        prefix=".grant-", suffix=".json.tmp", dir=str(d)
-    )
+    tmp_fd, tmp_path = tempfile.mkstemp(prefix=".grant-", suffix=".json.tmp", dir=str(d))
     try:
         with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
             json.dump(record.to_dict(), f, indent=2, sort_keys=True)

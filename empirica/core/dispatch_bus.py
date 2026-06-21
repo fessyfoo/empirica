@@ -37,6 +37,7 @@ from typing import Any
 
 try:
     import yaml  # type: ignore[import-untyped]
+
     _YAML_AVAILABLE = True
 except ImportError:
     yaml = None  # type: ignore[assignment]
@@ -51,8 +52,10 @@ logger = logging.getLogger(__name__)
 # Enums and Constants
 # ---------------------------------------------------------------------------
 
+
 class DispatchPriority(str, Enum):
     """Dispatch urgency."""
+
     LOW = "low"
     NORMAL = "normal"
     HIGH = "high"
@@ -61,13 +64,14 @@ class DispatchPriority(str, Enum):
 
 class DispatchStatus(str, Enum):
     """Lifecycle state of a dispatch."""
-    PENDING = "pending"      # Sent, not yet acknowledged
+
+    PENDING = "pending"  # Sent, not yet acknowledged
     ACKNOWLEDGED = "acknowledged"  # Target confirmed receipt
-    IN_PROGRESS = "in_progress"    # Target is working on it
+    IN_PROGRESS = "in_progress"  # Target is working on it
     COMPLETED = "completed"  # Target finished successfully
-    FAILED = "failed"        # Target failed to execute
-    EXPIRED = "expired"      # Deadline passed without completion
-    REJECTED = "rejected"    # Target refused (e.g., capability mismatch)
+    FAILED = "failed"  # Target failed to execute
+    EXPIRED = "expired"  # Deadline passed without completion
+    REJECTED = "rejected"  # Target refused (e.g., capability mismatch)
 
 
 # Default channel for typed dispatches
@@ -81,6 +85,7 @@ DEFAULT_REGISTRY_PATH = Path.home() / ".empirica" / "bus-instances.yaml"
 # Dataclasses
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class DispatchMessage:
     """
@@ -92,31 +97,34 @@ class DispatchMessage:
     - body = JSON-encoded DispatchPayload
     - type = "request" (responses use "response")
     """
-    action: str                      # e.g., "schedule_cron", "send_email"
-    from_instance: str               # instance_id of sender
-    to_instance: str                 # instance_id of target (or "*" for any-capable)
+
+    action: str  # e.g., "schedule_cron", "send_email"
+    from_instance: str  # instance_id of sender
+    to_instance: str  # instance_id of target (or "*" for any-capable)
     payload: dict[str, Any] = field(default_factory=dict)
-    correlation_id: str | None = None   # For request/response matching
+    correlation_id: str | None = None  # For request/response matching
     priority: DispatchPriority = DispatchPriority.NORMAL
-    deadline: float | None = None       # Unix timestamp, None = no deadline
+    deadline: float | None = None  # Unix timestamp, None = no deadline
     required_capabilities: list[str] = field(default_factory=list)
     callback_channel: str | None = None  # Where to send results back
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_message_body(self) -> str:
         """Serialize to JSON for GitMessageStore body field."""
-        return json.dumps({
-            "action": self.action,
-            "from_instance": self.from_instance,
-            "to_instance": self.to_instance,
-            "payload": self.payload,
-            "correlation_id": self.correlation_id,
-            "priority": self.priority.value if isinstance(self.priority, DispatchPriority) else self.priority,
-            "deadline": self.deadline,
-            "required_capabilities": self.required_capabilities,
-            "callback_channel": self.callback_channel,
-            "metadata": self.metadata,
-        })
+        return json.dumps(
+            {
+                "action": self.action,
+                "from_instance": self.from_instance,
+                "to_instance": self.to_instance,
+                "payload": self.payload,
+                "correlation_id": self.correlation_id,
+                "priority": self.priority.value if isinstance(self.priority, DispatchPriority) else self.priority,
+                "deadline": self.deadline,
+                "required_capabilities": self.required_capabilities,
+                "callback_channel": self.callback_channel,
+                "metadata": self.metadata,
+            }
+        )
 
     @classmethod
     def from_message_body(cls, body: str) -> DispatchMessage | None:
@@ -151,24 +159,27 @@ class DispatchResult:
     """
     Result of a dispatch sent back to the originator.
     """
-    correlation_id: str              # Matches DispatchMessage.correlation_id
+
+    correlation_id: str  # Matches DispatchMessage.correlation_id
     status: DispatchStatus
-    from_instance: str               # Who completed it
+    from_instance: str  # Who completed it
     payload: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
     duration_ms: int | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_message_body(self) -> str:
-        return json.dumps({
-            "correlation_id": self.correlation_id,
-            "status": self.status.value if isinstance(self.status, DispatchStatus) else self.status,
-            "from_instance": self.from_instance,
-            "payload": self.payload,
-            "error": self.error,
-            "duration_ms": self.duration_ms,
-            "metadata": self.metadata,
-        })
+        return json.dumps(
+            {
+                "correlation_id": self.correlation_id,
+                "status": self.status.value if isinstance(self.status, DispatchStatus) else self.status,
+                "from_instance": self.from_instance,
+                "payload": self.payload,
+                "error": self.error,
+                "duration_ms": self.duration_ms,
+                "metadata": self.metadata,
+            }
+        )
 
     @classmethod
     def from_message_body(cls, body: str) -> DispatchResult | None:
@@ -193,8 +204,9 @@ class InstanceInfo:
     """
     Metadata about a registered Claude instance.
     """
-    instance_id: str                 # e.g., "terminal-claude-1", "cowork-web-1"
-    instance_type: str               # "claude-code-cli", "cowork-web", "desktop-app", "cortex-server"
+
+    instance_id: str  # e.g., "terminal-claude-1", "cowork-web-1"
+    instance_type: str  # "claude-code-cli", "cowork-web", "desktop-app", "cortex-server"
     capabilities: list[str] = field(default_factory=list)
     subscribes: list[str] = field(default_factory=list)  # Channels to poll
     machine: str | None = None
@@ -212,6 +224,7 @@ class InstanceInfo:
 # ---------------------------------------------------------------------------
 # Instance Registry
 # ---------------------------------------------------------------------------
+
 
 class InstanceRegistry:
     """
@@ -250,7 +263,7 @@ class InstanceRegistry:
                     last_seen=inst_data.get("last_seen"),
                     metadata=inst_data.get("metadata", {}),
                 )
-        except (Exception) as e:
+        except Exception as e:
             logger.warning(f"Failed to load instance registry: {e}")
 
     def _save(self) -> None:
@@ -294,7 +307,9 @@ class InstanceRegistry:
             capabilities=capabilities,
             subscribes=subscribes or [],
             machine=machine,
-            registered_at=time.time() if instance_id not in self._instances else self._instances[instance_id].registered_at,
+            registered_at=time.time()
+            if instance_id not in self._instances
+            else self._instances[instance_id].registered_at,
             last_seen=time.time(),
             metadata=metadata or {},
         )
@@ -334,6 +349,7 @@ class InstanceRegistry:
 # ---------------------------------------------------------------------------
 # DispatchBus
 # ---------------------------------------------------------------------------
+
 
 class DispatchBus:
     """

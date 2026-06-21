@@ -17,6 +17,7 @@ def _get_historical_backfill():
     """Import HistoricalBackfill from empirica-prediction package."""
     try:
         from empirica_prediction.trajectory.backfill import HistoricalBackfill  # pyright: ignore[reportMissingImports]
+
         return HistoricalBackfill
     except ImportError:
         print("Error: empirica-prediction package not installed.")
@@ -28,6 +29,7 @@ def _get_historical_backfill():
 def handle_trajectory_show(args):
     """Show vector trajectories for sessions."""
     from empirica.config.path_resolver import get_session_db_path
+
     db_path = get_session_db_path()
 
     if not db_path.exists():
@@ -51,7 +53,8 @@ def handle_trajectory_show(args):
 
     where_clause = " AND ".join(conditions) if conditions else "1=1"
 
-    cursor.execute(f"""
+    cursor.execute(
+        f"""
         SELECT trajectory_id, session_id, snapshot_count, pattern,
                pattern_confidence, start_vectors, end_vectors, vector_deltas,
                duration_seconds
@@ -59,34 +62,38 @@ def handle_trajectory_show(args):
         WHERE {where_clause}
         ORDER BY pattern_confidence DESC
         LIMIT ?
-    """, params + [args.limit])
+    """,
+        params + [args.limit],
+    )
 
     rows = cursor.fetchall()
     conn.close()
 
-    if args.output == 'json':
+    if args.output == "json":
         results = []
         for row in rows:
-            results.append({
-                "trajectory_id": row[0],
-                "session_id": row[1],
-                "snapshot_count": row[2],
-                "pattern": row[3],
-                "pattern_confidence": row[4],
-                "start_vectors": json.loads(row[5]) if row[5] else {},
-                "end_vectors": json.loads(row[6]) if row[6] else {},
-                "vector_deltas": json.loads(row[7]) if row[7] else {},
-                "duration_seconds": row[8],
-            })
+            results.append(
+                {
+                    "trajectory_id": row[0],
+                    "session_id": row[1],
+                    "snapshot_count": row[2],
+                    "pattern": row[3],
+                    "pattern_confidence": row[4],
+                    "start_vectors": json.loads(row[5]) if row[5] else {},
+                    "end_vectors": json.loads(row[6]) if row[6] else {},
+                    "vector_deltas": json.loads(row[7]) if row[7] else {},
+                    "duration_seconds": row[8],
+                }
+            )
         print(json.dumps(results, indent=2))
     else:
         if not rows:
             print("No trajectories found matching criteria.")
             return
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"VECTOR TRAJECTORIES ({len(rows)} shown)")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         for row in rows:
             row[0]
@@ -100,12 +107,12 @@ def handle_trajectory_show(args):
 
             # Pattern emoji
             pattern_emoji = {
-                'breakthrough': '🚀',
-                'stable': '📈',
-                'dead_end': '🛑',
-                'oscillating': '〰️',
-                'unknown': '❓'
-            }.get(pattern, '❓')
+                "breakthrough": "🚀",
+                "stable": "📈",
+                "dead_end": "🛑",
+                "oscillating": "〰️",
+                "unknown": "❓",
+            }.get(pattern, "❓")
 
             print(f"{pattern_emoji} {pattern.upper()} (confidence: {confidence:.2f})")
             print(f"   Session: {session_id[:12]}...")
@@ -113,7 +120,7 @@ def handle_trajectory_show(args):
 
             # Key vector changes
             print("   Vectors:")
-            for key in ['know', 'uncertainty', 'clarity', 'completion']:
+            for key in ["know", "uncertainty", "clarity", "completion"]:
                 if key in start and key in end:
                     delta = deltas.get(key, 0)
                     direction = "↑" if delta > 0 else "↓" if delta < 0 else "→"
@@ -125,6 +132,7 @@ def handle_trajectory_show(args):
 def handle_trajectory_stats(args):
     """Show trajectory pattern statistics."""
     from empirica.config.path_resolver import get_session_db_path
+
     db_path = get_session_db_path()
 
     if not db_path.exists():
@@ -161,17 +169,24 @@ def handle_trajectory_stats(args):
 
     conn.close()
 
-    if args.output == 'json':
-        print(json.dumps({
-            "total_trajectories": total,
-            "avg_snapshots": avg_snapshots,
-            "patterns": {row[0]: {"count": row[1], "avg_confidence": row[2]} for row in pattern_stats},
-            "top_breakthroughs": [{"id": r[0], "delta_know": r[1], "delta_uncertainty": r[2]} for r in top_breakthroughs]
-        }, indent=2))
+    if args.output == "json":
+        print(
+            json.dumps(
+                {
+                    "total_trajectories": total,
+                    "avg_snapshots": avg_snapshots,
+                    "patterns": {row[0]: {"count": row[1], "avg_confidence": row[2]} for row in pattern_stats},
+                    "top_breakthroughs": [
+                        {"id": r[0], "delta_know": r[1], "delta_uncertainty": r[2]} for r in top_breakthroughs
+                    ],
+                },
+                indent=2,
+            )
+        )
     else:
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print("TRAJECTORY STATISTICS")
-        print(f"{'='*50}\n")
+        print(f"{'=' * 50}\n")
 
         print(f"Total Trajectories: {total}")
         print(f"Avg Snapshots/Trajectory: {avg_snapshots:.1f}\n")
@@ -179,8 +194,9 @@ def handle_trajectory_stats(args):
         print("Pattern Distribution:")
         for pattern, count, avg_conf in pattern_stats:
             pct = count / total * 100 if total else 0
-            emoji = {'breakthrough': '🚀', 'stable': '📈', 'dead_end': '🛑',
-                     'oscillating': '〰️', 'unknown': '❓'}.get(pattern, '❓')
+            emoji = {"breakthrough": "🚀", "stable": "📈", "dead_end": "🛑", "oscillating": "〰️", "unknown": "❓"}.get(
+                pattern, "❓"
+            )
             print(f"  {emoji} {pattern}: {count} ({pct:.1f}%) - avg confidence: {avg_conf:.2f}")
 
         if top_breakthroughs:
@@ -217,13 +233,17 @@ def handle_trajectory_backfill(args):
         for pattern, count in sorted(patterns.items(), key=lambda x: -x[1]):
             print(f"    {pattern}: {count}")
 
-    if args.output == 'json':
-        print(json.dumps({
-            "ok": True,
-            "sessions": stats.sessions_processed,
-            "epistemics": stats.epistemics_found,
-            "trajectories_stored": stored,
-            "patterns": patterns if args.analyze else None
-        }))
+    if args.output == "json":
+        print(
+            json.dumps(
+                {
+                    "ok": True,
+                    "sessions": stats.sessions_processed,
+                    "epistemics": stats.epistemics_found,
+                    "trajectories_stored": stored,
+                    "patterns": patterns if args.analyze else None,
+                }
+            )
+        )
     else:
         print(f"\n✅ Backfill complete: {stored} trajectories stored")

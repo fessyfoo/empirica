@@ -32,9 +32,7 @@ def _human_output_for(report: dict[str, Any]) -> str:
     return buf.getvalue()
 
 
-def _make_report(
-    pass_count: int = 11, fail_count: int = 0, unavailable_count: int = 0
-) -> dict[str, Any]:
+def _make_report(pass_count: int = 11, fail_count: int = 0, unavailable_count: int = 0) -> dict[str, Any]:
     """Build a synthetic compliance report dict with the requested mix."""
     results: list[dict[str, Any]] = []
     for i in range(pass_count):
@@ -159,12 +157,10 @@ def test_invariant_holds_across_pass_count_range():
             # Score percentage shown in human output matches JSON score
             expected_pct = round(overall["score"] * 100)
             assert f"{expected_pct}%" in out, (
-                f"pct mismatch for pass={pass_count} fail={fail_count}: "
-                f"expected {expected_pct}% in human output"
+                f"pct mismatch for pass={pass_count} fail={fail_count}: expected {expected_pct}% in human output"
             )
             # Counts shown match
             expected_counts = f"({overall['checks_passed']}/{overall['checks_total']})"
             assert expected_counts in out, (
-                f"counts mismatch for pass={pass_count} fail={fail_count}: "
-                f"expected {expected_counts}"
+                f"counts mismatch for pass={pass_count} fail={fail_count}: expected {expected_counts}"
             )

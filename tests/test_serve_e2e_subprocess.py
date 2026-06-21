@@ -130,20 +130,29 @@ def _make_real_project(tmp_path: Path, project_id: str = "test-e2e") -> Path:
     f2 = str(uuid.uuid4())
     de1 = str(uuid.uuid4())
     u1 = str(uuid.uuid4())
-    cur.execute("INSERT INTO project_findings (id, project_id, session_id, finding, finding_data, "
-                "impact, created_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (f1, canonical_uuid, "sess-1", "Real finding A", "{}", 0.7, time.time()))
-    cur.execute("INSERT INTO project_findings (id, project_id, session_id, finding, finding_data, "
-                "impact, created_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (f2, canonical_uuid, "sess-1", "Real finding B", "{}", 0.4, time.time()))
-    cur.execute("INSERT INTO project_dead_ends (id, project_id, session_id, approach, why_failed, "
-                "dead_end_data, impact, created_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (de1, canonical_uuid, "sess-1", "tried passport.js", "too heavy", "{}", 0.5, time.time()))
-    cur.execute("INSERT INTO project_unknowns (id, project_id, session_id, unknown, unknown_data, "
-                "is_resolved, created_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (u1, canonical_uuid, "sess-1", "what about Y?", "{}", 0, time.time()))
-    cur.execute("INSERT OR IGNORE INTO artifact_edges (from_id, to_id, relation) VALUES (?, ?, ?)",
-                (f1, u1, "raises_question"))
+    cur.execute(
+        "INSERT INTO project_findings (id, project_id, session_id, finding, finding_data, "
+        "impact, created_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (f1, canonical_uuid, "sess-1", "Real finding A", "{}", 0.7, time.time()),
+    )
+    cur.execute(
+        "INSERT INTO project_findings (id, project_id, session_id, finding, finding_data, "
+        "impact, created_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (f2, canonical_uuid, "sess-1", "Real finding B", "{}", 0.4, time.time()),
+    )
+    cur.execute(
+        "INSERT INTO project_dead_ends (id, project_id, session_id, approach, why_failed, "
+        "dead_end_data, impact, created_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (de1, canonical_uuid, "sess-1", "tried passport.js", "too heavy", "{}", 0.5, time.time()),
+    )
+    cur.execute(
+        "INSERT INTO project_unknowns (id, project_id, session_id, unknown, unknown_data, "
+        "is_resolved, created_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (u1, canonical_uuid, "sess-1", "what about Y?", "{}", 0, time.time()),
+    )
+    cur.execute(
+        "INSERT OR IGNORE INTO artifact_edges (from_id, to_id, relation) VALUES (?, ?, ?)", (f1, u1, "raises_question")
+    )
     conn.commit()
     conn.close()
     return proj
@@ -177,8 +186,7 @@ def daemon(tmp_path):
     (fake_home / ".empirica").mkdir()  # empty — nothing for canonical resolver to find
 
     env = {
-        **{k: v for k, v in os.environ.items()
-           if not k.startswith("EMPIRICA_") and k not in ("TMUX_PANE", "WINDOWID")},
+        **{k: v for k, v in os.environ.items() if not k.startswith("EMPIRICA_") and k not in ("TMUX_PANE", "WINDOWID")},
         "HOME": str(fake_home),
         "PWD": str(proj),
         "PATH": os.environ.get("PATH", ""),
@@ -188,12 +196,17 @@ def daemon(tmp_path):
     # If that's fragile, drop to direct uvicorn invocation as a fallback.
     proc = subprocess.Popen(
         [
-            sys.executable, "-m", "uvicorn",
+            sys.executable,
+            "-m",
+            "uvicorn",
             "empirica.api.serve_app:create_serve_app",
             "--factory",
-            "--host", "127.0.0.1",
-            "--port", str(port),
-            "--log-level", "warning",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--log-level",
+            "warning",
         ],
         cwd=str(proj),
         env=env,
@@ -302,9 +315,14 @@ def test_e2e_all_per_type_endpoints_200(daemon):
     """Smoke-check every endpoint returns 200 and a list, no 500s."""
     _proj, port = daemon
     paths = [
-        "/api/v1/findings", "/api/v1/unknowns", "/api/v1/dead-ends",
-        "/api/v1/mistakes", "/api/v1/decisions", "/api/v1/assumptions",
-        "/api/v1/sources", "/api/v1/goals",
+        "/api/v1/findings",
+        "/api/v1/unknowns",
+        "/api/v1/dead-ends",
+        "/api/v1/mistakes",
+        "/api/v1/decisions",
+        "/api/v1/assumptions",
+        "/api/v1/sources",
+        "/api/v1/goals",
     ]
     with httpx.Client() as client:
         for path in paths:

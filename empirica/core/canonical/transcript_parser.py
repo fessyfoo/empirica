@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 
 class RecordType(str, Enum):
     """Claude Code transcript record types."""
+
     USER = "user"
     ASSISTANT = "assistant"
     PROGRESS = "progress"
@@ -50,6 +51,7 @@ class RecordType(str, Enum):
 
 class ContentBlockType(str, Enum):
     """Types of content blocks within assistant messages."""
+
     TEXT = "text"
     TOOL_USE = "tool_use"
     TOOL_RESULT = "tool_result"
@@ -60,6 +62,7 @@ class ContentBlockType(str, Enum):
 @dataclass
 class ContentBlock:
     """A single content block from a message."""
+
     block_type: ContentBlockType
     text: str = ""
     tool_name: str = ""
@@ -71,6 +74,7 @@ class ContentBlock:
 @dataclass
 class TranscriptRecord:
     """A single record from a .jsonl transcript."""
+
     uuid: str
     timestamp: str
     record_type: RecordType
@@ -103,6 +107,7 @@ class TranscriptRecord:
 @dataclass
 class ToolChain:
     """A tool invocation paired with its result."""
+
     tool_name: str
     tool_input: dict[str, Any]
     tool_use_id: str
@@ -114,6 +119,7 @@ class ToolChain:
 @dataclass
 class ConversationTurn:
     """A user message and the assistant's response (may include tool chains)."""
+
     turn_index: int
     user_message: str
     assistant_text: str = ""
@@ -132,6 +138,7 @@ class ConversationTurn:
 @dataclass
 class SessionMetadata:
     """Metadata for a session from sessions-index.json."""
+
     session_id: str
     full_path: str
     first_prompt: str = ""
@@ -160,10 +167,7 @@ class SessionIndex:
         projects_dir = self.claude_dir / "projects"
         if not projects_dir.exists():
             return []
-        return [
-            d.name for d in sorted(projects_dir.iterdir())
-            if d.is_dir() and not d.name.startswith('.')
-        ]
+        return [d.name for d in sorted(projects_dir.iterdir()) if d.is_dir() and not d.name.startswith(".")]
 
     def get_sessions(self, project_name: str) -> list[SessionMetadata]:
         """Read sessions-index.json for a project.
@@ -182,20 +186,22 @@ class SessionIndex:
 
             sessions = []
             for entry in data.get("entries", []):
-                sessions.append(SessionMetadata(
-                    session_id=entry.get("sessionId", ""),
-                    full_path=entry.get("fullPath", ""),
-                    first_prompt=entry.get("firstPrompt", ""),
-                    summary=entry.get("summary", ""),
-                    message_count=entry.get("messageCount", 0),
-                    created=entry.get("created", ""),
-                    modified=entry.get("modified", ""),
-                    git_branch=entry.get("gitBranch", ""),
-                    project_path=entry.get("projectPath", ""),
-                    is_sidechain=entry.get("isSidechain", False),
-                    pr_number=entry.get("prNumber"),
-                    pr_url=entry.get("prUrl", ""),
-                ))
+                sessions.append(
+                    SessionMetadata(
+                        session_id=entry.get("sessionId", ""),
+                        full_path=entry.get("fullPath", ""),
+                        first_prompt=entry.get("firstPrompt", ""),
+                        summary=entry.get("summary", ""),
+                        message_count=entry.get("messageCount", 0),
+                        created=entry.get("created", ""),
+                        modified=entry.get("modified", ""),
+                        git_branch=entry.get("gitBranch", ""),
+                        project_path=entry.get("projectPath", ""),
+                        is_sidechain=entry.get("isSidechain", False),
+                        pr_number=entry.get("prNumber"),
+                        pr_url=entry.get("prUrl", ""),
+                    )
+                )
             return sessions
 
         # Fallback: discover .jsonl files directly
@@ -206,13 +212,15 @@ class SessionIndex:
         for jsonl_file in sorted(project_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True):
             session_id = jsonl_file.stem
             stat = jsonl_file.stat()
-            sessions.append(SessionMetadata(
-                session_id=session_id,
-                full_path=str(jsonl_file),
-                message_count=1,  # Unknown without reading file
-                modified=datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                project_path=str(project_dir),
-            ))
+            sessions.append(
+                SessionMetadata(
+                    session_id=session_id,
+                    full_path=str(jsonl_file),
+                    message_count=1,  # Unknown without reading file
+                    modified=datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    project_path=str(project_dir),
+                )
+            )
         return sessions
 
     def get_all_sessions(self, min_messages: int = 2) -> list[SessionMetadata]:
@@ -220,10 +228,7 @@ class SessionIndex:
         all_sessions = []
         for project in self.discover_projects():
             sessions = self.get_sessions(project)
-            all_sessions.extend(
-                s for s in sessions
-                if s.message_count >= min_messages and not s.is_sidechain
-            )
+            all_sessions.extend(s for s in sessions if s.message_count >= min_messages and not s.is_sidechain)
         return sorted(all_sessions, key=lambda s: s.modified, reverse=True)
 
 
@@ -234,7 +239,12 @@ class TranscriptParser:
     """Parse Claude Code .jsonl transcripts into structured records."""
 
     # Record types that carry epistemic signal (vs operational noise)
-    SIGNAL_TYPES: ClassVar[set[RecordType]] = {RecordType.USER, RecordType.ASSISTANT, RecordType.SYSTEM, RecordType.SUMMARY}
+    SIGNAL_TYPES: ClassVar[set[RecordType]] = {
+        RecordType.USER,
+        RecordType.ASSISTANT,
+        RecordType.SYSTEM,
+        RecordType.SUMMARY,
+    }
 
     def parse_session(self, jsonl_path: str) -> list[TranscriptRecord]:
         """Parse all records from a .jsonl transcript file.
@@ -252,7 +262,7 @@ class TranscriptParser:
 
         records = []
         line_num = 0
-        for line in path.open('r', encoding='utf-8'):
+        for line in path.open("r", encoding="utf-8"):
             line_num += 1
             line = line.strip()
             if not line:
@@ -323,14 +333,14 @@ class TranscriptParser:
                     if block.get("type") == "tool_result":
                         result_content = block.get("content", "")
                         if isinstance(result_content, list):
-                            result_content = " ".join(
-                                b.get("text", "") for b in result_content if isinstance(b, dict)
+                            result_content = " ".join(b.get("text", "") for b in result_content if isinstance(b, dict))
+                        record.content_blocks.append(
+                            ContentBlock(
+                                block_type=ContentBlockType.TOOL_RESULT,
+                                tool_use_id=block.get("tool_use_id", ""),
+                                text=str(result_content)[:5000],  # Truncate large results
                             )
-                        record.content_blocks.append(ContentBlock(
-                            block_type=ContentBlockType.TOOL_RESULT,
-                            tool_use_id=block.get("tool_use_id", ""),
-                            text=str(result_content)[:5000],  # Truncate large results
-                        ))
+                        )
                     elif block.get("type") == "text":
                         parts.append(block.get("text", ""))
             record.raw_content = "\n".join(parts)
@@ -356,22 +366,28 @@ class TranscriptParser:
             block_type_str = block.get("type", "")
 
             if block_type_str == "text":
-                record.content_blocks.append(ContentBlock(
-                    block_type=ContentBlockType.TEXT,
-                    text=block.get("text", ""),
-                ))
+                record.content_blocks.append(
+                    ContentBlock(
+                        block_type=ContentBlockType.TEXT,
+                        text=block.get("text", ""),
+                    )
+                )
             elif block_type_str == "tool_use":
-                record.content_blocks.append(ContentBlock(
-                    block_type=ContentBlockType.TOOL_USE,
-                    tool_name=block.get("name", ""),
-                    tool_input=block.get("input", {}),
-                    tool_use_id=block.get("id", ""),
-                ))
+                record.content_blocks.append(
+                    ContentBlock(
+                        block_type=ContentBlockType.TOOL_USE,
+                        tool_name=block.get("name", ""),
+                        tool_input=block.get("input", {}),
+                        tool_use_id=block.get("id", ""),
+                    )
+                )
             elif block_type_str == "thinking":
-                record.content_blocks.append(ContentBlock(
-                    block_type=ContentBlockType.THINKING,
-                    thinking=block.get("thinking", ""),
-                ))
+                record.content_blocks.append(
+                    ContentBlock(
+                        block_type=ContentBlockType.THINKING,
+                        thinking=block.get("thinking", ""),
+                    )
+                )
 
     def _parse_system_record(self, record: TranscriptRecord, raw: dict[str, Any]):
         """Parse system record."""
@@ -408,9 +424,7 @@ class TranscriptParser:
         """
         # Filter to signal-bearing records
         filtered = [
-            r for r in records
-            if r.record_type in self.SIGNAL_TYPES
-            and (include_sidechains or not r.is_sidechain)
+            r for r in records if r.record_type in self.SIGNAL_TYPES and (include_sidechains or not r.is_sidechain)
         ]
 
         turn_index = 0
@@ -505,18 +519,21 @@ class TranscriptParser:
         for tool_use_id, block in tool_uses.items():
             result_text = result_lookup.get(tool_use_id, "")
             # Infer success from result content
-            success = not any(
-                err in result_text.lower()
-                for err in ["error", "failed", "exception", "traceback"]
-            ) if result_text else True
+            success = (
+                not any(err in result_text.lower() for err in ["error", "failed", "exception", "traceback"])
+                if result_text
+                else True
+            )
 
-            chains.append(ToolChain(
-                tool_name=block.tool_name,
-                tool_input=block.tool_input,
-                tool_use_id=tool_use_id,
-                result_content=result_text,
-                success=success,
-            ))
+            chains.append(
+                ToolChain(
+                    tool_name=block.tool_name,
+                    tool_input=block.tool_input,
+                    tool_use_id=tool_use_id,
+                    result_content=result_text,
+                    success=success,
+                )
+            )
 
         return chains
 
@@ -531,9 +548,7 @@ class TranscriptParser:
         """Compute statistics for a session's records."""
         user_count = sum(1 for r in records if r.record_type == RecordType.USER)
         assistant_count = sum(1 for r in records if r.record_type == RecordType.ASSISTANT)
-        total_output_tokens = sum(
-            r.output_tokens for r in records if r.record_type == RecordType.ASSISTANT
-        )
+        total_output_tokens = sum(r.output_tokens for r in records if r.record_type == RecordType.ASSISTANT)
 
         tools_used: dict[str, int] = {}
         for r in records:
@@ -542,22 +557,16 @@ class TranscriptParser:
                     if block.block_type == ContentBlockType.TOOL_USE:
                         tools_used[block.tool_name] = tools_used.get(block.tool_name, 0) + 1
 
-        compactions = sum(
-            1 for r in records
-            if r.record_type == RecordType.SYSTEM and r.subtype == "compact_boundary"
-        )
+        compactions = sum(1 for r in records if r.record_type == RecordType.SYSTEM and r.subtype == "compact_boundary")
 
-        models = {
-            r.model for r in records
-            if r.record_type == RecordType.ASSISTANT and r.model
-        }
+        models = {r.model for r in records if r.record_type == RecordType.ASSISTANT and r.model}
 
         timestamps = [r.timestamp for r in records if r.timestamp]
         duration_minutes = 0.0
         if len(timestamps) >= 2:
             try:
-                start = datetime.fromisoformat(timestamps[0].replace('Z', '+00:00'))
-                end = datetime.fromisoformat(timestamps[-1].replace('Z', '+00:00'))
+                start = datetime.fromisoformat(timestamps[0].replace("Z", "+00:00"))
+                end = datetime.fromisoformat(timestamps[-1].replace("Z", "+00:00"))
                 duration_minutes = (end - start).total_seconds() / 60
             except (ValueError, TypeError):
                 pass
@@ -655,11 +664,11 @@ class ClaudeAIParser:
         conversations_data = None
         memories_data = None
         projects_data = None
-        if path.suffix == '.zip':
+        if path.suffix == ".zip":
             conversations_data, memories_data, projects_data = self._extract_zip(path)
         else:
             try:
-                conversations_data = json.loads(path.read_text(encoding='utf-8'))
+                conversations_data = json.loads(path.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError) as e:
                 logger.warning(f"Failed to read export file: {e}")
                 return [], {}
@@ -704,25 +713,26 @@ class ClaudeAIParser:
     def _extract_zip(self, zip_path: Path) -> tuple[Any | None, Any | None, Any | None]:
         """Extract conversations, memories, and projects from a ZIP export."""
         import zipfile
+
         conversations = None
         memories = None
         projects = None
 
         try:
-            with zipfile.ZipFile(zip_path, 'r') as zf:
+            with zipfile.ZipFile(zip_path, "r") as zf:
                 for name in zf.namelist():
                     basename = Path(name).name
                     try:
-                        raw = zf.read(name).decode('utf-8')
+                        raw = zf.read(name).decode("utf-8")
                         data = json.loads(raw)
                     except (json.JSONDecodeError, UnicodeDecodeError):
                         continue
 
-                    if basename == 'conversations.json':
+                    if basename == "conversations.json":
                         conversations = data
-                    elif basename == 'memories.json':
+                    elif basename == "memories.json":
                         memories = data
-                    elif basename == 'projects.json':
+                    elif basename == "projects.json":
                         projects = data
         except zipfile.BadZipFile:
             logger.warning(f"Invalid ZIP file: {zip_path}")
@@ -735,11 +745,7 @@ class ClaudeAIParser:
         """Parse a single conversation from Claude.ai export."""
         turns = []
 
-        messages = (
-            conv.get("chat_messages")
-            or conv.get("messages")
-            or conv.get("content", [])
-        )
+        messages = conv.get("chat_messages") or conv.get("messages") or conv.get("content", [])
         if not isinstance(messages, list):
             return turns
 
@@ -761,14 +767,16 @@ class ClaudeAIParser:
                 current_user_ts = timestamp
 
             elif sender == "assistant" and current_user_msg:
-                turns.append(ConversationTurn(
-                    turn_index=turn_index,
-                    user_message=current_user_msg,
-                    assistant_text=content,
-                    timestamp=current_user_ts,
-                    model=msg.get("model", ""),
-                    tool_chains=tool_chains,
-                ))
+                turns.append(
+                    ConversationTurn(
+                        turn_index=turn_index,
+                        user_message=current_user_msg,
+                        assistant_text=content,
+                        timestamp=current_user_ts,
+                        model=msg.get("model", ""),
+                        tool_chains=tool_chains,
+                    )
+                )
                 turn_index += 1
                 current_user_msg = ""
 
@@ -824,12 +832,14 @@ class ClaudeAIParser:
                             texts.append(b.get("text", ""))
                     result_text = "\n".join(texts)
 
-            chains.append(ToolChain(
-                tool_name=use_block.get("name", "unknown"),
-                tool_input=use_block.get("input", {}),
-                tool_use_id=tool_id,
-                result_content=result_text[:1000] if result_text else "",
-                success=not is_error,
-            ))
+            chains.append(
+                ToolChain(
+                    tool_name=use_block.get("name", "unknown"),
+                    tool_input=use_block.get("input", {}),
+                    tool_use_id=tool_id,
+                    result_content=result_text[:1000] if result_text else "",
+                    success=not is_error,
+                )
+            )
 
         return chains

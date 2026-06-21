@@ -38,6 +38,7 @@ def _to_iso(epoch: Any) -> str | None:
         return epoch
     try:
         from datetime import datetime, timezone
+
         return datetime.fromtimestamp(float(epoch), tz=timezone.utc).isoformat()
     except (ValueError, TypeError):
         return None
@@ -98,19 +99,21 @@ def circle_1_active_state(
         for r in goal_rows:
             gd = _safe_json(r[4])
             weight = circle_1_weight(0.9, "goal_open", r[7])  # high default impact for active goals
-            out["in_progress_goals"].append({
-                "id": r[0],
-                "type": "goal",
-                "objective": r[1],
-                "status": r[2],
-                "is_completed": bool(r[3]),
-                "subtasks_inline": gd.get("subtasks", [])[:5],  # quick peek
-                "session_id": r[5],
-                "transaction_id": r[6],
-                "created_at": _to_iso(r[7]),
-                "weight": weight,
-                "surface_reason": "active",
-            })
+            out["in_progress_goals"].append(
+                {
+                    "id": r[0],
+                    "type": "goal",
+                    "objective": r[1],
+                    "status": r[2],
+                    "is_completed": bool(r[3]),
+                    "subtasks_inline": gd.get("subtasks", [])[:5],  # quick peek
+                    "session_id": r[5],
+                    "transaction_id": r[6],
+                    "created_at": _to_iso(r[7]),
+                    "weight": weight,
+                    "surface_reason": "active",
+                }
+            )
             active_goal_ids.append(r[0])
 
         # 2. Active subtasks. The subtasks table is keyed off the parent goal.
@@ -126,17 +129,19 @@ def circle_1_active_state(
                 )
                 for r in cur.fetchall():
                     weight = circle_1_weight(0.8, "subtask_open", r[5])
-                    out["active_subtasks"].append({
-                        "id": r[0],
-                        "type": "subtask",
-                        "name": r[1],
-                        "status": r[2],
-                        "importance": r[3],
-                        "goal_id": r[4],
-                        "created_at": _to_iso(r[5]),
-                        "weight": weight,
-                        "surface_reason": "active",
-                    })
+                    out["active_subtasks"].append(
+                        {
+                            "id": r[0],
+                            "type": "subtask",
+                            "name": r[1],
+                            "status": r[2],
+                            "importance": r[3],
+                            "goal_id": r[4],
+                            "created_at": _to_iso(r[5]),
+                            "weight": weight,
+                            "surface_reason": "active",
+                        }
+                    )
             except sqlite3.OperationalError:
                 # subtasks table shape differs across migrations; skip gracefully
                 pass
@@ -156,20 +161,22 @@ def circle_1_active_state(
             )
             for r in cur.fetchall():
                 weight = circle_1_weight(r[3], "finding", r[8])
-                out["recent_findings"].append({
-                    "id": r[0],
-                    "type": "finding",
-                    "summary": (r[1] or "")[:120],
-                    "body": r[1] or "",
-                    "impact": r[3],
-                    "epistemic_source": r[4],
-                    "session_id": r[5],
-                    "goal_id": r[6],
-                    "transaction_id": r[7],
-                    "created_at": _to_iso(r[8]),
-                    "weight": weight,
-                    "surface_reason": "active",
-                })
+                out["recent_findings"].append(
+                    {
+                        "id": r[0],
+                        "type": "finding",
+                        "summary": (r[1] or "")[:120],
+                        "body": r[1] or "",
+                        "impact": r[3],
+                        "epistemic_source": r[4],
+                        "session_id": r[5],
+                        "goal_id": r[6],
+                        "transaction_id": r[7],
+                        "created_at": _to_iso(r[8]),
+                        "weight": weight,
+                        "surface_reason": "active",
+                    }
+                )
 
         # 4. Recent decisions within active goals (last 7d, decayed)
         if active_goal_ids:
@@ -187,23 +194,25 @@ def circle_1_active_state(
             )
             for r in cur.fetchall():
                 weight = circle_1_weight(r[4], "decision_recent", r[10])
-                out["recent_decisions"].append({
-                    "id": r[0],
-                    "type": "decision",
-                    "choice": r[1],
-                    "rationale": r[2],
-                    "alternatives": r[3],
-                    "confidence_at_decision": r[4],
-                    "reversibility": r[5],
-                    "outcome": r[6],
-                    "session_id": r[7],
-                    "goal_id": r[8],
-                    "transaction_id": r[9],
-                    "created_at": _to_iso(r[10]),
-                    "epistemic_source": r[11],
-                    "weight": weight,
-                    "surface_reason": "active",
-                })
+                out["recent_decisions"].append(
+                    {
+                        "id": r[0],
+                        "type": "decision",
+                        "choice": r[1],
+                        "rationale": r[2],
+                        "alternatives": r[3],
+                        "confidence_at_decision": r[4],
+                        "reversibility": r[5],
+                        "outcome": r[6],
+                        "session_id": r[7],
+                        "goal_id": r[8],
+                        "transaction_id": r[9],
+                        "created_at": _to_iso(r[10]),
+                        "epistemic_source": r[11],
+                        "weight": weight,
+                        "surface_reason": "active",
+                    }
+                )
 
         # 5. Recent dead-ends (last 14d — type-specific window)
         cutoff_14d = time.time() - 14 * 24 * 3600
@@ -217,20 +226,22 @@ def circle_1_active_state(
         )
         for r in cur.fetchall():
             weight = circle_1_weight(r[4], "dead_end", r[9])
-            out["recent_dead_ends"].append({
-                "id": r[0],
-                "type": "dead_end",
-                "approach": r[1],
-                "why_failed": r[2],
-                "impact": r[4],
-                "epistemic_source": r[5],
-                "session_id": r[6],
-                "goal_id": r[7],
-                "transaction_id": r[8],
-                "created_at": _to_iso(r[9]),
-                "weight": weight,
-                "surface_reason": "active",
-            })
+            out["recent_dead_ends"].append(
+                {
+                    "id": r[0],
+                    "type": "dead_end",
+                    "approach": r[1],
+                    "why_failed": r[2],
+                    "impact": r[4],
+                    "epistemic_source": r[5],
+                    "session_id": r[6],
+                    "goal_id": r[7],
+                    "transaction_id": r[8],
+                    "created_at": _to_iso(r[9]),
+                    "weight": weight,
+                    "surface_reason": "active",
+                }
+            )
 
         # 6. Recent mistakes (last 14d)
         try:
@@ -244,20 +255,22 @@ def circle_1_active_state(
             )
             for r in cur.fetchall():
                 weight = circle_1_weight(0.6, "mistake", r[9])
-                out["recent_mistakes"].append({
-                    "id": r[0],
-                    "type": "mistake",
-                    "mistake": r[1],
-                    "why_wrong": r[2],
-                    "prevention": r[3],
-                    "epistemic_source": r[5],
-                    "session_id": r[6],
-                    "goal_id": r[7],
-                    "transaction_id": r[8],
-                    "created_at": _to_iso(r[9]),
-                    "weight": weight,
-                    "surface_reason": "active",
-                })
+                out["recent_mistakes"].append(
+                    {
+                        "id": r[0],
+                        "type": "mistake",
+                        "mistake": r[1],
+                        "why_wrong": r[2],
+                        "prevention": r[3],
+                        "epistemic_source": r[5],
+                        "session_id": r[6],
+                        "goal_id": r[7],
+                        "transaction_id": r[8],
+                        "created_at": _to_iso(r[9]),
+                        "weight": weight,
+                        "surface_reason": "active",
+                    }
+                )
         except sqlite3.OperationalError:
             pass
     finally:
@@ -305,22 +318,24 @@ def circle_2_persistent_reference(
         )
         for r in cur.fetchall():
             weight = circle_2_weight(r[4], "decision")
-            out["decisions_with_active_outcome"].append({
-                "id": r[0],
-                "type": "decision",
-                "choice": r[1],
-                "rationale": r[2],
-                "alternatives": r[3],
-                "confidence_at_decision": r[4],
-                "reversibility": r[5],
-                "outcome": r[6],
-                "session_id": r[7],
-                "transaction_id": r[8],
-                "created_at": _to_iso(r[9]),
-                "epistemic_source": r[10],
-                "weight": weight,
-                "surface_reason": "persistent",
-            })
+            out["decisions_with_active_outcome"].append(
+                {
+                    "id": r[0],
+                    "type": "decision",
+                    "choice": r[1],
+                    "rationale": r[2],
+                    "alternatives": r[3],
+                    "confidence_at_decision": r[4],
+                    "reversibility": r[5],
+                    "outcome": r[6],
+                    "session_id": r[7],
+                    "transaction_id": r[8],
+                    "created_at": _to_iso(r[9]),
+                    "epistemic_source": r[10],
+                    "weight": weight,
+                    "surface_reason": "persistent",
+                }
+            )
 
         # 2. Verified / falsified assumptions
         cur.execute(
@@ -334,22 +349,24 @@ def circle_2_persistent_reference(
         )
         for r in cur.fetchall():
             weight = circle_2_weight(r[2], "assumption")
-            out["verified_assumptions"].append({
-                "id": r[0],
-                "type": "assumption",
-                "summary": (r[1] or "")[:120],
-                "body": r[1] or "",
-                "confidence": r[2],
-                "status": r[3],
-                "resolution_finding_id": r[4],
-                "session_id": r[5],
-                "transaction_id": r[6],
-                "created_at": _to_iso(r[7]),
-                "resolved_at": _to_iso(r[8]),
-                "epistemic_source": r[9],
-                "weight": weight,
-                "surface_reason": "persistent",
-            })
+            out["verified_assumptions"].append(
+                {
+                    "id": r[0],
+                    "type": "assumption",
+                    "summary": (r[1] or "")[:120],
+                    "body": r[1] or "",
+                    "confidence": r[2],
+                    "status": r[3],
+                    "resolution_finding_id": r[4],
+                    "session_id": r[5],
+                    "transaction_id": r[6],
+                    "created_at": _to_iso(r[7]),
+                    "resolved_at": _to_iso(r[8]),
+                    "epistemic_source": r[9],
+                    "weight": weight,
+                    "surface_reason": "persistent",
+                }
+            )
 
         # 3. Sources — never decay. Order by confidence + recency to avoid arbitrary order.
         cur.execute(
@@ -361,21 +378,23 @@ def circle_2_persistent_reference(
         )
         for r in cur.fetchall():
             weight = circle_2_weight(r[5], "source")
-            out["sources"].append({
-                "id": r[0],
-                "type": "source",
-                "title": r[1],
-                "url": r[2],
-                "source_type": r[3],
-                "description": r[4],
-                "confidence": r[5],
-                "epistemic_layer": r[6],
-                "session_id": r[7],
-                "discovered_by_ai": r[8],
-                "created_at": _to_iso(r[9]),
-                "weight": weight,
-                "surface_reason": "persistent",
-            })
+            out["sources"].append(
+                {
+                    "id": r[0],
+                    "type": "source",
+                    "title": r[1],
+                    "url": r[2],
+                    "source_type": r[3],
+                    "description": r[4],
+                    "confidence": r[5],
+                    "epistemic_layer": r[6],
+                    "session_id": r[7],
+                    "discovered_by_ai": r[8],
+                    "created_at": _to_iso(r[9]),
+                    "weight": weight,
+                    "surface_reason": "persistent",
+                }
+            )
     finally:
         conn.close()
 
@@ -435,9 +454,7 @@ def circle_3_topic_relevant_backlog(
     return _enrich_qdrant_hits(project_path, project_id, qdrant_results, limits, threshold)
 
 
-def _qdrant_similarity_pull(
-    project_id: str, topic_text: str, threshold: float
-) -> dict[str, float] | None:
+def _qdrant_similarity_pull(project_id: str, topic_text: str, threshold: float) -> dict[str, float] | None:
     """Embed topic_text, run Qdrant cosine search across project's eidetic
     + episodic collections. Return {artifact_id: similarity_score} for hits
     above threshold. Return None if Qdrant is unreachable.
@@ -467,6 +484,7 @@ def _qdrant_similarity_pull(
     hits: dict[str, float] = {}
     try:
         from empirica.core.qdrant.collections import _memory_collection
+
         collection = _memory_collection(project_id)
         try:
             response = client.query_points(
@@ -530,11 +548,14 @@ def _enrich_qdrant_hits(
             (*ids, project_id),
         )
         for r in cur.fetchall():
-            out["open_unknowns"].append(_pack_topic_match(
-                r[0], "unknown", {"summary": (r[1] or "")[:120], "body": r[1] or "",
-                                  "impact": r[2], "created_at": _to_iso(r[3])},
-                qdrant_hits[r[0]],
-            ))
+            out["open_unknowns"].append(
+                _pack_topic_match(
+                    r[0],
+                    "unknown",
+                    {"summary": (r[1] or "")[:120], "body": r[1] or "", "impact": r[2], "created_at": _to_iso(r[3])},
+                    qdrant_hits[r[0]],
+                )
+            )
 
         # Resolved unknowns (anti-clobber: similar past resolutions)
         cur.execute(
@@ -544,12 +565,21 @@ def _enrich_qdrant_hits(
             (*ids, project_id),
         )
         for r in cur.fetchall():
-            out["resolved_unknowns_relevant"].append(_pack_topic_match(
-                r[0], "unknown", {"summary": (r[1] or "")[:120], "body": r[1] or "",
-                                  "resolved_by": r[2], "resolved_at": _to_iso(r[3]),
-                                  "created_at": _to_iso(r[4]), "status": "resolved"},
-                qdrant_hits[r[0]],
-            ))
+            out["resolved_unknowns_relevant"].append(
+                _pack_topic_match(
+                    r[0],
+                    "unknown",
+                    {
+                        "summary": (r[1] or "")[:120],
+                        "body": r[1] or "",
+                        "resolved_by": r[2],
+                        "resolved_at": _to_iso(r[3]),
+                        "created_at": _to_iso(r[4]),
+                        "status": "resolved",
+                    },
+                    qdrant_hits[r[0]],
+                )
+            )
 
         # Open assumptions
         cur.execute(
@@ -559,12 +589,20 @@ def _enrich_qdrant_hits(
             (*ids, project_id),
         )
         for r in cur.fetchall():
-            out["open_assumptions"].append(_pack_topic_match(
-                r[0], "assumption", {"summary": (r[1] or "")[:120], "body": r[1] or "",
-                                     "confidence": r[2], "status": r[3],
-                                     "created_at": _to_iso(r[4])},
-                qdrant_hits[r[0]],
-            ))
+            out["open_assumptions"].append(
+                _pack_topic_match(
+                    r[0],
+                    "assumption",
+                    {
+                        "summary": (r[1] or "")[:120],
+                        "body": r[1] or "",
+                        "confidence": r[2],
+                        "status": r[3],
+                        "created_at": _to_iso(r[4]),
+                    },
+                    qdrant_hits[r[0]],
+                )
+            )
 
         # Planned goals
         cur.execute(
@@ -574,11 +612,14 @@ def _enrich_qdrant_hits(
             (*ids, project_id),
         )
         for r in cur.fetchall():
-            out["planned_goals"].append(_pack_topic_match(
-                r[0], "goal", {"objective": r[1], "status": r[2],
-                               "is_completed": False, "created_at": _to_iso(r[3])},
-                qdrant_hits[r[0]],
-            ))
+            out["planned_goals"].append(
+                _pack_topic_match(
+                    r[0],
+                    "goal",
+                    {"objective": r[1], "status": r[2], "is_completed": False, "created_at": _to_iso(r[3])},
+                    qdrant_hits[r[0]],
+                )
+            )
 
         # Completed goals (anti-clobber)
         cur.execute(
@@ -588,13 +629,20 @@ def _enrich_qdrant_hits(
             (*ids, project_id),
         )
         for r in cur.fetchall():
-            out["completed_goals_relevant"].append(_pack_topic_match(
-                r[0], "goal", {"objective": r[1], "status": r[2],
-                               "is_completed": True,
-                               "completed_at": _to_iso(r[3]),
-                               "created_at": _to_iso(r[4])},
-                qdrant_hits[r[0]],
-            ))
+            out["completed_goals_relevant"].append(
+                _pack_topic_match(
+                    r[0],
+                    "goal",
+                    {
+                        "objective": r[1],
+                        "status": r[2],
+                        "is_completed": True,
+                        "completed_at": _to_iso(r[3]),
+                        "created_at": _to_iso(r[4]),
+                    },
+                    qdrant_hits[r[0]],
+                )
+            )
 
         # Dead-ends matching topic
         cur.execute(
@@ -604,18 +652,21 @@ def _enrich_qdrant_hits(
             (*ids, project_id),
         )
         for r in cur.fetchall():
-            out["dead_ends_relevant"].append(_pack_topic_match(
-                r[0], "dead_end", {"approach": r[1], "why_failed": r[2],
-                                   "impact": r[3], "created_at": _to_iso(r[4])},
-                qdrant_hits[r[0]],
-            ))
+            out["dead_ends_relevant"].append(
+                _pack_topic_match(
+                    r[0],
+                    "dead_end",
+                    {"approach": r[1], "why_failed": r[2], "impact": r[3], "created_at": _to_iso(r[4])},
+                    qdrant_hits[r[0]],
+                )
+            )
     finally:
         conn.close()
 
     # Apply per-type caps, sorted by similarity desc
     for key in out:
         out[key].sort(key=lambda x: x.get("similarity_score", 0), reverse=True)
-        out[key] = out[key][:_default_cap(key, limits)]
+        out[key] = out[key][: _default_cap(key, limits)]
 
     return out
 
@@ -674,16 +725,18 @@ def _fallback_open_backlog_only(
             (project_id, cap("open_unknowns", 5)),
         )
         for r in cur.fetchall():
-            out["open_unknowns"].append({
-                "id": r[0],
-                "type": "unknown",
-                "summary": (r[1] or "")[:120],
-                "body": r[1] or "",
-                "impact": r[2],
-                "created_at": _to_iso(r[3]),
-                "weight": float(r[2] or 0.5),
-                "surface_reason": "topic_match_fallback",
-            })
+            out["open_unknowns"].append(
+                {
+                    "id": r[0],
+                    "type": "unknown",
+                    "summary": (r[1] or "")[:120],
+                    "body": r[1] or "",
+                    "impact": r[2],
+                    "created_at": _to_iso(r[3]),
+                    "weight": float(r[2] or 0.5),
+                    "surface_reason": "topic_match_fallback",
+                }
+            )
 
         # Open assumptions by confidence (high-stakes unverified surface first)
         cur.execute(
@@ -693,17 +746,19 @@ def _fallback_open_backlog_only(
             (project_id, cap("open_assumptions", 5)),
         )
         for r in cur.fetchall():
-            out["open_assumptions"].append({
-                "id": r[0],
-                "type": "assumption",
-                "summary": (r[1] or "")[:120],
-                "body": r[1] or "",
-                "confidence": r[2],
-                "status": r[3],
-                "created_at": _to_iso(r[4]),
-                "weight": float(r[2] or 0.5),
-                "surface_reason": "topic_match_fallback",
-            })
+            out["open_assumptions"].append(
+                {
+                    "id": r[0],
+                    "type": "assumption",
+                    "summary": (r[1] or "")[:120],
+                    "body": r[1] or "",
+                    "confidence": r[2],
+                    "status": r[3],
+                    "created_at": _to_iso(r[4]),
+                    "weight": float(r[2] or 0.5),
+                    "surface_reason": "topic_match_fallback",
+                }
+            )
 
         # Planned goals (recent)
         cur.execute(
@@ -713,16 +768,18 @@ def _fallback_open_backlog_only(
             (project_id, cap("planned_goals", 5)),
         )
         for r in cur.fetchall():
-            out["planned_goals"].append({
-                "id": r[0],
-                "type": "goal",
-                "objective": r[1],
-                "status": r[2],
-                "is_completed": False,
-                "created_at": _to_iso(r[3]),
-                "weight": 0.5,
-                "surface_reason": "topic_match_fallback",
-            })
+            out["planned_goals"].append(
+                {
+                    "id": r[0],
+                    "type": "goal",
+                    "objective": r[1],
+                    "status": r[2],
+                    "is_completed": False,
+                    "created_at": _to_iso(r[3]),
+                    "weight": 0.5,
+                    "surface_reason": "topic_match_fallback",
+                }
+            )
     finally:
         conn.close()
 

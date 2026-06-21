@@ -49,8 +49,7 @@ class TestCalculateConfidence:
 
 class TestCalculatePhaseComposite:
     def test_check_uses_check_keys(self):
-        v = {"know": 0.8, "context": 0.8, "clarity": 0.8,
-             "coherence": 0.8, "signal": 0.8, "density": 0.8}
+        v = {"know": 0.8, "context": 0.8, "clarity": 0.8, "coherence": 0.8, "signal": 0.8, "density": 0.8}
         assert calculate_phase_composite(v, "check") == pytest.approx(0.8)
 
     def test_noetic_uses_noetic_keys(self):
@@ -72,15 +71,18 @@ class TestCalculatePhaseComposite:
 
 
 class TestDetermineWorkPhase:
-    @pytest.mark.parametrize("phase,gate,expected", [
-        (None, None, "noetic"),
-        ("PREFLIGHT", None, "noetic"),
-        ("CHECK", "proceed", "praxic"),
-        ("CHECK", "investigate", "noetic"),
-        ("CHECK", None, "noetic"),
-        ("POSTFLIGHT", None, "praxic"),
-        ("UNKNOWN", None, "noetic"),
-    ])
+    @pytest.mark.parametrize(
+        "phase,gate,expected",
+        [
+            (None, None, "noetic"),
+            ("PREFLIGHT", None, "noetic"),
+            ("CHECK", "proceed", "praxic"),
+            ("CHECK", "investigate", "noetic"),
+            ("CHECK", None, "noetic"),
+            ("POSTFLIGHT", None, "praxic"),
+            ("UNKNOWN", None, "noetic"),
+        ],
+    )
     def test_table(self, phase, gate, expected):
         assert determine_work_phase(phase, gate) == expected
 
@@ -172,12 +174,15 @@ class TestFormatOpenCounts:
 
 
 class TestFormatConfidence:
-    @pytest.mark.parametrize("conf,emoji", [
-        (0.85, "⚡"),
-        (0.55, "💡"),
-        (0.40, "💫"),
-        (0.10, "🌑"),
-    ])
+    @pytest.mark.parametrize(
+        "conf,emoji",
+        [
+            (0.85, "⚡"),
+            (0.55, "💡"),
+            (0.40, "💫"),
+            (0.10, "🌑"),
+        ],
+    )
     def test_tier_emoji(self, conf, emoji, backend):
         s = format_confidence(conf, backend=backend)
         assert emoji in s
@@ -302,8 +307,7 @@ class TestFormatSourceBadge:
 class TestRenderDefaultLine:
     def test_renders_all_sections_when_present(self, backend):
         s = render_default_line(
-            vectors={"know": 0.8, "context": 0.7, "clarity": 0.6,
-                     "coherence": 0.6, "signal": 0.6, "density": 0.6},
+            vectors={"know": 0.8, "context": 0.7, "clarity": 0.6, "coherence": 0.6, "signal": 0.6, "density": 0.6},
             phase="CHECK",
             gate_decision="proceed",
             open_counts={"open_goals": 2, "open_unknowns": 3, "goal_linked_unknowns": 1},
@@ -317,8 +321,7 @@ class TestRenderDefaultLine:
 
     def test_postflight_appends_deltas(self, backend):
         s = render_default_line(
-            vectors={"know": 0.9, "context": 0.85, "state": 0.9,
-                     "change": 0.8, "completion": 1.0, "impact": 0.7},
+            vectors={"know": 0.9, "context": 0.85, "state": 0.9, "change": 0.8, "completion": 1.0, "impact": 0.7},
             phase="POSTFLIGHT",
             deltas={"know": 0.2, "context": 0.15},
             open_counts={"open_goals": 0, "open_unknowns": 0, "goal_linked_unknowns": 0},
@@ -343,9 +346,12 @@ class TestRenderDefaultLine:
         invited the wrong inference. Post-fix: POST 🔨X% │ S:Y% Δ:Z%."""
         s = render_default_line(
             vectors={
-                "know": 0.95, "context": 0.95,  # Should NOT appear in POST
-                "state": 0.6, "change": 0.4,     # SHOULD appear
-                "completion": 1.0, "impact": 0.5,
+                "know": 0.95,
+                "context": 0.95,  # Should NOT appear in POST
+                "state": 0.6,
+                "change": 0.4,  # SHOULD appear
+                "completion": 1.0,
+                "impact": 0.5,
             },
             phase="POSTFLIGHT",
             backend=backend,
@@ -363,9 +369,14 @@ class TestRenderDefaultLine:
         work_phase becomes 'praxic')."""
         s = render_default_line(
             vectors={
-                "know": 0.8, "context": 0.7, "clarity": 0.6,
-                "coherence": 0.6, "signal": 0.6, "density": 0.6,
-                "state": 0.0, "change": 0.0,  # Pre-execution — should NOT show
+                "know": 0.8,
+                "context": 0.7,
+                "clarity": 0.6,
+                "coherence": 0.6,
+                "signal": 0.6,
+                "density": 0.6,
+                "state": 0.0,
+                "change": 0.0,  # Pre-execution — should NOT show
             },
             phase="CHECK",
             gate_decision="proceed",

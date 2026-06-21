@@ -52,11 +52,7 @@ class GitUnknownStore:
         """Check if we're in a git repository"""
         try:
             result = subprocess.run(
-                ['git', 'rev-parse', '--git-dir'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                timeout=5
+                ["git", "rev-parse", "--git-dir"], cwd=self.workspace_root, capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -68,11 +64,7 @@ class GitUnknownStore:
             return False
         try:
             result = subprocess.run(
-                ['git', 'rev-parse', 'HEAD'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                timeout=5
+                ["git", "rev-parse", "HEAD"], cwd=self.workspace_root, capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -88,7 +80,7 @@ class GitUnknownStore:
         goal_id: str | None = None,
         subtask_id: str | None = None,
         resolved: bool = False,
-        resolved_by: str | None = None
+        resolved_by: str | None = None,
     ) -> bool:
         """
         Store unknown in git notes
@@ -117,37 +109,33 @@ class GitUnknownStore:
 
         try:
             payload = {
-                'unknown_id': unknown_id,
-                'project_id': project_id,
-                'session_id': session_id,
-                'ai_id': ai_id,
-                'created_at': datetime.now(timezone.utc).isoformat(),
-                'unknown': unknown,
-                'goal_id': goal_id,
-                'subtask_id': subtask_id,
-                'resolved': resolved,
-                'resolved_by': resolved_by,
-                'resolved_at': datetime.now(timezone.utc).isoformat() if resolved else None
+                "unknown_id": unknown_id,
+                "project_id": project_id,
+                "session_id": session_id,
+                "ai_id": ai_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "unknown": unknown,
+                "goal_id": goal_id,
+                "subtask_id": subtask_id,
+                "resolved": resolved,
+                "resolved_by": resolved_by,
+                "resolved_at": datetime.now(timezone.utc).isoformat() if resolved else None,
             }
 
             payload_json = json.dumps(payload, indent=2)
 
             result = subprocess.run(
-                ['git', 'rev-parse', 'HEAD'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                check=True
+                ["git", "rev-parse", "HEAD"], cwd=self.workspace_root, capture_output=True, text=True, check=True
             )
             commit_hash = result.stdout.strip()
 
-            note_ref = f'empirica/unknowns/{unknown_id}'
+            note_ref = f"empirica/unknowns/{unknown_id}"
             subprocess.run(
-                ['git', 'notes', f'--ref={note_ref}', 'add', '-f', '-m', payload_json, commit_hash],
+                ["git", "notes", f"--ref={note_ref}", "add", "-f", "-m", payload_json, commit_hash],
                 cwd=self.workspace_root,
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             )
 
             logger.info(f"✓ Stored unknown {unknown_id[:8]} in git notes")
@@ -163,14 +151,11 @@ class GitUnknownStore:
             return None
 
         try:
-            note_ref = f'empirica/unknowns/{unknown_id}'
+            note_ref = f"empirica/unknowns/{unknown_id}"
 
             # List which commit has the note (notes can be on any commit, not just HEAD)
             result = subprocess.run(
-                ['git', 'notes', f'--ref={note_ref}', 'list'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True
+                ["git", "notes", f"--ref={note_ref}", "list"], cwd=self.workspace_root, capture_output=True, text=True
             )
 
             if result.returncode != 0 or not result.stdout.strip():
@@ -184,10 +169,10 @@ class GitUnknownStore:
 
             # Load note from the commit it's actually attached to
             result = subprocess.run(
-                ['git', 'notes', f'--ref={note_ref}', 'show', commit_hash],
+                ["git", "notes", f"--ref={note_ref}", "show", commit_hash],
                 cwd=self.workspace_root,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:
@@ -199,11 +184,7 @@ class GitUnknownStore:
             logger.warning(f"Failed to load unknown from git: {e}")
             return None
 
-    def resolve_unknown(
-        self,
-        unknown_id: str,
-        resolved_by: str
-    ) -> bool:
+    def resolve_unknown(self, unknown_id: str, resolved_by: str) -> bool:
         """
         Mark unknown as resolved
 
@@ -219,21 +200,21 @@ class GitUnknownStore:
             return False
 
         # Update resolution status
-        unknown_data['resolved'] = True
-        unknown_data['resolved_by'] = resolved_by
-        unknown_data['resolved_at'] = datetime.now(timezone.utc).isoformat()
+        unknown_data["resolved"] = True
+        unknown_data["resolved_by"] = resolved_by
+        unknown_data["resolved_at"] = datetime.now(timezone.utc).isoformat()
 
         # Re-store with updated status
         return self.store_unknown(
             unknown_id=unknown_id,
-            project_id=unknown_data['project_id'],
-            session_id=unknown_data['session_id'],
-            ai_id=unknown_data['ai_id'],
-            unknown=unknown_data['unknown'],
-            goal_id=unknown_data.get('goal_id'),
-            subtask_id=unknown_data.get('subtask_id'),
+            project_id=unknown_data["project_id"],
+            session_id=unknown_data["session_id"],
+            ai_id=unknown_data["ai_id"],
+            unknown=unknown_data["unknown"],
+            goal_id=unknown_data.get("goal_id"),
+            subtask_id=unknown_data.get("subtask_id"),
             resolved=True,
-            resolved_by=resolved_by
+            resolved_by=resolved_by,
         )
 
     def discover_unknowns(
@@ -241,7 +222,7 @@ class GitUnknownStore:
         project_id: str | None = None,
         session_id: str | None = None,
         ai_id: str | None = None,
-        include_resolved: bool = False
+        include_resolved: bool = False,
     ) -> list[dict[str, Any]]:
         """
         Discover unknowns from git notes
@@ -260,10 +241,10 @@ class GitUnknownStore:
 
         try:
             result = subprocess.run(
-                ['git', 'for-each-ref', 'refs/notes/empirica/unknowns/'],
+                ["git", "for-each-ref", "refs/notes/empirica/unknowns/"],
                 cwd=self.workspace_root,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:
@@ -271,32 +252,32 @@ class GitUnknownStore:
 
             unknowns = []
 
-            for line in result.stdout.strip().split('\n'):
+            for line in result.stdout.strip().split("\n"):
                 if not line:
                     continue
 
-                parts = line.split('\t')
+                parts = line.split("\t")
                 if len(parts) < 2:
                     continue
 
                 ref = parts[1]
-                if not ref.startswith('refs/notes/empirica/unknowns/'):
+                if not ref.startswith("refs/notes/empirica/unknowns/"):
                     continue
 
-                unknown_id = ref.split('/')[-1]
+                unknown_id = ref.split("/")[-1]
                 unknown_data = self.load_unknown(unknown_id)
 
                 if not unknown_data:
                     continue
 
                 # Apply filters
-                if project_id and unknown_data.get('project_id') != project_id:
+                if project_id and unknown_data.get("project_id") != project_id:
                     continue
-                if session_id and unknown_data.get('session_id') != session_id:
+                if session_id and unknown_data.get("session_id") != session_id:
                     continue
-                if ai_id and unknown_data.get('ai_id') != ai_id:
+                if ai_id and unknown_data.get("ai_id") != ai_id:
                     continue
-                if not include_resolved and unknown_data.get('resolved'):
+                if not include_resolved and unknown_data.get("resolved"):
                     continue
 
                 unknowns.append(unknown_data)

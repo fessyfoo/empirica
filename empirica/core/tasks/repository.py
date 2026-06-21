@@ -41,8 +41,7 @@ class TaskRepository:
         """
         try:
             cursor = self.db.conn.execute(
-                "SELECT id FROM subtasks WHERE id LIKE ? ORDER BY created_timestamp DESC",
-                (f"{subtask_id}%",)
+                "SELECT id FROM subtasks WHERE id LIKE ? ORDER BY created_timestamp DESC", (f"{subtask_id}%",)
             )
             results = cursor.fetchall()
 
@@ -127,38 +126,41 @@ class TaskRepository:
             subtask_data = json.dumps(subtask.to_dict())
 
             # Insert main subtask record
-            self.db.conn.execute("""
+            self.db.conn.execute(
+                """
                 INSERT OR REPLACE INTO subtasks
                 (id, goal_id, description, status, epistemic_importance,
                  estimated_tokens, actual_tokens, completion_evidence, notes,
                  created_timestamp, completed_timestamp, subtask_data)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                subtask.id,
-                subtask.goal_id,
-                subtask.description,
-                subtask.status.value,
-                subtask.epistemic_importance.value,
-                subtask.estimated_tokens,
-                subtask.actual_tokens,
-                subtask.completion_evidence,
-                subtask.notes,
-                subtask.created_timestamp,
-                subtask.completed_timestamp,
-                subtask_data
-            ))
+            """,
+                (
+                    subtask.id,
+                    subtask.goal_id,
+                    subtask.description,
+                    subtask.status.value,
+                    subtask.epistemic_importance.value,
+                    subtask.estimated_tokens,
+                    subtask.actual_tokens,
+                    subtask.completion_evidence,
+                    subtask.notes,
+                    subtask.created_timestamp,
+                    subtask.completed_timestamp,
+                    subtask_data,
+                ),
+            )
 
             # Insert dependencies (delete old ones first)
-            self.db.conn.execute(
-                "DELETE FROM subtask_dependencies WHERE subtask_id = ?",
-                (subtask.id,)
-            )
+            self.db.conn.execute("DELETE FROM subtask_dependencies WHERE subtask_id = ?", (subtask.id,))
             for dep_id in subtask.dependencies:
-                self.db.conn.execute("""
+                self.db.conn.execute(
+                    """
                     INSERT INTO subtask_dependencies
                     (subtask_id, depends_on_subtask_id)
                     VALUES (?, ?)
-                """, (subtask.id, dep_id))
+                """,
+                    (subtask.id, dep_id),
+                )
 
             self.db.conn.commit()
             logger.info(f"Saved subtask {subtask.id}: {subtask.description[:50]}...")
@@ -185,10 +187,7 @@ class TaskRepository:
             if not resolved_id:
                 return None
 
-            cursor = self.db.conn.execute(
-                "SELECT subtask_data FROM subtasks WHERE id = ?",
-                (resolved_id,)
-            )
+            cursor = self.db.conn.execute("SELECT subtask_data FROM subtasks WHERE id = ?", (resolved_id,))
             row = cursor.fetchone()
 
             if row:
@@ -213,8 +212,7 @@ class TaskRepository:
         """
         try:
             cursor = self.db.conn.execute(
-                "SELECT subtask_data FROM subtasks WHERE goal_id = ? ORDER BY created_timestamp",
-                (goal_id,)
+                "SELECT subtask_data FROM subtasks WHERE goal_id = ? ORDER BY created_timestamp", (goal_id,)
             )
 
             subtasks = []
@@ -229,10 +227,7 @@ class TaskRepository:
             return []
 
     def update_subtask_status(
-        self,
-        subtask_id: str,
-        status: TaskStatus,
-        completion_evidence: str | None = None
+        self, subtask_id: str, status: TaskStatus, completion_evidence: str | None = None
     ) -> bool:
         """
         Update subtask status (supports partial UUID)
@@ -256,11 +251,14 @@ class TaskRepository:
 
             timestamp = time.time() if status == TaskStatus.COMPLETED else None
 
-            self.db.conn.execute("""
+            self.db.conn.execute(
+                """
                 UPDATE subtasks
                 SET status = ?, completed_timestamp = ?, completion_evidence = ?
                 WHERE id = ?
-            """, (status.value, timestamp, completion_evidence, resolved_id))
+            """,
+                (status.value, timestamp, completion_evidence, resolved_id),
+            )
 
             # Also update the subtask_data JSON
             subtask = self.get_subtask(resolved_id)
@@ -271,10 +269,7 @@ class TaskRepository:
                     subtask.completion_evidence = completion_evidence
                 subtask_data = json.dumps(subtask.to_dict())
 
-                self.db.conn.execute(
-                    "UPDATE subtasks SET subtask_data = ? WHERE id = ?",
-                    (subtask_data, resolved_id)
-                )
+                self.db.conn.execute("UPDATE subtasks SET subtask_data = ? WHERE id = ?", (subtask_data, resolved_id))
 
             self.db.conn.commit()
             logger.info(f"Updated subtask {resolved_id} status: {status.value}")
@@ -303,16 +298,19 @@ class TaskRepository:
             # Save decomposition metadata
             decomposition_data = json.dumps(decomposition.to_dict())
 
-            self.db.conn.execute("""
+            self.db.conn.execute(
+                """
                 INSERT OR REPLACE INTO task_decompositions
                 (goal_id, total_estimated_tokens, created_timestamp, decomposition_data)
                 VALUES (?, ?, ?, ?)
-            """, (
-                decomposition.goal_id,
-                decomposition.total_estimated_tokens,
-                decomposition.created_timestamp,
-                decomposition_data
-            ))
+            """,
+                (
+                    decomposition.goal_id,
+                    decomposition.total_estimated_tokens,
+                    decomposition.created_timestamp,
+                    decomposition_data,
+                ),
+            )
 
             self.db.conn.commit()
             logger.info(f"Saved decomposition for goal {decomposition.goal_id}")
@@ -335,8 +333,7 @@ class TaskRepository:
         """
         try:
             cursor = self.db.conn.execute(
-                "SELECT decomposition_data FROM task_decompositions WHERE goal_id = ?",
-                (goal_id,)
+                "SELECT decomposition_data FROM task_decompositions WHERE goal_id = ?", (goal_id,)
             )
             row = cursor.fetchone()
 
@@ -354,7 +351,7 @@ class TaskRepository:
         self,
         goal_id: str | None = None,
         status: TaskStatus | None = None,
-        epistemic_importance: EpistemicImportance | None = None
+        epistemic_importance: EpistemicImportance | None = None,
     ) -> list[SubTask]:
         """
         Query subtasks with filters

@@ -87,12 +87,20 @@ def test_upsert_docs_creates_collection_before_upsert():
     client.create_collection = create_collection
     client.upsert = upsert
 
-    with patch("empirica.core.qdrant.memory._check_qdrant_available", return_value=True), \
-         patch("empirica.core.qdrant.memory._get_qdrant_imports", return_value=(None, DummyDistance, DummyVectorParams, DummyPointStruct)), \
-         patch("empirica.core.qdrant.memory._get_qdrant_client", return_value=client), \
-         patch("empirica.core.qdrant.connection._get_qdrant_imports", return_value=(None, DummyDistance, DummyVectorParams, DummyPointStruct)), \
-         patch("empirica.core.qdrant.connection._get_embeddings_batch", return_value=[[0.1, 0.2, 0.3]]), \
-         patch("empirica.core.qdrant.memory._docs_collection", return_value="project_test_docs"):
+    with (
+        patch("empirica.core.qdrant.memory._check_qdrant_available", return_value=True),
+        patch(
+            "empirica.core.qdrant.memory._get_qdrant_imports",
+            return_value=(None, DummyDistance, DummyVectorParams, DummyPointStruct),
+        ),
+        patch("empirica.core.qdrant.memory._get_qdrant_client", return_value=client),
+        patch(
+            "empirica.core.qdrant.connection._get_qdrant_imports",
+            return_value=(None, DummyDistance, DummyVectorParams, DummyPointStruct),
+        ),
+        patch("empirica.core.qdrant.connection._get_embeddings_batch", return_value=[[0.1, 0.2, 0.3]]),
+        patch("empirica.core.qdrant.memory._docs_collection", return_value="project_test_docs"),
+    ):
         count = upsert_docs("project-id", [{"id": 1, "text": "hello", "metadata": {"doc_path": "a.md"}}])
 
     assert count == 1
@@ -159,8 +167,7 @@ def test_embed_ollama_retries_with_smaller_prompts_before_fallback():
             return DummyResponse([])
         return DummyResponse([0.1] * 384)
 
-    with patch("requests.post", side_effect=fake_post), \
-         patch("time.sleep", return_value=None):
+    with patch("requests.post", side_effect=fake_post), patch("time.sleep", return_value=None):
         result = provider._embed_ollama("token " * 500)
 
     assert len(prompts) == 2

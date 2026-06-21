@@ -95,6 +95,7 @@ EMISSION_STATUSES = EMISSION_STATUSES_INBOX
 @dataclass
 class ProposalEvent:
     """One content event emitted to the fires log. AI consumes via Monitor."""
+
     instance_id: str
     loop_name: str
     proposal_id: str
@@ -109,20 +110,22 @@ class ProposalEvent:
     def to_log_line(self) -> str:
         """JSON line for ~/.empirica/loop_fires.log."""
         now = _dt.datetime.now(_dt.timezone.utc).isoformat()
-        return json.dumps({
-            "ts": now,
-            "instance_id": self.instance_id,
-            "loop": self.loop_name,
-            "event_type": "proposal_event",
-            "direction": self.direction,
-            "proposal_id": self.proposal_id,
-            "proposal_title": self.proposal_title,
-            "status": self.status,
-            "action_category": self.action_category,
-            "eco_actor": self.eco_actor,
-            "change_kind": self.new_or_changed,
-            "commit_sha": self.commit_sha,
-        })
+        return json.dumps(
+            {
+                "ts": now,
+                "instance_id": self.instance_id,
+                "loop": self.loop_name,
+                "event_type": "proposal_event",
+                "direction": self.direction,
+                "proposal_id": self.proposal_id,
+                "proposal_title": self.proposal_title,
+                "status": self.status,
+                "action_category": self.action_category,
+                "eco_actor": self.eco_actor,
+                "change_kind": self.new_or_changed,
+                "commit_sha": self.commit_sha,
+            }
+        )
 
 
 def _state_path(instance_id: str, loop_name: str) -> Path:
@@ -165,7 +168,11 @@ _CANONICAL_AI_ID_CACHE: dict[tuple[str, str, str], str] = {}
 
 
 def _resolve_canonical_ai_id(
-    cortex_url: str, api_key: str, basename: str, *, timeout: float = 10.0,
+    cortex_url: str,
+    api_key: str,
+    basename: str,
+    *,
+    timeout: float = 10.0,
 ) -> str:
     """Look up the canonical 3-form (org.tenant.project) for a basename.
 
@@ -186,8 +193,7 @@ def _resolve_canonical_ai_id(
         req = urllib.request.Request(
             f"{cortex_url.rstrip('/')}/v1/users/me/roster",
             method="GET",
-            headers={"Accept": "application/json",
-                     "Authorization": f"Bearer {api_key}"},
+            headers={"Accept": "application/json", "Authorization": f"Bearer {api_key}"},
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             raw = resp.read().decode("utf-8")
@@ -213,7 +219,8 @@ def _resolve_canonical_ai_id(
             "content_poll: canonical ai_id resolution failed for %s: %s "
             "(falling back to basename — orchestration endpoints will "
             "likely return 0 proposals)",
-            basename, e,
+            basename,
+            e,
         )
 
     # Cache the basename fallback too so we don't hammer roster on every poll
@@ -239,14 +246,17 @@ def _fetch_orch(
     returns 0 proposals (silent break that left every listener deaf).
     """
     canonical = _resolve_canonical_ai_id(cortex_url, api_key, ai_id)
-    params = urllib.parse.urlencode({
-        "ai_id": canonical,
-        "status": ",".join(statuses),
-        "related": "false",  # skip per-proposal Qdrant scroll for faster polls
-    })
+    params = urllib.parse.urlencode(
+        {
+            "ai_id": canonical,
+            "status": ",".join(statuses),
+            "related": "false",  # skip per-proposal Qdrant scroll for faster polls
+        }
+    )
     url = f"{cortex_url.rstrip('/')}{path}?{params}"
     req = urllib.request.Request(
-        url, method="GET",
+        url,
+        method="GET",
         headers={"Authorization": f"Bearer {api_key}"},
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -264,9 +274,7 @@ def fetch_cortex_inbox(
     timeout: float = 10.0,
 ) -> list[dict]:
     """GET /v1/orchestration/inbox — proposals where target_claudes contains ai_id."""
-    return _fetch_orch(cortex_url, api_key, ai_id,
-                       "/v1/orchestration/inbox", EMISSION_STATUSES_INBOX,
-                       timeout=timeout)
+    return _fetch_orch(cortex_url, api_key, ai_id, "/v1/orchestration/inbox", EMISSION_STATUSES_INBOX, timeout=timeout)
 
 
 def fetch_cortex_outbox(
@@ -282,9 +290,9 @@ def fetch_cortex_outbox(
     is the audience: 'your work landed' (completed), 'ECO sent back' (changed),
     'ECO rejected' (declined). No ECO gate needed — ECO already decided when
     the proposal left."""
-    return _fetch_orch(cortex_url, api_key, ai_id,
-                       "/v1/orchestration/outbox", EMISSION_STATUSES_OUTBOX,
-                       timeout=timeout)
+    return _fetch_orch(
+        cortex_url, api_key, ai_id, "/v1/orchestration/outbox", EMISSION_STATUSES_OUTBOX, timeout=timeout
+    )
 
 
 def _proposal_status(p: dict) -> str:
@@ -346,8 +354,12 @@ def _extract_commit_sha(p: dict) -> str | None:
 
 
 def build_event(
-    p: dict, change_kind: str, instance_id: str, loop_name: str,
-    *, direction: str = "inbox",
+    p: dict,
+    change_kind: str,
+    instance_id: str,
+    loop_name: str,
+    *,
+    direction: str = "inbox",
 ) -> ProposalEvent:
     """Compress a Cortex proposal payload into the emit shape.
 
@@ -411,11 +423,11 @@ def poll_and_diff(
 
     state = load_state(state_path)
     last_seen: dict = state.get("proposals", {})
-    last_seen_statuses = {
-        pid: p.get("status", "")
-        for pid, p in last_seen.items()
-        if isinstance(p, dict)
-    } if isinstance(last_seen, dict) else {}
+    last_seen_statuses = (
+        {pid: p.get("status", "") for pid, p in last_seen.items() if isinstance(p, dict)}
+        if isinstance(last_seen, dict)
+        else {}
+    )
 
     # Fetch both directions; degrade gracefully on either failure.
     # Failures are logged at WARNING (not debug) — a silently-degraded
@@ -434,7 +446,9 @@ def poll_and_diff(
                     detail = f" — HTTP {e.code}"
             logger.warning(
                 "content_poll %s fetch failed for instance=%s%s",
-                direction, instance_id, detail or f": {e}",
+                direction,
+                instance_id,
+                detail or f": {e}",
             )
             return None
 
@@ -450,9 +464,7 @@ def poll_and_diff(
             instance_id,
         )
         if raise_on_unreachable:
-            raise ContentPollUnreachable(
-                f"both inbox+outbox fetches failed for instance={instance_id}"
-            )
+            raise ContentPollUnreachable(f"both inbox+outbox fetches failed for instance={instance_id}")
         return []
     inbox = inbox or []
     outbox = outbox or []
@@ -466,15 +478,13 @@ def poll_and_diff(
     # statuses, so the worst case is a one-time emit of ~dozen items
     # the AI's reaction protocol already handles idempotently
     # (it re-verifies each proposal_id against Cortex before acting).
-    inbox_diffs = diff_proposals(inbox, last_seen_statuses,
-                                  valid_statuses=EMISSION_STATUSES_INBOX)
-    outbox_diffs = diff_proposals(outbox, last_seen_statuses,
-                                   valid_statuses=EMISSION_STATUSES_OUTBOX)
+    inbox_diffs = diff_proposals(inbox, last_seen_statuses, valid_statuses=EMISSION_STATUSES_INBOX)
+    outbox_diffs = diff_proposals(outbox, last_seen_statuses, valid_statuses=EMISSION_STATUSES_OUTBOX)
 
     events: list[ProposalEvent] = []
-    for (p, kind) in inbox_diffs:
+    for p, kind in inbox_diffs:
         events.append(build_event(p, kind, instance_id, loop_name, direction="inbox"))
-    for (p, kind) in outbox_diffs:
+    for p, kind in outbox_diffs:
         events.append(build_event(p, kind, instance_id, loop_name, direction="outbox"))
 
     # Update state — single proposals map covers both directions (UUIDs unique).
@@ -505,9 +515,12 @@ def poll_and_diff(
                 "direction": direction,
                 "seen_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
             }
-    save_state(state_path, {
-        "last_poll_ts": _dt.datetime.now(_dt.timezone.utc).isoformat(),
-        "proposals": merged_proposals_map,
-        "bootstrap_completed": True,
-    })
+    save_state(
+        state_path,
+        {
+            "last_poll_ts": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+            "proposals": merged_proposals_map,
+            "bootstrap_completed": True,
+        },
+    )
     return events

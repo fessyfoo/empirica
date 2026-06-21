@@ -36,13 +36,13 @@ from typing import Any
 
 # ANSI colors (mirrors statusline_empirica.py for consistency)
 class _C:
-    RESET = '\033[0m'
-    BOLD = '\033[1m'
-    GREEN = '\033[32m'
-    YELLOW = '\033[33m'
-    RED = '\033[31m'
-    GRAY = '\033[90m'
-    CYAN = '\033[36m'
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    GREEN = "\033[32m"
+    YELLOW = "\033[33m"
+    RED = "\033[31m"
+    GRAY = "\033[90m"
+    CYAN = "\033[36m"
 
 
 # Status constants
@@ -63,6 +63,7 @@ class CheckResult:
         hint: Actionable suggestion if status != PASS (empty string if PASS)
         data: Optional structured data for the JSON output mode
     """
+
     name: str
     status: str
     detail: str = ""
@@ -305,9 +306,7 @@ def check_hooks_registered(claude_dir: Path) -> CheckResult:
         event_hooks = hooks.get(event, [])
         # Look for any hook command containing the script name
         has_script = any(
-            script_name in (h.get("command", "") or "")
-            for entry in event_hooks
-            for h in (entry.get("hooks", []) or [])
+            script_name in (h.get("command", "") or "") for entry in event_hooks for h in (entry.get("hooks", []) or [])
         )
         if has_script:
             found.append(description)
@@ -344,10 +343,12 @@ def check_statusline_runnable(claude_dir: Path) -> CheckResult:
             detail="Plugin not installed (see previous check)",
         )
 
-    stub = json.dumps({
-        "session_id": "diagnose-test",
-        "cwd": str(Path.cwd()),
-    })
+    stub = json.dumps(
+        {
+            "session_id": "diagnose-test",
+            "cwd": str(Path.cwd()),
+        }
+    )
 
     try:
         result = subprocess.run(
@@ -378,10 +379,7 @@ def check_statusline_runnable(claude_dir: Path) -> CheckResult:
         return CheckResult(
             name="Statusline script runnable",
             status=FAIL,
-            detail=(
-                f"Statusline exited with code {result.returncode}: "
-                f"{(result.stderr or '')[:200]}"
-            ),
+            detail=(f"Statusline exited with code {result.returncode}: {(result.stderr or '')[:200]}"),
             hint="Check Empirica is importable: `python3 -c 'import empirica'`",
             data={"returncode": result.returncode, "stderr": result.stderr[:500]},
         )
@@ -684,6 +682,7 @@ def handle_diagnose_command(args) -> int:
         from empirica.cli.command_handlers.diagnose_ecodex import (
             run_all_checks_ecodex,
         )
+
         results = run_all_checks_ecodex(fast=fast)
     else:
         results = run_all_checks()

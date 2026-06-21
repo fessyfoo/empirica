@@ -16,8 +16,8 @@ from empirica.core.post_test.mapper import GroundedAssessment, GroundedVectorEst
 # ComplianceStatus enum
 # ---------------------------------------------------------------------------
 
-class TestComplianceStatus:
 
+class TestComplianceStatus:
     def test_string_compatible(self):
         assert ComplianceStatus.GROUNDED == "grounded"
         assert ComplianceStatus.COMPLETE == "complete"
@@ -38,9 +38,14 @@ class TestComplianceStatus:
 
     def test_all_values_present(self):
         expected = {
-            "grounded", "insufficient_evidence", "ungrounded_remote_ops",
-            "complete", "iteration_needed", "iteration_in_progress",
-            "max_iterations_exceeded", "manual_override",
+            "grounded",
+            "insufficient_evidence",
+            "ungrounded_remote_ops",
+            "complete",
+            "iteration_needed",
+            "iteration_in_progress",
+            "max_iterations_exceeded",
+            "manual_override",
         }
         assert {s.value for s in ComplianceStatus} == expected
 
@@ -49,8 +54,8 @@ class TestComplianceStatus:
 # GroundedAssessment new fields
 # ---------------------------------------------------------------------------
 
-class TestGroundedAssessmentNewFields:
 
+class TestGroundedAssessmentNewFields:
     def _make_assessment(self, **kwargs) -> GroundedAssessment:
         defaults = {
             "session_id": "test-session",
@@ -102,10 +107,11 @@ class TestGroundedAssessmentNewFields:
 # Migration 035 tests
 # ---------------------------------------------------------------------------
 
-class TestMigration035:
 
+class TestMigration035:
     def _run_migration(self, conn: sqlite3.Connection):
         from empirica.data.migrations.migrations import migration_035_three_vector_storage
+
         cursor = conn.cursor()
         migration_035_three_vector_storage(cursor)
         conn.commit()
@@ -206,7 +212,9 @@ class TestMigration035:
         self._run_migration(conn)
 
         # Read back — new columns should be NULL
-        cursor.execute("SELECT observed_vectors, grounded_rationale, criticality, compliance_status FROM grounded_verifications WHERE verification_id = 'v1'")
+        cursor.execute(
+            "SELECT observed_vectors, grounded_rationale, criticality, compliance_status FROM grounded_verifications WHERE verification_id = 'v1'"
+        )
         row = cursor.fetchone()
         assert row == (None, None, None, None)
 

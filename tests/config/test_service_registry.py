@@ -22,6 +22,7 @@ from empirica.config.service_registry import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def clean_registry():
     """Reset the registry and cache between tests."""
@@ -51,8 +52,10 @@ def _make_declaration(
     timeout_seconds: int = 120,
 ) -> CheckDeclaration:
     if runner is None:
+
         def runner(ctx):
             return _make_result(check_id)
+
     return CheckDeclaration(
         check_id=check_id,
         tool=tool,
@@ -67,8 +70,8 @@ def _make_declaration(
 # CheckResult tests
 # ---------------------------------------------------------------------------
 
-class TestCheckResult:
 
+class TestCheckResult:
     def test_basic_fields(self):
         r = _make_result("lint", passed=True)
         assert r.check_id == "lint"
@@ -94,8 +97,8 @@ class TestCheckResult:
 # Registration tests
 # ---------------------------------------------------------------------------
 
-class TestRegistration:
 
+class TestRegistration:
     def test_register_and_get(self):
         decl = _make_declaration("lint")
         ServiceRegistry.register(decl)
@@ -128,8 +131,8 @@ class TestRegistration:
 # Resolution tests
 # ---------------------------------------------------------------------------
 
-class TestResolution:
 
+class TestResolution:
     def test_wildcard_matches_everything(self):
         ServiceRegistry.register(_make_declaration("universal", applies_to=(("*", "*"),)))
         result = ServiceRegistry.resolve_for("code", "cybersec")
@@ -137,9 +140,7 @@ class TestResolution:
         assert result[0].check_id == "universal"
 
     def test_specific_match(self):
-        ServiceRegistry.register(
-            _make_declaration("sec_check", applies_to=(("code", "cybersec"),))
-        )
+        ServiceRegistry.register(_make_declaration("sec_check", applies_to=(("code", "cybersec"),)))
         # Matches
         assert len(ServiceRegistry.resolve_for("code", "cybersec")) == 1
         # Doesn't match different work_type
@@ -148,17 +149,13 @@ class TestResolution:
         assert len(ServiceRegistry.resolve_for("code", "payments")) == 0
 
     def test_wildcard_work_type(self):
-        ServiceRegistry.register(
-            _make_declaration("any_code", applies_to=(("*", "cybersec"),))
-        )
+        ServiceRegistry.register(_make_declaration("any_code", applies_to=(("*", "cybersec"),)))
         assert len(ServiceRegistry.resolve_for("code", "cybersec")) == 1
         assert len(ServiceRegistry.resolve_for("infra", "cybersec")) == 1
         assert len(ServiceRegistry.resolve_for("code", "default")) == 0
 
     def test_wildcard_domain(self):
-        ServiceRegistry.register(
-            _make_declaration("all_domains", applies_to=(("code", "*"),))
-        )
+        ServiceRegistry.register(_make_declaration("all_domains", applies_to=(("code", "*"),)))
         assert len(ServiceRegistry.resolve_for("code", "cybersec")) == 1
         assert len(ServiceRegistry.resolve_for("code", "default")) == 1
         assert len(ServiceRegistry.resolve_for("docs", "default")) == 0
@@ -171,9 +168,7 @@ class TestResolution:
         assert [d.check_id for d in result] == ["a_check", "m_check", "z_check"]
 
     def test_multiple_applies_to(self):
-        ServiceRegistry.register(
-            _make_declaration("multi", applies_to=(("code", "cybersec"), ("infra", "cybersec")))
-        )
+        ServiceRegistry.register(_make_declaration("multi", applies_to=(("code", "cybersec"), ("infra", "cybersec"))))
         assert len(ServiceRegistry.resolve_for("code", "cybersec")) == 1
         assert len(ServiceRegistry.resolve_for("infra", "cybersec")) == 1
         assert len(ServiceRegistry.resolve_for("docs", "cybersec")) == 0
@@ -183,8 +178,8 @@ class TestResolution:
 # Runner tests
 # ---------------------------------------------------------------------------
 
-class TestRunner:
 
+class TestRunner:
     def test_run_returns_result(self):
         ServiceRegistry.register(_make_declaration("lint"))
         result = ServiceRegistry.run("lint", {})
@@ -227,7 +222,9 @@ class TestRunner:
     def test_run_with_prediction(self):
         ServiceRegistry.register(_make_declaration("predicted"))
         result = ServiceRegistry.run(
-            "predicted", {}, predicted_pass=0.8,
+            "predicted",
+            {},
+            predicted_pass=0.8,
         )
         assert result.predicted_pass == 0.8
         assert result.predicted_at is not None
@@ -237,8 +234,8 @@ class TestRunner:
 # Built-in checks
 # ---------------------------------------------------------------------------
 
-class TestBuiltinChecks:
 
+class TestBuiltinChecks:
     def test_load_builtins(self):
         """Built-in checks register when load_builtins() is called."""
         ServiceRegistry.load_builtins()

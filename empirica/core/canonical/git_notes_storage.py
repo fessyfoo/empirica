@@ -29,12 +29,7 @@ class GitNotesStorage:
     - Checkpoint retrieval with phase filtering
     """
 
-    def __init__(
-        self,
-        session_id: str,
-        git_repo_path: Path,
-        signing_persona: SigningPersona | None = None
-    ):
+    def __init__(self, session_id: str, git_repo_path: Path, signing_persona: SigningPersona | None = None):
         """
         Initialize git notes storage.
 
@@ -72,7 +67,7 @@ class GitNotesStorage:
                 capture_output=True,
                 text=True,
                 cwd=self.git_repo_path,
-                timeout=2
+                timeout=2,
             )
             self._is_git_repo = result.returncode == 0 and result.stdout.strip() == "true"
         except Exception:
@@ -104,17 +99,13 @@ class GitNotesStorage:
             json.loads(checkpoint_json)  # Validate it's parseable
 
             # Create unique notes ref using phase/round to prevent overwrites
-            phase = checkpoint.get('phase', 'UNKNOWN')
-            round_num = checkpoint.get('round', 1)
+            phase = checkpoint.get("phase", "UNKNOWN")
+            round_num = checkpoint.get("round", 1)
             note_ref = f"empirica/session/{self.session_id}/{phase}/{round_num}"
 
             # Check if repository has any commits before trying to add notes to HEAD
             head_check = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                capture_output=True,
-                text=True,
-                cwd=self.git_repo_path,
-                timeout=2
+                ["git", "rev-parse", "HEAD"], capture_output=True, text=True, cwd=self.git_repo_path, timeout=2
             )
             if head_check.returncode != 0:
                 logger.debug(f"Skipping git notes - repository has no commits yet: {self.git_repo_path}")
@@ -128,7 +119,7 @@ class GitNotesStorage:
                 capture_output=True,
                 timeout=5,
                 cwd=self.git_repo_path,
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:
@@ -144,7 +135,7 @@ class GitNotesStorage:
                 capture_output=True,
                 timeout=2,
                 cwd=self.git_repo_path,
-                text=True
+                text=True,
             )
 
             note_sha = result.stdout.strip().split()[0] if result.stdout else None
@@ -192,7 +183,7 @@ class GitNotesStorage:
                 "git_state": checkpoint.get("git_state"),
                 "learning_delta": checkpoint.get("learning_delta"),
                 "epistemic_tags": checkpoint.get("epistemic_tags"),
-                "noema": checkpoint.get("noema")
+                "noema": checkpoint.get("noema"),
             }
 
             # Sign and commit state
@@ -201,7 +192,7 @@ class GitNotesStorage:
                 epistemic_state=epistemic_state,
                 phase=phase,
                 message=f"Checkpoint round {checkpoint.get('round', 1)}",
-                additional_data=additional_data
+                additional_data=additional_data,
             )
 
             # Also store in hierarchical git notes namespace for semantic queries
@@ -216,13 +207,11 @@ class GitNotesStorage:
                 capture_output=True,
                 timeout=5,
                 cwd=self.git_repo_path,
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:
-                logger.warning(
-                    f"Failed to add noema-specific git note (ref={note_ref}): {result.stderr}"
-                )
+                logger.warning(f"Failed to add noema-specific git note (ref={note_ref}): {result.stderr}")
 
             logger.info(
                 f"Signed checkpoint committed: {commit_sha[:7]} "
@@ -265,7 +254,7 @@ class GitNotesStorage:
                         capture_output=True,
                         timeout=2,
                         cwd=self.git_repo_path,
-                        text=True
+                        text=True,
                     )
 
                     if result.returncode == 0:
@@ -289,10 +278,7 @@ class GitNotesStorage:
         return None
 
     def list_checkpoints(
-        self,
-        session_id: str | None = None,
-        limit: int | None = None,
-        phase: str | None = None
+        self, session_id: str | None = None, limit: int | None = None, phase: str | None = None
     ) -> list[dict[str, Any]]:
         """
         List checkpoints from git notes (using hierarchical namespace).
@@ -319,7 +305,7 @@ class GitNotesStorage:
             ["git", "for-each-ref", f"refs/notes/empirica/session/{filter_session_id}", "--format=%(refname)"],
             capture_output=True,
             text=True,
-            cwd=self.git_repo_path
+            cwd=self.git_repo_path,
         )
 
         if refs_result.returncode != 0 or not refs_result.stdout.strip():
@@ -327,12 +313,12 @@ class GitNotesStorage:
             return []
 
         # Parse all refs (one per line)
-        refs = [line.strip() for line in refs_result.stdout.strip().split('\n') if line.strip()]
+        refs = [line.strip() for line in refs_result.stdout.strip().split("\n") if line.strip()]
 
         for ref in refs:
             # Extract phase from ref path
             # Example: refs/notes/empirica/session/abc-123/PREFLIGHT/1
-            ref_parts = ref.split('/')
+            ref_parts = ref.split("/")
             if len(ref_parts) < 7:
                 logger.warning(f"Unexpected ref format: {ref}")
                 continue
@@ -348,10 +334,7 @@ class GitNotesStorage:
 
             # Find what commit this note is attached to
             list_result = subprocess.run(
-                ["git", "notes", "--ref", note_ref, "list"],
-                capture_output=True,
-                text=True,
-                cwd=self.git_repo_path
+                ["git", "notes", "--ref", note_ref, "list"], capture_output=True, text=True, cwd=self.git_repo_path
             )
 
             if list_result.returncode != 0 or not list_result.stdout.strip():
@@ -359,7 +342,7 @@ class GitNotesStorage:
                 continue
 
             # Parse the annotated commit (second column)
-            note_line = list_result.stdout.strip().split('\n')[0]
+            note_line = list_result.stdout.strip().split("\n")[0]
             parts = note_line.split()
             if len(parts) < 2:
                 logger.warning(f"Unexpected note list format for {note_ref}: {note_line}")
@@ -371,7 +354,7 @@ class GitNotesStorage:
                 ["git", "notes", "--ref", note_ref, "show", annotated_commit],
                 capture_output=True,
                 text=True,
-                cwd=self.git_repo_path
+                cwd=self.git_repo_path,
             )
 
             if show_result.returncode == 0:
@@ -380,7 +363,9 @@ class GitNotesStorage:
 
                     # Double-check session filter
                     if session_id and checkpoint.get("session_id") != session_id:
-                        logger.warning(f"Session mismatch in checkpoint: {checkpoint.get('session_id')} != {session_id}")
+                        logger.warning(
+                            f"Session mismatch in checkpoint: {checkpoint.get('session_id')} != {session_id}"
+                        )
                         continue
 
                     checkpoints.append(checkpoint)

@@ -7,6 +7,7 @@ Usage:
 Scans Python files, extracts public functions/classes via AST,
 and embeds them as searchable code_api entries in the eidetic collection.
 """
+
 from __future__ import annotations
 
 import json
@@ -20,10 +21,10 @@ def handle_code_embed_command(args):
     from empirica.data.session_database import SessionDatabase
 
     project_id = args.project_id
-    output = getattr(args, 'output', 'human')
+    output = getattr(args, "output", "human")
 
     # Resolve project path
-    scan_path = getattr(args, 'path', None)
+    scan_path = getattr(args, "path", None)
     if scan_path:
         root_dir = Path(scan_path).resolve()
     else:
@@ -33,10 +34,11 @@ def handle_code_embed_command(args):
             cursor = db.conn.cursor()
             cursor.execute("SELECT project_data FROM projects WHERE id = ?", (project_id,))
             row = cursor.fetchone()
-            if row and row['project_data']:
+            if row and row["project_data"]:
                 import json as _json
-                data = _json.loads(row['project_data'])
-                root = data.get('root_path') or data.get('path')
+
+                data = _json.loads(row["project_data"])
+                root = data.get("root_path") or data.get("path")
                 if root:
                     root_dir = Path(root).resolve()
                 else:
@@ -57,12 +59,12 @@ def handle_code_embed_command(args):
         root_dir=root_dir,
     )
 
-    if output == 'json':
+    if output == "json":
         print(json.dumps(result))
     else:
         print("Code API embedding complete:")
         print(f"  Files scanned: {result['files_scanned']}")
         print(f"  Modules embedded: {result['modules_embedded']}")
         print(f"  Skipped (no public API): {result['skipped']}")
-        if result['errors']:
+        if result["errors"]:
             print(f"  Errors: {result['errors']}")

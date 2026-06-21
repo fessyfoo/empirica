@@ -39,7 +39,6 @@ SCHEMAS = [
         FOREIGN KEY (session_id) REFERENCES sessions(session_id)
     )
     """,
-
     # Trajectory Snapshots - individual vector measurements
     """
     CREATE TABLE IF NOT EXISTS trajectory_snapshots (
@@ -79,7 +78,6 @@ SCHEMAS = [
         FOREIGN KEY (session_id) REFERENCES sessions(session_id)
     )
     """,
-
     # Trajectory Patterns - learned pattern templates
     """
     CREATE TABLE IF NOT EXISTS trajectory_patterns (
@@ -105,7 +103,6 @@ SCHEMAS = [
         updated_at TIMESTAMP
     )
     """,
-
     # Indexes for performance
     """
     CREATE INDEX IF NOT EXISTS idx_trajectories_session

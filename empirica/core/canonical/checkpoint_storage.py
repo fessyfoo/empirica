@@ -41,10 +41,7 @@ class CheckpointStorage:
         self.base_log_dir.mkdir(parents=True, exist_ok=True)
 
     def save_to_sqlite(
-        self,
-        checkpoint: dict[str, Any],
-        git_commit_sha: str | None = None,
-        git_notes_ref: str | None = None
+        self, checkpoint: dict[str, Any], git_commit_sha: str | None = None, git_notes_ref: str | None = None
     ) -> bool:
         """
         Save checkpoint pointer to SQLite reflexes table.
@@ -65,10 +62,10 @@ class CheckpointStorage:
             from empirica.data.session_database import SessionDatabase
 
             # Extract data from checkpoint
-            session_id = checkpoint.get('session_id')
-            phase = checkpoint.get('phase')
-            round_num = checkpoint.get('round', 1)
-            vectors = checkpoint.get('vectors', {})
+            session_id = checkpoint.get("session_id")
+            phase = checkpoint.get("phase")
+            round_num = checkpoint.get("round", 1)
+            vectors = checkpoint.get("vectors", {})
 
             if not session_id or not phase:
                 logger.error("Cannot save checkpoint: missing session_id or phase")
@@ -78,24 +75,24 @@ class CheckpointStorage:
 
             try:
                 # Extract noema metadata for quick filtering
-                noema = checkpoint.get('noema', {})
-                epistemic_signature = noema.get('epistemic_signature')
+                noema = checkpoint.get("noema", {})
+                epistemic_signature = noema.get("epistemic_signature")
 
                 # Prepare metadata with git pointers
-                metadata_dict = checkpoint.get('meta', {})
-                metadata_dict['git_commit_sha'] = git_commit_sha
-                metadata_dict['git_notes_ref'] = git_notes_ref
+                metadata_dict = checkpoint.get("meta", {})
+                metadata_dict["git_commit_sha"] = git_commit_sha
+                metadata_dict["git_notes_ref"] = git_notes_ref
 
                 # Store pointer + noema metadata in reflexes table
                 db.store_vectors(
                     session_id=session_id,
                     phase=phase,
                     vectors=vectors,
-                    cascade_id=metadata_dict.get('cascade_id'),
+                    cascade_id=metadata_dict.get("cascade_id"),
                     round_num=round_num,
                     metadata=metadata_dict,
-                    reasoning=metadata_dict.get('reasoning'),
-                    transaction_id=metadata_dict.get('transaction_id')
+                    reasoning=metadata_dict.get("reasoning"),
+                    transaction_id=metadata_dict.get("transaction_id"),
                 )
 
                 logger.debug(
@@ -113,11 +110,7 @@ class CheckpointStorage:
             logger.error(f"Failed to save checkpoint to SQLite: {e}", exc_info=True)
             return False
 
-    def load_from_sqlite(
-        self,
-        phase: str | None = None,
-        max_age_hours: int = 24
-    ) -> dict[str, Any] | None:
+    def load_from_sqlite(self, phase: str | None = None, max_age_hours: int = 24) -> dict[str, Any] | None:
         """
         Load checkpoint from SQLite fallback storage (JSON files).
 
@@ -135,9 +128,7 @@ class CheckpointStorage:
 
         # Get all checkpoint files
         checkpoint_files = sorted(
-            checkpoint_dir.glob("checkpoint_*.json"),
-            key=lambda p: p.stat().st_mtime,
-            reverse=True
+            checkpoint_dir.glob("checkpoint_*.json"), key=lambda p: p.stat().st_mtime, reverse=True
         )
 
         cutoff_time = datetime.now(UTC) - timedelta(hours=max_age_hours)
@@ -148,7 +139,7 @@ class CheckpointStorage:
                     checkpoint = json.load(f)
 
                 # Check age
-                checkpoint_time = datetime.fromisoformat(checkpoint['timestamp'])
+                checkpoint_time = datetime.fromisoformat(checkpoint["timestamp"])
                 if checkpoint_time < cutoff_time:
                     continue
 
@@ -178,14 +169,14 @@ class CheckpointStorage:
             checkpoint_dir = self.base_log_dir / "checkpoints" / self.session_id
             checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
-            phase = checkpoint.get('phase', 'UNKNOWN')
-            round_num = checkpoint.get('round', 1)
+            phase = checkpoint.get("phase", "UNKNOWN")
+            round_num = checkpoint.get("round", 1)
             timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
 
             filename = f"checkpoint_{phase}_{round_num}_{timestamp}.json"
             filepath = checkpoint_dir / filename
 
-            with open(filepath, 'w') as f:
+            with open(filepath, "w") as f:
                 json.dump(checkpoint, f, indent=2)
 
             logger.debug(f"Checkpoint saved to JSON: {filepath}")

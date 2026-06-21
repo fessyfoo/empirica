@@ -29,6 +29,7 @@ def render_turn(turn: Turn):
     if turn.kind == TurnKind.EPISTEMIC_ACTION:
         # Lazy import to avoid Textual-circular issues at module load
         from .artifact_card import ArtifactCard
+
         return ArtifactCard(turn)
     # Phase 2+ kinds (tool_call, agent_reasoning, tool_result) — render
     # as plain labeled text until their dedicated widgets land.

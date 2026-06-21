@@ -8,6 +8,7 @@ class TestAttentionBudget:
 
     def test_budget_creation(self):
         from empirica.core.attention_budget import AttentionBudget
+
         budget = AttentionBudget(
             id="test-budget",
             session_id="test-session",
@@ -20,8 +21,11 @@ class TestAttentionBudget:
 
     def test_budget_consume(self):
         from empirica.core.attention_budget import AttentionBudget
+
         budget = AttentionBudget(
-            id="test", session_id="test", total_budget=5,
+            id="test",
+            session_id="test",
+            total_budget=5,
         )
         assert budget.consume(2)
         assert budget.remaining == 3
@@ -30,8 +34,11 @@ class TestAttentionBudget:
 
     def test_budget_exhaust(self):
         from empirica.core.attention_budget import AttentionBudget
+
         budget = AttentionBudget(
-            id="test", session_id="test", total_budget=2,
+            id="test",
+            session_id="test",
+            total_budget=2,
         )
         assert budget.consume(2)
         assert budget.exhausted
@@ -39,20 +46,26 @@ class TestAttentionBudget:
 
     def test_budget_utilization(self):
         from empirica.core.attention_budget import AttentionBudget
+
         budget = AttentionBudget(
-            id="test", session_id="test", total_budget=10,
+            id="test",
+            session_id="test",
+            total_budget=10,
         )
         budget.consume(5)
         assert budget.utilization == 0.5
 
     def test_domain_allocation_lookup(self):
         from empirica.core.attention_budget import AttentionBudget, DomainAllocation
+
         budget = AttentionBudget(
-            id="test", session_id="test", total_budget=10,
+            id="test",
+            session_id="test",
+            total_budget=10,
             allocations=[
                 DomainAllocation(domain="security", budget=5, priority=0.8, expected_gain=0.7),
                 DomainAllocation(domain="arch", budget=5, priority=0.6, expected_gain=0.5),
-            ]
+            ],
         )
         alloc = budget.get_domain_allocation("security")
         assert alloc is not None
@@ -65,17 +78,25 @@ class TestDomainAllocation:
 
     def test_effective_budget(self):
         from empirica.core.attention_budget import DomainAllocation
+
         alloc = DomainAllocation(
-            domain="security", budget=10, priority=0.8,
-            expected_gain=0.7, prior_findings=3,
+            domain="security",
+            budget=10,
+            priority=0.8,
+            expected_gain=0.7,
+            prior_findings=3,
         )
         assert alloc.effective_budget == 7
 
     def test_effective_budget_floor(self):
         from empirica.core.attention_budget import DomainAllocation
+
         alloc = DomainAllocation(
-            domain="security", budget=5, priority=0.8,
-            expected_gain=0.7, prior_findings=10,
+            domain="security",
+            budget=5,
+            priority=0.8,
+            expected_gain=0.7,
+            prior_findings=10,
         )
         assert alloc.effective_budget == 0  # Capped at 0
 
@@ -85,6 +106,7 @@ class TestAttentionBudgetCalculator:
 
     def test_create_budget_basic(self):
         from empirica.core.attention_budget import AttentionBudgetCalculator
+
         calc = AttentionBudgetCalculator(session_id="test", default_total=20)
         budget = calc.create_budget(
             domains=["security", "architecture", "performance"],
@@ -97,6 +119,7 @@ class TestAttentionBudgetCalculator:
 
     def test_create_budget_sums_to_total(self):
         from empirica.core.attention_budget import AttentionBudgetCalculator
+
         calc = AttentionBudgetCalculator(session_id="test", default_total=15)
         budget = calc.create_budget(
             domains=["a", "b", "c"],
@@ -106,6 +129,7 @@ class TestAttentionBudgetCalculator:
 
     def test_high_uncertainty_gets_more_budget(self):
         from empirica.core.attention_budget import AttentionBudgetCalculator
+
         calc = AttentionBudgetCalculator(session_id="test", default_total=20)
         budget = calc.create_budget(
             domains=["known", "unknown"],
@@ -117,6 +141,7 @@ class TestAttentionBudgetCalculator:
 
     def test_prior_findings_reduce_allocation(self):
         from empirica.core.attention_budget import AttentionBudgetCalculator
+
         calc = AttentionBudgetCalculator(session_id="test", default_total=20)
         budget = calc.create_budget(
             domains=["explored", "fresh"],
@@ -128,6 +153,7 @@ class TestAttentionBudgetCalculator:
 
     def test_dead_ends_reduce_allocation(self):
         from empirica.core.attention_budget import AttentionBudgetCalculator
+
         calc = AttentionBudgetCalculator(session_id="test", default_total=20)
         budget = calc.create_budget(
             domains=["good", "dead"],
@@ -139,6 +165,7 @@ class TestAttentionBudgetCalculator:
 
     def test_shannon_gain(self):
         from empirica.core.attention_budget import AttentionBudgetCalculator
+
         calc = AttentionBudgetCalculator(session_id="test")
 
         # Max entropy at p=0.5
@@ -149,6 +176,7 @@ class TestAttentionBudgetCalculator:
 
     def test_diminishing_returns(self):
         from empirica.core.attention_budget import AttentionBudgetCalculator
+
         calc = AttentionBudgetCalculator(session_id="test")
 
         # No prior findings = full returns
@@ -164,6 +192,7 @@ class TestInformationGain:
 
     def test_estimate_basic(self):
         from empirica.core.information_gain import estimate_information_gain
+
         gain = estimate_information_gain(
             domain="security",
             current_vectors={"know": 0.3, "uncertainty": 0.7, "context": 0.4},
@@ -173,6 +202,7 @@ class TestInformationGain:
 
     def test_high_uncertainty_high_gain(self):
         from empirica.core.information_gain import estimate_information_gain
+
         high_unc = estimate_information_gain(
             domain="security",
             current_vectors={"know": 0.3, "uncertainty": 0.8, "context": 0.3},
@@ -187,12 +217,14 @@ class TestInformationGain:
 
     def test_diminishing_returns(self):
         from empirica.core.information_gain import diminishing_returns
+
         assert diminishing_returns("test", 0) == pytest.approx(1.0)
         assert diminishing_returns("test", 5) < 1.0
         assert diminishing_returns("test", 5) > 0.0
 
     def test_should_spawn_more(self):
         from empirica.core.information_gain import should_spawn_more
+
         # Budget available, good gain
         assert should_spawn_more(budget_remaining=10, gain_estimate=0.5)
         # No budget
@@ -204,6 +236,7 @@ class TestInformationGain:
 
     def test_novelty_score(self):
         from empirica.core.information_gain import novelty_score
+
         # Novel finding (no existing)
         assert novelty_score("completely new finding", []) == 1.0
         # Duplicate finding
@@ -225,6 +258,7 @@ class TestEpistemicRollup:
 
     def test_score_finding(self):
         from empirica.core.epistemic_rollup import EpistemicRollupGate
+
         gate = EpistemicRollupGate()
         scored = gate.score_finding(
             finding="Security vulnerability in auth module",
@@ -239,6 +273,7 @@ class TestEpistemicRollup:
 
     def test_score_finding_with_duplicate(self):
         from empirica.core.epistemic_rollup import EpistemicRollupGate
+
         gate = EpistemicRollupGate()
         scored = gate.score_finding(
             finding="Security vulnerability in auth module",
@@ -251,6 +286,7 @@ class TestEpistemicRollup:
 
     def test_gate_accepts_high_score(self):
         from empirica.core.epistemic_rollup import EpistemicRollupGate, ScoredFinding
+
         gate = EpistemicRollupGate(min_score=0.3)
 
         findings = [
@@ -270,6 +306,7 @@ class TestEpistemicRollup:
 
     def test_gate_rejects_low_score(self):
         from empirica.core.epistemic_rollup import EpistemicRollupGate, ScoredFinding
+
         gate = EpistemicRollupGate(min_score=0.5)
 
         findings = [
@@ -290,13 +327,18 @@ class TestEpistemicRollup:
 
     def test_gate_respects_budget(self):
         from empirica.core.epistemic_rollup import EpistemicRollupGate, ScoredFinding
+
         gate = EpistemicRollupGate(min_score=0.1)
 
         findings = [
             ScoredFinding(
-                finding=f"Finding {i}", score=0.8 - i * 0.1,
-                agent_name="test", domain="test",
-                novelty=0.9, confidence=0.9, domain_relevance=1.0,
+                finding=f"Finding {i}",
+                score=0.8 - i * 0.1,
+                agent_name="test",
+                domain="test",
+                novelty=0.9,
+                confidence=0.9,
+                domain_relevance=1.0,
             )
             for i in range(5)
         ]
@@ -307,6 +349,7 @@ class TestEpistemicRollup:
 
     def test_deduplicate_removes_same_hash(self):
         from empirica.core.epistemic_rollup import EpistemicRollupGate, ScoredFinding
+
         gate = EpistemicRollupGate()
 
         findings = [
@@ -335,6 +378,7 @@ class TestEpistemicRollup:
 
     def test_process_full_pipeline(self):
         from empirica.core.epistemic_rollup import EpistemicRollupGate
+
         gate = EpistemicRollupGate(min_score=0.2)
 
         result = gate.process(
@@ -350,6 +394,7 @@ class TestEpistemicRollup:
 
     def test_rollup_result_acceptance_rate(self):
         from empirica.core.epistemic_rollup import RollupResult, ScoredFinding
+
         result = RollupResult(
             accepted=[
                 ScoredFinding("a", 0.8, "agent", "domain", 0.9, 0.9, 1.0, accepted=True),
@@ -366,6 +411,7 @@ class TestParallelOrchestrator:
 
     def test_plan_creates_agents(self):
         from empirica.core.parallel_orchestrator import ParallelOrchestrator
+
         orch = ParallelOrchestrator(
             session_id="test-session",
             max_agents=3,
@@ -381,6 +427,7 @@ class TestParallelOrchestrator:
 
     def test_plan_auto_detects_domains(self):
         from empirica.core.parallel_orchestrator import ParallelOrchestrator
+
         orch = ParallelOrchestrator(session_id="test", max_agents=3)
         plan = orch.plan(
             task="Review authentication code for SQL injection vulnerabilities",
@@ -392,6 +439,7 @@ class TestParallelOrchestrator:
     def test_regulate_stops_on_no_budget(self):
         from empirica.core.epistemic_rollup import RollupResult
         from empirica.core.parallel_orchestrator import ParallelOrchestrator
+
         orch = ParallelOrchestrator(session_id="test")
         result = RollupResult(budget_remaining=0)
         decision = orch.regulate(result, round_number=1)
@@ -400,6 +448,7 @@ class TestParallelOrchestrator:
     def test_regulate_stops_on_stale_rounds(self):
         from empirica.core.epistemic_rollup import RollupResult
         from empirica.core.parallel_orchestrator import ParallelOrchestrator
+
         orch = ParallelOrchestrator(session_id="test")
         result = RollupResult(budget_remaining=10)
 
@@ -412,6 +461,7 @@ class TestParallelOrchestrator:
 
     def test_aggregate_combines_findings(self):
         from empirica.core.parallel_orchestrator import ParallelOrchestrator
+
         orch = ParallelOrchestrator(session_id="test")
 
         agent_results = [
@@ -441,6 +491,7 @@ class TestParallelOrchestrator:
 
     def test_aggregate_weighted_vectors(self):
         from empirica.core.parallel_orchestrator import ParallelOrchestrator
+
         orch = ParallelOrchestrator(session_id="test")
 
         # Agent with confidence 0.9 should weight more than 0.1

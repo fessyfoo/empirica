@@ -25,7 +25,6 @@ SCHEMAS = [
         FOREIGN KEY (project_id) REFERENCES projects(id)
     )
     """,
-
     # Concept edges - co-occurrence relationships
     """
     CREATE TABLE IF NOT EXISTS concept_edges (
@@ -46,7 +45,6 @@ SCHEMAS = [
         UNIQUE(project_id, source_concept_id, target_concept_id, relationship_type)
     )
     """,
-
     # Concept clusters - groups of related concepts
     """
     CREATE TABLE IF NOT EXISTS concept_clusters (
@@ -63,28 +61,23 @@ SCHEMAS = [
         FOREIGN KEY (project_id) REFERENCES projects(id)
     )
     """,
-
     # Indices for efficient querying
     """
     CREATE INDEX IF NOT EXISTS idx_concept_nodes_project
     ON concept_nodes(project_id)
     """,
-
     """
     CREATE INDEX IF NOT EXISTS idx_concept_nodes_normalized
     ON concept_nodes(project_id, normalized_text)
     """,
-
     """
     CREATE INDEX IF NOT EXISTS idx_concept_edges_source
     ON concept_edges(source_concept_id)
     """,
-
     """
     CREATE INDEX IF NOT EXISTS idx_concept_edges_target
     ON concept_edges(target_concept_id)
     """,
-
     """
     CREATE INDEX IF NOT EXISTS idx_concept_edges_weight
     ON concept_edges(project_id, weight DESC)

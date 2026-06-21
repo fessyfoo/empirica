@@ -56,8 +56,14 @@ def handle_sources_reconcile_command(args) -> int:
     if not project_id:
         project_id = _resolve_active_project_id()
     if not project_id:
-        _emit(output, {"ok": False, "error": "Could not resolve project_id",
-                       "hint": "Pass --project-id or run inside an active project"})
+        _emit(
+            output,
+            {
+                "ok": False,
+                "error": "Could not resolve project_id",
+                "hint": "Pass --project-id or run inside an active project",
+            },
+        )
         return 1
 
     db = SessionDatabase()
@@ -67,7 +73,9 @@ def handle_sources_reconcile_command(args) -> int:
 
         cortex_url, api_key = _resolve_cortex_config(args)
         candidates, discovery_status = _discover_candidates(
-            cortex_url, api_key, rows,
+            cortex_url,
+            api_key,
+            rows,
         )
 
         proposed = _propose_matches(rows, candidates)
@@ -75,7 +83,9 @@ def handle_sources_reconcile_command(args) -> int:
         rejected: list[dict] = []
         if proposed:
             confirmed, rejected, confirm_status = _confirm_matches(
-                cortex_url, api_key, proposed,
+                cortex_url,
+                api_key,
+                proposed,
             )
         else:
             confirm_status = "skipped_no_matches"
@@ -83,9 +93,14 @@ def handle_sources_reconcile_command(args) -> int:
         swapped: list[dict] = []
         if apply and confirmed:
             for pair in confirmed:
-                swapped.append(_swap_source_id(
-                    db, project_id, pair["local_uuid"], pair["cortex_uuid"],
-                ))
+                swapped.append(
+                    _swap_source_id(
+                        db,
+                        project_id,
+                        pair["local_uuid"],
+                        pair["cortex_uuid"],
+                    )
+                )
 
         payload = {
             "ok": True,
@@ -142,12 +157,18 @@ def _load_local_sources(db, project_id: str) -> list[dict]:
     )
     rows = []
     for r in cursor.fetchall():
-        rows.append({
-            "id": r[0], "title": r[1], "source_url": r[2],
-            "content_hash": r[3], "size_bytes": r[4],
-            "canonical_path": r[5], "mime_type": r[6],
-            "source_metadata": r[7],
-        })
+        rows.append(
+            {
+                "id": r[0],
+                "title": r[1],
+                "source_url": r[2],
+                "content_hash": r[3],
+                "size_bytes": r[4],
+                "canonical_path": r[5],
+                "mime_type": r[6],
+                "source_metadata": r[7],
+            }
+        )
     return rows
 
 
@@ -164,8 +185,7 @@ def _backfill_identity(db, rows: list[dict]) -> int:
         if row["content_hash"]:
             continue
         path = row["canonical_path"] or _doc_path_from_metadata(row)
-        if not path and row["source_url"] and not str(
-                row["source_url"]).startswith(("http://", "https://")):
+        if not path and row["source_url"] and not str(row["source_url"]).startswith(("http://", "https://")):
             path = row["source_url"]
         if not path:
             continue
@@ -175,8 +195,13 @@ def _backfill_identity(db, rows: list[dict]) -> int:
         db.conn.execute(
             "UPDATE epistemic_sources SET content_hash = ?, size_bytes = ?, "
             "canonical_path = ?, mime_type = ? WHERE id = ?",
-            (identity["content_hash"], identity["size_bytes"],
-             identity["canonical_path"], identity["mime_type"], row["id"]),
+            (
+                identity["content_hash"],
+                identity["size_bytes"],
+                identity["canonical_path"],
+                identity["mime_type"],
+                row["id"],
+            ),
         )
         row.update(identity)
         backfilled += 1
@@ -199,7 +224,9 @@ CATALOGUE_LOOKUP_BATCH = 500
 
 
 def _discover_candidates(
-    cortex_url: str | None, api_key: str | None, rows: list[dict],
+    cortex_url: str | None,
+    api_key: str | None,
+    rows: list[dict],
 ) -> tuple[dict[str, dict], str]:
     """Look up catalogue rows by content_hash, chunked to the server cap.
 
@@ -220,13 +247,11 @@ def _discover_candidates(
                 f"{cortex_url}{CATALOGUE_LOOKUP_PATH}",
                 api_key,
                 method="POST",
-                payload={"content_hashes": hashes[i:i + CATALOGUE_LOOKUP_BATCH]},
+                payload={"content_hashes": hashes[i : i + CATALOGUE_LOOKUP_BATCH]},
             )
-            candidates.update({
-                c["content_hash"]: c
-                for c in body.get("sources", [])
-                if c.get("content_hash") and c.get("id")
-            })
+            candidates.update(
+                {c["content_hash"]: c for c in body.get("sources", []) if c.get("content_hash") and c.get("id")}
+            )
         return candidates, "ok"
     except urllib.error.HTTPError as e:
         return {}, f"unavailable_http_{e.code}"
@@ -235,7 +260,8 @@ def _discover_candidates(
 
 
 def _propose_matches(
-    rows: list[dict], candidates: dict[str, dict],
+    rows: list[dict],
+    candidates: dict[str, dict],
 ) -> list[dict]:
     """Pair local rows with catalogue rows by content_hash. Rows whose id
     already equals the catalogue id are reconciled — skip."""
@@ -244,17 +270,21 @@ def _propose_matches(
         cand = candidates.get(row["content_hash"] or "")
         if not cand or cand["id"] == row["id"]:
             continue
-        proposed.append({
-            "local_uuid": row["id"],
-            "cortex_uuid": cand["id"],
-            "content_hash": row["content_hash"],
-            "canonical_path": row["canonical_path"],
-        })
+        proposed.append(
+            {
+                "local_uuid": row["id"],
+                "cortex_uuid": cand["id"],
+                "content_hash": row["content_hash"],
+                "canonical_path": row["canonical_path"],
+            }
+        )
     return proposed
 
 
 def _confirm_matches(
-    cortex_url: str | None, api_key: str | None, proposed: list[dict],
+    cortex_url: str | None,
+    api_key: str | None,
+    proposed: list[dict],
 ) -> tuple[list[dict], list[dict], str]:
     """POST the pinned reconcile contract. Catalogue validates hash +
     tenancy; we swap only what it confirms."""
@@ -275,7 +305,10 @@ def _confirm_matches(
 
 
 def _swap_source_id(
-    db, project_id: str, local_uuid: str, cortex_uuid: str,
+    db,
+    project_id: str,
+    local_uuid: str,
+    cortex_uuid: str,
 ) -> dict:
     """PK-swap one source to its catalogue uuid + cascade every local
     reference. One SQLite transaction — all-or-nothing per source.
@@ -292,9 +325,15 @@ def _swap_source_id(
     Qdrant points keep the old id until `empirica rebuild` regenerates
     them from SQLite.
     """
-    result = {"local_uuid": local_uuid, "cortex_uuid": cortex_uuid,
-              "swapped": False, "edges": 0, "archive_targets": 0,
-              "finding_refs": 0, "entity_links": "skipped"}
+    result = {
+        "local_uuid": local_uuid,
+        "cortex_uuid": cortex_uuid,
+        "swapped": False,
+        "edges": 0,
+        "archive_targets": 0,
+        "finding_refs": 0,
+        "entity_links": "skipped",
+    }
     cursor = db.conn.cursor()
     try:
         cursor.execute("BEGIN")
@@ -320,14 +359,16 @@ def _swap_source_id(
         result["edges"] = edges
 
         cursor.execute(
-            "UPDATE epistemic_sources SET archive_target_id = ? "
-            "WHERE archive_target_id = ?",
+            "UPDATE epistemic_sources SET archive_target_id = ? WHERE archive_target_id = ?",
             (cortex_uuid, local_uuid),
         )
         result["archive_targets"] = cursor.rowcount
 
         result["finding_refs"] = _swap_finding_source_refs(
-            cursor, project_id, local_uuid, cortex_uuid,
+            cursor,
+            project_id,
+            local_uuid,
+            cortex_uuid,
         )
 
         db.conn.commit()
@@ -338,18 +379,21 @@ def _swap_source_id(
         return result
 
     result["entity_links"] = _swap_workspace_entity_links(
-        local_uuid, cortex_uuid,
+        local_uuid,
+        cortex_uuid,
     )
     return result
 
 
 def _swap_finding_source_refs(
-    cursor, project_id: str, local_uuid: str, cortex_uuid: str,
+    cursor,
+    project_id: str,
+    local_uuid: str,
+    cortex_uuid: str,
 ) -> int:
     """Rewrite source_refs JSON arrays on findings that cite the old id."""
     cursor.execute(
-        "SELECT id, source_refs FROM project_findings "
-        "WHERE project_id = ? AND source_refs LIKE ?",
+        "SELECT id, source_refs FROM project_findings WHERE project_id = ? AND source_refs LIKE ?",
         (project_id, f"%{local_uuid}%"),
     )
     updated = 0
@@ -378,8 +422,7 @@ def _swap_workspace_entity_links(local_uuid: str, cortex_uuid: str) -> str:
         repo = WorkspaceDBRepository()
         cursor = repo.conn.cursor()
         cursor.execute(
-            "UPDATE entity_artifacts SET artifact_id = ? "
-            "WHERE artifact_type = 'source' AND artifact_id = ?",
+            "UPDATE entity_artifacts SET artifact_id = ? WHERE artifact_type = 'source' AND artifact_id = ?",
             (cortex_uuid, local_uuid),
         )
         repo.conn.commit()
@@ -391,12 +434,17 @@ def _swap_workspace_entity_links(local_uuid: str, cortex_uuid: str) -> str:
 
 
 def _http_json(
-    url: str, api_key: str, method: str = "GET",
-    payload: dict | None = None, timeout: float = 15.0,
+    url: str,
+    api_key: str,
+    method: str = "GET",
+    payload: dict | None = None,
+    timeout: float = 15.0,
 ) -> dict[str, Any]:
     data = json.dumps(payload).encode("utf-8") if payload is not None else None
     req = urllib.request.Request(
-        url, data=data, method=method,
+        url,
+        data=data,
+        method=method,
         headers={
             "Accept": "application/json",
             "Content-Type": "application/json",

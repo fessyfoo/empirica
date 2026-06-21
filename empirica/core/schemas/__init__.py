@@ -14,9 +14,4 @@ from .epistemic_assessment import (
     validate_assessment,
 )
 
-__all__ = [
-    'EpistemicAssessmentSchema',
-    'VectorAssessment',
-    'parse_assessment_dict',
-    'validate_assessment'
-]
+__all__ = ["EpistemicAssessmentSchema", "VectorAssessment", "parse_assessment_dict", "validate_assessment"]

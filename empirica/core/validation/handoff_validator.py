@@ -34,11 +34,7 @@ class HandoffValidator:
         self.session_id = session_id
         self.ai_id = ai_id
 
-    def validate_handoff(
-        self,
-        checkpoint_data: dict[str, Any],
-        previous_ai_id: str = "unknown"
-    ) -> dict[str, Any]:
+    def validate_handoff(self, checkpoint_data: dict[str, Any], previous_ai_id: str = "unknown") -> dict[str, Any]:
         """
         Before I trust previous AI's work, verify it makes sense.
 
@@ -89,9 +85,7 @@ class HandoffValidator:
             issues.append(f"Unknowns issue: {unknowns_result['reason']}")
 
         # 4. OVERALL COHERENCE: Does checkpoint hang together?
-        coherence_result = self._check_overall_coherence(
-            checkpoint_data, findings, unknowns
-        )
+        coherence_result = self._check_overall_coherence(checkpoint_data, findings, unknowns)
         checks["coherence"] = coherence_result["coherent"]
         if not coherence_result["coherent"]:
             issues.append(f"Incoherence: {coherence_result['reason']}")
@@ -110,11 +104,9 @@ class HandoffValidator:
             "recommendations": recommendations,
             "should_investigate": should_investigate,
             "previous_ai": previous_ai_id,
-            "message": self._format_validation_message(
-                valid, trustworthy, issues, recommendations
-            ),
+            "message": self._format_validation_message(valid, trustworthy, issues, recommendations),
             "session_id": self.session_id,
-            "ai_id": self.ai_id
+            "ai_id": self.ai_id,
         }
 
     def _check_claim_vs_reality(self, checkpoint_data: dict[str, Any]) -> dict[str, Any]:
@@ -145,7 +137,7 @@ class HandoffValidator:
             return {
                 "valid": False,
                 "reason": f"Cannot access git state: {actual_diff['error']}",
-                "recommendation": "investigate_git_state"
+                "recommendation": "investigate_git_state",
             }
 
         # Simple validation: if they claimed work, there should be changes
@@ -153,7 +145,7 @@ class HandoffValidator:
             return {
                 "valid": False,
                 "reason": f"Claimed work '{claimed_work}' but no git changes found",
-                "recommendation": "investigate_why_no_changes"
+                "recommendation": "investigate_why_no_changes",
             }
 
         # Reverse: if there are lots of changes, they should have claimed work
@@ -161,16 +153,12 @@ class HandoffValidator:
             return {
                 "valid": False,
                 "reason": f"Major git changes ({actual_diff['file_count']} files) but minimal claim",
-                "recommendation": "understand_scope_of_work"
+                "recommendation": "understand_scope_of_work",
             }
 
         return {"valid": True, "reason": "claim_matches_reality"}
 
-    def _check_findings_credibility(
-        self,
-        findings: list[dict],
-        checkpoint_data: dict[str, Any]
-    ) -> dict[str, Any]:
+    def _check_findings_credibility(self, findings: list[dict], checkpoint_data: dict[str, Any]) -> dict[str, Any]:
         """
         Are findings credible given their assessment?
 
@@ -192,21 +180,19 @@ class HandoffValidator:
         their_clarity = vectors.get("clarity", 0.5)
 
         # Check 1: High certainty findings with low knowledge?
-        high_certainty_findings = [
-            f for f in findings if f.get("certainty", 0.5) > 0.8
-        ]
+        high_certainty_findings = [f for f in findings if f.get("certainty", 0.5) > 0.8]
 
         if high_certainty_findings and their_know < 0.4:
             return {
                 "credible": False,
-                "reason": f"High certainty findings ({len(high_certainty_findings)}) with low knowledge ({their_know})"
+                "reason": f"High certainty findings ({len(high_certainty_findings)}) with low knowledge ({their_know})",
             }
 
         # Check 2: Many findings with low clarity?
         if len(findings) > 5 and their_clarity < 0.5:
             return {
                 "credible": False,
-                "reason": f"Many findings ({len(findings)}) with unclear requirements ({their_clarity})"
+                "reason": f"Many findings ({len(findings)}) with unclear requirements ({their_clarity})",
             }
 
         # Check 3: All findings at same confidence level (suspicious uniformity)
@@ -217,16 +203,12 @@ class HandoffValidator:
         if len(findings) > 3 and variance < 0.01:  # Very uniform = suspicious
             return {
                 "credible": False,
-                "reason": f"Findings have suspicious uniformity (all ~{avg_confidence:.2f} confidence)"
+                "reason": f"Findings have suspicious uniformity (all ~{avg_confidence:.2f} confidence)",
             }
 
         return {"credible": True, "reason": "findings_appear_reasonable"}
 
-    def _check_unknowns_reasonableness(
-        self,
-        unknowns: list[dict],
-        findings: list[dict]
-    ) -> dict[str, Any]:
+    def _check_unknowns_reasonableness(self, unknowns: list[dict], findings: list[dict]) -> dict[str, Any]:
         """
         Do the remaining unknowns make sense?
 
@@ -244,10 +226,7 @@ class HandoffValidator:
             # No unknowns listed
             if not findings:
                 # No findings AND no unknowns = suspicious (shouldn't happen)
-                return {
-                    "reasonable": False,
-                    "reason": "No findings AND no unknowns - no work seems to have happened"
-                }
+                return {"reasonable": False, "reason": "No findings AND no unknowns - no work seems to have happened"}
             # Otherwise okay
             return {"reasonable": True, "reason": "all_unknowns_resolved"}
 
@@ -255,28 +234,23 @@ class HandoffValidator:
         if len(unknowns) > len(findings) * 2:
             return {
                 "reasonable": False,
-                "reason": f"Many unknowns ({len(unknowns)}) vs findings ({len(findings)}) - progress unclear"
+                "reason": f"Many unknowns ({len(unknowns)}) vs findings ({len(findings)}) - progress unclear",
             }
 
         # Check 2: Unknowns should be actionable (not too many unresolved)
         # Note: Unknowns don't have impact scores - they're open questions, not findings
-        unresolved_unknowns = [
-            u for u in unknowns if not u.get("is_resolved", False)
-        ]
+        unresolved_unknowns = [u for u in unknowns if not u.get("is_resolved", False)]
 
         if len(unresolved_unknowns) > len(unknowns) * 0.8:
             return {
                 "reasonable": False,
-                "reason": f"Many unresolved unknowns ({len(unresolved_unknowns)}) - progress unclear"
+                "reason": f"Many unresolved unknowns ({len(unresolved_unknowns)}) - progress unclear",
             }
 
         return {"reasonable": True, "reason": "unknowns_appear_reasonable"}
 
     def _check_overall_coherence(
-        self,
-        checkpoint_data: dict[str, Any],
-        findings: list[dict],
-        unknowns: list[dict]
+        self, checkpoint_data: dict[str, Any], findings: list[dict], unknowns: list[dict]
     ) -> dict[str, Any]:
         """
         Does the overall checkpoint hang together coherently?
@@ -299,31 +273,22 @@ class HandoffValidator:
         if phase == "POSTFLIGHT":
             completion = vectors.get("completion", 0.0)
             if completion < 0.3 and not unknowns:
-                return {
-                    "coherent": False,
-                    "reason": "POSTFLIGHT with low completion but claims no unknowns"
-                }
+                return {"coherent": False, "reason": "POSTFLIGHT with low completion but claims no unknowns"}
 
         # Check: High uncertainty but confident findings?
         uncertainty = vectors.get("uncertainty", 0.5)
         if uncertainty > 0.7:
-            high_conf_findings = sum(
-                1 for f in findings if f.get("certainty", 0.5) > 0.7
-            )
+            high_conf_findings = sum(1 for f in findings if f.get("certainty", 0.5) > 0.7)
             if high_conf_findings > len(findings) * 0.5:
                 return {
                     "coherent": False,
-                    "reason": f"High uncertainty ({uncertainty}) but confident findings ({high_conf_findings})"
+                    "reason": f"High uncertainty ({uncertainty}) but confident findings ({high_conf_findings})",
                 }
 
         return {"coherent": True, "reason": "checkpoint_coherent"}
 
     def _format_validation_message(
-        self,
-        valid: bool,
-        trustworthy: bool,
-        issues: list[str],
-        recommendations: list[str]
+        self, valid: bool, trustworthy: bool, issues: list[str], recommendations: list[str]
     ) -> str:
         """Format human-readable validation message"""
         if valid and trustworthy:

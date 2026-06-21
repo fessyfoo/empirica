@@ -28,51 +28,89 @@ logger = logging.getLogger(__name__)
 # Domain signal patterns for task analysis
 DOMAIN_PATTERNS = {
     "security": [
-        r"secur\w*", r"vulnerab\w*", r"auth\w*", r"encrypt\w*",
-        r"attack\w*", r"threat\w*", r"injection", r"xss", r"csrf",
-        r"privilege", r"permission", r"credential", r"password",
-        r"token", r"jwt", r"oauth", r"saml", r"cert\w*"
+        r"secur\w*",
+        r"vulnerab\w*",
+        r"auth\w*",
+        r"encrypt\w*",
+        r"attack\w*",
+        r"threat\w*",
+        r"injection",
+        r"xss",
+        r"csrf",
+        r"privilege",
+        r"permission",
+        r"credential",
+        r"password",
+        r"token",
+        r"jwt",
+        r"oauth",
+        r"saml",
+        r"cert\w*",
     ],
     "performance": [
-        r"perform\w*", r"optim\w*", r"speed", r"latenc\w*",
-        r"throughput", r"cache", r"memory", r"cpu", r"profil\w*",
-        r"benchmark", r"scale", r"load", r"bottleneck"
+        r"perform\w*",
+        r"optim\w*",
+        r"speed",
+        r"latenc\w*",
+        r"throughput",
+        r"cache",
+        r"memory",
+        r"cpu",
+        r"profil\w*",
+        r"benchmark",
+        r"scale",
+        r"load",
+        r"bottleneck",
     ],
     "architecture": [
-        r"architect\w*", r"design", r"pattern", r"structur\w*",
-        r"modulari\w*", r"coupling", r"cohesion", r"layer\w*",
-        r"service", r"microservice", r"monolith", r"api"
+        r"architect\w*",
+        r"design",
+        r"pattern",
+        r"structur\w*",
+        r"modulari\w*",
+        r"coupling",
+        r"cohesion",
+        r"layer\w*",
+        r"service",
+        r"microservice",
+        r"monolith",
+        r"api",
     ],
     "testing": [
-        r"test\w*", r"unit", r"integration", r"e2e", r"coverage",
-        r"mock", r"stub", r"assert", r"expect", r"spec"
+        r"test\w*",
+        r"unit",
+        r"integration",
+        r"e2e",
+        r"coverage",
+        r"mock",
+        r"stub",
+        r"assert",
+        r"expect",
+        r"spec",
     ],
-    "documentation": [
-        r"doc\w*", r"comment", r"readme", r"explain", r"descri\w*",
-        r"tutorial", r"guide", r"example"
-    ],
-    "data": [
-        r"data\w*", r"database", r"sql", r"query", r"schema",
-        r"model", r"orm", r"migration", r"index"
-    ],
+    "documentation": [r"doc\w*", r"comment", r"readme", r"explain", r"descri\w*", r"tutorial", r"guide", r"example"],
+    "data": [r"data\w*", r"database", r"sql", r"query", r"schema", r"model", r"orm", r"migration", r"index"],
     "infrastructure": [
-        r"infra\w*", r"deploy\w*", r"ci", r"cd", r"docker",
-        r"kubernetes", r"k8s", r"terraform", r"aws", r"cloud"
+        r"infra\w*",
+        r"deploy\w*",
+        r"ci",
+        r"cd",
+        r"docker",
+        r"kubernetes",
+        r"k8s",
+        r"terraform",
+        r"aws",
+        r"cloud",
     ],
-    "frontend": [
-        r"frontend", r"ui", r"ux", r"react", r"vue", r"angular",
-        r"css", r"html", r"component", r"render"
-    ],
-    "backend": [
-        r"backend", r"server", r"api", r"endpoint", r"route",
-        r"controller", r"middleware", r"handler"
-    ]
+    "frontend": [r"frontend", r"ui", r"ux", r"react", r"vue", r"angular", r"css", r"html", r"component", r"render"],
+    "backend": [r"backend", r"server", r"api", r"endpoint", r"route", r"controller", r"middleware", r"handler"],
 }
 
 
 @dataclass
 class DomainSignal:
     """A detected domain signal from task analysis"""
+
     domain: str
     confidence: float
     matched_terms: list[str] = field(default_factory=list)
@@ -81,6 +119,7 @@ class DomainSignal:
 @dataclass
 class PersonaMatch:
     """A persona match with scoring and rationale"""
+
     persona_id: str
     name: str
     score: float  # 0.0 - 1.0 combined score
@@ -100,7 +139,7 @@ class PersonaMatch:
             "domain_relevance": self.domain_relevance,
             "epistemic_fit": self.epistemic_fit,
             "focus_domains": self.focus_domains,
-            "priors": self.priors
+            "priors": self.priors,
         }
 
 
@@ -124,7 +163,7 @@ class DecisionLogic:
         qdrant_port: int = 6333,
         min_confidence: float = 0.3,
         domain_weight: float = 0.6,
-        epistemic_weight: float = 0.4
+        epistemic_weight: float = 0.4,
     ):
         """
         Initialize DecisionLogic.
@@ -149,10 +188,8 @@ class DecisionLogic:
         if self._registry is None:
             try:
                 from empirica.core.qdrant.persona_registry import PersonaRegistry
-                self._registry = PersonaRegistry(
-                    qdrant_host=self.qdrant_host,
-                    qdrant_port=self.qdrant_port
-                )
+
+                self._registry = PersonaRegistry(qdrant_host=self.qdrant_host, qdrant_port=self.qdrant_port)
             except Exception as e:
                 logger.warning(f"Could not connect to Qdrant: {e}")
                 self._registry = None
@@ -188,11 +225,7 @@ class DecisionLogic:
                 unique_matches = list(set(matched_terms))
                 # More matches = higher confidence, capped at 1.0
                 confidence = min(1.0, len(unique_matches) * 0.25)
-                signals.append(DomainSignal(
-                    domain=domain,
-                    confidence=confidence,
-                    matched_terms=unique_matches
-                ))
+                signals.append(DomainSignal(domain=domain, confidence=confidence, matched_terms=unique_matches))
 
         # Sort by confidence
         signals.sort(key=lambda s: s.confidence, reverse=True)
@@ -206,7 +239,7 @@ class DecisionLogic:
         max_personas: int = 3,
         required_domains: list[str] | None = None,
         excluded_personas: list[str] | None = None,
-        epistemic_requirements: dict[str, float] | None = None
+        epistemic_requirements: dict[str, float] | None = None,
     ) -> list[PersonaMatch]:
         """
         Select best personas for a task.
@@ -257,10 +290,7 @@ class DecisionLogic:
         if self.registry:
             for domain in top_domains:
                 try:
-                    personas = self.registry.find_personas_by_domain(
-                        domain=domain,
-                        limit=max_personas * 2
-                    )
+                    personas = self.registry.find_personas_by_domain(domain=domain, limit=max_personas * 2)
 
                     for persona in personas:
                         persona_id = persona.get("persona_id", "")
@@ -274,9 +304,7 @@ class DecisionLogic:
                             continue
 
                         # Check epistemic requirements
-                        if not self._meets_epistemic_requirements(
-                            persona, epistemic_requirements
-                        ):
+                        if not self._meets_epistemic_requirements(persona, epistemic_requirements):
                             continue
 
                         # Calculate match score
@@ -291,33 +319,27 @@ class DecisionLogic:
         if not matches:
             logger.info("No Qdrant matches, using signal-based fallback")
             for signal in signals[:max_personas]:
-                matches.append(PersonaMatch(
-                    persona_id=f"{signal.domain}_expert",
-                    name=f"{signal.domain.title()} Expert",
-                    score=signal.confidence * 0.7,  # Discount for fallback
-                    rationale=f"Domain signal match: {', '.join(signal.matched_terms)}",
-                    domain_relevance=signal.confidence,
-                    epistemic_fit=0.5,  # Unknown
-                    focus_domains=[signal.domain]
-                ))
+                matches.append(
+                    PersonaMatch(
+                        persona_id=f"{signal.domain}_expert",
+                        name=f"{signal.domain.title()} Expert",
+                        score=signal.confidence * 0.7,  # Discount for fallback
+                        rationale=f"Domain signal match: {', '.join(signal.matched_terms)}",
+                        domain_relevance=signal.confidence,
+                        epistemic_fit=0.5,  # Unknown
+                        focus_domains=[signal.domain],
+                    )
+                )
 
         # Sort by score and limit
         matches.sort(key=lambda m: m.score, reverse=True)
         result = matches[:max_personas]
 
-        logger.info(
-            f"Selected {len(result)} personas for task: "
-            f"{[m.persona_id for m in result]}"
-        )
+        logger.info(f"Selected {len(result)} personas for task: {[m.persona_id for m in result]}")
 
         return result
 
-    def _score_persona(
-        self,
-        persona: dict[str, Any],
-        signals: list[DomainSignal],
-        primary_domain: str
-    ) -> PersonaMatch:
+    def _score_persona(self, persona: dict[str, Any], signals: list[DomainSignal], primary_domain: str) -> PersonaMatch:
         """Score a persona against task signals"""
         persona_id = persona.get("persona_id", "unknown")
         name = persona.get("name", persona_id)
@@ -338,18 +360,11 @@ class DecisionLogic:
         epistemic_fit = reputation
 
         # Combined score
-        score = (
-            self.domain_weight * domain_relevance +
-            self.epistemic_weight * epistemic_fit
-        )
+        score = self.domain_weight * domain_relevance + self.epistemic_weight * epistemic_fit
 
         # Build rationale
         domain_matches = ", ".join(matching_domains) if matching_domains else "general"
-        rationale = (
-            f"Domain match: {domain_matches} "
-            f"(relevance={domain_relevance:.2f}, "
-            f"reputation={reputation:.2f})"
-        )
+        rationale = f"Domain match: {domain_matches} (relevance={domain_relevance:.2f}, reputation={reputation:.2f})"
 
         return PersonaMatch(
             persona_id=persona_id,
@@ -359,14 +374,10 @@ class DecisionLogic:
             domain_relevance=domain_relevance,
             epistemic_fit=epistemic_fit,
             focus_domains=focus_domains,
-            priors={}  # Could extract from vector if needed
+            priors={},  # Could extract from vector if needed
         )
 
-    def _meets_epistemic_requirements(
-        self,
-        persona: dict[str, Any],
-        requirements: dict[str, float] | None
-    ) -> bool:
+    def _meets_epistemic_requirements(self, persona: dict[str, Any], requirements: dict[str, float] | None) -> bool:
         """Check if persona meets epistemic requirements"""
         if not requirements:
             return True
@@ -377,6 +388,7 @@ class DecisionLogic:
 
         # Map vector to keys
         from empirica.core.qdrant.persona_registry import PersonaRegistry
+
         vector_dict = dict(zip(PersonaRegistry.VECTOR_KEYS, vector))
 
         for key, min_value in requirements.items():
@@ -395,13 +407,10 @@ class DecisionLogic:
             rationale="No specific domain signals detected",
             domain_relevance=0.5,
             epistemic_fit=0.5,
-            focus_domains=["general"]
+            focus_domains=["general"],
         )
 
-    def get_domain_coverage(
-        self,
-        personas: list[PersonaMatch]
-    ) -> dict[str, list[str]]:
+    def get_domain_coverage(self, personas: list[PersonaMatch]) -> dict[str, list[str]]:
         """
         Analyze domain coverage of selected personas.
 
@@ -421,10 +430,7 @@ class DecisionLogic:
         return coverage
 
     def suggest_additional_personas(
-        self,
-        task: str,
-        current_personas: list[PersonaMatch],
-        uncovered_domains: list[str]
+        self, task: str, current_personas: list[PersonaMatch], uncovered_domains: list[str]
     ) -> list[PersonaMatch]:
         """
         Suggest additional personas to cover uncovered domains.
@@ -443,5 +449,5 @@ class DecisionLogic:
             task=task,
             max_personas=len(uncovered_domains),
             required_domains=uncovered_domains,
-            excluded_personas=excluded
+            excluded_personas=excluded,
         )

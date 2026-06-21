@@ -31,7 +31,7 @@ class TestResolveProjectIdRaises:
         mock_db = MagicMock()
         mock_db.resolve_project_id.return_value = None
 
-        with patch('empirica.utils.session_resolver.InstanceResolver') as mock_R:
+        with patch("empirica.utils.session_resolver.InstanceResolver") as mock_R:
             mock_R.resolve_workspace_project.return_value = None
             with pytest.raises(ProjectNotFoundError) as excinfo:
                 resolve_project_id("nonexistent-project", db=mock_db)
@@ -49,8 +49,10 @@ class TestResolveProjectIdRaises:
         mock_db = MagicMock()
         mock_db.resolve_project_id.return_value = None
 
-        with patch('empirica.utils.session_resolver.InstanceResolver') as mock_R, \
-             patch.object(_sys, 'exit') as mock_exit:
+        with (
+            patch("empirica.utils.session_resolver.InstanceResolver") as mock_R,
+            patch.object(_sys, "exit") as mock_exit,
+        ):
             mock_R.resolve_workspace_project.return_value = None
             with pytest.raises(ProjectNotFoundError):
                 resolve_project_id("missing", db=mock_db)
@@ -69,9 +71,9 @@ class TestResolveProjectIdRaises:
         mock_db = MagicMock()
         mock_db.resolve_project_id.return_value = None
 
-        with patch('empirica.utils.session_resolver.InstanceResolver') as mock_R:
+        with patch("empirica.utils.session_resolver.InstanceResolver") as mock_R:
             mock_R.resolve_workspace_project.return_value = {
-                'project_id': 'workspace-uuid',
+                "project_id": "workspace-uuid",
             }
             result = resolve_project_id("name-not-in-local", db=mock_db)
             assert result == "workspace-uuid"
@@ -82,8 +84,8 @@ class TestResolveProjectIdRaises:
         mock_db = MagicMock()
         mock_db.resolve_project_id.return_value = None
 
-        with patch('empirica.utils.session_resolver.InstanceResolver') as mock_R:
-            mock_R.resolve_workspace_project.return_value = {'id': 'old-style-uuid'}
+        with patch("empirica.utils.session_resolver.InstanceResolver") as mock_R:
+            mock_R.resolve_workspace_project.return_value = {"id": "old-style-uuid"}
             result = resolve_project_id("legacy", db=mock_db)
             assert result == "old-style-uuid"
 

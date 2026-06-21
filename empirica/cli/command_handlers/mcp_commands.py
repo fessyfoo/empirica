@@ -67,8 +67,10 @@ def handle_mcp_list_tools_command(args):
 
         if verbose:
             print("\n💡 Tool params + required fields — read the TOOL_REGISTRY entries directly:")
-            print(f"   {sys.executable} -c 'from empirica_mcp.server import TOOL_REGISTRY; "
-                  "import json; print(json.dumps(TOOL_REGISTRY[\"finding_log\"], indent=2))'")
+            print(
+                f"   {sys.executable} -c 'from empirica_mcp.server import TOOL_REGISTRY; "
+                'import json; print(json.dumps(TOOL_REGISTRY["finding_log"], indent=2))\''
+            )
             print("💡 See docs/human/developers/MCP_SERVER_REFERENCE.md for usage")
 
         return 0

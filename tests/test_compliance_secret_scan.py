@@ -9,8 +9,7 @@ from empirica.cli.command_handlers.compliance_report_commands import (
 )
 
 
-def _raw(stdout: str = "", error: str | None = None,
-         duration: float = 0.5) -> dict:
+def _raw(stdout: str = "", error: str | None = None, duration: float = 0.5) -> dict:
     out: dict = {"duration_seconds": duration, "stdout": stdout, "stderr": ""}
     if error:
         out["error"] = error

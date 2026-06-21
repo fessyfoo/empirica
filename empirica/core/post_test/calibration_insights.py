@@ -28,11 +28,11 @@ logger = logging.getLogger(__name__)
 @dataclass
 class CalibrationInsight:
     vector: str
-    phase: str                          # "noetic", "praxic", or "both"
-    pattern: str                        # Pattern type
-    severity: float                     # 0.0-1.0
+    phase: str  # "noetic", "praxic", or "both"
+    pattern: str  # Pattern type
+    severity: float  # 0.0-1.0
     description: str
-    suggestion: str                     # Machine-readable improvement hint
+    suggestion: str  # Machine-readable improvement hint
     evidence_sources: list[str] = field(default_factory=list)
     observation_count: int = 0
 
@@ -68,6 +68,7 @@ class CalibrationInsightsAnalyzer:
         self._ensure_table()
         cursor = self.db.conn.cursor()
         import json
+
         for insight in insights:
             cursor.execute(
                 """INSERT OR REPLACE INTO calibration_insights
@@ -129,6 +130,7 @@ class CalibrationInsightsAnalyzer:
             )
             rows = cursor.fetchall()
             import json
+
             records = []
             for row in rows:
                 gaps = {}
@@ -137,16 +139,18 @@ class CalibrationInsightsAnalyzer:
                         gaps = json.loads(row[6])
                     except (json.JSONDecodeError, TypeError):
                         pass
-                records.append({
-                    'verification_id': row[0],
-                    'session_id': row[1],
-                    'phase': row[2],
-                    'evidence_count': row[3],
-                    'grounded_coverage': row[4],
-                    'calibration_score': row[5],
-                    'gaps': gaps,
-                    'created_at': row[7],
-                })
+                records.append(
+                    {
+                        "verification_id": row[0],
+                        "session_id": row[1],
+                        "phase": row[2],
+                        "evidence_count": row[3],
+                        "grounded_coverage": row[4],
+                        "calibration_score": row[5],
+                        "gaps": gaps,
+                        "created_at": row[7],
+                    }
+                )
             return records
         except Exception as e:
             logger.debug(f"Failed to fetch verification records: {e}")
@@ -158,7 +162,7 @@ class CalibrationInsightsAnalyzer:
         # Collect gap values per vector across all records
         vector_gaps: dict[str, list[float]] = {}
         for record in records:
-            for vector, gap in record.get('gaps', {}).items():
+            for vector, gap in record.get("gaps", {}).items():
                 if isinstance(gap, (int, float)):
                     vector_gaps.setdefault(vector, []).append(gap)
 
@@ -174,32 +178,36 @@ class CalibrationInsightsAnalyzer:
 
             if positive_count / total > 0.7:
                 severity = min(1.0, abs_mean * 3)  # Scale: 0.33 gap = 1.0 severity
-                insights.append(CalibrationInsight(
-                    vector=vector,
-                    phase="both",
-                    pattern="chronic_overestimate",
-                    severity=severity,
-                    description=(
-                        f"{vector} overestimated in {positive_count}/{total} "
-                        f"calibrations (mean gap +{abs_mean:.2f})"
-                    ),
-                    suggestion=f"reduce_self_assessment:{vector}",
-                    observation_count=total,
-                ))
+                insights.append(
+                    CalibrationInsight(
+                        vector=vector,
+                        phase="both",
+                        pattern="chronic_overestimate",
+                        severity=severity,
+                        description=(
+                            f"{vector} overestimated in {positive_count}/{total} "
+                            f"calibrations (mean gap +{abs_mean:.2f})"
+                        ),
+                        suggestion=f"reduce_self_assessment:{vector}",
+                        observation_count=total,
+                    )
+                )
             elif negative_count / total > 0.7:
                 severity = min(1.0, abs_mean * 3)
-                insights.append(CalibrationInsight(
-                    vector=vector,
-                    phase="both",
-                    pattern="chronic_underestimate",
-                    severity=severity,
-                    description=(
-                        f"{vector} underestimated in {negative_count}/{total} "
-                        f"calibrations (mean gap {mean_gap:.2f})"
-                    ),
-                    suggestion=f"increase_self_assessment:{vector}",
-                    observation_count=total,
-                ))
+                insights.append(
+                    CalibrationInsight(
+                        vector=vector,
+                        phase="both",
+                        pattern="chronic_underestimate",
+                        severity=severity,
+                        description=(
+                            f"{vector} underestimated in {negative_count}/{total} "
+                            f"calibrations (mean gap {mean_gap:.2f})"
+                        ),
+                        suggestion=f"increase_self_assessment:{vector}",
+                        observation_count=total,
+                    )
+                )
 
         return insights
 
@@ -211,37 +219,49 @@ class CalibrationInsightsAnalyzer:
         total_records = len(records)
 
         for record in records:
-            for vector in record.get('gaps', {}):
+            for vector in record.get("gaps", {}):
                 vector_appearances[vector] = vector_appearances.get(vector, 0) + 1
 
         # Also check coverage
-        coverage_values = [r.get('grounded_coverage', 0) for r in records]
+        coverage_values = [r.get("grounded_coverage", 0) for r in records]
         mean_coverage = sum(coverage_values) / len(coverage_values) if coverage_values else 0
 
         # Vectors that appear in <30% of records have an evidence gap
         from empirica.core.post_test.grounded_calibration import UNGROUNDABLE_VECTORS
+
         expected_vectors = {
-            'know', 'do', 'context', 'clarity', 'coherence',
-            'signal', 'density', 'state', 'change', 'completion',
-            'impact', 'uncertainty',
+            "know",
+            "do",
+            "context",
+            "clarity",
+            "coherence",
+            "signal",
+            "density",
+            "state",
+            "change",
+            "completion",
+            "impact",
+            "uncertainty",
         } - UNGROUNDABLE_VECTORS
 
         for vector in expected_vectors:
             appearances = vector_appearances.get(vector, 0)
             if appearances < total_records * 0.3:
                 severity = min(1.0, (1.0 - appearances / max(total_records, 1)) * 0.7)
-                insights.append(CalibrationInsight(
-                    vector=vector,
-                    phase="both",
-                    pattern="evidence_gap",
-                    severity=severity,
-                    description=(
-                        f"{vector} has evidence in only {appearances}/{total_records} "
-                        f"verifications (mean coverage {mean_coverage:.2f})"
-                    ),
-                    suggestion=f"add_evidence_source:{vector}",
-                    observation_count=total_records,
-                ))
+                insights.append(
+                    CalibrationInsight(
+                        vector=vector,
+                        phase="both",
+                        pattern="evidence_gap",
+                        severity=severity,
+                        description=(
+                            f"{vector} has evidence in only {appearances}/{total_records} "
+                            f"verifications (mean coverage {mean_coverage:.2f})"
+                        ),
+                        suggestion=f"add_evidence_source:{vector}",
+                        observation_count=total_records,
+                    )
+                )
 
         return insights
 
@@ -253,13 +273,13 @@ class CalibrationInsightsAnalyzer:
         praxic_gaps: dict[str, list[float]] = {}
 
         for record in records:
-            phase = record.get('phase', 'combined')
-            for vector, gap in record.get('gaps', {}).items():
+            phase = record.get("phase", "combined")
+            for vector, gap in record.get("gaps", {}).items():
                 if not isinstance(gap, (int, float)):
                     continue
-                if phase == 'noetic':
+                if phase == "noetic":
                     noetic_gaps.setdefault(vector, []).append(gap)
-                elif phase == 'praxic':
+                elif phase == "praxic":
                     praxic_gaps.setdefault(vector, []).append(gap)
 
         # Compare mean gaps between phases
@@ -280,18 +300,20 @@ class CalibrationInsightsAnalyzer:
                 if ratio > 2.0:
                     weak_phase = "noetic" if n_mean > p_mean else "praxic"
                     severity = min(1.0, (ratio - 2.0) * 0.3 + 0.3)
-                    insights.append(CalibrationInsight(
-                        vector=vector,
-                        phase=weak_phase,
-                        pattern="phase_mismatch",
-                        severity=severity,
-                        description=(
-                            f"{vector} gap is {ratio:.1f}x larger in {weak_phase} phase "
-                            f"(noetic={n_mean:.2f}, praxic={p_mean:.2f})"
-                        ),
-                        suggestion=f"phase_evidence_imbalance:{vector}:{weak_phase}",
-                        observation_count=len(n_gaps) + len(p_gaps),
-                    ))
+                    insights.append(
+                        CalibrationInsight(
+                            vector=vector,
+                            phase=weak_phase,
+                            pattern="phase_mismatch",
+                            severity=severity,
+                            description=(
+                                f"{vector} gap is {ratio:.1f}x larger in {weak_phase} phase "
+                                f"(noetic={n_mean:.2f}, praxic={p_mean:.2f})"
+                            ),
+                            suggestion=f"phase_evidence_imbalance:{vector}:{weak_phase}",
+                            observation_count=len(n_gaps) + len(p_gaps),
+                        )
+                    )
 
         return insights
 
@@ -300,7 +322,7 @@ class CalibrationInsightsAnalyzer:
         insights = []
         vector_gaps: dict[str, list[float]] = {}
         for record in records:
-            for vector, gap in record.get('gaps', {}).items():
+            for vector, gap in record.get("gaps", {}).items():
                 if isinstance(gap, (int, float)) and abs(gap) > 0.02:
                     vector_gaps.setdefault(vector, []).append(gap)
 
@@ -317,17 +339,19 @@ class CalibrationInsightsAnalyzer:
             flip_rate = sign_changes / (len(gaps) - 1)
             if flip_rate > 0.5:
                 severity = min(1.0, flip_rate * 0.8)
-                insights.append(CalibrationInsight(
-                    vector=vector,
-                    phase="both",
-                    pattern="volatile",
-                    severity=severity,
-                    description=(
-                        f"{vector} gap flips direction in {sign_changes}/{len(gaps)-1} "
-                        f"consecutive pairs (rate={flip_rate:.2f})"
-                    ),
-                    suggestion=f"stabilize_evidence:{vector}",
-                    observation_count=len(gaps),
-                ))
+                insights.append(
+                    CalibrationInsight(
+                        vector=vector,
+                        phase="both",
+                        pattern="volatile",
+                        severity=severity,
+                        description=(
+                            f"{vector} gap flips direction in {sign_changes}/{len(gaps) - 1} "
+                            f"consecutive pairs (rate={flip_rate:.2f})"
+                        ),
+                        suggestion=f"stabilize_evidence:{vector}",
+                        observation_count=len(gaps),
+                    )
+                )
 
         return insights

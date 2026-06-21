@@ -21,9 +21,7 @@ from empirica.core.post_test.collector import EvidenceBundle
 from empirica.core.post_test.criterion_evaluators import evaluate_goal_criteria
 
 
-def _build_goal_with_criterion(
-    *, threshold: float = 1.0, is_completed: bool = False
-) -> Goal:
+def _build_goal_with_criterion(*, threshold: float = 1.0, is_completed: bool = False) -> Goal:
     return Goal(
         id=str(uuid.uuid4()),
         objective="integration test goal",
@@ -98,9 +96,7 @@ def test_list_active_criteria_excludes_planned_goals(tmp_path):
     goal = _build_goal_with_criterion(is_completed=False)
     repo.save_goal(goal, session_id=session_id)
 
-    repo.db.conn.execute(
-        "UPDATE goals SET status = 'planned' WHERE id = ?", (goal.id,)
-    )
+    repo.db.conn.execute("UPDATE goals SET status = 'planned' WHERE id = ?", (goal.id,))
     repo.db.conn.commit()
 
     pairs = repo.list_active_criteria_for_session(session_id)
@@ -120,9 +116,7 @@ def test_update_is_met_persists_to_both_normalized_table_and_goal_data(tmp_path)
     assert repo.update_is_met(crit_id, True) is True
 
     # Verify normalized table
-    cursor = repo.db.conn.execute(
-        "SELECT is_met FROM success_criteria WHERE id = ?", (crit_id,)
-    )
+    cursor = repo.db.conn.execute("SELECT is_met FROM success_criteria WHERE id = ?", (crit_id,))
     assert cursor.fetchone()[0] == 1
 
     # Verify goal_data JSON sync — re-read goal and check criterion's is_met
@@ -201,9 +195,7 @@ def test_evaluate_goal_criteria_end_to_end_flag_persists(tmp_path, monkeypatch):
     # Redirect orchestrator's repo to our tmp DB
     monkeypatch.setattr(
         "empirica.core.goals.repository.GoalRepository",
-        lambda db_path=None: GoalRepository(
-            db_path=str(tmp_path / "sessions.db")
-        ),
+        lambda db_path=None: GoalRepository(db_path=str(tmp_path / "sessions.db")),
     )
 
     try:
@@ -218,9 +210,7 @@ def test_evaluate_goal_criteria_end_to_end_flag_persists(tmp_path, monkeypatch):
         assert block["skipped"] == 0
 
         # is_met persisted to normalized table
-        cursor = repo.db.conn.execute(
-            "SELECT is_met FROM success_criteria WHERE id = ?", (crit_id,)
-        )
+        cursor = repo.db.conn.execute("SELECT is_met FROM success_criteria WHERE id = ?", (crit_id,))
         assert cursor.fetchone()[0] == 1
 
         # is_met sync'd to goal_data JSON
@@ -233,6 +223,7 @@ def test_evaluate_goal_criteria_end_to_end_flag_persists(tmp_path, monkeypatch):
         import importlib
 
         from empirica.core.post_test.criterion_evaluators import builtin
+
         importlib.reload(builtin)
 
 
@@ -253,7 +244,7 @@ def test_evaluate_goal_criteria_failing_required_iterates(tmp_path, monkeypatch)
 
     monkeypatch.setattr(
         "empirica.core.goals.repository.GoalRepository",
-        lambda db_path=None: GoalRepository(db_path=str(tmp_path / "sessions.db"))
+        lambda db_path=None: GoalRepository(db_path=str(tmp_path / "sessions.db")),
     )
 
     block = evaluate_goal_criteria(
@@ -265,7 +256,5 @@ def test_evaluate_goal_criteria_failing_required_iterates(tmp_path, monkeypatch)
     assert block["evaluated"] == 1
     assert block["skipped"] == 1
     # No update_is_met call for skipped, so DB still 0
-    cursor = repo.db.conn.execute(
-        "SELECT is_met FROM success_criteria WHERE id = ?", (crit_id,)
-    )
+    cursor = repo.db.conn.execute("SELECT is_met FROM success_criteria WHERE id = ?", (crit_id,))
     assert cursor.fetchone()[0] == 0

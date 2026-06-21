@@ -149,9 +149,7 @@ class DomainRegistry:
     # Resolution internals
     # -----------------------------------------------------------------
 
-    def _try_resolve(
-        self, work_type: str, domain: str, criticality: str
-    ) -> Checklist | None:
+    def _try_resolve(self, work_type: str, domain: str, criticality: str) -> Checklist | None:
         entry = self._domains.get(domain)
         if entry is None:
             return None
@@ -170,7 +168,7 @@ class DomainRegistry:
         except ValueError:
             start_idx = 0
 
-        for level in CRITICALITY_ORDER[start_idx + 1:]:
+        for level in CRITICALITY_ORDER[start_idx + 1 :]:
             if level in entry.criticalities:
                 return entry.criticalities[level]
 

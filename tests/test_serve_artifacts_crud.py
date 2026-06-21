@@ -171,6 +171,7 @@ def _insert_edge(db_path: Path, from_id: str, to_id: str, relation: str = "relat
 @pytest.fixture
 def reset_daemon_cache():
     import empirica.api.daemon_project as dp
+
     dp._cached = False
     dp._cached_project = None
     yield
@@ -247,8 +248,7 @@ def test_resolve_unknown_marks_resolved(tmp_path, monkeypatch, reset_daemon_cach
     with patch("empirica.utils.session_resolver.InstanceResolver.project_path", return_value=str(proj)):
         monkeypatch.chdir(proj)
         client = TestClient(create_serve_app())
-        response = client.patch(f"/api/v1/artifacts/{u1}/resolve",
-                                  json={"resolved_by": "investigation"})
+        response = client.patch(f"/api/v1/artifacts/{u1}/resolve", json={"resolved_by": "investigation"})
 
     assert response.status_code == 200
     data = response.json()
@@ -272,8 +272,7 @@ def test_resolve_assumption_sets_verified(tmp_path, monkeypatch, reset_daemon_ca
     with patch("empirica.utils.session_resolver.InstanceResolver.project_path", return_value=str(proj)):
         monkeypatch.chdir(proj)
         client = TestClient(create_serve_app())
-        response = client.patch(f"/api/v1/artifacts/{a1}/resolve",
-                                  json={"resolved_by": "code review"})
+        response = client.patch(f"/api/v1/artifacts/{a1}/resolve", json={"resolved_by": "code review"})
 
     assert response.status_code == 200
     conn = sqlite3.connect(str(db_path))
@@ -292,8 +291,7 @@ def test_resolve_goal_completes(tmp_path, monkeypatch, reset_daemon_cache):
     with patch("empirica.utils.session_resolver.InstanceResolver.project_path", return_value=str(proj)):
         monkeypatch.chdir(proj)
         client = TestClient(create_serve_app())
-        response = client.patch(f"/api/v1/artifacts/{g1}/resolve",
-                                  json={"resolved_by": "shipped"})
+        response = client.patch(f"/api/v1/artifacts/{g1}/resolve", json={"resolved_by": "shipped"})
 
     assert response.status_code == 200
     conn = sqlite3.connect(str(db_path))
@@ -436,8 +434,7 @@ def test_delete_cascades_dangling_edges(tmp_path, monkeypatch, reset_daemon_cach
     assert response.json()["edges_removed"] == 2
 
     conn = sqlite3.connect(str(db_path))
-    edges = conn.execute("SELECT COUNT(*) FROM artifact_edges WHERE from_id = ? OR to_id = ?",
-                         (f1, f1)).fetchone()
+    edges = conn.execute("SELECT COUNT(*) FROM artifact_edges WHERE from_id = ? OR to_id = ?", (f1, f1)).fetchone()
     conn.close()
     assert edges[0] == 0
 

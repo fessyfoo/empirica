@@ -33,20 +33,43 @@ SLASH_TABLE: tuple[SlashCmd, ...] = (
     SlashCmd("help", "show available commands (try /help debug for the full surface)", user_facing=True),
     SlashCmd("model", "set active model on the current provider", user_facing=True, takes_arg=True, arg_label="NAME"),
     SlashCmd("plan", "show open goals + recent transactions for this project", user_facing=True),
-    SlashCmd("autonomy", "switch autonomy mode (assistant | copilot | autonomous)", user_facing=True, takes_arg=True, arg_label="MODE"),
+    SlashCmd(
+        "autonomy",
+        "switch autonomy mode (assistant | copilot | autonomous)",
+        user_facing=True,
+        takes_arg=True,
+        arg_label="MODE",
+    ),
     SlashCmd("compact", "save a chat breadcrumb (pre-compact lifecycle hook)", user_facing=True),
-
     # ─── Dev/QA (only via /help debug) ──────────────────────────────
     SlashCmd("providers", "list configured providers", user_facing=False),
     SlashCmd("provider", "switch active provider", user_facing=False, takes_arg=True, arg_label="NAME"),
     SlashCmd("models", "list models on active provider", user_facing=False),
-    SlashCmd("statusline", "cycle (or set) statusline mode: basic|default|learning|full", user_facing=False, takes_arg=True, arg_label="[MODE]"),
+    SlashCmd(
+        "statusline",
+        "cycle (or set) statusline mode: basic|default|learning|full",
+        user_facing=False,
+        takes_arg=True,
+        arg_label="[MODE]",
+    ),
     SlashCmd("finding", "create a finding (Phase 4 v0 demo)", user_facing=False, takes_arg=True, arg_label="TEXT"),
     SlashCmd("decision", "create a decision (Phase 4 v0 demo)", user_facing=False, takes_arg=True, arg_label="TEXT"),
-    SlashCmd("unknown", "create an unknown question (Phase 4 v0 demo)", user_facing=False, takes_arg=True, arg_label="TEXT"),
-    SlashCmd("batch", "log a batch artifact graph from a JSON file", user_facing=False, takes_arg=True, arg_label="PATH"),
-    SlashCmd("resolve-batch", "resolve multiple unknown artifact IDs at once", user_facing=False, takes_arg=True, arg_label="ID1 ID2 …"),
-    SlashCmd("delete-batch", "delete multiple artifact IDs at once", user_facing=False, takes_arg=True, arg_label="ID1 ID2 …"),
+    SlashCmd(
+        "unknown", "create an unknown question (Phase 4 v0 demo)", user_facing=False, takes_arg=True, arg_label="TEXT"
+    ),
+    SlashCmd(
+        "batch", "log a batch artifact graph from a JSON file", user_facing=False, takes_arg=True, arg_label="PATH"
+    ),
+    SlashCmd(
+        "resolve-batch",
+        "resolve multiple unknown artifact IDs at once",
+        user_facing=False,
+        takes_arg=True,
+        arg_label="ID1 ID2 …",
+    ),
+    SlashCmd(
+        "delete-batch", "delete multiple artifact IDs at once", user_facing=False, takes_arg=True, arg_label="ID1 ID2 …"
+    ),
 )
 
 

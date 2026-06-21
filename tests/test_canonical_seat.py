@@ -16,17 +16,17 @@ from empirica.config.project_config_loader import compose_canonical_seat
 
 # ── composer ─────────────────────────────────────────────────────────
 
+
 def test_compose_canonical_seat_basic():
-    assert compose_canonical_seat(
-        mesh_id_prefix="empirica.david", ai_id="empirica"
-    ) == "empirica.david.empirica"
+    assert compose_canonical_seat(mesh_id_prefix="empirica.david", ai_id="empirica") == "empirica.david.empirica"
 
 
 def test_compose_canonical_seat_strips_trailing_dot():
     # cortex hands the prefix without a trailing dot, but be defensive.
-    assert compose_canonical_seat(
-        mesh_id_prefix="empirica.david.", ai_id="empirica-cortex"
-    ) == "empirica.david.empirica-cortex"
+    assert (
+        compose_canonical_seat(mesh_id_prefix="empirica.david.", ai_id="empirica-cortex")
+        == "empirica.david.empirica-cortex"
+    )
 
 
 def test_compose_canonical_seat_none_on_empty():
@@ -37,6 +37,7 @@ def test_compose_canonical_seat_none_on_empty():
 
 
 # ── persistence (self-healing canonical_seat) ────────────────────────
+
 
 def _write_yaml(path, obj):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -49,7 +50,9 @@ def test_persist_writes_canonical_seat(tmp_path):
     _write_yaml(pj, {"ai_id": "empirica"})
 
     changed = _persist_tenant_metadata(
-        tmp_path, org_id="org-empirica", tenant_slug="david",
+        tmp_path,
+        org_id="org-empirica",
+        tenant_slug="david",
         mesh_id_prefix="empirica.david",
     )
     assert changed is True
@@ -62,16 +65,21 @@ def test_persist_heals_seat_when_core_fields_unchanged(tmp_path):
     """A project.yaml that already has mesh_id_prefix + ai_id but no seat
     gets the seat backfilled even though the three core fields don't change."""
     pj = tmp_path / ".empirica" / "project.yaml"
-    _write_yaml(pj, {
-        "ai_id": "empirica",
-        "org_id": "org-empirica",
-        "tenant_slug": "david",
-        "mesh_id_prefix": "empirica.david",
-        # no canonical_seat
-    })
+    _write_yaml(
+        pj,
+        {
+            "ai_id": "empirica",
+            "org_id": "org-empirica",
+            "tenant_slug": "david",
+            "mesh_id_prefix": "empirica.david",
+            # no canonical_seat
+        },
+    )
 
     changed = _persist_tenant_metadata(
-        tmp_path, org_id="org-empirica", tenant_slug="david",
+        tmp_path,
+        org_id="org-empirica",
+        tenant_slug="david",
         mesh_id_prefix="empirica.david",
     )
     assert changed is True  # seat heal alone is a change
@@ -81,16 +89,21 @@ def test_persist_heals_seat_when_core_fields_unchanged(tmp_path):
 
 def test_persist_idempotent_when_seat_already_present(tmp_path):
     pj = tmp_path / ".empirica" / "project.yaml"
-    _write_yaml(pj, {
-        "ai_id": "empirica",
-        "org_id": "org-empirica",
-        "tenant_slug": "david",
-        "mesh_id_prefix": "empirica.david",
-        "canonical_seat": "empirica.david.empirica",
-    })
+    _write_yaml(
+        pj,
+        {
+            "ai_id": "empirica",
+            "org_id": "org-empirica",
+            "tenant_slug": "david",
+            "mesh_id_prefix": "empirica.david",
+            "canonical_seat": "empirica.david.empirica",
+        },
+    )
 
     changed = _persist_tenant_metadata(
-        tmp_path, org_id="org-empirica", tenant_slug="david",
+        tmp_path,
+        org_id="org-empirica",
+        tenant_slug="david",
         mesh_id_prefix="empirica.david",
     )
     assert changed is False
@@ -102,7 +115,9 @@ def test_persist_no_seat_without_mesh_prefix(tmp_path):
     _write_yaml(pj, {"ai_id": "empirica"})
 
     changed = _persist_tenant_metadata(
-        tmp_path, org_id="org-empirica", tenant_slug="david",
+        tmp_path,
+        org_id="org-empirica",
+        tenant_slug="david",
         mesh_id_prefix=None,
     )
     out = yaml.safe_load(pj.read_text())

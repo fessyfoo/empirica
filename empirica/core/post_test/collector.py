@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 
 class EvidenceQuality(Enum):
     """How reliable is this evidence source?"""
+
     OBJECTIVE = "objective"
     SEMI_OBJECTIVE = "semi_objective"
     INFERRED = "inferred"
@@ -57,6 +58,7 @@ class EvidenceItem:
     Used by goal-criterion EvidenceMetricEvaluator to pick the correct
     comparison operator against a declared threshold.
     """
+
     source: str
     metric_name: str
     value: float
@@ -85,6 +87,7 @@ class EvidenceBundle:
     like the goal-criterion EvidenceMetricEvaluator. They search items by
     metric_name and return the first match.
     """
+
     session_id: str
     items: list[EvidenceItem] = field(default_factory=list)
     collection_timestamp: float = 0.0
@@ -124,7 +127,6 @@ class EvidenceBundle:
         return item.direction if item else "higher_is_better"
 
 
-
 # Weight applied to artifacts not linked to any session goal.
 # Unscoped unknowns (future research, general observations) still contribute
 # but with reduced influence so they don't artificially depress KNOW grounding.
@@ -150,6 +152,7 @@ class EvidenceProfile:
     - CLI flag: --evidence-profile web
     - Environment: EMPIRICA_EVIDENCE_PROFILE=web
     """
+
     CODE = "code"
     PROSE = "prose"
     WEB = "web"
@@ -160,8 +163,7 @@ class EvidenceProfile:
     VALID: ClassVar[set[str]] = {CODE, PROSE, WEB, HYBRID, INSUFFICIENT, AUTO}
 
     @staticmethod
-    def resolve(explicit: str | None = None,
-                project_path: str | None = None) -> str:
+    def resolve(explicit: str | None = None, project_path: str | None = None) -> str:
         """Resolve the evidence profile from explicit flag, config, or env."""
         import os
 
@@ -178,6 +180,7 @@ class EvidenceProfile:
         if project_path:
             try:
                 import yaml
+
                 config_path = Path(project_path) / ".empirica" / "project.yaml"
                 if config_path.exists():
                     with open(config_path) as f:
@@ -195,13 +198,18 @@ class EvidenceProfile:
 class PostTestCollector:
     """Collects objective evidence from multiple sources."""
 
-    def __init__(self, session_id: str, project_id: str | None = None,
-                 db=None, phase: str = "combined",
-                 check_timestamp: float | None = None,
-                 evidence_profile: str | None = None,
-                 work_context: str | None = None,
-                 preflight_timestamp: float | None = None,
-                 transaction_id: str | None = None):
+    def __init__(
+        self,
+        session_id: str,
+        project_id: str | None = None,
+        db=None,
+        phase: str = "combined",
+        check_timestamp: float | None = None,
+        evidence_profile: str | None = None,
+        work_context: str | None = None,
+        preflight_timestamp: float | None = None,
+        transaction_id: str | None = None,
+    ):
         self.session_id = session_id
         self.project_id = project_id
         self.phase = phase  # "noetic", "praxic", or "combined"
@@ -219,6 +227,7 @@ class PostTestCollector:
     def _get_db(self):
         if self._db is None:
             from empirica.data.session_database import SessionDatabase
+
             self._db = SessionDatabase()
             self._owns_db = True
         return self._db
@@ -265,8 +274,9 @@ class PostTestCollector:
         if profile == EvidenceProfile.AUTO:
             # Auto-detect from changed file extensions
             changed = self._get_session_changed_files()
-            has_code = any(f.endswith('.py') for f in changed)
+            has_code = any(f.endswith(".py") for f in changed)
             from .web_collector import WEB_EXTENSIONS
+
             has_web = any(Path(f).suffix in WEB_EXTENSIONS for f in changed)
             if has_web and has_code:
                 return EvidenceProfile.HYBRID
@@ -304,6 +314,7 @@ class PostTestCollector:
         if self.project_id:
             try:
                 from empirica.utils.session_resolver import InstanceResolver as R
+
                 project_info = R.resolve_workspace_project(self.project_id)
                 if project_info and (project_info.get("project_path") or project_info.get("trajectory_path")):
                     path = project_info.get("project_path") or project_info["trajectory_path"]
@@ -316,6 +327,7 @@ class PostTestCollector:
         # Priority 2: Active project path from instance/active_work files
         try:
             from empirica.utils.session_resolver import InstanceResolver as R
+
             active_path = R.project_path()
             if active_path and Path(active_path).is_dir():
                 self._project_root = active_path
@@ -327,7 +339,9 @@ class PostTestCollector:
         try:
             result = subprocess.run(
                 ["git", "rev-parse", "--show-toplevel"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if result.returncode == 0:
                 self._project_root = result.stdout.strip()
@@ -354,13 +368,11 @@ class PostTestCollector:
             return self._project_maturity
 
         # Default: assume mature (current behavior)
-        result = {"total_commits": 100, "is_greenfield": False,
-                  "is_young": False, "maturity": "mature"}
+        result = {"total_commits": 100, "is_greenfield": False, "is_young": False, "maturity": "mature"}
 
         # work_context override: if explicitly set to greenfield, trust it
         if self.work_context == "greenfield":
-            result.update({"total_commits": 1, "is_greenfield": True,
-                           "is_young": True, "maturity": "greenfield"})
+            result.update({"total_commits": 1, "is_greenfield": True, "is_young": True, "maturity": "greenfield"})
             self._project_maturity = result
             return result
 
@@ -372,7 +384,9 @@ class PostTestCollector:
         try:
             proc = subprocess.run(
                 ["git", "rev-list", "--count", "HEAD"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
                 cwd=project_root,
             )
             if proc.returncode == 0:
@@ -395,6 +409,7 @@ class PostTestCollector:
     def _get_prose_collectors(self) -> list[tuple]:
         """Get prose-specific evidence collectors."""
         from .prose_collector import ProseEvidenceCollector
+
         prose = ProseEvidenceCollector(
             session_id=self.session_id,
             project_id=self.project_id,
@@ -412,6 +427,7 @@ class PostTestCollector:
     def _get_web_collectors(self) -> list[tuple]:
         """Get web-specific evidence collectors."""
         from .web_collector import WebEvidenceCollector
+
         web = WebEvidenceCollector(
             session_id=self.session_id,
             project_id=self.project_id,
@@ -474,11 +490,15 @@ class PostTestCollector:
         elif profile == EvidenceProfile.WEB:
             profile_collectors = self._get_web_collectors()
         elif profile == EvidenceProfile.HYBRID:
-            profile_collectors = [
-                ("pytest", self._collect_test_results),
-                ("git", self._collect_git_metrics),
-                ("code_quality", self._collect_code_quality_metrics),
-            ] + self._get_prose_collectors() + self._get_web_collectors()
+            profile_collectors = (
+                [
+                    ("pytest", self._collect_test_results),
+                    ("git", self._collect_git_metrics),
+                    ("code_quality", self._collect_code_quality_metrics),
+                ]
+                + self._get_prose_collectors()
+                + self._get_web_collectors()
+            )
         else:
             # Fallback to code
             profile_collectors = [
@@ -533,10 +553,13 @@ class PostTestCollector:
 
         # Investigation depth: unknowns surfaced (more = better epistemic honesty)
         tx_sql, tx_params = self._tx_filter()
-        cursor.execute(f"""
+        cursor.execute(
+            f"""
             SELECT COUNT(*) FROM project_unknowns
             WHERE session_id = ? {tx_sql}
-        """, (self.session_id, *tx_params))
+        """,
+            (self.session_id, *tx_params),
+        )
         unknowns_surfaced = cursor.fetchone()[0]
 
         if unknowns_surfaced > 0:
@@ -554,71 +577,89 @@ class PostTestCollector:
             # source) and investigation_rounds (sentinel source) which both
             # measure actual doubt rather than disclosure honesty.
             honesty_score = min(1.0, unknowns_surfaced / 5.0)
-            items.append(EvidenceItem(
-                source="noetic",
-                metric_name="unknowns_surfaced",
-                value=honesty_score,
-                raw_value={"count": unknowns_surfaced},
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["know"],
-                metadata={"phase": "noetic"},
-            ))
+            items.append(
+                EvidenceItem(
+                    source="noetic",
+                    metric_name="unknowns_surfaced",
+                    value=honesty_score,
+                    raw_value={"count": unknowns_surfaced},
+                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                    supports_vectors=["know"],
+                    metadata={"phase": "noetic"},
+                )
+            )
 
         # Dead-end avoidance: dead-ends logged before CHECK proceed
         if self.check_timestamp:
-            cursor.execute(f"""
+            cursor.execute(
+                f"""
                 SELECT COUNT(*) FROM project_dead_ends
                 WHERE session_id = ? AND created_timestamp <= ? {tx_sql}
-            """, (self.session_id, self.check_timestamp, *tx_params))
+            """,
+                (self.session_id, self.check_timestamp, *tx_params),
+            )
             pre_check_dead_ends = cursor.fetchone()[0]
 
             if pre_check_dead_ends > 0:
                 # Identifying dead-ends before action = good pattern recognition
                 avoidance_score = min(1.0, pre_check_dead_ends / 3.0)
-                items.append(EvidenceItem(
-                    source="noetic",
-                    metric_name="dead_end_avoidance",
-                    value=avoidance_score,
-                    raw_value={"pre_check_dead_ends": pre_check_dead_ends},
-                    quality=EvidenceQuality.SEMI_OBJECTIVE,
-                    supports_vectors=["signal", "know"],
-                    metadata={"phase": "noetic"},
-                ))
+                items.append(
+                    EvidenceItem(
+                        source="noetic",
+                        metric_name="dead_end_avoidance",
+                        value=avoidance_score,
+                        raw_value={"pre_check_dead_ends": pre_check_dead_ends},
+                        quality=EvidenceQuality.SEMI_OBJECTIVE,
+                        supports_vectors=["signal", "know"],
+                        metadata={"phase": "noetic"},
+                    )
+                )
 
         # Findings logged during investigation (pre-CHECK)
         if self.check_timestamp:
-            cursor.execute(f"""
+            cursor.execute(
+                f"""
                 SELECT COUNT(*) FROM project_findings
                 WHERE session_id = ? AND created_timestamp <= ? {tx_sql}
-            """, (self.session_id, self.check_timestamp, *tx_params))
+            """,
+                (self.session_id, self.check_timestamp, *tx_params),
+            )
             pre_check_findings = cursor.fetchone()[0]
         else:
-            cursor.execute(f"""
+            cursor.execute(
+                f"""
                 SELECT COUNT(*) FROM project_findings
                 WHERE session_id = ? {tx_sql}
-            """, (self.session_id, *tx_params))
+            """,
+                (self.session_id, *tx_params),
+            )
             pre_check_findings = cursor.fetchone()[0]
 
         if pre_check_findings > 0:
             # More findings during investigation = richer epistemic output
             discovery_score = min(1.0, pre_check_findings / 5.0)
-            items.append(EvidenceItem(
-                source="noetic",
-                metric_name="investigation_findings",
-                value=discovery_score,
-                raw_value={"findings": pre_check_findings},
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["know", "signal"],
-                metadata={"phase": "noetic"},
-            ))
+            items.append(
+                EvidenceItem(
+                    source="noetic",
+                    metric_name="investigation_findings",
+                    value=discovery_score,
+                    raw_value={"findings": pre_check_findings},
+                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                    supports_vectors=["know", "signal"],
+                    metadata={"phase": "noetic"},
+                )
+            )
 
         # CHECK iteration count: more investigate rounds = thorough but uncertain
         tx_ref_sql, tx_ref_params = self._tx_filter()
-        cursor.execute(f"""
+        cursor.execute(
+            f"""
             SELECT reflex_data FROM reflexes
             WHERE session_id = ? AND phase = 'CHECK' {tx_ref_sql}
             ORDER BY timestamp ASC
-        """, (self.session_id, *tx_ref_params))
+        """,
+            (self.session_id, *tx_ref_params),
+        )
         check_rows = cursor.fetchall()
 
         investigate_count = 0
@@ -640,18 +681,20 @@ class PostTestCollector:
             else:
                 thoroughness = max(0.4, 1.0 - (investigate_count - 3) * 0.15)
 
-            items.append(EvidenceItem(
-                source="noetic",
-                metric_name="investigation_thoroughness",
-                value=thoroughness,
-                raw_value={
-                    "investigate_rounds": investigate_count,
-                    "total_checks": len(check_rows),
-                },
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["know", "context"],
-                metadata={"phase": "noetic"},
-            ))
+            items.append(
+                EvidenceItem(
+                    source="noetic",
+                    metric_name="investigation_thoroughness",
+                    value=thoroughness,
+                    raw_value={
+                        "investigate_rounds": investigate_count,
+                        "total_checks": len(check_rows),
+                    },
+                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                    supports_vectors=["know", "context"],
+                    metadata={"phase": "noetic"},
+                )
+            )
 
         return items
 
@@ -663,69 +706,82 @@ class PostTestCollector:
 
         # Subtask completion ratio — scoped to transaction's goals if available
         if self.transaction_id:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT
                     COUNT(*) as total,
                     SUM(CASE WHEN s.status = 'completed' THEN 1 ELSE 0 END) as completed
                 FROM subtasks s
                 JOIN goals g ON s.goal_id = g.id
                 WHERE g.transaction_id = ?
-            """, (self.transaction_id,))
+            """,
+                (self.transaction_id,),
+            )
         else:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT
                     COUNT(*) as total,
                     SUM(CASE WHEN s.status = 'completed' THEN 1 ELSE 0 END) as completed
                 FROM subtasks s
                 JOIN goals g ON s.goal_id = g.id
                 WHERE g.session_id = ?
-            """, (self.session_id,))
+            """,
+                (self.session_id,),
+            )
         row = cursor.fetchone()
 
         if row and row[0] > 0:
             total, completed = row[0], row[1]
             ratio = completed / total
-            items.append(EvidenceItem(
-                source="goals",
-                metric_name="subtask_completion_ratio",
-                value=ratio,
-                raw_value={"completed": completed, "total": total},
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["completion", "do"],
-                metadata={"session_id": self.session_id},
-            ))
+            items.append(
+                EvidenceItem(
+                    source="goals",
+                    metric_name="subtask_completion_ratio",
+                    value=ratio,
+                    raw_value={"completed": completed, "total": total},
+                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                    supports_vectors=["completion", "do"],
+                    metadata={"session_id": self.session_id},
+                )
+            )
 
             # Goal completion also grounds impact and change:
             # completing goals = delivering impact, creating change
             if completed > 0:
                 # Impact: completing any goals shows delivered value
                 impact_score = min(1.0, ratio * 1.2)  # Boost slightly — completion is strong impact signal
-                items.append(EvidenceItem(
-                    source="goals",
-                    metric_name="goal_completion_impact",
-                    value=impact_score,
-                    raw_value={"completed": completed, "total": total},
-                    quality=EvidenceQuality.SEMI_OBJECTIVE,
-                    supports_vectors=["impact"],
-                    metadata={"session_id": self.session_id},
-                ))
+                items.append(
+                    EvidenceItem(
+                        source="goals",
+                        metric_name="goal_completion_impact",
+                        value=impact_score,
+                        raw_value={"completed": completed, "total": total},
+                        quality=EvidenceQuality.SEMI_OBJECTIVE,
+                        supports_vectors=["impact"],
+                        metadata={"session_id": self.session_id},
+                    )
+                )
 
                 # Change: completed goals = state change happened
                 change_score = ratio  # Direct ratio — completing half the goals = 0.5 change
-                items.append(EvidenceItem(
-                    source="goals",
-                    metric_name="goal_completion_change",
-                    value=change_score,
-                    raw_value={"completed": completed, "total": total},
-                    quality=EvidenceQuality.SEMI_OBJECTIVE,
-                    supports_vectors=["change"],
-                    metadata={"session_id": self.session_id},
-                ))
+                items.append(
+                    EvidenceItem(
+                        source="goals",
+                        metric_name="goal_completion_change",
+                        value=change_score,
+                        raw_value={"completed": completed, "total": total},
+                        quality=EvidenceQuality.SEMI_OBJECTIVE,
+                        supports_vectors=["change"],
+                        metadata={"session_id": self.session_id},
+                    )
+                )
 
         # Token estimation accuracy — scoped to transaction's goals if available
         goal_scope_col = "g.transaction_id" if self.transaction_id else "g.session_id"
         goal_scope_val = self.transaction_id or self.session_id
-        cursor.execute(f"""
+        cursor.execute(
+            f"""
             SELECT
                 SUM(s.estimated_tokens) as est,
                 SUM(s.actual_tokens) as actual
@@ -735,7 +791,9 @@ class PostTestCollector:
               AND s.estimated_tokens IS NOT NULL
               AND s.actual_tokens IS NOT NULL
               AND s.estimated_tokens > 0
-        """, (goal_scope_val,))
+        """,
+            (goal_scope_val,),
+        )
         row = cursor.fetchone()
 
         if row and row[0] and row[1] and row[0] > 0:
@@ -743,15 +801,17 @@ class PostTestCollector:
             # Accuracy = 1.0 - abs(error_ratio), clamped to [0, 1]
             error_ratio = abs(actual - est) / est
             accuracy = max(0.0, 1.0 - error_ratio)
-            items.append(EvidenceItem(
-                source="goals",
-                metric_name="token_estimation_accuracy",
-                value=accuracy,
-                raw_value={"estimated": est, "actual": actual},
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["know", "clarity"],
-                metadata={"error_ratio": error_ratio},
-            ))
+            items.append(
+                EvidenceItem(
+                    source="goals",
+                    metric_name="token_estimation_accuracy",
+                    value=accuracy,
+                    raw_value={"estimated": est, "actual": actual},
+                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                    supports_vectors=["know", "clarity"],
+                    metadata={"error_ratio": error_ratio},
+                )
+            )
 
         return items
 
@@ -759,30 +819,44 @@ class PostTestCollector:
         """Query scope-weighted unknown counts. Returns (weighted_total, weighted_resolved, scoped_total, unscoped_total)."""
         if has_goals:
             placeholders = ",".join("?" for _ in goal_ids)
-            cursor.execute(f"""
+            cursor.execute(
+                f"""
                 SELECT COUNT(*) as total, SUM(CASE WHEN u.is_resolved = 1 THEN 1 ELSE 0 END) as resolved
                 FROM project_unknowns u LEFT JOIN goals g ON u.goal_id = g.id
                 WHERE u.session_id = ? AND u.goal_id IN ({placeholders})
                   AND NOT (u.is_resolved = 0 AND g.status = 'completed') {tx_sql_u}
-            """, (self.session_id, *goal_ids, *tx_params_u))
+            """,
+                (self.session_id, *goal_ids, *tx_params_u),
+            )
             row = cursor.fetchone()
             scoped_total = row[0] if row else 0
             scoped_resolved = row[1] or 0 if row else 0
-            cursor.execute(f"""
+            cursor.execute(
+                f"""
                 SELECT COUNT(*) as total, SUM(CASE WHEN is_resolved = 1 THEN 1 ELSE 0 END) as resolved
                 FROM project_unknowns WHERE session_id = ?
                   AND (goal_id IS NULL OR goal_id = '' OR goal_id NOT IN ({placeholders})) {tx_sql}
-            """, (self.session_id, *goal_ids, *tx_params))
+            """,
+                (self.session_id, *goal_ids, *tx_params),
+            )
             row = cursor.fetchone()
             unscoped_total = row[0] if row else 0
             unscoped_resolved = row[1] or 0 if row else 0
             w = UNSCOPED_ARTIFACT_WEIGHT
-            return scoped_total + (unscoped_total * w), scoped_resolved + (unscoped_resolved * w), scoped_total, unscoped_total
+            return (
+                scoped_total + (unscoped_total * w),
+                scoped_resolved + (unscoped_resolved * w),
+                scoped_total,
+                unscoped_total,
+            )
         else:
-            cursor.execute(f"""
+            cursor.execute(
+                f"""
                 SELECT COUNT(*) as total, SUM(CASE WHEN is_resolved = 1 THEN 1 ELSE 0 END) as resolved
                 FROM project_unknowns WHERE session_id = ? {tx_sql}
-            """, (self.session_id, *tx_params))
+            """,
+                (self.session_id, *tx_params),
+            )
             row = cursor.fetchone()
             wt = row[0] if row else 0
             wr = row[1] or 0 if row else 0
@@ -792,11 +866,14 @@ class PostTestCollector:
         """Query scope-weighted count for a table. Returns (weighted_count, scoped, unscoped)."""
         if has_goals:
             placeholders = ",".join("?" for _ in goal_ids)
-            cursor.execute(f"""
+            cursor.execute(
+                f"""
                 SELECT SUM(CASE WHEN goal_id IN ({placeholders}) THEN 1 ELSE 0 END),
                        SUM(CASE WHEN goal_id IS NULL OR goal_id = '' OR goal_id NOT IN ({placeholders}) THEN 1 ELSE 0 END)
                 FROM {table} WHERE session_id = ? {tx_sql}
-            """, (*goal_ids, *goal_ids, self.session_id, *tx_params))
+            """,
+                (*goal_ids, *goal_ids, self.session_id, *tx_params),
+            )
             row = cursor.fetchone()
             scoped = row[0] or 0 if row else 0
             unscoped = row[1] or 0 if row else 0
@@ -826,22 +903,28 @@ class PostTestCollector:
         tx_sql_u, tx_params_u = self._tx_filter("u")
 
         # --- Scope-weighted unknowns ---
-        unknowns_weighted_total, unknowns_weighted_resolved, scoped_total, unscoped_total = \
+        unknowns_weighted_total, unknowns_weighted_resolved, scoped_total, unscoped_total = (
             self._query_scope_weighted_unknowns(cursor, goal_ids, has_goals, tx_sql, tx_params, tx_sql_u, tx_params_u)
+        )
 
         # --- Scope-weighted findings ---
-        findings_count, scoped_findings, unscoped_findings = \
-            self._query_scope_weighted_count(cursor, "project_findings", goal_ids, has_goals, tx_sql, tx_params)
+        findings_count, scoped_findings, unscoped_findings = self._query_scope_weighted_count(
+            cursor, "project_findings", goal_ids, has_goals, tx_sql, tx_params
+        )
 
         # --- Scope-weighted dead-ends ---
-        dead_ends_count, _scoped_de, _unscoped_de = \
-            self._query_scope_weighted_count(cursor, "project_dead_ends", goal_ids, has_goals, tx_sql, tx_params)
+        dead_ends_count, _scoped_de, _unscoped_de = self._query_scope_weighted_count(
+            cursor, "project_dead_ends", goal_ids, has_goals, tx_sql, tx_params
+        )
 
         # Mistakes count (not scope-weighted — all mistakes are relevant)
-        cursor.execute(f"""
+        cursor.execute(
+            f"""
             SELECT COUNT(*) FROM mistakes_made
             WHERE session_id = ? {tx_sql}
-        """, (self.session_id, *tx_params))
+        """,
+            (self.session_id, *tx_params),
+        )
         mistakes_count = cursor.fetchone()[0]
 
         # Unknown resolution ratio → know proxy (scope-weighted)
@@ -851,39 +934,43 @@ class PostTestCollector:
         if unknowns_weighted_total > 0:
             raw_ratio = unknowns_weighted_resolved / unknowns_weighted_total
             resolution_ratio = 0.3 + (raw_ratio * 0.7)  # 0.3 (unresolved) → 1.0 (all resolved)
-            items.append(EvidenceItem(
-                source="artifacts",
-                metric_name="unknown_resolution_ratio",
-                value=resolution_ratio,
-                raw_value={
-                    "resolved_weighted": round(unknowns_weighted_resolved, 2),
-                    "total_weighted": round(unknowns_weighted_total, 2),
-                    "scoped_total": scoped_total,
-                    "unscoped_total": unscoped_total,
-                    "unscoped_weight": UNSCOPED_ARTIFACT_WEIGHT,
-                    "raw_ratio": round(raw_ratio, 4),
-                    "floor_applied": True,
-                },
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["know"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="artifacts",
+                    metric_name="unknown_resolution_ratio",
+                    value=resolution_ratio,
+                    raw_value={
+                        "resolved_weighted": round(unknowns_weighted_resolved, 2),
+                        "total_weighted": round(unknowns_weighted_total, 2),
+                        "scoped_total": scoped_total,
+                        "unscoped_total": unscoped_total,
+                        "unscoped_weight": UNSCOPED_ARTIFACT_WEIGHT,
+                        "raw_ratio": round(raw_ratio, 4),
+                        "floor_applied": True,
+                    },
+                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                    supports_vectors=["know"],
+                )
+            )
 
         # Productive exploration ratio → signal quality (scope-weighted)
         # (findings / (findings + dead_ends)) — higher = more productive
         total_exploration = findings_count + dead_ends_count
         if total_exploration > 0:
             productivity = findings_count / total_exploration
-            items.append(EvidenceItem(
-                source="artifacts",
-                metric_name="productive_exploration_ratio",
-                value=productivity,
-                raw_value={
-                    "findings_weighted": round(findings_count, 2),
-                    "dead_ends_weighted": round(dead_ends_count, 2),
-                },
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["signal", "know"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="artifacts",
+                    metric_name="productive_exploration_ratio",
+                    value=productivity,
+                    raw_value={
+                        "findings_weighted": round(findings_count, 2),
+                        "dead_ends_weighted": round(dead_ends_count, 2),
+                    },
+                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                    supports_vectors=["signal", "know"],
+                )
+            )
 
         # Dead-end ratio — removed as direct uncertainty source (2026-04-07).
         # Uncertainty is now a META-derived quantity computed in mapper.py
@@ -898,14 +985,16 @@ class PostTestCollector:
         raw_findings = (scoped_findings + unscoped_findings) if has_goals else findings_count
         if raw_findings > 0:
             mistake_ratio = mistakes_count / (raw_findings + mistakes_count)
-            items.append(EvidenceItem(
-                source="artifacts",
-                metric_name="mistake_ratio",
-                value=1.0 - mistake_ratio,  # Invert: fewer mistakes = better
-                raw_value={"mistakes": mistakes_count, "findings": raw_findings},
-                quality=EvidenceQuality.INFERRED,
-                supports_vectors=["signal"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="artifacts",
+                    metric_name="mistake_ratio",
+                    value=1.0 - mistake_ratio,  # Invert: fewer mistakes = better
+                    raw_value={"mistakes": mistakes_count, "findings": raw_findings},
+                    quality=EvidenceQuality.INFERRED,
+                    supports_vectors=["signal"],
+                )
+            )
 
         # ── Context evidence: project/session-level knowledge availability ──
         # These are phase-agnostic (run in both noetic and praxic phases)
@@ -916,71 +1005,83 @@ class PostTestCollector:
         # project-search, and Qdrant retrieval.
         try:
             prior_artifact_count = 0
-            for table in ("project_findings", "project_unknowns",
-                          "project_dead_ends", "decisions", "assumptions"):
+            for table in ("project_findings", "project_unknowns", "project_dead_ends", "decisions", "assumptions"):
                 try:
-                    cursor.execute(f"""
+                    cursor.execute(
+                        f"""
                         SELECT COUNT(*) FROM {table}
                         WHERE session_id != ?
-                    """, (self.session_id,))
+                    """,
+                        (self.session_id,),
+                    )
                     prior_artifact_count += cursor.fetchone()[0]
                 except Exception:
                     continue
 
             if prior_artifact_count > 0:
                 depth = min(1.0, prior_artifact_count / 100.0)
-                items.append(EvidenceItem(
-                    source="artifacts",
-                    metric_name="project_epistemic_depth",
-                    value=depth,
-                    raw_value={"prior_artifacts": prior_artifact_count},
-                    quality=EvidenceQuality.SEMI_OBJECTIVE,
-                    supports_vectors=["context"],
-                ))
+                items.append(
+                    EvidenceItem(
+                        source="artifacts",
+                        metric_name="project_epistemic_depth",
+                        value=depth,
+                        raw_value={"prior_artifacts": prior_artifact_count},
+                        quality=EvidenceQuality.SEMI_OBJECTIVE,
+                        supports_vectors=["context"],
+                    )
+                )
 
             # Session accumulated context: completed transactions in this session.
             # More completed transactions = deeper understanding accumulated.
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT COUNT(*) FROM reflexes
                 WHERE session_id = ? AND phase = 'POSTFLIGHT'
-            """, (self.session_id,))
+            """,
+                (self.session_id,),
+            )
             completed_txns = cursor.fetchone()[0]
 
             if completed_txns > 0:
                 session_context = min(1.0, 0.2 + completed_txns * 0.2)
-                items.append(EvidenceItem(
-                    source="artifacts",
-                    metric_name="session_accumulated_context",
-                    value=session_context,
-                    raw_value={"completed_transactions": completed_txns},
-                    quality=EvidenceQuality.SEMI_OBJECTIVE,
-                    supports_vectors=["context"],
-                ))
+                items.append(
+                    EvidenceItem(
+                        source="artifacts",
+                        metric_name="session_accumulated_context",
+                        value=session_context,
+                        raw_value={"completed_transactions": completed_txns},
+                        quality=EvidenceQuality.SEMI_OBJECTIVE,
+                        supports_vectors=["context"],
+                    )
+                )
 
             # PREFLIGHT pattern count: how many prior-knowledge patterns were
             # loaded at PREFLIGHT? Stored in transaction file by PREFLIGHT handler.
             # More patterns = richer task-relevant context available.
             try:
                 from empirica.utils.session_resolver import _get_instance_suffix
+
                 suffix = _get_instance_suffix()
                 project_root = self._resolve_project_root()
                 if project_root:
-                    tx_file = Path(project_root) / '.empirica' / f'active_transaction{suffix}.json'
+                    tx_file = Path(project_root) / ".empirica" / f"active_transaction{suffix}.json"
                     if tx_file.exists():
                         with open(tx_file) as f:
                             tx_data = json.load(f)
-                        pattern_count = tx_data.get('preflight_pattern_count', 0)
+                        pattern_count = tx_data.get("preflight_pattern_count", 0)
                         if pattern_count > 0:
                             # Normalize: 5 patterns = 0.33, 15+ = 1.0
                             richness = min(1.0, pattern_count / 15.0)
-                            items.append(EvidenceItem(
-                                source="artifacts",
-                                metric_name="preflight_context_richness",
-                                value=richness,
-                                raw_value={"pattern_count": pattern_count},
-                                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                                supports_vectors=["context", "know"],
-                            ))
+                            items.append(
+                                EvidenceItem(
+                                    source="artifacts",
+                                    metric_name="preflight_context_richness",
+                                    value=richness,
+                                    raw_value={"pattern_count": pattern_count},
+                                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                                    supports_vectors=["context", "know"],
+                                )
+                            )
             except Exception:
                 pass  # Non-fatal — pattern count may not be available
         except Exception:
@@ -1001,14 +1102,17 @@ class PostTestCollector:
 
         tx_sql, tx_params = self._tx_filter()
         try:
-            cursor.execute(f"""
+            cursor.execute(
+                f"""
                 SELECT
                     COUNT(*) as total,
                     SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as resolved,
                     SUM(CASE WHEN severity = 'blocker' OR severity = 'high' THEN 1 ELSE 0 END) as severe
                 FROM auto_captured_issues
                 WHERE session_id = ? {tx_sql}
-            """, (self.session_id, *tx_params))
+            """,
+                (self.session_id, *tx_params),
+            )
             row = cursor.fetchone()
         except Exception:
             return items
@@ -1023,40 +1127,51 @@ class PostTestCollector:
             if total > 0:
                 raw_ratio = resolved / total
                 resolution_ratio = 0.2 + (raw_ratio * 0.8)  # 0.2 (unresolved) → 1.0 (all resolved)
-                items.append(EvidenceItem(
-                    source="issues",
-                    metric_name="issue_resolution_ratio",
-                    value=resolution_ratio,
-                    raw_value={"resolved": resolved, "total": total, "raw_ratio": round(raw_ratio, 4), "floor_applied": True},
-                    quality=EvidenceQuality.SEMI_OBJECTIVE,
-                    supports_vectors=["impact"],
-                ))
+                items.append(
+                    EvidenceItem(
+                        source="issues",
+                        metric_name="issue_resolution_ratio",
+                        value=resolution_ratio,
+                        raw_value={
+                            "resolved": resolved,
+                            "total": total,
+                            "raw_ratio": round(raw_ratio, 4),
+                            "floor_applied": True,
+                        },
+                        quality=EvidenceQuality.SEMI_OBJECTIVE,
+                        supports_vectors=["impact"],
+                    )
+                )
 
             # Inverse severe issue density → signal quality
             # Fewer severe issues = better signal quality
             severity_score = max(0.0, 1.0 - (severe / max(total, 1)))
-            items.append(EvidenceItem(
-                source="issues",
-                metric_name="inverse_severe_issue_density",
-                value=severity_score,
-                raw_value={"severe": severe, "total": total},
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["signal"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="issues",
+                    metric_name="inverse_severe_issue_density",
+                    value=severity_score,
+                    raw_value={"severe": severe, "total": total},
+                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                    supports_vectors=["signal"],
+                )
+            )
         else:
             # No issues at all — only provide evidence for mature projects
             # where zero issues is meaningful. For greenfield/young projects,
             # absence of issues is not informative (no code to have issues with).
             maturity = self._detect_project_maturity()
             if not maturity["is_greenfield"] and not maturity["is_young"]:
-                items.append(EvidenceItem(
-                    source="issues",
-                    metric_name="issue_resolution_ratio",
-                    value=1.0,
-                    raw_value={"resolved": 0, "total": 0, "note": "no issues in mature project"},
-                    quality=EvidenceQuality.INFERRED,
-                    supports_vectors=["impact"],
-                ))
+                items.append(
+                    EvidenceItem(
+                        source="issues",
+                        metric_name="issue_resolution_ratio",
+                        value=1.0,
+                        raw_value={"resolved": 0, "total": 0, "note": "no issues in mature project"},
+                        quality=EvidenceQuality.INFERRED,
+                        supports_vectors=["impact"],
+                    )
+                )
 
         return items
 
@@ -1098,12 +1213,15 @@ class PostTestCollector:
         cursor = db.conn.cursor()
 
         # Goals completed since scope_start (transaction or session)
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT COUNT(*) FROM goals
             WHERE status = 'completed'
               AND completed_timestamp >= ?
               AND completed_timestamp IS NOT NULL
-        """, (scope_start,))
+        """,
+            (scope_start,),
+        )
         goals_completed = cursor.fetchone()[0]
 
         # Total goals relevant to THIS transaction (for ratio):
@@ -1115,20 +1233,26 @@ class PostTestCollector:
         # (the 1/18 bug where 17 old open goals dilute a 1/1 completion).
         # Exclude 'planned' goals — they exist but haven't been started yet.
         if self.transaction_id:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT COUNT(DISTINCT id) FROM goals
                 WHERE status != 'planned'
                   AND (transaction_id = ?
                    OR created_timestamp >= ?
                    OR (completed_timestamp >= ? AND completed_timestamp IS NOT NULL))
-            """, (self.transaction_id, scope_start, scope_start))
+            """,
+                (self.transaction_id, scope_start, scope_start),
+            )
         else:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT COUNT(DISTINCT id) FROM goals
                 WHERE status != 'planned'
                   AND (created_timestamp >= ?
                    OR (completed_timestamp >= ? AND completed_timestamp IS NOT NULL))
-            """, (scope_start, scope_start))
+            """,
+                (scope_start, scope_start),
+            )
         total_goals_in_scope = max(cursor.fetchone()[0], goals_completed)
 
         scope_label = "transaction"
@@ -1138,44 +1262,51 @@ class PostTestCollector:
             # Transaction-scoped expectation: 1-3 goals per transaction is normal.
             # Maps 1→0.7, 2→0.9, 3+→1.0
             do_score = min(1.0, 0.5 + goals_completed * 0.2)
-            items.append(EvidenceItem(
-                source="triage",
-                metric_name="goals_completed",
-                value=do_score,
-                raw_value={
-                    "completed": goals_completed,
-                    "in_scope": total_goals_in_scope,
-                    "scope": scope_label,
-                },
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["do", "completion"],
-                metadata={"work_type": "triage"},
-            ))
-
-            # Completion ratio (if meaningful denominator)
-            if total_goals_in_scope > 0:
-                completion_ratio = min(1.0, goals_completed / total_goals_in_scope)
-                items.append(EvidenceItem(
+            items.append(
+                EvidenceItem(
                     source="triage",
-                    metric_name="goal_completion_ratio",
-                    value=completion_ratio,
+                    metric_name="goals_completed",
+                    value=do_score,
                     raw_value={
                         "completed": goals_completed,
                         "in_scope": total_goals_in_scope,
                         "scope": scope_label,
                     },
                     quality=EvidenceQuality.SEMI_OBJECTIVE,
-                    supports_vectors=["completion", "change"],
+                    supports_vectors=["do", "completion"],
                     metadata={"work_type": "triage"},
-                ))
+                )
+            )
+
+            # Completion ratio (if meaningful denominator)
+            if total_goals_in_scope > 0:
+                completion_ratio = min(1.0, goals_completed / total_goals_in_scope)
+                items.append(
+                    EvidenceItem(
+                        source="triage",
+                        metric_name="goal_completion_ratio",
+                        value=completion_ratio,
+                        raw_value={
+                            "completed": goals_completed,
+                            "in_scope": total_goals_in_scope,
+                            "scope": scope_label,
+                        },
+                        quality=EvidenceQuality.SEMI_OBJECTIVE,
+                        supports_vectors=["completion", "change"],
+                        metadata={"work_type": "triage"},
+                    )
+                )
 
         # Unknowns resolved since scope_start
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT COUNT(*) FROM project_unknowns
             WHERE is_resolved = 1
               AND resolved_timestamp >= ?
               AND resolved_timestamp IS NOT NULL
-        """, (scope_start,))
+        """,
+            (scope_start,),
+        )
         unknowns_resolved = cursor.fetchone()[0]
 
         if unknowns_resolved > 0:
@@ -1183,35 +1314,39 @@ class PostTestCollector:
             # Transaction-scoped: 1 resolution = strong signal.
             # Maps 1→0.7, 2→0.9, 3+→1.0
             resolve_do_score = min(1.0, 0.5 + unknowns_resolved * 0.2)
-            items.append(EvidenceItem(
-                source="triage",
-                metric_name="unknowns_resolved",
-                value=resolve_do_score,
-                raw_value={
-                    "resolved": unknowns_resolved,
-                    "scope": scope_label,
-                },
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["do", "know"],
-                metadata={"work_type": "triage"},
-            ))
+            items.append(
+                EvidenceItem(
+                    source="triage",
+                    metric_name="unknowns_resolved",
+                    value=resolve_do_score,
+                    raw_value={
+                        "resolved": unknowns_resolved,
+                        "scope": scope_label,
+                    },
+                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                    supports_vectors=["do", "know"],
+                    metadata={"work_type": "triage"},
+                )
+            )
 
             # High resolution count signals change happened.
             # Transaction-scoped: 2+ resolutions is substantial.
             if unknowns_resolved >= 2:
                 change_score = min(1.0, unknowns_resolved / 4.0)
-                items.append(EvidenceItem(
-                    source="triage",
-                    metric_name="triage_change",
-                    value=change_score,
-                    raw_value={
-                        "unknowns_resolved": unknowns_resolved,
-                        "scope": scope_label,
-                    },
-                    quality=EvidenceQuality.SEMI_OBJECTIVE,
-                    supports_vectors=["change"],
-                    metadata={"work_type": "triage"},
-                ))
+                items.append(
+                    EvidenceItem(
+                        source="triage",
+                        metric_name="triage_change",
+                        value=change_score,
+                        raw_value={
+                            "unknowns_resolved": unknowns_resolved,
+                            "scope": scope_label,
+                        },
+                        quality=EvidenceQuality.SEMI_OBJECTIVE,
+                        supports_vectors=["change"],
+                        metadata={"work_type": "triage"},
+                    )
+                )
 
         return items
 
@@ -1230,9 +1365,7 @@ class PostTestCollector:
         cursor = db.conn.cursor()
 
         # Check if codebase_entities table exists
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='codebase_entities'"
-        )
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='codebase_entities'")
         if not cursor.fetchone():
             return items
 
@@ -1247,18 +1380,20 @@ class PostTestCollector:
             # Entity discovery → know (understanding of codebase structure)
             # Normalize: 5 entities = 0.3, 20 = 0.6, 50+ = 1.0
             know_score = min(1.0, total_entities / 50.0)
-            items.append(EvidenceItem(
-                source="codebase_model",
-                metric_name="entities_discovered",
-                value=know_score,
-                raw_value={
-                    "total": total_entities,
-                    "by_type": entity_stats,
-                },
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["know", "context"],
-                metadata={"work_type": "entity_extraction"},
-            ))
+            items.append(
+                EvidenceItem(
+                    source="codebase_model",
+                    metric_name="entities_discovered",
+                    value=know_score,
+                    raw_value={
+                        "total": total_entities,
+                        "by_type": entity_stats,
+                    },
+                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                    supports_vectors=["know", "context"],
+                    metadata={"work_type": "entity_extraction"},
+                )
+            )
 
         # Facts created this session
         try:
@@ -1269,38 +1404,40 @@ class PostTestCollector:
         if fact_count > 0:
             # Facts → signal (understanding of what changed and why)
             signal_score = min(1.0, fact_count / 20.0)
-            items.append(EvidenceItem(
-                source="codebase_model",
-                metric_name="facts_created",
-                value=signal_score,
-                raw_value={"count": fact_count},
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["signal", "density"],
-                metadata={"work_type": "entity_extraction"},
-            ))
+            items.append(
+                EvidenceItem(
+                    source="codebase_model",
+                    metric_name="facts_created",
+                    value=signal_score,
+                    raw_value={"count": fact_count},
+                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                    supports_vectors=["signal", "density"],
+                    metadata={"work_type": "entity_extraction"},
+                )
+            )
 
         # Active constraints for the project → coherence (learned conventions)
         if self.project_id:
             try:
-                constraints = db.codebase_model.get_constraints(
-                    project_id=self.project_id
-                )
+                constraints = db.codebase_model.get_constraints(project_id=self.project_id)
                 if constraints:
-                    total_violations = sum(c.get('violation_count', 0) for c in constraints)
+                    total_violations = sum(c.get("violation_count", 0) for c in constraints)
                     # More constraints with violations = better convention awareness
                     coherence_score = min(1.0, len(constraints) / 10.0)
-                    items.append(EvidenceItem(
-                        source="codebase_model",
-                        metric_name="convention_constraints",
-                        value=coherence_score,
-                        raw_value={
-                            "constraint_count": len(constraints),
-                            "total_violations": total_violations,
-                        },
-                        quality=EvidenceQuality.SEMI_OBJECTIVE,
-                        supports_vectors=["coherence", "signal"],
-                        metadata={"work_type": "entity_extraction"},
-                    ))
+                    items.append(
+                        EvidenceItem(
+                            source="codebase_model",
+                            metric_name="convention_constraints",
+                            value=coherence_score,
+                            raw_value={
+                                "constraint_count": len(constraints),
+                                "total_violations": total_violations,
+                            },
+                            quality=EvidenceQuality.SEMI_OBJECTIVE,
+                            supports_vectors=["coherence", "signal"],
+                            metadata={"work_type": "entity_extraction"},
+                        )
+                    )
             except Exception:
                 pass
 
@@ -1317,7 +1454,10 @@ class PostTestCollector:
             cursor = db.conn.cursor()
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='codebase_entities'")
             if cursor.fetchone():
-                cursor.execute("SELECT DISTINCT file_path FROM codebase_entities WHERE session_id = ? AND file_path IS NOT NULL", (self.session_id,))
+                cursor.execute(
+                    "SELECT DISTINCT file_path FROM codebase_entities WHERE session_id = ? AND file_path IS NOT NULL",
+                    (self.session_id,),
+                )
                 for row in cursor.fetchall():
                     if row[0] and self._is_outside_git(row[0], git_root):
                         non_git_files.add(row[0])
@@ -1364,7 +1504,9 @@ class PostTestCollector:
             try:
                 result = subprocess.run(
                     ["git", "rev-parse", "--show-toplevel"],
-                    capture_output=True, text=True, timeout=5,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
                     cwd=project_root,
                 )
                 if result.returncode == 0:
@@ -1385,19 +1527,21 @@ class PostTestCollector:
         # Normalize: 1-2 files = 0.3, 3-5 = 0.6, 6+ = 0.8+
         change_score = min(1.0, 0.15 * file_count + 0.15)
 
-        items.append(EvidenceItem(
-            source="non_git_files",
-            metric_name="files_edited_outside_git",
-            value=change_score,
-            raw_value={
-                "files": file_count,
-                "paths": existing_files[:20],  # Cap for storage
-                "git_root": git_root or "none",
-            },
-            quality=EvidenceQuality.SEMI_OBJECTIVE,
-            supports_vectors=["state", "change", "do"],
-            metadata={"work_type": "non_git_file_edit"},
-        ))
+        items.append(
+            EvidenceItem(
+                source="non_git_files",
+                metric_name="files_edited_outside_git",
+                value=change_score,
+                raw_value={
+                    "files": file_count,
+                    "paths": existing_files[:20],  # Cap for storage
+                    "git_root": git_root or "none",
+                },
+                quality=EvidenceQuality.SEMI_OBJECTIVE,
+                supports_vectors=["state", "change", "do"],
+                metadata={"work_type": "non_git_file_edit"},
+            )
+        )
 
         return items
 
@@ -1416,26 +1560,26 @@ class PostTestCollector:
         # Try hook_counters file first (v1.8.14+), then fall back to transaction file
         search_dirs = []
         if project_root:
-            search_dirs.append(Path(project_root) / '.empirica')
-        search_dirs.append(Path.home() / '.empirica')
+            search_dirs.append(Path(project_root) / ".empirica")
+        search_dirs.append(Path.home() / ".empirica")
 
         for empirica_dir in search_dirs:
             # Primary: hook_counters file (hook-owned since v1.8.14)
-            counters_path = empirica_dir / f'hook_counters{suffix}.json'
+            counters_path = empirica_dir / f"hook_counters{suffix}.json"
             if counters_path.exists():
                 try:
                     with open(counters_path) as f:
-                        return json.load(f).get('edited_files', [])
+                        return json.load(f).get("edited_files", [])
                 except Exception:
                     pass
             # Fallback: active_transaction (pre-v1.8.14 compat)
-            tx_path = empirica_dir / f'active_transaction{suffix}.json'
+            tx_path = empirica_dir / f"active_transaction{suffix}.json"
             if tx_path.exists():
                 try:
                     with open(tx_path) as f:
                         tx = json.load(f)
-                    if 'edited_files' in tx:
-                        return tx.get('edited_files', [])
+                    if "edited_files" in tx:
+                        return tx.get("edited_files", [])
                 except Exception:
                     pass
         return []
@@ -1448,7 +1592,7 @@ class PostTestCollector:
         try:
             resolved = str(Path(file_path).resolve())
             git_resolved = str(Path(git_root).resolve())
-            return not (resolved == git_resolved or resolved.startswith(git_resolved + '/'))
+            return not (resolved == git_resolved or resolved.startswith(git_resolved + "/"))
         except (OSError, ValueError):
             return True
 
@@ -1460,11 +1604,14 @@ class PostTestCollector:
         tx_sql, tx_params = self._tx_filter()
 
         # CHECK phase decisions
-        cursor.execute(f"""
+        cursor.execute(
+            f"""
             SELECT reflex_data FROM reflexes
             WHERE session_id = ? AND phase = 'CHECK' {tx_sql}
             ORDER BY timestamp DESC
-        """, (self.session_id, *tx_params))
+        """,
+            (self.session_id, *tx_params),
+        )
         rows = cursor.fetchall()
 
         if rows:
@@ -1484,14 +1631,16 @@ class PostTestCollector:
             total_checks = proceed_count + investigate_count
             if total_checks > 0:
                 proceed_ratio = proceed_count / total_checks
-                items.append(EvidenceItem(
-                    source="sentinel",
-                    metric_name="check_proceed_ratio",
-                    value=proceed_ratio,
-                    raw_value={"proceed": proceed_count, "investigate": investigate_count},
-                    quality=EvidenceQuality.SEMI_OBJECTIVE,
-                    supports_vectors=["context"],
-                ))
+                items.append(
+                    EvidenceItem(
+                        source="sentinel",
+                        metric_name="check_proceed_ratio",
+                        value=proceed_ratio,
+                        raw_value={"proceed": proceed_count, "investigate": investigate_count},
+                        quality=EvidenceQuality.SEMI_OBJECTIVE,
+                        supports_vectors=["context"],
+                    )
+                )
 
             # Investigation rounds — removed as direct uncertainty source (2026-04-07).
             # Uncertainty is now a META-derived quantity computed in
@@ -1536,14 +1685,16 @@ class PostTestCollector:
 
         if total > 0:
             pass_rate = passed / total
-            items.append(EvidenceItem(
-                source="pytest",
-                metric_name="test_pass_rate",
-                value=pass_rate,
-                raw_value={"passed": passed, "failed": failed, "total": total},
-                quality=EvidenceQuality.OBJECTIVE,
-                supports_vectors=["know", "do", "state"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="pytest",
+                    metric_name="test_pass_rate",
+                    value=pass_rate,
+                    raw_value={"passed": passed, "failed": failed, "total": total},
+                    quality=EvidenceQuality.OBJECTIVE,
+                    supports_vectors=["know", "do", "state"],
+                )
+            )
 
         # Coverage data (if present via pytest-cov JSON)
         coverage_paths = [
@@ -1558,14 +1709,16 @@ class PostTestCollector:
                     cov_data = json.loads(cov_path.read_text())
                     total_pct = cov_data.get("totals", {}).get("percent_covered", 0)
                     if total_pct > 0:
-                        items.append(EvidenceItem(
-                            source="pytest",
-                            metric_name="test_coverage_percent",
-                            value=total_pct / 100.0,
-                            raw_value={"percent": total_pct},
-                            quality=EvidenceQuality.OBJECTIVE,
-                            supports_vectors=["clarity", "know"],
-                        ))
+                        items.append(
+                            EvidenceItem(
+                                source="pytest",
+                                metric_name="test_coverage_percent",
+                                value=total_pct / 100.0,
+                                raw_value={"percent": total_pct},
+                                quality=EvidenceQuality.OBJECTIVE,
+                                supports_vectors=["clarity", "know"],
+                            )
+                        )
                     break
                 except (json.JSONDecodeError, OSError):
                     continue
@@ -1602,33 +1755,72 @@ class PostTestCollector:
     def _collect_git_loc_amd_tree(self, since: str, project_root: str) -> list[EvidenceItem]:
         """Collect LOC delta, A/M/D file ratio, and working-tree cleanliness evidence."""
         import re
+
         items = []
-        result = subprocess.run(["git", "log", "--shortstat", "--format=", "--since=" + since],
-                                capture_output=True, text=True, timeout=5, cwd=project_root)
+        result = subprocess.run(
+            ["git", "log", "--shortstat", "--format=", "--since=" + since],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=project_root,
+        )
         if result.returncode == 0 and result.stdout.strip():
-            insertions = sum(int(m.group(1)) for m in re.finditer(r'(\d+) insertion', result.stdout))
-            deletions = sum(int(m.group(1)) for m in re.finditer(r'(\d+) deletion', result.stdout))
+            insertions = sum(int(m.group(1)) for m in re.finditer(r"(\d+) insertion", result.stdout))
+            deletions = sum(int(m.group(1)) for m in re.finditer(r"(\d+) deletion", result.stdout))
             total_loc = insertions + deletions
             if total_loc > 0:
-                items.append(EvidenceItem(source="git", metric_name="loc_delta", value=min(1.0, total_loc / 500.0),
-                    raw_value={"insertions": insertions, "deletions": deletions, "total": total_loc},
-                    quality=EvidenceQuality.OBJECTIVE, supports_vectors=["change", "do"]))
+                items.append(
+                    EvidenceItem(
+                        source="git",
+                        metric_name="loc_delta",
+                        value=min(1.0, total_loc / 500.0),
+                        raw_value={"insertions": insertions, "deletions": deletions, "total": total_loc},
+                        quality=EvidenceQuality.OBJECTIVE,
+                        supports_vectors=["change", "do"],
+                    )
+                )
         amd_counts = {}
         for filter_code, label in [("A", "added"), ("M", "modified"), ("D", "deleted")]:
-            result = subprocess.run(["git", "log", "--name-only", "--format=", f"--diff-filter={filter_code}", "--since=" + since],
-                                    capture_output=True, text=True, timeout=5, cwd=project_root)
-            amd_counts[label] = len({f.strip() for f in result.stdout.strip().split('\n') if f.strip()}) if result.returncode == 0 else 0
+            result = subprocess.run(
+                ["git", "log", "--name-only", "--format=", f"--diff-filter={filter_code}", "--since=" + since],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                cwd=project_root,
+            )
+            amd_counts[label] = (
+                len({f.strip() for f in result.stdout.strip().split("\n") if f.strip()})
+                if result.returncode == 0
+                else 0
+            )
         total_amd = sum(amd_counts.values())
         if total_amd > 0:
             weighted = amd_counts["added"] * 1.0 + amd_counts["modified"] * 0.5 + amd_counts["deleted"] * 0.3
-            items.append(EvidenceItem(source="git", metric_name="amd_file_ratio", value=min(1.0, weighted / max(total_amd, 1)),
-                raw_value=amd_counts, quality=EvidenceQuality.OBJECTIVE, supports_vectors=["state", "change"]))
-        result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, timeout=5, cwd=project_root)
+            items.append(
+                EvidenceItem(
+                    source="git",
+                    metric_name="amd_file_ratio",
+                    value=min(1.0, weighted / max(total_amd, 1)),
+                    raw_value=amd_counts,
+                    quality=EvidenceQuality.OBJECTIVE,
+                    supports_vectors=["state", "change"],
+                )
+            )
+        result = subprocess.run(
+            ["git", "status", "--porcelain"], capture_output=True, text=True, timeout=5, cwd=project_root
+        )
         if result.returncode == 0:
-            uncommitted = len([l for l in result.stdout.strip().split('\n') if l.strip()])
-            items.append(EvidenceItem(source="git", metric_name="working_tree_cleanliness",
-                value=max(0.0, 1.0 - min(1.0, uncommitted / 10.0)),
-                raw_value={"uncommitted_files": uncommitted}, quality=EvidenceQuality.OBJECTIVE, supports_vectors=["state"]))
+            uncommitted = len([l for l in result.stdout.strip().split("\n") if l.strip()])
+            items.append(
+                EvidenceItem(
+                    source="git",
+                    metric_name="working_tree_cleanliness",
+                    value=max(0.0, 1.0 - min(1.0, uncommitted / 10.0)),
+                    raw_value={"uncommitted_files": uncommitted},
+                    quality=EvidenceQuality.OBJECTIVE,
+                    supports_vectors=["state"],
+                )
+            )
         return items
 
     def _collect_git_metrics(self) -> list[EvidenceItem]:
@@ -1654,11 +1846,13 @@ class PostTestCollector:
             # Count commits since transaction start
             result = subprocess.run(
                 ["git", "log", "--oneline", "--since=" + since, "--format=%H"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
                 cwd=project_root,
             )
             if result.returncode == 0:
-                commits = [c for c in result.stdout.strip().split('\n') if c]
+                commits = [c for c in result.stdout.strip().split("\n") if c]
                 commit_count = len(commits)
 
                 if commit_count > 0:
@@ -1670,62 +1864,63 @@ class PostTestCollector:
                     else:
                         do_score = min(1.0, commit_count / 5.0)
 
-                    items.append(EvidenceItem(
-                        source="git",
-                        metric_name="commit_count",
-                        value=do_score,
-                        raw_value={"commits": commit_count,
-                                   "maturity": maturity["maturity"]},
-                        quality=EvidenceQuality.OBJECTIVE,
-                        supports_vectors=["do", "change"],
-                    ))
+                    items.append(
+                        EvidenceItem(
+                            source="git",
+                            metric_name="commit_count",
+                            value=do_score,
+                            raw_value={"commits": commit_count, "maturity": maturity["maturity"]},
+                            quality=EvidenceQuality.OBJECTIVE,
+                            supports_vectors=["do", "change"],
+                        )
+                    )
 
             # Files changed since transaction start (transaction-scoped)
             result = subprocess.run(
-                ["git", "log", "--name-only", "--format=",
-                 "--diff-filter=ACMR", "--since=" + since],
-                capture_output=True, text=True, timeout=5,
+                ["git", "log", "--name-only", "--format=", "--diff-filter=ACMR", "--since=" + since],
+                capture_output=True,
+                text=True,
+                timeout=5,
                 cwd=project_root,
             )
             if result.returncode == 0:
-                changed_files = {
-                    f.strip() for f in result.stdout.strip().split('\n')
-                    if f.strip()
-                }
+                changed_files = {f.strip() for f in result.stdout.strip().split("\n") if f.strip()}
                 # Also include staged/unstaged changes
                 for diff_args in [["--cached"], []]:
                     staged = subprocess.run(
                         ["git", "diff", "--name-only", "--diff-filter=ACMR"] + diff_args,
-                        capture_output=True, text=True, timeout=5,
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
                         cwd=project_root,
                     )
                     if staged.returncode == 0:
-                        changed_files.update(
-                            f.strip() for f in staged.stdout.strip().split('\n')
-                            if f.strip()
-                        )
+                        changed_files.update(f.strip() for f in staged.stdout.strip().split("\n") if f.strip())
 
                 files_changed = len(changed_files)
                 if files_changed > 0:
                     # Modular change density: files touched / total files in touched dirs
                     change_density = self._compute_change_density(
-                        changed_files, project_root,
+                        changed_files,
+                        project_root,
                     )
 
-                    items.append(EvidenceItem(
-                        source="git",
-                        metric_name="files_changed",
-                        value=change_density["state_score"],
-                        raw_value={
-                            "files": files_changed,
-                            "module_files": change_density["module_files"],
-                            "density": change_density["density"],
-                            "modules": change_density["modules_touched"],
-                            "maturity": maturity["maturity"],
-                        },
-                        quality=EvidenceQuality.OBJECTIVE,
-                        supports_vectors=["state", "change"],
-                    ))
+                    items.append(
+                        EvidenceItem(
+                            source="git",
+                            metric_name="files_changed",
+                            value=change_density["state_score"],
+                            raw_value={
+                                "files": files_changed,
+                                "module_files": change_density["module_files"],
+                                "density": change_density["density"],
+                                "modules": change_density["modules_touched"],
+                                "maturity": maturity["maturity"],
+                            },
+                            quality=EvidenceQuality.OBJECTIVE,
+                            supports_vectors=["state", "change"],
+                        )
+                    )
 
             # LOC, AMD, and working-tree evidence
             items.extend(self._collect_git_loc_amd_tree(since, project_root))
@@ -1755,8 +1950,8 @@ class PostTestCollector:
         touched_dirs: set = set()
         for f in changed_files:
             parent = str(Path(f).parent)
-            if parent == '.':
-                parent = ''
+            if parent == ".":
+                parent = ""
             touched_dirs.add(parent)
 
         # Count total tracked files in those directories (non-recursive per dir)
@@ -1768,15 +1963,18 @@ class PostTestCollector:
                 try:
                     result = subprocess.run(
                         ["git", "ls-files", str(d) + "/" if d else "."],
-                        capture_output=True, text=True, timeout=5,
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
                         cwd=project_root,
                     )
                     if result.returncode == 0:
                         # Filter to direct children only (not recursive)
                         dir_prefix = d + "/" if d else ""
                         direct_files = [
-                            f for f in result.stdout.strip().split('\n')
-                            if f.strip() and f.count('/') == dir_prefix.count('/')
+                            f
+                            for f in result.stdout.strip().split("\n")
+                            if f.strip() and f.count("/") == dir_prefix.count("/")
                         ]
                         module_files += len(direct_files)
                 except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -1806,30 +2004,64 @@ class PostTestCollector:
         """Run ruff on changed Python files and return clarity/coherence/signal evidence."""
         items = []
         try:
-            result = subprocess.run(["ruff", "check", "--output-format", "json", "--quiet"] + py_files,
-                                    capture_output=True, text=True, timeout=30, cwd=project_root)
+            result = subprocess.run(
+                ["ruff", "check", "--output-format", "json", "--quiet"] + py_files,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                cwd=project_root,
+            )
             if result.stdout.strip():
                 import json as _json
+
                 violations = _json.loads(result.stdout)
                 violation_count = len(violations)
                 lines_total = self._count_lines(py_files)
                 if lines_total > 0:
                     density_per_100 = (violation_count / lines_total) * 100
                     clarity_score = max(0.0, 1.0 - (density_per_100 / 10.0))
-                    items.append(EvidenceItem(source="code_quality", metric_name="ruff_violation_density",
-                        value=clarity_score, raw_value={"violations": violation_count, "lines": lines_total,
-                            "per_100_lines": round(density_per_100, 2), "files_checked": len(py_files)},
-                        quality=EvidenceQuality.SEMI_OBJECTIVE, supports_vectors=["clarity", "coherence"]))
+                    items.append(
+                        EvidenceItem(
+                            source="code_quality",
+                            metric_name="ruff_violation_density",
+                            value=clarity_score,
+                            raw_value={
+                                "violations": violation_count,
+                                "lines": lines_total,
+                                "per_100_lines": round(density_per_100, 2),
+                                "files_checked": len(py_files),
+                            },
+                            quality=EvidenceQuality.SEMI_OBJECTIVE,
+                            supports_vectors=["clarity", "coherence"],
+                        )
+                    )
                     error_count = sum(1 for v in violations if v.get("code", "").startswith(("E", "F")))
                     if violation_count > 0:
-                        items.append(EvidenceItem(source="code_quality", metric_name="ruff_error_ratio",
-                            value=max(0.0, 1.0 - error_count / violation_count),
-                            raw_value={"errors": error_count, "style": violation_count - error_count, "total": violation_count},
-                            quality=EvidenceQuality.SEMI_OBJECTIVE, supports_vectors=["signal"]))
+                        items.append(
+                            EvidenceItem(
+                                source="code_quality",
+                                metric_name="ruff_error_ratio",
+                                value=max(0.0, 1.0 - error_count / violation_count),
+                                raw_value={
+                                    "errors": error_count,
+                                    "style": violation_count - error_count,
+                                    "total": violation_count,
+                                },
+                                quality=EvidenceQuality.SEMI_OBJECTIVE,
+                                supports_vectors=["signal"],
+                            )
+                        )
             elif result.returncode == 0:
-                items.append(EvidenceItem(source="code_quality", metric_name="ruff_violation_density", value=1.0,
-                    raw_value={"violations": 0, "files_checked": len(py_files)},
-                    quality=EvidenceQuality.SEMI_OBJECTIVE, supports_vectors=["clarity", "coherence"]))
+                items.append(
+                    EvidenceItem(
+                        source="code_quality",
+                        metric_name="ruff_violation_density",
+                        value=1.0,
+                        raw_value={"violations": 0, "files_checked": len(py_files)},
+                        quality=EvidenceQuality.SEMI_OBJECTIVE,
+                        supports_vectors=["clarity", "coherence"],
+                    )
+                )
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
             pass
         return items
@@ -1852,7 +2084,7 @@ class PostTestCollector:
         if not changed_files:
             return items
 
-        py_files = [f for f in changed_files if f.endswith('.py')]
+        py_files = [f for f in changed_files if f.endswith(".py")]
         if not py_files:
             return items
 
@@ -1863,11 +2095,14 @@ class PostTestCollector:
         try:
             result = subprocess.run(
                 ["radon", "cc", "-s", "-a", "-j"] + py_files,
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
                 cwd=project_root,
             )
             if result.returncode == 0 and result.stdout.strip():
                 import json as _json
+
                 cc_data = _json.loads(result.stdout)
 
                 all_complexities = []
@@ -1885,19 +2120,21 @@ class PostTestCollector:
 
                     # Normalize avg complexity: 1-5 = 1.0, 20+ = 0.0
                     density_score = max(0.0, min(1.0, 1.0 - (avg_cc - 5) / 15.0))
-                    items.append(EvidenceItem(
-                        source="code_quality",
-                        metric_name="radon_avg_complexity",
-                        value=density_score,
-                        raw_value={
-                            "avg_cc": round(avg_cc, 1),
-                            "max_cc": max_cc,
-                            "functions_analyzed": len(all_complexities),
-                            "high_complexity_count": high_complexity_count,
-                        },
-                        quality=EvidenceQuality.SEMI_OBJECTIVE,
-                        supports_vectors=["density", "signal"],
-                    ))
+                    items.append(
+                        EvidenceItem(
+                            source="code_quality",
+                            metric_name="radon_avg_complexity",
+                            value=density_score,
+                            raw_value={
+                                "avg_cc": round(avg_cc, 1),
+                                "max_cc": max_cc,
+                                "functions_analyzed": len(all_complexities),
+                                "high_complexity_count": high_complexity_count,
+                            },
+                            quality=EvidenceQuality.SEMI_OBJECTIVE,
+                            supports_vectors=["density", "signal"],
+                        )
+                    )
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
             pass
 
@@ -1905,11 +2142,14 @@ class PostTestCollector:
         try:
             result = subprocess.run(
                 ["pyright", "--outputjson"] + py_files,
-                capture_output=True, text=True, timeout=60,
+                capture_output=True,
+                text=True,
+                timeout=60,
                 cwd=project_root,
             )
             if result.stdout.strip():
                 import json as _json
+
                 try:
                     pyright_data = _json.loads(result.stdout)
                     summary = pyright_data.get("summary", {})
@@ -1922,19 +2162,21 @@ class PostTestCollector:
                         errors_per_file = error_count / files_analyzed
                         # Normalize: 0 errors = 1.0, 5+ per file = 0.0
                         type_safety_score = max(0.0, 1.0 - (errors_per_file / 5.0))
-                        items.append(EvidenceItem(
-                            source="code_quality",
-                            metric_name="pyright_type_safety",
-                            value=type_safety_score,
-                            raw_value={
-                                "errors": error_count,
-                                "warnings": warning_count,
-                                "files_analyzed": files_analyzed,
-                                "errors_per_file": round(errors_per_file, 2),
-                            },
-                            quality=EvidenceQuality.SEMI_OBJECTIVE,
-                            supports_vectors=["know", "do"],
-                        ))
+                        items.append(
+                            EvidenceItem(
+                                source="code_quality",
+                                metric_name="pyright_type_safety",
+                                value=type_safety_score,
+                                raw_value={
+                                    "errors": error_count,
+                                    "warnings": warning_count,
+                                    "files_analyzed": files_analyzed,
+                                    "errors_per_file": round(errors_per_file, 2),
+                                },
+                                quality=EvidenceQuality.SEMI_OBJECTIVE,
+                                supports_vectors=["know", "do"],
+                            )
+                        )
                 except (json.JSONDecodeError, KeyError):
                     pass
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
@@ -1980,41 +2222,48 @@ class PostTestCollector:
             # 1. Committed changes since transaction/session start
             if since:
                 result = subprocess.run(
-                    ["git", "log", "--name-only", "--format=",
-                     "--diff-filter=ACMR", "--since=" + since],
-                    capture_output=True, text=True, timeout=5,
+                    ["git", "log", "--name-only", "--format=", "--diff-filter=ACMR", "--since=" + since],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
                     cwd=project_root,
                 )
                 if result.returncode == 0:
-                    all_files.update(f.strip() for f in result.stdout.strip().split('\n') if f.strip())
+                    all_files.update(f.strip() for f in result.stdout.strip().split("\n") if f.strip())
 
             # 2. Staged changes
             result = subprocess.run(
                 ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
                 cwd=project_root,
             )
             if result.returncode == 0:
-                all_files.update(f.strip() for f in result.stdout.strip().split('\n') if f.strip())
+                all_files.update(f.strip() for f in result.stdout.strip().split("\n") if f.strip())
 
             # 3. Unstaged working tree changes
             result = subprocess.run(
                 ["git", "diff", "--name-only", "--diff-filter=ACMR"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
                 cwd=project_root,
             )
             if result.returncode == 0:
-                all_files.update(f.strip() for f in result.stdout.strip().split('\n') if f.strip())
+                all_files.update(f.strip() for f in result.stdout.strip().split("\n") if f.strip())
 
             # Fallback if nothing found: recent commits
             if not all_files:
                 result = subprocess.run(
                     ["git", "diff", "--name-only", "--diff-filter=ACMR", "HEAD~5..HEAD"],
-                    capture_output=True, text=True, timeout=5,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
                     cwd=project_root,
                 )
                 if result.returncode == 0:
-                    all_files.update(f.strip() for f in result.stdout.strip().split('\n') if f.strip())
+                    all_files.update(f.strip() for f in result.stdout.strip().split("\n") if f.strip())
 
             # Filter to existing files only (paths are relative to project root)
             root = Path(project_root) if project_root else Path.cwd()

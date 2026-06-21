@@ -53,48 +53,43 @@ class DocCodeIntegrityAnalyzer:
             "missing_docs": sorted(missing_docs),
             "total_commands": len(actual_commands),
             "documented_commands": len(documented_commands),
-            "integrity_score": self._calculate_integrity_score(actual_commands, documented_commands)
+            "integrity_score": self._calculate_integrity_score(actual_commands, documented_commands),
         }
 
     def _get_actual_cli_commands(self) -> set[str]:
         """Get list of actually implemented CLI commands"""
         try:
-            result = subprocess.run(
-                ["empirica", "--help"],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
+            result = subprocess.run(["empirica", "--help"], capture_output=True, text=True, timeout=5)
 
             commands = set()
 
             # Find the line with {command1,command2,...}
-            for line in result.stdout.split('\n'):
-                if '{' in line and ',' in line:
+            for line in result.stdout.split("\n"):
+                if "{" in line and "," in line:
                     # Extract commands from {cmd1,cmd2,cmd3,...} format
-                    match = re.search(r'\{([^}]+)\}', line)
+                    match = re.search(r"\{([^}]+)\}", line)
                     if match:
                         cmd_string = match.group(1)
                         # Split by comma and clean up
-                        for cmd in cmd_string.split(','):
+                        for cmd in cmd_string.split(","):
                             cmd = cmd.strip()
-                            if cmd and not cmd.startswith('.'):  # Skip "..."
+                            if cmd and not cmd.startswith("."):  # Skip "..."
                                 commands.add(cmd)
                         break
 
             # Also parse individual command descriptions
             in_commands = False
-            for line in result.stdout.split('\n'):
-                if line.strip().startswith('positional arguments:'):
+            for line in result.stdout.split("\n"):
+                if line.strip().startswith("positional arguments:"):
                     in_commands = True
                     continue
 
                 if in_commands:
                     # Match "  command-name    Description"
-                    match = re.match(r'\s{2,}([a-z][a-z0-9-]+)\s{2,}', line)
+                    match = re.match(r"\s{2,}([a-z][a-z0-9-]+)\s{2,}", line)
                     if match:
                         commands.add(match.group(1))
-                    elif line and not line.startswith(' '):
+                    elif line and not line.startswith(" "):
                         break
 
             return commands
@@ -108,15 +103,15 @@ class DocCodeIntegrityAnalyzer:
         commands = set()
 
         # Pattern to match: `empirica command-name` or empirica command-name
-        pattern = re.compile(r'`?empirica\s+([a-z][a-z0-9-]+)')
+        pattern = re.compile(r"`?empirica\s+([a-z][a-z0-9-]+)")
 
         # Search all markdown files in docs
         if not self.docs_dir.exists():
             return commands
 
-        for md_file in self.docs_dir.rglob('*.md'):
+        for md_file in self.docs_dir.rglob("*.md"):
             try:
-                content = md_file.read_text(encoding='utf-8')
+                content = md_file.read_text(encoding="utf-8")
                 matches = pattern.findall(content)
                 commands.update(matches)
             except Exception as e:
@@ -152,45 +147,42 @@ class DocCodeIntegrityAnalyzer:
         detailed_gaps: dict[str, Any] = {
             "cli_commands": cli_analysis,
             "missing_code_details": [],
-            "missing_docs_details": []
+            "missing_docs_details": [],
         }
 
         # For each missing code command, find where it's mentioned
         for cmd in cli_analysis["missing_code"]:
             locations = self._find_command_mentions(cmd)
-            detailed_gaps["missing_code_details"].append({
-                "command": cmd,
-                "mentioned_in": locations,
-                "severity": "high" if len(locations) > 1 else "medium"
-            })
+            detailed_gaps["missing_code_details"].append(
+                {"command": cmd, "mentioned_in": locations, "severity": "high" if len(locations) > 1 else "medium"}
+            )
 
         # For missing docs, just list them (we know they exist in code)
         for cmd in cli_analysis["missing_docs"]:
-            detailed_gaps["missing_docs_details"].append({
-                "command": cmd,
-                "severity": "medium"
-            })
+            detailed_gaps["missing_docs_details"].append({"command": cmd, "severity": "medium"})
 
         return detailed_gaps
 
     def _find_command_mentions(self, command: str) -> list[dict]:
         """Find where a command is mentioned in docs with context"""
         mentions = []
-        pattern = re.compile(rf'.*empirica\s+{re.escape(command)}.*', re.IGNORECASE)
+        pattern = re.compile(rf".*empirica\s+{re.escape(command)}.*", re.IGNORECASE)
 
         if not self.docs_dir.exists():
             return mentions
 
-        for md_file in self.docs_dir.rglob('*.md'):
+        for md_file in self.docs_dir.rglob("*.md"):
             try:
-                content = md_file.read_text(encoding='utf-8')
-                for i, line in enumerate(content.split('\n'), 1):
+                content = md_file.read_text(encoding="utf-8")
+                for i, line in enumerate(content.split("\n"), 1):
                     if pattern.match(line):
-                        mentions.append({
-                            "file": str(md_file.relative_to(self.project_root)),
-                            "line": i,
-                            "context": line.strip()[:100]
-                        })
+                        mentions.append(
+                            {
+                                "file": str(md_file.relative_to(self.project_root)),
+                                "line": i,
+                                "context": line.strip()[:100],
+                            }
+                        )
             except Exception:  # noqa: S110 — skip unreadable doc files during integrity scan
                 pass
 

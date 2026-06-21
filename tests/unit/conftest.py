@@ -1,6 +1,7 @@
 """
 Pytest configuration and fixtures for Empirica tests
 """
+
 import sys
 from pathlib import Path
 
@@ -19,11 +20,7 @@ def sample_task():
 @pytest.fixture
 def sample_context():
     """Sample context for testing"""
-    return {
-        "workspace": "/test/workspace",
-        "goal": "testing",
-        "environment": "test"
-    }
+    return {"workspace": "/test/workspace", "goal": "testing", "environment": "test"}
 
 
 @pytest.fixture

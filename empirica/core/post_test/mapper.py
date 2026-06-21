@@ -78,82 +78,115 @@ META_VECTORS = {"uncertainty"}
 WORK_TYPE_RELEVANCE: dict[str, dict[str, float]] = {
     # code: baseline — all sources at default 1.0 weight
     "code": {},
-
     # infra: infrastructure changes (yaml, dockerfile, k8s manifests)
     # Code quality and pytest aren't great signals; goal completion is.
     "infra": {
-        "code_quality": 0.3, "pytest": 0.3, "codebase_model": 0.3,
-        "goals": 1.3, "git": 1.0, "artifacts": 1.1,
+        "code_quality": 0.3,
+        "pytest": 0.3,
+        "codebase_model": 0.3,
+        "goals": 1.3,
+        "git": 1.0,
+        "artifacts": 1.1,
     },
-
     # research: experimental investigation, exploring possibilities
     # The deliverable is artifacts (findings, unknowns), not code.
     "research": {
-        "git": 0.0, "code_quality": 0.0, "codebase_model": 0.0,
-        "pytest": 0.0, "non_git_files": 0.0,
-        "artifacts": 1.5, "goals": 1.0, "noetic": 1.5,
+        "git": 0.0,
+        "code_quality": 0.0,
+        "codebase_model": 0.0,
+        "pytest": 0.0,
+        "non_git_files": 0.0,
+        "artifacts": 1.5,
+        "goals": 1.0,
+        "noetic": 1.5,
     },
-
     # release: publish pipeline (twine, docker, gh release, homebrew tap)
     # Git only sees mechanical version sweep commit. Code unchanged. Codebase
     # unchanged. The actual work is invisible to in-repo sensors.
     "release": {
-        "git": 0.0, "code_quality": 0.0, "codebase_model": 0.0,
+        "git": 0.0,
+        "code_quality": 0.0,
+        "codebase_model": 0.0,
         "non_git_files": 0.0,
-        "goals": 1.5, "triage": 1.3, "pytest": 1.2, "artifacts": 1.0,
+        "goals": 1.5,
+        "triage": 1.3,
+        "pytest": 1.2,
+        "artifacts": 1.0,
     },
-
     # debug: finding + fixing bugs
     # Tests are the strongest signal (regression caught/passed).
     "debug": {
-        "pytest": 1.4, "triage": 1.3, "artifacts": 1.3,
-        "code_quality": 0.5, "git": 1.0,
+        "pytest": 1.4,
+        "triage": 1.3,
+        "artifacts": 1.3,
+        "code_quality": 0.5,
+        "git": 1.0,
     },
-
     # config: configuration changes (settings.json, .env, yaml)
     # Code quality + pytest are usually irrelevant; goal completion matters.
     "config": {
-        "code_quality": 0.0, "pytest": 0.3, "codebase_model": 0.0,
-        "goals": 1.2, "git": 1.0, "artifacts": 1.1,
+        "code_quality": 0.0,
+        "pytest": 0.3,
+        "codebase_model": 0.0,
+        "goals": 1.2,
+        "git": 1.0,
+        "artifacts": 1.1,
     },
-
     # docs: documentation work (markdown, doc-only changes)
     # Markdown isn't ruff-checked; pytest doesn't apply; codebase model unchanged.
     "docs": {
-        "code_quality": 0.0, "pytest": 0.0, "codebase_model": 0.0,
-        "git": 1.0, "non_git_files": 1.2, "goals": 1.2, "artifacts": 1.0,
+        "code_quality": 0.0,
+        "pytest": 0.0,
+        "codebase_model": 0.0,
+        "git": 1.0,
+        "non_git_files": 1.2,
+        "goals": 1.2,
+        "artifacts": 1.0,
     },
-
     # data: data work (CSVs, datasets, schemas)
     "data": {
-        "code_quality": 0.0, "pytest": 0.5, "codebase_model": 0.0,
-        "non_git_files": 1.3, "goals": 1.2, "artifacts": 1.0,
+        "code_quality": 0.0,
+        "pytest": 0.5,
+        "codebase_model": 0.0,
+        "non_git_files": 1.3,
+        "goals": 1.2,
+        "artifacts": 1.0,
     },
-
     # comms: writing messages, sending communications, outreach
     # No code touched, no tests, no codebase change.
     "comms": {
-        "git": 0.0, "code_quality": 0.0, "pytest": 0.0,
-        "codebase_model": 0.0, "non_git_files": 0.0,
-        "goals": 1.5, "artifacts": 1.0,
+        "git": 0.0,
+        "code_quality": 0.0,
+        "pytest": 0.0,
+        "codebase_model": 0.0,
+        "non_git_files": 0.0,
+        "goals": 1.5,
+        "artifacts": 1.0,
     },
-
     # design: design docs, architecture proposals, mockups
     # Mostly markdown + diagrams, not code.
     "design": {
-        "code_quality": 0.0, "pytest": 0.0, "codebase_model": 0.0,
-        "git": 1.0, "non_git_files": 1.2, "artifacts": 1.4, "goals": 1.2,
+        "code_quality": 0.0,
+        "pytest": 0.0,
+        "codebase_model": 0.0,
+        "git": 1.0,
+        "non_git_files": 1.2,
+        "artifacts": 1.4,
+        "goals": 1.2,
     },
-
     # audit: read-only investigation (code review, security audit, doc audit)
     # Audits don't write code, don't change quality metrics, don't restructure.
     # The deliverable is artifacts (findings, decisions, recommendations).
     "audit": {
-        "git": 0.0, "code_quality": 0.0, "codebase_model": 0.0,
+        "git": 0.0,
+        "code_quality": 0.0,
+        "codebase_model": 0.0,
         "non_git_files": 0.0,
-        "artifacts": 1.5, "noetic": 1.3, "goals": 1.2, "triage": 1.0,
+        "artifacts": 1.5,
+        "noetic": 1.3,
+        "goals": 1.2,
+        "triage": 1.0,
     },
-
     # remote-ops: work done on a machine the local Sentinel doesn't observe
     # (SSH sessions, customer machines, remote config, deploys without local
     # commits, on-site assistance). No source can ground vectors for this
@@ -193,6 +226,7 @@ WORK_TYPE_RELEVANCE: dict[str, dict[str, float]] = {
 @dataclass
 class GroundedVectorEstimate:
     """An objectively grounded estimate for a single vector."""
+
     vector_name: str
     estimated_value: float
     confidence: float
@@ -222,6 +256,7 @@ class GroundedAssessment:
     Only "grounded" and "complete" statuses write to learning_trajectory
     or feed previous_transaction_feedback.
     """
+
     session_id: str
     self_assessed: dict[str, float]
     grounded: dict[str, GroundedVectorEstimate]
@@ -276,11 +311,17 @@ def _load_domain_weights(domain: str = "default", work_type: str | None = None) 
         # vectors), so "meta" is the truth-aligned name.
         "category_weights": {"foundation": 0.35, "comprehension": 0.25, "execution": 0.25, "meta": 0.15},
         "vector_category_map": {
-            "know": "foundation", "do": "foundation", "context": "foundation",
-            "clarity": "comprehension", "coherence": "comprehension",
-            "signal": "comprehension", "density": "comprehension",
-            "state": "execution", "change": "execution",
-            "completion": "execution", "impact": "execution",
+            "know": "foundation",
+            "do": "foundation",
+            "context": "foundation",
+            "clarity": "comprehension",
+            "coherence": "comprehension",
+            "signal": "comprehension",
+            "density": "comprehension",
+            "state": "execution",
+            "change": "execution",
+            "completion": "execution",
+            "impact": "execution",
             "engagement": "meta",
             "uncertainty": "meta",
         },
@@ -377,8 +418,7 @@ def _compute_meta_uncertainty(
     """
     # Use gaps from OTHER vectors (exclude meta vectors to avoid circularity)
     other_gaps = [
-        abs(g) for v, g in calibration_gaps.items()
-        if v not in META_VECTORS and v not in UNGROUNDABLE_VECTORS
+        abs(g) for v, g in calibration_gaps.items() if v not in META_VECTORS and v not in UNGROUNDABLE_VECTORS
     ]
 
     # If we have neither coverage signal nor gap signal, return insufficient.
@@ -666,9 +706,7 @@ class EvidenceMapper:
             if total_weight == 0:
                 continue
 
-            weighted_value = sum(
-                item.value * w for item, w in evidence_list
-            ) / total_weight
+            weighted_value = sum(item.value * w for item, w in evidence_list) / total_weight
             primary_source = max(evidence_list, key=lambda x: x[1])[0].source
 
             grounded[vector_name] = GroundedVectorEstimate(
@@ -689,9 +727,7 @@ class EvidenceMapper:
         calibration_gaps = {}
         for vector_name, estimate in grounded.items():
             self_val = self_assessed_vectors.get(vector_name, 0.5)
-            calibration_gaps[vector_name] = round(
-                self_val - estimate.estimated_value, 4
-            )
+            calibration_gaps[vector_name] = round(self_val - estimate.estimated_value, 4)
 
         # Meta-uncertainty computation: uncertainty is derived from the
         # OTHER 12 vectors' coverage and gap magnitudes, not from direct
@@ -702,9 +738,7 @@ class EvidenceMapper:
         # Only computed when self_assessed has uncertainty (so we can
         # compare) AND there are other grounded vectors to judge against.
         if "uncertainty" in self_assessed_vectors and "uncertainty" not in grounded:
-            meta_u = _compute_meta_uncertainty(
-                grounded, calibration_gaps, bundle.coverage
-            )
+            meta_u = _compute_meta_uncertainty(grounded, calibration_gaps, bundle.coverage)
             if meta_u is not None:
                 grounded["uncertainty"] = GroundedVectorEstimate(
                     vector_name="uncertainty",
@@ -723,7 +757,9 @@ class EvidenceMapper:
         # and still gates CHECK — it's just not part of the Brier score.
         scoring_gaps = {k: v for k, v in calibration_gaps.items() if k != "uncertainty"}
         overall_score = _compute_weighted_calibration(
-            scoring_gaps, domain=domain, per_vector_weights=per_vector_weights,
+            scoring_gaps,
+            domain=domain,
+            per_vector_weights=per_vector_weights,
             work_type=work_type,
         )
 

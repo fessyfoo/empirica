@@ -28,18 +28,14 @@ def _run_cli(args: list[str], timeout: float = 10.0) -> dict[str, Any]:
     """Invoke `empirica <args>` with --output json appended, return parsed dict."""
     cmd = ["empirica", *args, "--output", "json"]
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired as e:
         raise ActionError(f"empirica CLI timeout: {' '.join(cmd[:3])}") from e
     except FileNotFoundError as e:
         raise ActionError("empirica CLI not on PATH") from e
 
     if result.returncode != 0:
-        raise ActionError(
-            f"empirica CLI exit {result.returncode}: {result.stderr.strip() or result.stdout.strip()}"
-        )
+        raise ActionError(f"empirica CLI exit {result.returncode}: {result.stderr.strip() or result.stdout.strip()}")
     try:
         return json.loads(result.stdout)
     except json.JSONDecodeError as e:
@@ -54,9 +50,7 @@ def log_finding(text: str, impact: float = 0.5, subject: str | None = None) -> d
     return _run_cli(args)
 
 
-def log_decision(
-    choice: str, rationale: str = "", reversibility: str = "exploratory"
-) -> dict[str, Any]:
+def log_decision(choice: str, rationale: str = "", reversibility: str = "exploratory") -> dict[str, Any]:
     """Create a decision artifact. Returns the parsed JSON response."""
     args = ["decision-log", "--choice", choice, "--reversibility", reversibility]
     if rationale:
@@ -96,6 +90,7 @@ def log_artifacts_from_file(path: str) -> dict[str, Any]:
     Raises ActionError on file-read or CLI failures.
     """
     import contextlib
+
     try:
         with open(path, encoding="utf-8") as f:
             payload = f.read()
@@ -106,7 +101,11 @@ def log_artifacts_from_file(path: str) -> dict[str, Any]:
     cmd = ["empirica", "log-artifacts", "-", "--output", "json"]
     try:
         result = subprocess.run(
-            cmd, input=payload, capture_output=True, text=True, timeout=30.0,
+            cmd,
+            input=payload,
+            capture_output=True,
+            text=True,
+            timeout=30.0,
         )
     except subprocess.TimeoutExpired as e:
         raise ActionError("empirica log-artifacts batch timeout") from e
@@ -114,8 +113,7 @@ def log_artifacts_from_file(path: str) -> dict[str, Any]:
         raise ActionError("empirica CLI not on PATH") from e
     if result.returncode != 0:
         raise ActionError(
-            f"empirica log-artifacts batch exit {result.returncode}: "
-            f"{result.stderr.strip() or result.stdout.strip()}"
+            f"empirica log-artifacts batch exit {result.returncode}: {result.stderr.strip() or result.stdout.strip()}"
         )
     try:
         return json.loads(result.stdout)
@@ -138,7 +136,11 @@ def resolve_artifacts_batch(ids: list[str]) -> dict[str, Any]:
     cmd = ["empirica", "resolve-artifacts", "-", "--output", "json"]
     try:
         result = subprocess.run(
-            cmd, input=payload, capture_output=True, text=True, timeout=15.0,
+            cmd,
+            input=payload,
+            capture_output=True,
+            text=True,
+            timeout=15.0,
         )
     except subprocess.TimeoutExpired as e:
         raise ActionError("empirica resolve-artifacts batch timeout") from e
@@ -164,7 +166,11 @@ def delete_artifacts_batch(ids: list[str]) -> dict[str, Any]:
     cmd = ["empirica", "delete-artifacts", "-", "--output", "json"]
     try:
         result = subprocess.run(
-            cmd, input=payload, capture_output=True, text=True, timeout=15.0,
+            cmd,
+            input=payload,
+            capture_output=True,
+            text=True,
+            timeout=15.0,
         )
     except subprocess.TimeoutExpired as e:
         raise ActionError("empirica delete-artifacts batch timeout") from e
@@ -185,8 +191,7 @@ def extract_artifact_id(response: dict[str, Any]) -> str | None:
     Different artifact loggers return slightly different JSON shapes — try
     common keys: id, finding_id, decision_id, unknown_id, artifact_id.
     """
-    for key in ("id", "finding_id", "decision_id", "unknown_id",
-                 "artifact_id", "uuid"):
+    for key in ("id", "finding_id", "decision_id", "unknown_id", "artifact_id", "uuid"):
         v = response.get(key)
         if isinstance(v, str) and v:
             return v

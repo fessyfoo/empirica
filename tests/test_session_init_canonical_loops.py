@@ -21,8 +21,8 @@ import pytest
 def session_init_module():
     """Load the session-init hook as an importable module."""
     repo_root = Path(__file__).resolve().parents[1]
-    hook_path = repo_root / 'empirica' / 'plugins' / 'claude-code-integration' / 'hooks' / 'session-init.py'
-    spec = importlib.util.spec_from_file_location('session_init_test', hook_path)
+    hook_path = repo_root / "empirica" / "plugins" / "claude-code-integration" / "hooks" / "session-init.py"
+    spec = importlib.util.spec_from_file_location("session_init_test", hook_path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -37,27 +37,27 @@ def isolate_home_and_instance(monkeypatch, tmp_path):
     constants in both loop_registry and loop_install_request to the
     fresh tmp_path/.empirica.
     """
-    fake_home = tmp_path / 'home'
+    fake_home = tmp_path / "home"
     fake_home.mkdir()
-    fake_empirica = fake_home / '.empirica'
+    fake_empirica = fake_home / ".empirica"
     fake_empirica.mkdir()
-    monkeypatch.setenv('HOME', str(fake_home))
-    monkeypatch.setenv('EMPIRICA_INSTANCE_ID', 'tmux_test_canonical')
-    monkeypatch.delenv('TMUX_PANE', raising=False)
+    monkeypatch.setenv("HOME", str(fake_home))
+    monkeypatch.setenv("EMPIRICA_INSTANCE_ID", "tmux_test_canonical")
+    monkeypatch.delenv("TMUX_PANE", raising=False)
     monkeypatch.setattr(
-        'empirica.core.cockpit.loop_install_request.EMPIRICA_DIR',
+        "empirica.core.cockpit.loop_install_request.EMPIRICA_DIR",
         fake_empirica,
     )
     monkeypatch.setattr(
-        'empirica.core.cockpit.loop_registry.EMPIRICA_DIR',
+        "empirica.core.cockpit.loop_registry.EMPIRICA_DIR",
         fake_empirica,
     )
 
 
 def _make_empirica_project(tmp_path) -> Path:
     """Create a project root with .empirica/ (empirica-aware)."""
-    project = tmp_path / 'project'
-    (project / '.empirica').mkdir(parents=True)
+    project = tmp_path / "project"
+    (project / ".empirica").mkdir(parents=True)
     return project
 
 
@@ -68,8 +68,8 @@ def test_installs_on_fresh_empirica_aware_project(session_init_module, tmp_path)
     assert count >= 1  # At least cortex-mailbox-poll
 
     # Stamp file should now exist (idempotency marker)
-    home = Path(tmp_path / 'home')
-    stamp_glob = list((home / '.empirica').glob('canonical_loops_installed_*'))
+    home = Path(tmp_path / "home")
+    stamp_glob = list((home / ".empirica").glob("canonical_loops_installed_*"))
     assert len(stamp_glob) == 1
 
 
@@ -84,7 +84,7 @@ def test_idempotent_via_stamp_file(session_init_module, tmp_path):
 
 def test_skips_when_project_not_empirica_aware(session_init_module, tmp_path):
     """Project without .empirica/ → skip (don't install in random projects)."""
-    project = tmp_path / 'random_project'
+    project = tmp_path / "random_project"
     project.mkdir()
     count = session_init_module._maybe_auto_install_canonical_loops(project)
     assert count == 0
@@ -103,14 +103,15 @@ def test_skips_when_registry_already_has_loops(session_init_module, tmp_path):
 
     # Pre-register a loop so the registry is non-empty
     from empirica.core.cockpit.loop_registry import LoopRegistry
-    reg = LoopRegistry('tmux_test_canonical')
-    reg.register(name='custom-user-loop', kind='cron', interval='1h', description='user-chosen')
+
+    reg = LoopRegistry("tmux_test_canonical")
+    reg.register(name="custom-user-loop", kind="cron", interval="1h", description="user-chosen")
 
     count = session_init_module._maybe_auto_install_canonical_loops(project)
     assert count == 0
     # Stamp should still get written (so we don't keep trying)
-    home = Path(tmp_path / 'home')
-    stamp_glob = list((home / '.empirica').glob('canonical_loops_installed_*'))
+    home = Path(tmp_path / "home")
+    stamp_glob = list((home / ".empirica").glob("canonical_loops_installed_*"))
     assert len(stamp_glob) == 1
 
 
@@ -120,14 +121,15 @@ def test_pending_install_file_carries_skill_body(session_init_module, tmp_path):
     `your actual work here` placeholder. Confirms server-side merge
     (from earlier commit) integrates with auto-install."""
     import json
+
     project = _make_empirica_project(tmp_path)
     count = session_init_module._maybe_auto_install_canonical_loops(project)
     assert count >= 1
 
-    home = Path(tmp_path / 'home')
-    pending = list((home / '.empirica').glob('loop_install_pending_*_cortex-mailbox-poll.json'))
+    home = Path(tmp_path / "home")
+    pending = list((home / ".empirica").glob("loop_install_pending_*_cortex-mailbox-poll.json"))
     assert len(pending) == 1
     data = json.loads(pending[0].read_text())
-    template = data.get('prompt_template', '')
-    assert 'cortex_inbox_poll' in template
-    assert 'your actual work here' not in template
+    template = data.get("prompt_template", "")
+    assert "cortex_inbox_poll" in template
+    assert "your actual work here" not in template

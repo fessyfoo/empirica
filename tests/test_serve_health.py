@@ -41,6 +41,7 @@ def test_config_ollama_url_none_when_no_config(tmp_path, monkeypatch):
 def test_resolve_ollama_does_not_import_embeddings(monkeypatch):
     # The /health hot path must NOT import the heavy embeddings/openai module.
     import sys
+
     monkeypatch.delenv("EMPIRICA_OLLAMA_URL", raising=False)
     sys.modules.pop("empirica.core.qdrant.embeddings", None)
     with patch.object(sa, "_config_ollama_url", return_value=None):
@@ -71,6 +72,7 @@ def test_check_ollama_probes_resolved_url(monkeypatch):
     def fake_urlopen(req, timeout=None):
         seen["url"] = req.full_url
         from contextlib import nullcontext
+
         return nullcontext()
 
     with patch("urllib.request.urlopen", fake_urlopen):
@@ -85,6 +87,7 @@ def test_check_qdrant_probes_resolved_url(monkeypatch):
     def fake_urlopen(req, timeout=None):
         seen["url"] = req.full_url
         from contextlib import nullcontext
+
         return nullcontext()
 
     with patch("urllib.request.urlopen", fake_urlopen):
@@ -94,6 +97,8 @@ def test_check_qdrant_probes_resolved_url(monkeypatch):
 
 def test_check_ollama_false_on_unreachable(monkeypatch):
     monkeypatch.delenv("EMPIRICA_OLLAMA_URL", raising=False)
-    with patch("empirica.core.qdrant.embeddings._load_config_file", return_value={}), \
-         patch("urllib.request.urlopen", side_effect=OSError("connection refused")):
+    with (
+        patch("empirica.core.qdrant.embeddings._load_config_file", return_value={}),
+        patch("urllib.request.urlopen", side_effect=OSError("connection refused")),
+    ):
         assert sa._check_ollama() is False

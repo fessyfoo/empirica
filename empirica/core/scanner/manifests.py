@@ -15,12 +15,12 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 _MCP_REGISTRY_CANDIDATES: tuple[Path, ...] = (
-    Path(os.path.expanduser('~/.claude/mcp.json')),
-    Path(os.path.expanduser('~/.claude/settings.json')),
+    Path(os.path.expanduser("~/.claude/mcp.json")),
+    Path(os.path.expanduser("~/.claude/settings.json")),
 )
 
 _PLUGIN_MANIFEST_GLOBS: tuple[tuple[Path, str], ...] = (
-    (Path(os.path.expanduser('~/.claude/plugins')), '**/plugin.json'),
+    (Path(os.path.expanduser("~/.claude/plugins")), "**/plugin.json"),
 )
 
 
@@ -31,24 +31,26 @@ def _read_mcp_servers() -> list[dict[str, Any]]:
         if not path.exists():
             continue
         try:
-            with path.open('r', encoding='utf-8') as fh:
+            with path.open("r", encoding="utf-8") as fh:
                 raw = json.load(fh)
         except (OSError, json.JSONDecodeError) as exc:
             logger.info(f"MCP registry parse skipped {path}: {exc}")
             continue
 
-        servers_block = (raw or {}).get('mcpServers') if isinstance(raw, dict) else None
+        servers_block = (raw or {}).get("mcpServers") if isinstance(raw, dict) else None
         if not isinstance(servers_block, dict):
             continue
         for name, cfg in servers_block.items():
             if not isinstance(cfg, dict):
                 continue
-            rows.append({
-                'name': name,
-                'source': str(path),
-                'command': cfg.get('command'),
-                'args_count': len(cfg.get('args') or []),
-            })
+            rows.append(
+                {
+                    "name": name,
+                    "source": str(path),
+                    "command": cfg.get("command"),
+                    "args_count": len(cfg.get("args") or []),
+                }
+            )
     return rows
 
 
@@ -70,7 +72,7 @@ def _detect_env_files(start: Path | None = None) -> list[str]:
     """Return ``.env*`` paths in the current project tree (no contents)."""
     cwd = (start or Path.cwd()).resolve()
     found: set[str] = set()
-    for filename in ('.env', '.env.local', '.env.production', '.env.development'):
+    for filename in (".env", ".env.local", ".env.production", ".env.development"):
         candidate = cwd / filename
         if candidate.exists() and candidate.is_file():
             found.add(str(candidate))
@@ -81,27 +83,27 @@ def collect_manifests(read_surface) -> tuple[dict[str, Any], dict[str, Any]]:
     """Return ``(payload, coverage)`` for filesystem rows + MCP registry."""
     output: dict[str, Any] = {}
 
-    if 'plugin_manifest_paths' in read_surface.filesystem:
-        output['plugin_manifest_paths'] = _scan_plugin_manifests()
-    if 'env_files_present' in read_surface.filesystem:
-        output['env_files_present'] = _detect_env_files()
-    if 'recently_touched_model_weights' in read_surface.filesystem:
+    if "plugin_manifest_paths" in read_surface.filesystem:
+        output["plugin_manifest_paths"] = _scan_plugin_manifests()
+    if "env_files_present" in read_surface.filesystem:
+        output["env_files_present"] = _detect_env_files()
+    if "recently_touched_model_weights" in read_surface.filesystem:
         # Phase 1: stub. Walking $HOME for >1GB files is expensive and easy
         # to get wrong; defer to Phase 2 with a per-project root + cache.
-        output['recently_touched_model_weights'] = []
+        output["recently_touched_model_weights"] = []
 
-    if 'registered_servers' in read_surface.mcp:
-        output['mcp_registered_servers'] = _read_mcp_servers()
-    if 'active_connections' in read_surface.mcp:
+    if "registered_servers" in read_surface.mcp:
+        output["mcp_registered_servers"] = _read_mcp_servers()
+    if "active_connections" in read_surface.mcp:
         # Phase 1: stub — true active-connection introspection requires
         # MCP wire-protocol cooperation. Defer to Phase 2.
-        output['mcp_active_connections'] = []
+        output["mcp_active_connections"] = []
 
     coverage = {
-        'plugin_manifests_found': len(output.get('plugin_manifest_paths', [])),
-        'env_files_found': len(output.get('env_files_present', [])),
-        'mcp_registered_servers': len(output.get('mcp_registered_servers', [])),
-        'mcp_active_connections_implemented': False,  # Phase 2
-        'model_weights_walk_implemented': False,      # Phase 2
+        "plugin_manifests_found": len(output.get("plugin_manifest_paths", [])),
+        "env_files_found": len(output.get("env_files_present", [])),
+        "mcp_registered_servers": len(output.get("mcp_registered_servers", [])),
+        "mcp_active_connections_implemented": False,  # Phase 2
+        "model_weights_walk_implemented": False,  # Phase 2
     }
     return output, coverage

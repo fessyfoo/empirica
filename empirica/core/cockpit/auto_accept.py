@@ -51,6 +51,7 @@ def _cortex_creds() -> tuple[str, str] | None:
     """Resolve (url, api_key) via the standard CLI loader. None when missing."""
     try:
         from empirica.config.credentials_loader import get_credentials_loader
+
         cfg = get_credentials_loader().get_cortex_config()
     except Exception as e:
         logger.debug(f"auto-accept: cortex creds load failed: {e}")
@@ -67,7 +68,9 @@ def _request(method: str, url: str, key: str, body: dict | None = None) -> dict 
     shipped yet) only via the debug log — both surface as None to callers."""
     data = json.dumps(body).encode("utf-8") if body is not None else None
     req = urllib.request.Request(
-        url, method=method, data=data,
+        url,
+        method=method,
+        data=data,
         headers={
             "Authorization": f"Bearer {key}",
             **({"Content-Type": "application/json"} if body is not None else {}),

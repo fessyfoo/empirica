@@ -125,10 +125,14 @@ def test_cli_flag_form(project: Path):
     proc = _run_cli(
         [
             "noetic-batch",
-            "--intent", "via flags",
-            "--read", "src/auth.py",
-            "--glob", "*.md",
-            "--project-root", str(project),
+            "--intent",
+            "via flags",
+            "--read",
+            "src/auth.py",
+            "--glob",
+            "*.md",
+            "--project-root",
+            str(project),
         ],
         cwd=project,
     )
@@ -143,8 +147,10 @@ def test_cli_flag_grep_with_glob(project: Path):
     proc = _run_cli(
         [
             "noetic-batch",
-            "--intent", "x",
-            "--grep", "def:src/**/*.py",
+            "--intent",
+            "x",
+            "--grep",
+            "def:src/**/*.py",
         ],
         cwd=project,
     )
@@ -158,8 +164,10 @@ def test_cli_flag_grep_with_context(project: Path):
     proc = _run_cli(
         [
             "noetic-batch",
-            "--intent", "x",
-            "--grep", "def:src/**/*.py:context=2",
+            "--intent",
+            "x",
+            "--grep",
+            "def:src/**/*.py:context=2",
         ],
         cwd=project,
     )

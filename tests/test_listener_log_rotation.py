@@ -83,6 +83,7 @@ def test_rotation_is_atomic_no_partial_file(tmp_path, monkeypatch):
 
     # Sabotage os.replace to raise mid-rotation
     import os
+
     real_replace = os.replace
 
     def boom(*a, **kw):

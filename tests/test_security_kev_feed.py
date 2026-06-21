@@ -116,11 +116,13 @@ def test_lookup_miss(feed):
 
 def test_lookup_many_returns_only_matches(feed):
     feed.refresh(force=True)
-    matches = feed.lookup_many([
-        "CVE-2025-12345",
-        "CVE-2024-99999",
-        "CVE-9999-NOTREAL",
-    ])
+    matches = feed.lookup_many(
+        [
+            "CVE-2025-12345",
+            "CVE-2024-99999",
+            "CVE-9999-NOTREAL",
+        ]
+    )
     assert set(matches.keys()) == {"CVE-2025-12345", "CVE-2024-99999"}
 
 
@@ -143,6 +145,7 @@ def test_refresh_falls_back_to_stale_cache(tmp_path, monkeypatch):
     # Force the cache to look stale by setting mtime far in the past.
     old_time = time.time() - (48 * 3600)
     import os
+
     os.utime(cache, (old_time, old_time))
 
     def fake_urlopen(*args, **kwargs):

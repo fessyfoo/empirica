@@ -108,6 +108,7 @@ def _resolve_cortex_config(args) -> tuple[str | None, str | None]:
         return arg_url.rstrip("/"), arg_key
 
     from empirica.config.credentials_loader import get_credentials_loader
+
     cfg = get_credentials_loader().get_cortex_config()
     url = arg_url or cfg.get("url")
     key = arg_key or cfg.get("api_key")
@@ -118,6 +119,7 @@ def _resolve_self_ai_id() -> str | None:
     """Return the caller's canonical ai_id, or None if unresolvable."""
     try:
         from empirica.utils.session_resolver import InstanceResolver as R
+
         return R.ai_id()
     except Exception:
         return None
@@ -177,21 +179,23 @@ def _project_roster_to_addressbook(
 
     for tenant in org.get("tenants", []) or []:
         tenant_slug = tenant.get("tenant_slug") or "unknown"
-        is_self_tenant = (tenant_slug == self_tenant_slug)
+        is_self_tenant = tenant_slug == self_tenant_slug
         for proj in tenant.get("projects", []) or []:
             ai_id = proj.get("ai_id_short") or proj.get("slug") or "?"
             substrate = proj.get("substrate") or "cortex"
             role = "self" if (is_self_tenant and self_ai_id and ai_id == self_ai_id) else "peer"
-            rows.append({
-                "ai_id": ai_id,
-                "tenant": tenant_slug,
-                "substrate": substrate,
-                "role": role,
-                "ai_id_tenant": proj.get("ai_id_tenant"),
-                "ai_id_mesh": proj.get("ai_id_mesh"),
-                "project_id": proj.get("id"),
-                "org": org_slug,
-            })
+            rows.append(
+                {
+                    "ai_id": ai_id,
+                    "tenant": tenant_slug,
+                    "substrate": substrate,
+                    "role": role,
+                    "ai_id_tenant": proj.get("ai_id_tenant"),
+                    "ai_id_mesh": proj.get("ai_id_mesh"),
+                    "project_id": proj.get("id"),
+                    "org": org_slug,
+                }
+            )
 
     return rows
 
@@ -203,10 +207,7 @@ def _render_human(rows: list[dict[str, Any]]) -> None:
         return
 
     headers = ["ai_id", "tenant", "substrate", "role"]
-    widths = {
-        h: max(len(h), max(len(str(r.get(h, ""))) for r in rows))
-        for h in headers
-    }
+    widths = {h: max(len(h), max(len(str(r.get(h, ""))) for r in rows)) for h in headers}
 
     sep_line = "  ".join("-" * widths[h] for h in headers)
     header_line = "  ".join(h.ljust(widths[h]) for h in headers)

@@ -51,9 +51,10 @@ def _load_gitpython() -> None:
         return
     # Temporarily remove empirica.core.git so the import resolves the real
     # GitPython 'git' module rather than our package sharing the leaf name.
-    _empirica_git_module = sys.modules.pop('empirica.core.git', None)
+    _empirica_git_module = sys.modules.pop("empirica.core.git", None)
     try:
         import git
+
         GitRepo = git.Repo
         GitCommandError = git.GitCommandError
         GIT_PYTHON_AVAILABLE = True
@@ -64,7 +65,7 @@ def _load_gitpython() -> None:
         GIT_PYTHON_AVAILABLE = False
     finally:
         if _empirica_git_module is not None:
-            sys.modules['empirica.core.git'] = _empirica_git_module
+            sys.modules["empirica.core.git"] = _empirica_git_module
     _GIT_LOADED = True
 
 
@@ -74,6 +75,7 @@ def __getattr__(name: str):
         _load_gitpython()
         return globals()[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 from empirica.core.persona.signing_persona import SigningPersona  # noqa: E402 — after sys.modules guard
 
@@ -129,7 +131,9 @@ class SignedGitOperations:
         # Resolve GitPython lazily on first construction (see module header).
         _load_gitpython()
         if not GIT_PYTHON_AVAILABLE:
-            raise ImportError("GitPython not installed - git operations unavailable. Install with: pip install gitpython")
+            raise ImportError(
+                "GitPython not installed - git operations unavailable. Install with: pip install gitpython"
+            )
 
         if GitRepo is None:
             raise ImportError("GitPython not installed")
@@ -150,7 +154,7 @@ class SignedGitOperations:
         phase: str,
         message: str,
         additional_data: dict[str, Any] | None = None,
-        required_personas: list[str] | None = None
+        required_personas: list[str] | None = None,
     ) -> str:
         """
         Create a Git commit with signed epistemic state in notes
@@ -182,9 +186,7 @@ class SignedGitOperations:
 
         # Sign the epistemic state
         signed_state = signing_persona.sign_epistemic_state(
-            epistemic_state,
-            phase=phase,
-            additional_data=additional_data
+            epistemic_state, phase=phase, additional_data=additional_data
         )
 
         # Prepare signed state for git notes
@@ -197,24 +199,19 @@ class SignedGitOperations:
             author_email = f"{persona_info['persona_id']}@empirica.local"
 
             # Extract impact and completion for commit message tag
-            impact = epistemic_state.get('impact', 0.5)
-            completion = epistemic_state.get('completion', 0.0)
+            impact = epistemic_state.get("impact", 0.5)
+            completion = epistemic_state.get("completion", 0.0)
 
             # Create signed commit with epistemic tags
             commit_message = f"[{phase}] {message} [impact={impact:.2f}, completion={completion:.2f}]\n\nPersona: {persona_info['name']}\nVersion: {persona_info['version']}"
 
             # Use git command directly for --allow-empty (not supported by GitPython)
             subprocess.run(
-                [
-                    'git', 'commit',
-                    '--allow-empty',
-                    '-m', commit_message,
-                    '--author', f'{author_name} <{author_email}>'
-                ],
+                ["git", "commit", "--allow-empty", "-m", commit_message, "--author", f"{author_name} <{author_email}>"],
                 cwd=self.repo.working_dir,
                 check=True,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             # Refresh repo state and get commit SHA
@@ -224,17 +221,14 @@ class SignedGitOperations:
             # Add signed state to git notes AFTER commit exists
             # This attaches the note to the correct commit
             self.git.notes(
-                'add',
-                '--force',  # Overwrite if exists
-                '-m', signed_json,
-                commit_sha  # Explicitly attach to this commit
+                "add",
+                "--force",  # Overwrite if exists
+                "-m",
+                signed_json,
+                commit_sha,  # Explicitly attach to this commit
             )
 
-            logger.info(
-                f"✓ Committed signed state: {phase} "
-                f"SHA={commit_sha[:7]} "
-                f"persona={author_name}"
-            )
+            logger.info(f"✓ Committed signed state: {phase} SHA={commit_sha[:7]} persona={author_name}")
 
             return commit_sha
 
@@ -254,7 +248,7 @@ class SignedGitOperations:
         """
         try:
             # Get notes for this commit
-            note = self.git.notes('show', commit_sha)
+            note = self.git.notes("show", commit_sha)
 
             # Parse as JSON
             signed_state = json.loads(note)
@@ -318,7 +312,7 @@ class SignedGitOperations:
                     "commit": commit.hexsha[:7],
                     "commit_full": commit.hexsha,
                     "author": commit.author.name,
-                    "message": commit.message.split('\n')[0],  # First line only
+                    "message": commit.message.split("\n")[0],  # First line only
                     "timestamp": commit.committed_datetime.isoformat(),
                     "gpg_verified": None,
                     "state_verified": False,
@@ -326,7 +320,7 @@ class SignedGitOperations:
                     "signature_valid": False,
                     "phase": None,
                     "persona_id": None,
-                    "error": None
+                    "error": None,
                 }
 
                 # Try to get signed state from git notes
@@ -348,7 +342,7 @@ class SignedGitOperations:
                     verification["vectors_preview"] = {
                         "know": vectors.get("know"),
                         "uncertainty": vectors.get("uncertainty"),
-                        "engagement": vectors.get("engagement")
+                        "engagement": vectors.get("engagement"),
                     }
 
                     # Verify signature
@@ -360,18 +354,15 @@ class SignedGitOperations:
 
                         try:
                             # Recreate the message that was signed
-                            message_json = json.dumps(state_data, sort_keys=True, separators=(',', ':'))
-                            message_bytes = message_json.encode('utf-8')
+                            message_json = json.dumps(state_data, sort_keys=True, separators=(",", ":"))
+                            message_bytes = message_json.encode("utf-8")
                             signature_bytes = bytes.fromhex(signature_hex)
                             public_key_bytes = bytes.fromhex(public_key_hex)
 
                             # Verify signature
                             from empirica.core.identity.ai_identity import AIIdentity
-                            is_valid = AIIdentity.verify(
-                                signature_bytes,
-                                message_bytes,
-                                public_key_bytes
-                            )
+
+                            is_valid = AIIdentity.verify(signature_bytes, message_bytes, public_key_bytes)
 
                             verification["state_verified"] = is_valid
                             verification["signature_valid"] = is_valid
@@ -384,8 +375,7 @@ class SignedGitOperations:
                                 )
                             else:
                                 logger.warning(
-                                    f"✗ Signature invalid: {verification['commit']} "
-                                    f"phase={verification['phase']}"
+                                    f"✗ Signature invalid: {verification['commit']} phase={verification['phase']}"
                                 )
 
                         except Exception as e:
@@ -403,10 +393,7 @@ class SignedGitOperations:
             raise
 
     def export_cascade_report(
-        self,
-        start_commit: str,
-        end_commit: str,
-        output_file: str | None = None
+        self, start_commit: str, end_commit: str, output_file: str | None = None
     ) -> dict[str, Any]:
         """
         Export CASCADE chain verification report
@@ -441,8 +428,8 @@ class SignedGitOperations:
             "summary": {
                 "all_verified": all(r.get("state_verified") for r in results),
                 "phases_covered": list({r.get("phase") for r in results if r.get("phase")}),
-                "personas_involved": list({r.get("persona_id") for r in results if r.get("persona_id")})
-            }
+                "personas_involved": list({r.get("persona_id") for r in results if r.get("persona_id")}),
+            },
         }
 
         # Write to file if requested
@@ -450,18 +437,14 @@ class SignedGitOperations:
             output_path = Path(output_file)
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
-            with open(output_path, 'w') as f:
+            with open(output_path, "w") as f:
                 json.dump(report, f, indent=2)
 
             logger.info(f"✓ Wrote CASCADE report to {output_file}")
 
         return report
 
-    def _validate_cascade_phase(
-        self,
-        phase: str,
-        required_personas: list[str] | None = None
-    ) -> None:
+    def _validate_cascade_phase(self, phase: str, required_personas: list[str] | None = None) -> None:
         """
         Validate CASCADE phase ordering and requirements
 
@@ -486,8 +469,7 @@ class SignedGitOperations:
 
             if current_idx <= last_idx:
                 raise ValueError(
-                    f"Phase {phase} cannot follow {last_phase}. "
-                    f"CASCADE must progress: {' → '.join(CASCADE_ORDER)}"
+                    f"Phase {phase} cannot follow {last_phase}. CASCADE must progress: {' → '.join(CASCADE_ORDER)}"
                 )
 
         if required_personas:
@@ -507,7 +489,7 @@ class SignedGitOperations:
         try:
             # Search git log for phase markers in commit messages
             log = self.git.log("--oneline", "--all", "-20")
-            lines = log.split('\n')
+            lines = log.split("\n")
 
             CASCADE_ORDER = ["PREFLIGHT", "INVESTIGATE", "CHECK", "ACT", "POSTFLIGHT"]
 
@@ -521,11 +503,7 @@ class SignedGitOperations:
             logger.warning(f"Could not determine last CASCADE phase: {e}")
             return None
 
-    def get_cascade_timeline(
-        self,
-        start_commit: str,
-        end_commit: str
-    ) -> list[dict[str, Any]]:
+    def get_cascade_timeline(self, start_commit: str, end_commit: str) -> list[dict[str, Any]]:
         """
         Get epistemic timeline for CASCADE phases
 
@@ -547,7 +525,7 @@ class SignedGitOperations:
                 "timestamp": r.get("state_timestamp"),
                 "persona": r.get("persona_id"),
                 "vectors": r.get("vectors_preview"),
-                "commit": r.get("commit")
+                "commit": r.get("commit"),
             }
             for r in results
             if r.get("state_verified")

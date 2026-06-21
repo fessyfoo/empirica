@@ -29,6 +29,7 @@ def _build_full_project(tmp_path: Path, name: str = "sidecar-proj") -> tuple[Pat
     projects table which would break SessionDatabase's index creation.
     """
     from tests.test_bootstrap_aggregator import _build_test_project
+
     proj, pid = _build_test_project(tmp_path, name)
     db = proj / ".empirica" / "sessions" / "sessions.db"
     conn = sqlite3.connect(str(db))
@@ -72,8 +73,7 @@ def _build_full_project(tmp_path: Path, name: str = "sidecar-proj") -> tuple[Pat
         );
     """)
     conn.execute(
-        "INSERT INTO projects (id, name, description, status, project_data) "
-        "VALUES (?, ?, ?, 'active', '{}')",
+        "INSERT INTO projects (id, name, description, status, project_data) VALUES (?, ?, ?, 'active', '{}')",
         (pid, name, f"Test fixture for {name}"),
     )
     conn.commit()
@@ -93,8 +93,7 @@ def _add_reference_doc(db_path: Path, project_id: str, path: str) -> str:
     rid = str(uuid.uuid4())
     conn = sqlite3.connect(str(db_path))
     conn.execute(
-        "INSERT INTO project_reference_docs (id, project_id, doc_path, "
-        "created_timestamp) VALUES (?, ?, ?, ?)",
+        "INSERT INTO project_reference_docs (id, project_id, doc_path, created_timestamp) VALUES (?, ?, ?, ?)",
         (rid, project_id, path, time.time()),
     )
     conn.commit()
@@ -109,6 +108,7 @@ def test_payload_includes_project_block(tmp_path):
     """project block carries name + counters + (optional) description."""
     proj, pid = _build_full_project(tmp_path)
     from empirica.core.bootstrap import build_bootstrap_payload
+
     payload = build_bootstrap_payload(project_path=proj, project_id=pid)
     assert "project" in payload, "project block must be on the HTTP wire"
     p = payload["project"]
@@ -128,6 +128,7 @@ def test_payload_includes_project_block(tmp_path):
 def test_payload_includes_git_status_for_git_init_project(tmp_path):
     proj, pid = _build_full_project(tmp_path)
     from empirica.core.bootstrap import build_bootstrap_payload
+
     payload = build_bootstrap_payload(project_path=proj, project_id=pid)
     assert "git_status" in payload
     gs = payload["git_status"]
@@ -143,14 +144,17 @@ def test_payload_git_status_absent_for_non_git_project(tmp_path):
     git_dir = proj / ".git"
     if git_dir.exists():
         import shutil
+
         shutil.rmtree(git_dir)
     from empirica.core.bootstrap import build_bootstrap_payload
+
     payload = build_bootstrap_payload(project_path=proj, project_id=pid)
     # Either absent (preferred) or present with no branch — both acceptable
     if "git_status" in payload:
         # If present, recent_commits must be empty (no git history)
-        assert payload["git_status"].get("recent_commits", []) == [] or \
-               payload["git_status"].get("current_branch") is None
+        assert (
+            payload["git_status"].get("recent_commits", []) == [] or payload["git_status"].get("current_branch") is None
+        )
 
 
 # ── reference_docs_count ────────────────────────────────────────────────
@@ -159,6 +163,7 @@ def test_payload_git_status_absent_for_non_git_project(tmp_path):
 def test_payload_reference_docs_count_zero_when_no_refs(tmp_path):
     proj, pid = _build_full_project(tmp_path)
     from empirica.core.bootstrap import build_bootstrap_payload
+
     payload = build_bootstrap_payload(project_path=proj, project_id=pid)
     assert payload.get("reference_docs_count") == 0
 
@@ -170,6 +175,7 @@ def test_payload_reference_docs_count_reflects_added_refs(tmp_path):
     _add_reference_doc(db, pid, "docs/api.md")
     _add_reference_doc(db, pid, "docs/runbook.md")
     from empirica.core.bootstrap import build_bootstrap_payload
+
     payload = build_bootstrap_payload(project_path=proj, project_id=pid)
     assert payload.get("reference_docs_count") == 3
 
@@ -182,6 +188,7 @@ def test_payload_flow_metrics_absent_when_no_assessment_data(tmp_path):
     Either is acceptable per best-effort contract."""
     proj, pid = _build_full_project(tmp_path)
     from empirica.core.bootstrap import build_bootstrap_payload
+
     payload = build_bootstrap_payload(project_path=proj, project_id=pid)
     # flow_metrics is attached only when current_flow is grounded
     fm = payload.get("flow_metrics")
@@ -195,6 +202,7 @@ def test_attach_sidecar_blocks_skips_when_project_id_none(tmp_path):
     """Direct call: project_id=None → all 4 blocks omitted (no DB query attempted)."""
     proj, _pid = _build_full_project(tmp_path)
     from empirica.core.bootstrap.payload import _attach_sidecar_blocks
+
     payload: dict = {}
     _attach_sidecar_blocks(payload, proj, None)
     assert "project" not in payload
@@ -210,6 +218,7 @@ def test_attach_sidecar_does_not_raise_on_missing_db(tmp_path):
     proj = tmp_path / "no-db"
     proj.mkdir()
     from empirica.core.bootstrap.payload import _attach_sidecar_blocks
+
     payload: dict = {}
     _attach_sidecar_blocks(payload, proj, "nonexistent-id")
     assert "project" not in payload
@@ -225,10 +234,23 @@ def test_payload_existing_schema_v2_fields_preserved(tmp_path):
     """Per acceptance criteria: no regression to existing fields."""
     proj, pid = _build_full_project(tmp_path)
     from empirica.core.bootstrap import build_bootstrap_payload
+
     payload = build_bootstrap_payload(project_path=proj, project_id=pid)
-    for key in ("schema_version", "project_id", "project_path", "project_name",
-                "session_id", "ai_id", "transaction_state", "active_topic",
-                "active_state", "persistent_reference", "topic_relevant_backlog",
-                "calibration", "limits", "situation"):
+    for key in (
+        "schema_version",
+        "project_id",
+        "project_path",
+        "project_name",
+        "session_id",
+        "ai_id",
+        "transaction_state",
+        "active_topic",
+        "active_state",
+        "persistent_reference",
+        "topic_relevant_backlog",
+        "calibration",
+        "limits",
+        "situation",
+    ):
         assert key in payload, f"v2 contract field missing: {key}"
     assert payload["schema_version"] == "2"

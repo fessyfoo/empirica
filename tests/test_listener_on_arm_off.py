@@ -39,19 +39,19 @@ def _mock_notification_channels(monkeypatch):
     pytest applies the inner mock and the autouse remains harmless.
     """
     monkeypatch.setattr(
-        'empirica.core.cockpit.notification_channels.resolve_orchestration_events_topic',
-        lambda ai_id: f'ntfy:empirica-orchestration-events?tags={ai_id}',
+        "empirica.core.cockpit.notification_channels.resolve_orchestration_events_topic",
+        lambda ai_id: f"ntfy:empirica-orchestration-events?tags={ai_id}",
     )
 
 
 def _make_args(**overrides):
     defaults = {
-        'ai_id': None,
-        'name': None,
-        'topic': None,
-        'instance': 'test_instance',
-        'task_id': None,
-        'output': 'json',
+        "ai_id": None,
+        "name": None,
+        "topic": None,
+        "instance": "test_instance",
+        "task_id": None,
+        "output": "json",
     }
     defaults.update(overrides)
     return types.SimpleNamespace(**defaults)
@@ -61,24 +61,27 @@ def _make_args(**overrides):
 
 
 def test_resolve_canonical_ai_id_uses_explicit_flag():
-    args = _make_args(ai_id='explicit-ai')
-    assert _resolve_canonical_ai_id(args) == 'explicit-ai'
+    args = _make_args(ai_id="explicit-ai")
+    assert _resolve_canonical_ai_id(args) == "explicit-ai"
 
 
 def test_resolve_canonical_ai_id_returns_none_when_unresolvable(tmp_path, monkeypatch):
     """All five priority steps return nothing → None."""
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv('EMPIRICA_AI_ID', raising=False)
+    monkeypatch.delenv("EMPIRICA_AI_ID", raising=False)
     # tmp_path has no .empirica/project.yaml; basename(tmp_path) is
     # non-empty so basename step would normally return, but we mock
     # Path.cwd().name to '' to exercise the all-empty branch.
     args = _make_args(ai_id=None)
-    with patch(
-        'empirica.cli.command_handlers.cockpit_commands.Path.cwd',
-        return_value=Path('/'),
-    ), patch(
-        'empirica.utils.session_resolver.InstanceResolver.ai_id',
-        return_value=None,
+    with (
+        patch(
+            "empirica.cli.command_handlers.cockpit_commands.Path.cwd",
+            return_value=Path("/"),
+        ),
+        patch(
+            "empirica.utils.session_resolver.InstanceResolver.ai_id",
+            return_value=None,
+        ),
     ):
         assert _resolve_canonical_ai_id(args) is None
 
@@ -91,9 +94,9 @@ def test_resolve_canonical_ai_id_env_override_wins_over_cwd(tmp_path, monkeypatc
     process happens to be running from.
     """
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv('EMPIRICA_AI_ID', 'launched-from-env')
+    monkeypatch.setenv("EMPIRICA_AI_ID", "launched-from-env")
     args = _make_args(ai_id=None)
-    assert _resolve_canonical_ai_id(args) == 'launched-from-env'
+    assert _resolve_canonical_ai_id(args) == "launched-from-env"
 
 
 def test_resolve_canonical_ai_id_reads_cwd_project_yaml(tmp_path, monkeypatch):
@@ -106,17 +109,17 @@ def test_resolve_canonical_ai_id_reads_cwd_project_yaml(tmp_path, monkeypatch):
     session-bound InstanceResolver would return the unrelated `ecodex`.
     """
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv('EMPIRICA_AI_ID', raising=False)
-    (tmp_path / '.empirica').mkdir()
-    (tmp_path / '.empirica' / 'project.yaml').write_text(
-        'ai_id: ecodex-lab\n', encoding='utf-8',
+    monkeypatch.delenv("EMPIRICA_AI_ID", raising=False)
+    (tmp_path / ".empirica").mkdir()
+    (tmp_path / ".empirica" / "project.yaml").write_text(
+        "ai_id: ecodex-lab\n",
+        encoding="utf-8",
     )
     args = _make_args(ai_id=None)
-    with patch('empirica.utils.session_resolver.InstanceResolver.ai_id',
-               return_value='ecodex'):
+    with patch("empirica.utils.session_resolver.InstanceResolver.ai_id", return_value="ecodex"):
         # Without the fix, InstanceResolver returned 'ecodex' (wrong).
         # With the fix, project.yaml resolves to 'ecodex-lab' first.
-        assert _resolve_canonical_ai_id(args) == 'ecodex-lab'
+        assert _resolve_canonical_ai_id(args) == "ecodex-lab"
 
 
 def test_resolve_canonical_ai_id_falls_back_to_cwd_basename(tmp_path, monkeypatch):
@@ -126,14 +129,13 @@ def test_resolve_canonical_ai_id_falls_back_to_cwd_basename(tmp_path, monkeypatc
     `~/empirical-ai/empirica-extension` with no project.yaml resolves
     to `empirica-extension`, not the stripped `extension`.
     """
-    monkeypatch.delenv('EMPIRICA_AI_ID', raising=False)
-    practice_dir = tmp_path / 'empirica-extension'
+    monkeypatch.delenv("EMPIRICA_AI_ID", raising=False)
+    practice_dir = tmp_path / "empirica-extension"
     practice_dir.mkdir()
     monkeypatch.chdir(practice_dir)
     args = _make_args(ai_id=None)
-    with patch('empirica.utils.session_resolver.InstanceResolver.ai_id',
-               return_value='wrong-session-pointer'):
-        assert _resolve_canonical_ai_id(args) == 'empirica-extension'
+    with patch("empirica.utils.session_resolver.InstanceResolver.ai_id", return_value="wrong-session-pointer"):
+        assert _resolve_canonical_ai_id(args) == "empirica-extension"
 
 
 def test_resolve_canonical_ai_id_falls_back_to_instance_resolver(tmp_path, monkeypatch):
@@ -143,16 +145,19 @@ def test_resolve_canonical_ai_id_falls_back_to_instance_resolver(tmp_path, monke
     paths. Documented as last-resort because it's session-bound, not
     cwd-bound.
     """
-    monkeypatch.delenv('EMPIRICA_AI_ID', raising=False)
+    monkeypatch.delenv("EMPIRICA_AI_ID", raising=False)
     args = _make_args(ai_id=None)
-    with patch(
-        'empirica.cli.command_handlers.cockpit_commands.Path.cwd',
-        return_value=Path('/'),
-    ), patch(
-        'empirica.utils.session_resolver.InstanceResolver.ai_id',
-        return_value='resolver-fallback',
+    with (
+        patch(
+            "empirica.cli.command_handlers.cockpit_commands.Path.cwd",
+            return_value=Path("/"),
+        ),
+        patch(
+            "empirica.utils.session_resolver.InstanceResolver.ai_id",
+            return_value="resolver-fallback",
+        ),
     ):
-        assert _resolve_canonical_ai_id(args) == 'resolver-fallback'
+        assert _resolve_canonical_ai_id(args) == "resolver-fallback"
 
 
 # ─── on: short-circuit on persistent service ──────────────────────────
@@ -166,70 +171,69 @@ def test_on_persistent_service_returns_tail_monitor(tmp_path, monkeypatch, capsy
     The tail-Monitor doesn't spawn a duplicate ntfy curl; it just tails
     the log the persistent service writes to.
     """
-    monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
-    monkeypatch.setattr('empirica.core.cockpit.listener_registry.EMPIRICA_DIR',
-                        tmp_path / '.empirica')
-    (tmp_path / '.empirica').mkdir()
-    args = _make_args(ai_id='empirica')
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr("empirica.core.cockpit.listener_registry.EMPIRICA_DIR", tmp_path / ".empirica")
+    (tmp_path / ".empirica").mkdir()
+    args = _make_args(ai_id="empirica")
     with patch(
-        'empirica.core.loop_scheduler.persistent_listener.is_listener_running',
+        "empirica.core.loop_scheduler.persistent_listener.is_listener_running",
         return_value=True,
     ):
         rc = handle_listener_on_command(args)
     assert rc == 0
     out = json.loads(capsys.readouterr().out)
-    assert out['ok'] is True
-    assert out['status'] == 'persistent_service_tail_session'
-    ns = out['next_step']
-    assert ns is not None, 'next_step must include a Monitor command — the persistent service alone does not deliver wakes into the session'
-    assert ns['tool'] == 'Monitor'
-    cmd = ns['args']['command']
-    assert 'tail -F' in cmd
-    assert 'loop_fires.log' in cmd
+    assert out["ok"] is True
+    assert out["status"] == "persistent_service_tail_session"
+    ns = out["next_step"]
+    assert ns is not None, (
+        "next_step must include a Monitor command — the persistent service alone does not deliver wakes into the session"
+    )
+    assert ns["tool"] == "Monitor"
+    cmd = ns["args"]["command"]
+    assert "tail -F" in cmd
+    assert "loop_fires.log" in cmd
     # Filter scopes the tail to events for this ai_id. Strict-canonical
     # match (transition-compat `(empirica-)?` form retired in 1.11.8 —
     # session-init's project.yaml ai_id heal runs before the Monitor
     # arms, so the canonical form is always what reaches loop_fires.log).
     assert '"instance_id": "empirica"' in cmd
-    assert '(empirica-)?' not in cmd  # transition-compat regex retired
+    assert "(empirica-)?" not in cmd  # transition-compat regex retired
     # Crucially, no duplicate ntfy subscriber
-    assert 'empirica loop listen' not in cmd
-    assert 'curl' not in cmd
-    assert ns['args']['persistent'] is True
-    assert 'after_arm' in ns
+    assert "empirica loop listen" not in cmd
+    assert "curl" not in cmd
+    assert ns["args"]["persistent"] is True
+    assert "after_arm" in ns
 
 
 def test_on_persistent_service_writes_tail_mode_state_file(tmp_path, monkeypatch):
     """Tail-mode state file is written with mode='tail' so `listener off`
     can distinguish the cleanup path later."""
-    monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
-    monkeypatch.setattr('empirica.core.cockpit.listener_registry.EMPIRICA_DIR',
-                        tmp_path / '.empirica')
-    (tmp_path / '.empirica').mkdir()
-    args = _make_args(ai_id='empirica')
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr("empirica.core.cockpit.listener_registry.EMPIRICA_DIR", tmp_path / ".empirica")
+    (tmp_path / ".empirica").mkdir()
+    args = _make_args(ai_id="empirica")
     with patch(
-        'empirica.core.loop_scheduler.persistent_listener.is_listener_running',
+        "empirica.core.loop_scheduler.persistent_listener.is_listener_running",
         return_value=True,
     ):
         handle_listener_on_command(args)
     # Default instance from _make_args is 'test_instance'
-    state_file = tmp_path / '.empirica' / 'listener_active_test_instance_empirica-inbox.json'
+    state_file = tmp_path / ".empirica" / "listener_active_test_instance_empirica-inbox.json"
     assert state_file.exists()
     state = json.loads(state_file.read_text())
-    assert state['mode'] == 'tail'
-    assert state['ai_id'] == 'empirica'
-    assert state['monitor_task_id'] is None  # filled by `arm`
+    assert state["mode"] == "tail"
+    assert state["ai_id"] == "empirica"
+    assert state["monitor_task_id"] is None  # filled by `arm`
 
 
 def test_on_arms_in_session_when_no_persistent_service(tmp_path, monkeypatch):
     """No persistent service → register + write state file + emit Monitor next_step."""
-    monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
-    monkeypatch.setattr('empirica.core.cockpit.listener_registry.EMPIRICA_DIR',
-                        tmp_path / '.empirica')
-    (tmp_path / '.empirica').mkdir()
-    args = _make_args(ai_id='myai')
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr("empirica.core.cockpit.listener_registry.EMPIRICA_DIR", tmp_path / ".empirica")
+    (tmp_path / ".empirica").mkdir()
+    args = _make_args(ai_id="myai")
     with patch(
-        'empirica.core.loop_scheduler.persistent_listener.is_listener_running',
+        "empirica.core.loop_scheduler.persistent_listener.is_listener_running",
         return_value=False,
     ):
         rc = handle_listener_on_command(args)
@@ -237,85 +241,82 @@ def test_on_arms_in_session_when_no_persistent_service(tmp_path, monkeypatch):
 
 
 def test_on_emits_monitor_next_step_with_correct_command(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
-    monkeypatch.setattr('empirica.core.cockpit.listener_registry.EMPIRICA_DIR',
-                        tmp_path / '.empirica')
-    (tmp_path / '.empirica').mkdir()
-    args = _make_args(ai_id='myai')
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr("empirica.core.cockpit.listener_registry.EMPIRICA_DIR", tmp_path / ".empirica")
+    (tmp_path / ".empirica").mkdir()
+    args = _make_args(ai_id="myai")
     with patch(
-        'empirica.core.loop_scheduler.persistent_listener.is_listener_running',
+        "empirica.core.loop_scheduler.persistent_listener.is_listener_running",
         return_value=False,
     ):
         handle_listener_on_command(args)
     out = json.loads(capsys.readouterr().out)
-    ns = out['next_step']
-    assert ns['tool'] == 'Monitor'
+    ns = out["next_step"]
+    assert ns["tool"] == "Monitor"
     # Standalone Monitor wraps the listener spawn in a supervisor loop —
     # the listener's design assumes a relauncher (systemd/launchd) on its
     # intentional clean exits (SIGTERM during reconnect, ListenerUpgraded
     # on drift); Claude Code's Monitor isn't a supervisor, so the wrapper
     # provides those semantics by default. cf. cockpit_commands.py L1647+
     # + cortex prop_6kevxb63 (the SIGTERM-during-reconnect finding).
-    assert ns['args']['command'] == (
-        'while true; do empirica loop listen --instance myai; sleep 3; done'
-    )
-    assert ns['args']['persistent'] is True
-    assert 'after_arm' in ns
-    assert 'empirica listener arm' in ns['after_arm']
+    assert ns["args"]["command"] == ("while true; do empirica loop listen --instance myai; sleep 3; done")
+    assert ns["args"]["persistent"] is True
+    assert "after_arm" in ns
+    assert "empirica listener arm" in ns["after_arm"]
 
 
 def test_on_default_name_is_ai_id_inbox(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
-    monkeypatch.setattr('empirica.core.cockpit.listener_registry.EMPIRICA_DIR',
-                        tmp_path / '.empirica')
-    (tmp_path / '.empirica').mkdir()
-    args = _make_args(ai_id='cortex')
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr("empirica.core.cockpit.listener_registry.EMPIRICA_DIR", tmp_path / ".empirica")
+    (tmp_path / ".empirica").mkdir()
+    args = _make_args(ai_id="cortex")
     with patch(
-        'empirica.core.loop_scheduler.persistent_listener.is_listener_running',
+        "empirica.core.loop_scheduler.persistent_listener.is_listener_running",
         return_value=False,
     ):
         handle_listener_on_command(args)
     out = json.loads(capsys.readouterr().out)
-    assert out['name'] == 'cortex-inbox'
+    assert out["name"] == "cortex-inbox"
 
 
 def test_on_default_topic_includes_canonical_ntfy_path(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
-    monkeypatch.setattr('empirica.core.cockpit.listener_registry.EMPIRICA_DIR',
-                        tmp_path / '.empirica')
-    (tmp_path / '.empirica').mkdir()
-    args = _make_args(ai_id='cortex')
-    with patch(
-        'empirica.core.loop_scheduler.persistent_listener.is_listener_running',
-        return_value=False,
-    ), patch(
-        'empirica.core.cockpit.notification_channels.resolve_orchestration_events_topic',
-        return_value='ntfy:empirica-orchestration-events?tags=cortex',
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr("empirica.core.cockpit.listener_registry.EMPIRICA_DIR", tmp_path / ".empirica")
+    (tmp_path / ".empirica").mkdir()
+    args = _make_args(ai_id="cortex")
+    with (
+        patch(
+            "empirica.core.loop_scheduler.persistent_listener.is_listener_running",
+            return_value=False,
+        ),
+        patch(
+            "empirica.core.cockpit.notification_channels.resolve_orchestration_events_topic",
+            return_value="ntfy:empirica-orchestration-events?tags=cortex",
+        ),
     ):
         handle_listener_on_command(args)
     out = json.loads(capsys.readouterr().out)
     # Default topic is the per-org-prefixed canonical wake topic (NOT the
     # deprecated bare 'orchestration-events', which has no ACL grant).
-    assert out['topic'] == 'ntfy:empirica-orchestration-events?tags=cortex'
+    assert out["topic"] == "ntfy:empirica-orchestration-events?tags=cortex"
 
 
 def test_on_writes_placeholder_state_file(tmp_path, monkeypatch):
-    monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
-    monkeypatch.setattr('empirica.core.cockpit.listener_registry.EMPIRICA_DIR',
-                        tmp_path / '.empirica')
-    (tmp_path / '.empirica').mkdir()
-    args = _make_args(ai_id='myai')
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr("empirica.core.cockpit.listener_registry.EMPIRICA_DIR", tmp_path / ".empirica")
+    (tmp_path / ".empirica").mkdir()
+    args = _make_args(ai_id="myai")
     with patch(
-        'empirica.core.loop_scheduler.persistent_listener.is_listener_running',
+        "empirica.core.loop_scheduler.persistent_listener.is_listener_running",
         return_value=False,
     ):
         handle_listener_on_command(args)
-    state_file = tmp_path / '.empirica' / 'listener_active_test_instance_myai-inbox.json'
+    state_file = tmp_path / ".empirica" / "listener_active_test_instance_myai-inbox.json"
     assert state_file.exists()
     data = json.loads(state_file.read_text())
-    assert data['monitor_task_id'] is None  # placeholder
-    assert data['ai_id'] == 'myai'
-    assert data['mode'] == 'standalone'  # distinguishes from tail-mode
+    assert data["monitor_task_id"] is None  # placeholder
+    assert data["ai_id"] == "myai"
+    assert data["mode"] == "standalone"  # distinguishes from tail-mode
 
 
 def test_on_errors_when_ai_id_unresolved(capsys, monkeypatch):
@@ -324,20 +325,23 @@ def test_on_errors_when_ai_id_unresolved(capsys, monkeypatch):
     Mocks Path.cwd() to filesystem root (empty basename) so the new
     cwd-anchored resolver can't pick up the test runner's cwd.
     """
-    monkeypatch.delenv('EMPIRICA_AI_ID', raising=False)
+    monkeypatch.delenv("EMPIRICA_AI_ID", raising=False)
     args = _make_args(ai_id=None)
-    with patch(
-        'empirica.cli.command_handlers.cockpit_commands.Path.cwd',
-        return_value=Path('/'),
-    ), patch(
-        'empirica.utils.session_resolver.InstanceResolver.ai_id',
-        return_value=None,
+    with (
+        patch(
+            "empirica.cli.command_handlers.cockpit_commands.Path.cwd",
+            return_value=Path("/"),
+        ),
+        patch(
+            "empirica.utils.session_resolver.InstanceResolver.ai_id",
+            return_value=None,
+        ),
     ):
         rc = handle_listener_on_command(args)
     assert rc == 1
     out = json.loads(capsys.readouterr().out)
-    assert out['ok'] is False
-    assert 'ai_id unresolved' in out['error']
+    assert out["ok"] is False
+    assert "ai_id unresolved" in out["error"]
 
 
 # ─── arm: state file update ───────────────────────────────────────────
@@ -345,137 +349,138 @@ def test_on_errors_when_ai_id_unresolved(capsys, monkeypatch):
 
 def test_arm_replaces_placeholder_task_id(tmp_path, monkeypatch, capsys):
     """arm <task_id> updates the state file's monitor_task_id field."""
-    monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
-    monkeypatch.setattr('empirica.core.cockpit.listener_registry.EMPIRICA_DIR',
-                        tmp_path / '.empirica')
-    (tmp_path / '.empirica').mkdir()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr("empirica.core.cockpit.listener_registry.EMPIRICA_DIR", tmp_path / ".empirica")
+    (tmp_path / ".empirica").mkdir()
     # Set up placeholder via `on`
-    args_on = _make_args(ai_id='myai')
+    args_on = _make_args(ai_id="myai")
     with patch(
-        'empirica.core.loop_scheduler.persistent_listener.is_listener_running',
+        "empirica.core.loop_scheduler.persistent_listener.is_listener_running",
         return_value=False,
     ):
         handle_listener_on_command(args_on)
     capsys.readouterr()  # drain
     # Now arm
-    args_arm = _make_args(ai_id='myai', task_id='tk_abc123')
+    args_arm = _make_args(ai_id="myai", task_id="tk_abc123")
     rc = handle_listener_arm_command(args_arm)
     assert rc == 0
-    state_file = tmp_path / '.empirica' / 'listener_active_test_instance_myai-inbox.json'
+    state_file = tmp_path / ".empirica" / "listener_active_test_instance_myai-inbox.json"
     data = json.loads(state_file.read_text())
-    assert data['monitor_task_id'] == 'tk_abc123'
+    assert data["monitor_task_id"] == "tk_abc123"
 
 
 def test_arm_errors_when_no_state_file(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
-    monkeypatch.setattr('empirica.core.cockpit.listener_registry.EMPIRICA_DIR',
-                        tmp_path / '.empirica')
-    (tmp_path / '.empirica').mkdir()
-    args = _make_args(ai_id='myai', task_id='tk_xyz')
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr("empirica.core.cockpit.listener_registry.EMPIRICA_DIR", tmp_path / ".empirica")
+    (tmp_path / ".empirica").mkdir()
+    args = _make_args(ai_id="myai", task_id="tk_xyz")
     rc = handle_listener_arm_command(args)
     assert rc == 1
     out = json.loads(capsys.readouterr().out)
-    assert 'no active state file' in out['error']
+    assert "no active state file" in out["error"]
 
 
 def test_arm_errors_without_task_id(capsys):
-    args = _make_args(ai_id='myai', task_id=None)
+    args = _make_args(ai_id="myai", task_id=None)
     rc = handle_listener_arm_command(args)
     assert rc == 1
     out = json.loads(capsys.readouterr().out)
-    assert 'task_id required' in out['error']
+    assert "task_id required" in out["error"]
 
 
 def test_arm_errors_when_name_unresolved(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
-    monkeypatch.delenv('EMPIRICA_AI_ID', raising=False)
-    args = _make_args(ai_id=None, name=None, task_id='tk_x')
-    with patch(
-        'empirica.cli.command_handlers.cockpit_commands.Path.cwd',
-        return_value=Path('/'),
-    ), patch(
-        'empirica.utils.session_resolver.InstanceResolver.ai_id',
-        return_value=None,
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.delenv("EMPIRICA_AI_ID", raising=False)
+    args = _make_args(ai_id=None, name=None, task_id="tk_x")
+    with (
+        patch(
+            "empirica.cli.command_handlers.cockpit_commands.Path.cwd",
+            return_value=Path("/"),
+        ),
+        patch(
+            "empirica.utils.session_resolver.InstanceResolver.ai_id",
+            return_value=None,
+        ),
     ):
         rc = handle_listener_arm_command(args)
     assert rc == 1
     out = json.loads(capsys.readouterr().out)
-    assert 'name unresolved' in out['error']
+    assert "name unresolved" in out["error"]
 
 
 # ─── off: TaskStop + unregister next_step ─────────────────────────────
 
 
 def test_off_emits_task_stop_when_armed(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
-    monkeypatch.setattr('empirica.core.cockpit.listener_registry.EMPIRICA_DIR',
-                        tmp_path / '.empirica')
-    (tmp_path / '.empirica').mkdir()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr("empirica.core.cockpit.listener_registry.EMPIRICA_DIR", tmp_path / ".empirica")
+    (tmp_path / ".empirica").mkdir()
     # Arm a listener via on + arm
     with patch(
-        'empirica.core.loop_scheduler.persistent_listener.is_listener_running',
+        "empirica.core.loop_scheduler.persistent_listener.is_listener_running",
         return_value=False,
     ):
-        handle_listener_on_command(_make_args(ai_id='myai'))
-    handle_listener_arm_command(_make_args(ai_id='myai', task_id='tk_999'))
+        handle_listener_on_command(_make_args(ai_id="myai"))
+    handle_listener_arm_command(_make_args(ai_id="myai", task_id="tk_999"))
     capsys.readouterr()
     # Now off
-    rc = handle_listener_off_command(_make_args(ai_id='myai'))
+    rc = handle_listener_off_command(_make_args(ai_id="myai"))
     assert rc == 0
     out = json.loads(capsys.readouterr().out)
-    ns = out['next_step']
-    assert ns['tool'] == 'TaskStop'
-    assert ns['args']['task_id'] == 'tk_999'
-    assert 'empirica listener unregister myai-inbox' in ns['after_stop']
+    ns = out["next_step"]
+    assert ns["tool"] == "TaskStop"
+    assert ns["args"]["task_id"] == "tk_999"
+    assert "empirica listener unregister myai-inbox" in ns["after_stop"]
 
 
 def test_off_handles_no_state_file_gracefully(tmp_path, monkeypatch, capsys):
     """No state file means not_armed — emit unregister-only next_step."""
-    monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
-    monkeypatch.setattr('empirica.core.cockpit.listener_registry.EMPIRICA_DIR',
-                        tmp_path / '.empirica')
-    args = _make_args(ai_id='myai')
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr("empirica.core.cockpit.listener_registry.EMPIRICA_DIR", tmp_path / ".empirica")
+    args = _make_args(ai_id="myai")
     rc = handle_listener_off_command(args)
     assert rc == 0
     out = json.loads(capsys.readouterr().out)
-    assert out['status'] == 'not_armed'
-    assert 'empirica listener unregister' in out['next_step']['after_stop']
+    assert out["status"] == "not_armed"
+    assert "empirica listener unregister" in out["next_step"]["after_stop"]
 
 
 def test_off_handles_placeholder_task_id(tmp_path, monkeypatch, capsys):
     """on without arm → state file has null task_id → off emits unregister-only."""
-    monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
-    monkeypatch.setattr('empirica.core.cockpit.listener_registry.EMPIRICA_DIR',
-                        tmp_path / '.empirica')
-    (tmp_path / '.empirica').mkdir()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr("empirica.core.cockpit.listener_registry.EMPIRICA_DIR", tmp_path / ".empirica")
+    (tmp_path / ".empirica").mkdir()
     with patch(
-        'empirica.core.loop_scheduler.persistent_listener.is_listener_running',
+        "empirica.core.loop_scheduler.persistent_listener.is_listener_running",
         return_value=False,
     ):
-        handle_listener_on_command(_make_args(ai_id='myai'))
+        handle_listener_on_command(_make_args(ai_id="myai"))
     capsys.readouterr()
-    rc = handle_listener_off_command(_make_args(ai_id='myai'))
+    rc = handle_listener_off_command(_make_args(ai_id="myai"))
     assert rc == 0
     out = json.loads(capsys.readouterr().out)
     # No TaskStop emitted because task_id is null
-    assert out['next_step']['tool'] is None
-    assert 'unregister' in out['next_step']['after_stop']
+    assert out["next_step"]["tool"] is None
+    assert "unregister" in out["next_step"]["after_stop"]
 
 
 def test_off_errors_when_name_unresolved(capsys, monkeypatch):
-    monkeypatch.delenv('EMPIRICA_AI_ID', raising=False)
+    monkeypatch.delenv("EMPIRICA_AI_ID", raising=False)
     args = _make_args(ai_id=None, name=None)
-    with patch(
-        'empirica.cli.command_handlers.cockpit_commands.Path.cwd',
-        return_value=Path('/'),
-    ), patch(
-        'empirica.utils.session_resolver.InstanceResolver.ai_id',
-        return_value=None,
+    with (
+        patch(
+            "empirica.cli.command_handlers.cockpit_commands.Path.cwd",
+            return_value=Path("/"),
+        ),
+        patch(
+            "empirica.utils.session_resolver.InstanceResolver.ai_id",
+            return_value=None,
+        ),
     ):
         rc = handle_listener_off_command(args)
     assert rc == 1
     out = json.loads(capsys.readouterr().out)
-    assert 'name unresolved' in out['error']
+    assert "name unresolved" in out["error"]
 
 
 # ─── End-to-end flow ──────────────────────────────────────────────────
@@ -483,32 +488,31 @@ def test_off_errors_when_name_unresolved(capsys, monkeypatch):
 
 def test_on_arm_off_full_cycle(tmp_path, monkeypatch, capsys):
     """Full lifecycle: on → arm → off should produce coherent state transitions."""
-    monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
-    monkeypatch.setattr('empirica.core.cockpit.listener_registry.EMPIRICA_DIR',
-                        tmp_path / '.empirica')
-    (tmp_path / '.empirica').mkdir()
-    state_file = tmp_path / '.empirica' / 'listener_active_test_instance_myai-inbox.json'
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr("empirica.core.cockpit.listener_registry.EMPIRICA_DIR", tmp_path / ".empirica")
+    (tmp_path / ".empirica").mkdir()
+    state_file = tmp_path / ".empirica" / "listener_active_test_instance_myai-inbox.json"
 
     # 1. on
     with patch(
-        'empirica.core.loop_scheduler.persistent_listener.is_listener_running',
+        "empirica.core.loop_scheduler.persistent_listener.is_listener_running",
         return_value=False,
     ):
-        rc1 = handle_listener_on_command(_make_args(ai_id='myai'))
+        rc1 = handle_listener_on_command(_make_args(ai_id="myai"))
     assert rc1 == 0
     assert state_file.exists()
-    assert json.loads(state_file.read_text())['monitor_task_id'] is None
+    assert json.loads(state_file.read_text())["monitor_task_id"] is None
     capsys.readouterr()
 
     # 2. arm
-    rc2 = handle_listener_arm_command(_make_args(ai_id='myai', task_id='tk_777'))
+    rc2 = handle_listener_arm_command(_make_args(ai_id="myai", task_id="tk_777"))
     assert rc2 == 0
-    assert json.loads(state_file.read_text())['monitor_task_id'] == 'tk_777'
+    assert json.loads(state_file.read_text())["monitor_task_id"] == "tk_777"
     capsys.readouterr()
 
     # 3. off — emits TaskStop(tk_777) + after_stop=unregister
-    rc3 = handle_listener_off_command(_make_args(ai_id='myai'))
+    rc3 = handle_listener_off_command(_make_args(ai_id="myai"))
     assert rc3 == 0
     out = json.loads(capsys.readouterr().out)
-    assert out['next_step']['tool'] == 'TaskStop'
-    assert out['next_step']['args']['task_id'] == 'tk_777'
+    assert out["next_step"]["tool"] == "TaskStop"
+    assert out["next_step"]["args"]["task_id"] == "tk_777"

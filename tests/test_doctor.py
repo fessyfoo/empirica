@@ -98,10 +98,12 @@ def test_check_project_yaml_warns_when_missing(tmp_path):
 
 def test_check_project_yaml_passes_with_ai_id(tmp_path):
     import yaml
+
     (tmp_path / ".empirica").mkdir()
     (tmp_path / ".empirica" / "project.yaml").write_text(
-        yaml.safe_dump({"ai_id": "test", "name": "Test", "org_id": "org-x",
-                        "tenant_slug": "x", "mesh_id_prefix": "x_x"})
+        yaml.safe_dump(
+            {"ai_id": "test", "name": "Test", "org_id": "org-x", "tenant_slug": "x", "mesh_id_prefix": "x_x"}
+        )
     )
     result = check_project_yaml(tmp_path)
     assert result.status == PASS
@@ -112,6 +114,7 @@ def test_check_project_yaml_passes_with_ai_id(tmp_path):
 
 def test_check_project_yaml_warns_without_ai_id(tmp_path):
     import yaml
+
     (tmp_path / ".empirica").mkdir()
     (tmp_path / ".empirica" / "project.yaml").write_text(
         yaml.safe_dump({"name": "Test"})  # no ai_id
@@ -155,6 +158,7 @@ def _fake_response(status: int, body: dict | str = ""):
 
         def __exit__(self, *_):
             return False
+
     return _R(status, body)
 
 
@@ -162,8 +166,7 @@ def test_check_cortex_creds_warns_when_missing(monkeypatch):
     monkeypatch.delenv("CORTEX_API_KEY", raising=False)
     monkeypatch.delenv("CORTEX_REMOTE_URL", raising=False)
     monkeypatch.delenv("CORTEX_URL", raising=False)
-    with patch("empirica.config.credentials_loader.get_credentials_loader",
-               side_effect=Exception("no loader")):
+    with patch("empirica.config.credentials_loader.get_credentials_loader", side_effect=Exception("no loader")):
         result = check_cortex_creds()
     assert result.status == WARN
     assert "missing" in result.detail
@@ -179,8 +182,7 @@ def test_check_cortex_creds_passes_from_env(monkeypatch):
 def test_check_cortex_auth_passes_with_mesh_fields(monkeypatch):
     monkeypatch.setenv("CORTEX_REMOTE_URL", "https://example.com")
     monkeypatch.setenv("CORTEX_API_KEY", "ctx_test")
-    payload = {"user": "x", "org_id": "org-y", "tenant_slug": "y",
-               "mesh_id_prefix": "y_y"}
+    payload = {"user": "x", "org_id": "org-y", "tenant_slug": "y", "mesh_id_prefix": "y_y"}
     with patch("urllib.request.urlopen", return_value=_fake_response(200, payload)):
         result = check_cortex_auth()
     assert result.status == PASS
@@ -202,8 +204,11 @@ def test_check_cortex_auth_fails_on_401(monkeypatch):
     monkeypatch.setenv("CORTEX_REMOTE_URL", "https://example.com")
     monkeypatch.setenv("CORTEX_API_KEY", "bad")
     err = urllib.error.HTTPError(
-        url="https://example.com/v1/users/me", code=401, msg="Unauthorized",
-        hdrs=None, fp=io.BytesIO(b""),  # type: ignore[arg-type]
+        url="https://example.com/v1/users/me",
+        code=401,
+        msg="Unauthorized",
+        hdrs=None,
+        fp=io.BytesIO(b""),  # type: ignore[arg-type]
     )
     with patch("urllib.request.urlopen", side_effect=err):
         result = check_cortex_auth()
@@ -215,8 +220,7 @@ def test_check_cortex_auth_skips_without_creds(monkeypatch):
     monkeypatch.delenv("CORTEX_API_KEY", raising=False)
     monkeypatch.delenv("CORTEX_REMOTE_URL", raising=False)
     monkeypatch.delenv("CORTEX_URL", raising=False)
-    with patch("empirica.config.credentials_loader.get_credentials_loader",
-               side_effect=Exception("no loader")):
+    with patch("empirica.config.credentials_loader.get_credentials_loader", side_effect=Exception("no loader")):
         result = check_cortex_auth()
     assert result.status == SKIP
 
@@ -225,12 +229,16 @@ def test_check_cortex_auth_skips_without_creds(monkeypatch):
 
 
 def test_check_ntfy_creds_warns_when_missing(monkeypatch):
-    for var in ("ORCHESTRATION_NTFY_URL", "NTFY_URL", "ORCHESTRATION_NTFY_TOPIC",
-                "ORCHESTRATION_NTFY_USER", "ORCHESTRATION_NTFY_PASS",
-                "ORCHESTRATION_NTFY_TOKEN"):
+    for var in (
+        "ORCHESTRATION_NTFY_URL",
+        "NTFY_URL",
+        "ORCHESTRATION_NTFY_TOPIC",
+        "ORCHESTRATION_NTFY_USER",
+        "ORCHESTRATION_NTFY_PASS",
+        "ORCHESTRATION_NTFY_TOKEN",
+    ):
         monkeypatch.delenv(var, raising=False)
-    with patch("empirica.config.credentials_loader.get_credentials_loader",
-               side_effect=Exception("no loader")):
+    with patch("empirica.config.credentials_loader.get_credentials_loader", side_effect=Exception("no loader")):
         result = check_ntfy_creds()
     assert result.status == WARN
     assert "missing" in result.detail
@@ -259,8 +267,11 @@ def test_check_ntfy_auth_fails_on_401(monkeypatch):
     monkeypatch.setenv("ORCHESTRATION_NTFY_TOPIC", "test-topic")
     monkeypatch.setenv("ORCHESTRATION_NTFY_TOKEN", "bad")
     err = urllib.error.HTTPError(
-        url="https://ntfy.example.com/v1/account", code=401, msg="Unauthorized",
-        hdrs=None, fp=io.BytesIO(b""),  # type: ignore[arg-type]
+        url="https://ntfy.example.com/v1/account",
+        code=401,
+        msg="Unauthorized",
+        hdrs=None,
+        fp=io.BytesIO(b""),  # type: ignore[arg-type]
     )
     with patch("urllib.request.urlopen", side_effect=err):
         result = check_ntfy_auth()
@@ -272,9 +283,10 @@ def test_check_ntfy_auth_fails_on_401(monkeypatch):
 
 def test_check_loops_registered_warns_when_empty():
     payload = {"loops": []}
-    with patch("empirica.cli.command_handlers.doctor._which", return_value="/x/empirica"), \
-         patch("empirica.cli.command_handlers.doctor._run",
-               return_value=(0, json.dumps(payload), "")):
+    with (
+        patch("empirica.cli.command_handlers.doctor._which", return_value="/x/empirica"),
+        patch("empirica.cli.command_handlers.doctor._run", return_value=(0, json.dumps(payload), "")),
+    ):
         result = check_loops_registered()
     assert result.status == WARN
     assert "no loops" in result.detail
@@ -282,9 +294,10 @@ def test_check_loops_registered_warns_when_empty():
 
 def test_check_loops_registered_passes_with_loops():
     payload = {"loops": [{"name": "cortex-mailbox-poll"}, {"name": "compliance-debt-sweep"}]}
-    with patch("empirica.cli.command_handlers.doctor._which", return_value="/x/empirica"), \
-         patch("empirica.cli.command_handlers.doctor._run",
-               return_value=(0, json.dumps(payload), "")):
+    with (
+        patch("empirica.cli.command_handlers.doctor._which", return_value="/x/empirica"),
+        patch("empirica.cli.command_handlers.doctor._run", return_value=(0, json.dumps(payload), "")),
+    ):
         result = check_loops_registered()
     assert result.status == PASS
     assert "cortex-mailbox-poll" in result.detail
@@ -296,9 +309,9 @@ def test_check_loops_registered_passes_with_loops():
 def test_check_mcp_config_passes_with_empirica_server(tmp_path, monkeypatch):
     fake_home = tmp_path
     (fake_home / ".claude").mkdir()
-    (fake_home / ".claude" / "mcp.json").write_text(json.dumps({
-        "mcpServers": {"empirica": {"command": "empirica-mcp"}}
-    }))
+    (fake_home / ".claude" / "mcp.json").write_text(
+        json.dumps({"mcpServers": {"empirica": {"command": "empirica-mcp"}}})
+    )
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: fake_home))
     result = check_mcp_config()
     assert result.status == PASS
@@ -308,9 +321,7 @@ def test_check_mcp_config_passes_with_empirica_server(tmp_path, monkeypatch):
 def test_check_mcp_config_warns_when_no_empirica_entry(tmp_path, monkeypatch):
     fake_home = tmp_path
     (fake_home / ".claude").mkdir()
-    (fake_home / ".claude" / "mcp.json").write_text(json.dumps({
-        "mcpServers": {"other-server": {"command": "other"}}
-    }))
+    (fake_home / ".claude" / "mcp.json").write_text(json.dumps({"mcpServers": {"other-server": {"command": "other"}}}))
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: fake_home))
     result = check_mcp_config()
     assert result.status == WARN
@@ -330,8 +341,9 @@ def test_check_mcp_config_warns_when_no_configs(tmp_path, monkeypatch):
 def test_handle_doctor_returns_zero_on_pass(monkeypatch, capsys):
     """Doctor returns 0 even with WARN, unless --strict-warn is set."""
     args = types.SimpleNamespace(output="json", strict_warn=False)
-    with patch("empirica.cli.command_handlers.doctor.run_all_checks",
-               return_value=[Check("p", PASS), Check("w", WARN)]):
+    with patch(
+        "empirica.cli.command_handlers.doctor.run_all_checks", return_value=[Check("p", PASS), Check("w", WARN)]
+    ):
         rc = handle_doctor_command(args)
     assert rc == 0
     output = capsys.readouterr().out
@@ -340,16 +352,18 @@ def test_handle_doctor_returns_zero_on_pass(monkeypatch, capsys):
 
 def test_handle_doctor_returns_one_on_fail(capsys):
     args = types.SimpleNamespace(output="json", strict_warn=False)
-    with patch("empirica.cli.command_handlers.doctor.run_all_checks",
-               return_value=[Check("p", PASS), Check("f", FAIL)]):
+    with patch(
+        "empirica.cli.command_handlers.doctor.run_all_checks", return_value=[Check("p", PASS), Check("f", FAIL)]
+    ):
         rc = handle_doctor_command(args)
     assert rc == 1
 
 
 def test_handle_doctor_strict_warn_returns_two(capsys):
     args = types.SimpleNamespace(output="json", strict_warn=True)
-    with patch("empirica.cli.command_handlers.doctor.run_all_checks",
-               return_value=[Check("p", PASS), Check("w", WARN)]):
+    with patch(
+        "empirica.cli.command_handlers.doctor.run_all_checks", return_value=[Check("p", PASS), Check("w", WARN)]
+    ):
         rc = handle_doctor_command(args)
     assert rc == 2
 
@@ -394,22 +408,28 @@ def test_check_tailscale_skips_when_cli_missing():
 
 
 def test_check_tailscale_warns_when_status_fails():
-    with patch("empirica.cli.command_handlers.doctor._which", return_value="/usr/bin/tailscale"), \
-         patch("empirica.cli.command_handlers.doctor._run", return_value=(1, "", "not logged in")):
+    with (
+        patch("empirica.cli.command_handlers.doctor._which", return_value="/usr/bin/tailscale"),
+        patch("empirica.cli.command_handlers.doctor._run", return_value=(1, "", "not logged in")),
+    ):
         result = check_tailscale()
     assert result.status == WARN
     assert "tailscale up" in result.hint
 
 
 def test_check_tailscale_passes_when_connected():
-    payload = json.dumps({
-        "BackendState": "Running",
-        "Self": {"TailscaleIPs": ["100.64.0.1"]},
-        "Peer": {"k1": {}, "k2": {}},
-        "MagicDNSSuffix": "example.ts.net",
-    })
-    with patch("empirica.cli.command_handlers.doctor._which", return_value="/usr/bin/tailscale"), \
-         patch("empirica.cli.command_handlers.doctor._run", return_value=(0, payload, "")):
+    payload = json.dumps(
+        {
+            "BackendState": "Running",
+            "Self": {"TailscaleIPs": ["100.64.0.1"]},
+            "Peer": {"k1": {}, "k2": {}},
+            "MagicDNSSuffix": "example.ts.net",
+        }
+    )
+    with (
+        patch("empirica.cli.command_handlers.doctor._which", return_value="/usr/bin/tailscale"),
+        patch("empirica.cli.command_handlers.doctor._run", return_value=(0, payload, "")),
+    ):
         result = check_tailscale()
     assert result.status == PASS
     assert result.data["peers"] == 2
@@ -418,8 +438,10 @@ def test_check_tailscale_passes_when_connected():
 
 def test_check_tailscale_warns_when_backend_stopped():
     payload = json.dumps({"BackendState": "Stopped", "Self": {}, "Peer": {}})
-    with patch("empirica.cli.command_handlers.doctor._which", return_value="/usr/bin/tailscale"), \
-         patch("empirica.cli.command_handlers.doctor._run", return_value=(0, payload, "")):
+    with (
+        patch("empirica.cli.command_handlers.doctor._which", return_value="/usr/bin/tailscale"),
+        patch("empirica.cli.command_handlers.doctor._run", return_value=(0, payload, "")),
+    ):
         result = check_tailscale()
     assert result.status == WARN
     assert "Stopped" in result.detail
@@ -436,8 +458,7 @@ def test_check_ollama_skips_when_url_unset(monkeypatch):
 
 def test_check_ollama_warns_on_network_failure(monkeypatch):
     monkeypatch.setenv("CORTEX_LLM_BACKEND_URL", "http://nope.invalid")
-    with patch("empirica.cli.command_handlers.doctor._http_get",
-               return_value=(-1, "connection refused")):
+    with patch("empirica.cli.command_handlers.doctor._http_get", return_value=(-1, "connection refused")):
         result = check_ollama_backend()
     assert result.status == WARN
     assert "unreachable" in result.detail
@@ -445,10 +466,14 @@ def test_check_ollama_warns_on_network_failure(monkeypatch):
 
 def test_check_ollama_passes_with_embed_and_chat(monkeypatch):
     monkeypatch.setenv("CORTEX_LLM_BACKEND_URL", "http://ollama.example")
-    body = json.dumps({"models": [
-        {"name": "qwen3-embedding:0.6b"},
-        {"name": "qwen3:7b"},
-    ]})
+    body = json.dumps(
+        {
+            "models": [
+                {"name": "qwen3-embedding:0.6b"},
+                {"name": "qwen3:7b"},
+            ]
+        }
+    )
     with patch("empirica.cli.command_handlers.doctor._http_get", return_value=(200, body)):
         result = check_ollama_backend()
     assert result.status == PASS
@@ -593,6 +618,7 @@ def test_check_project_drift_skips_without_project_yaml(tmp_path):
 
 def test_check_project_drift_skips_without_project_id(tmp_path):
     import yaml
+
     (tmp_path / ".empirica").mkdir()
     (tmp_path / ".empirica" / "project.yaml").write_text(yaml.safe_dump({"name": "x"}))
     result = check_project_drift(tmp_path)
@@ -601,15 +627,13 @@ def test_check_project_drift_skips_without_project_id(tmp_path):
 
 def test_check_project_drift_skips_without_cortex_creds(tmp_path, monkeypatch):
     import yaml
+
     (tmp_path / ".empirica").mkdir()
-    (tmp_path / ".empirica" / "project.yaml").write_text(
-        yaml.safe_dump({"project_id": "uuid-x"})
-    )
+    (tmp_path / ".empirica" / "project.yaml").write_text(yaml.safe_dump({"project_id": "uuid-x"}))
     monkeypatch.delenv("CORTEX_API_KEY", raising=False)
     monkeypatch.delenv("CORTEX_REMOTE_URL", raising=False)
     monkeypatch.delenv("CORTEX_URL", raising=False)
-    with patch("empirica.config.credentials_loader.get_credentials_loader",
-               side_effect=Exception("no loader")):
+    with patch("empirica.config.credentials_loader.get_credentials_loader", side_effect=Exception("no loader")):
         result = check_project_drift(tmp_path)
     assert result.status == SKIP
 
@@ -617,10 +641,9 @@ def test_check_project_drift_skips_without_cortex_creds(tmp_path, monkeypatch):
 def test_check_project_drift_passes_when_pid_in_scope_id_shape(tmp_path, monkeypatch):
     """Cortex's actual response shape: each project has `id`, not `project_id`."""
     import yaml
+
     (tmp_path / ".empirica").mkdir()
-    (tmp_path / ".empirica" / "project.yaml").write_text(
-        yaml.safe_dump({"project_id": "uuid-x"})
-    )
+    (tmp_path / ".empirica" / "project.yaml").write_text(yaml.safe_dump({"project_id": "uuid-x"}))
     monkeypatch.setenv("CORTEX_REMOTE_URL", "https://example.com")
     monkeypatch.setenv("CORTEX_API_KEY", "ctx_test")
     body = json.dumps({"projects": [{"id": "uuid-x"}, {"id": "uuid-y"}]})
@@ -633,10 +656,9 @@ def test_check_project_drift_passes_when_pid_in_scope_id_shape(tmp_path, monkeyp
 def test_check_project_drift_accepts_project_id_shape_too(tmp_path, monkeypatch):
     """Forward-compat: `project_id` keyed entries also work."""
     import yaml
+
     (tmp_path / ".empirica").mkdir()
-    (tmp_path / ".empirica" / "project.yaml").write_text(
-        yaml.safe_dump({"project_id": "uuid-x"})
-    )
+    (tmp_path / ".empirica" / "project.yaml").write_text(yaml.safe_dump({"project_id": "uuid-x"}))
     monkeypatch.setenv("CORTEX_REMOTE_URL", "https://example.com")
     monkeypatch.setenv("CORTEX_API_KEY", "ctx_test")
     body = json.dumps({"projects": [{"project_id": "uuid-x"}]})
@@ -647,10 +669,9 @@ def test_check_project_drift_accepts_project_id_shape_too(tmp_path, monkeypatch)
 
 def test_check_project_drift_warns_when_pid_missing(tmp_path, monkeypatch):
     import yaml
+
     (tmp_path / ".empirica").mkdir()
-    (tmp_path / ".empirica" / "project.yaml").write_text(
-        yaml.safe_dump({"project_id": "uuid-x"})
-    )
+    (tmp_path / ".empirica" / "project.yaml").write_text(yaml.safe_dump({"project_id": "uuid-x"}))
     monkeypatch.setenv("CORTEX_REMOTE_URL", "https://example.com")
     monkeypatch.setenv("CORTEX_API_KEY", "ctx_test")
     body = json.dumps({"projects": [{"id": "uuid-y"}]})

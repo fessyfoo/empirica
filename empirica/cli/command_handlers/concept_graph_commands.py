@@ -15,6 +15,7 @@ def _get_concept_graph():
     """Import ConceptGraph from empirica-prediction package."""
     try:
         from empirica_prediction.concepts.graph import ConceptGraph  # pyright: ignore[reportMissingImports]
+
         return ConceptGraph
     except ImportError:
         print("Error: empirica-prediction package not installed.")
@@ -30,7 +31,7 @@ def _get_project_id(args):
     `_get_project_id_from_local_db`). Previously this read a non-existent
     `.empirica/project.json` at both the resolved-path and CWD sites.
     """
-    if hasattr(args, 'project_id') and args.project_id:
+    if hasattr(args, "project_id") and args.project_id:
         return args.project_id
 
     from empirica.utils.session_resolver import _get_project_id_from_local_db
@@ -39,7 +40,8 @@ def _get_project_id(args):
     project_path = None
     try:
         from empirica.utils.session_resolver import InstanceResolver as R
-        project_path = R.context().get('project_path')
+
+        project_path = R.context().get("project_path")
     except Exception:
         pass
 
@@ -52,6 +54,7 @@ def _get_project_id(args):
 def _get_db_path():
     """Get the database path via unified context resolver."""
     from empirica.config.path_resolver import get_session_db_path
+
     return get_session_db_path()
 
 
@@ -75,7 +78,7 @@ def handle_concept_build(args):
     graph = ConceptGraph(project_id, db_path)
     result = graph.build_from_sources(overwrite=args.overwrite)
 
-    if args.output == 'json':
+    if args.output == "json":
         print(json.dumps(result, indent=2))
     else:
         if result.get("ok"):
@@ -107,12 +110,12 @@ def handle_concept_stats(args):
     graph = ConceptGraph(project_id, db_path)
     stats = graph.get_stats()
 
-    if args.output == 'json':
+    if args.output == "json":
         print(json.dumps(stats, indent=2))
     else:
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print("CONCEPT GRAPH STATISTICS")
-        print(f"{'='*50}\n")
+        print(f"{'=' * 50}\n")
 
         nodes = stats.get("nodes", {})
         edges = stats.get("edges", {})
@@ -148,27 +151,29 @@ def handle_concept_top(args):
     graph = ConceptGraph(project_id, db_path)
     concepts = graph.get_top_concepts(limit=args.limit)
 
-    if args.output == 'json':
+    if args.output == "json":
         results = []
         for c in concepts:
-            results.append({
-                "concept_id": c.concept_id,
-                "text": c.concept_text,
-                "normalized": c.normalized_text,
-                "frequency": c.frequency,
-                "avg_impact": c.avg_impact,
-                "source_types": c.source_type,
-                "session_count": len(c.session_ids),
-            })
+            results.append(
+                {
+                    "concept_id": c.concept_id,
+                    "text": c.concept_text,
+                    "normalized": c.normalized_text,
+                    "frequency": c.frequency,
+                    "avg_impact": c.avg_impact,
+                    "source_types": c.source_type,
+                    "session_count": len(c.session_ids),
+                }
+            )
         print(json.dumps(results, indent=2))
     else:
         if not concepts:
             print("No concepts found. Run 'empirica concept-build' first.")
             return
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"TOP CONCEPTS ({len(concepts)} shown)")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         for i, c in enumerate(concepts, 1):
             print(f"{i:2}. {c.concept_text}")
@@ -196,17 +201,19 @@ def handle_concept_related(args):
     graph = ConceptGraph(project_id, db_path)
     related = graph.find_related_concepts(args.search_term, limit=args.limit)
 
-    if args.output == 'json':
+    if args.output == "json":
         results = []
         for node, weight in related:
-            results.append({
-                "concept_id": node.concept_id,
-                "text": node.concept_text,
-                "normalized": node.normalized_text,
-                "weight": weight,
-                "frequency": node.frequency,
-                "avg_impact": node.avg_impact,
-            })
+            results.append(
+                {
+                    "concept_id": node.concept_id,
+                    "text": node.concept_text,
+                    "normalized": node.normalized_text,
+                    "weight": weight,
+                    "frequency": node.frequency,
+                    "avg_impact": node.avg_impact,
+                }
+            )
         print(json.dumps(results, indent=2))
     else:
         if not related:
@@ -214,12 +221,12 @@ def handle_concept_related(args):
             print("Try running 'empirica concept-build' first.")
             return
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"CONCEPTS RELATED TO: {args.search_term}")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         for node, weight in related:
-            weight_bar = '█' * int(weight * 10)
+            weight_bar = "█" * int(weight * 10)
             print(f"  {node.concept_text}")
             print(f"    Weight: {weight:.2f} {weight_bar}")
             print(f"    Frequency: {node.frequency} | Impact: {node.avg_impact:.2f}")

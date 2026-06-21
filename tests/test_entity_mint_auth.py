@@ -96,6 +96,7 @@ _MINT_OK = {"ok": True, "entity_id": "c-jane-acme", "created": True, "matched_by
 
 def _client():
     from empirica.api.serve_app import create_serve_app
+
     return TestClient(create_serve_app())
 
 

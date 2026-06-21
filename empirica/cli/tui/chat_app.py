@@ -125,12 +125,14 @@ class ChatApp(App):
             for p in providers:
                 self.registry.add(p)
         if translator_url:
-            self.registry.add(Provider(
-                name="translator",
-                base_url=translator_url,
-                default_model=model,
-                wire="responses",
-            ))
+            self.registry.add(
+                Provider(
+                    name="translator",
+                    base_url=translator_url,
+                    default_model=model,
+                    wire="responses",
+                )
+            )
         if not self.registry.providers:
             for p in builtin_empirica_server_providers():
                 self.registry.add(p)
@@ -165,6 +167,7 @@ class ChatApp(App):
                     format_recovery_message,
                     load_breadcrumb,
                 )
+
                 bc = load_breadcrumb(self.session_id_to_resume)
                 if bc is not None:
                     recovery_msg = format_recovery_message(bc)
@@ -185,10 +188,7 @@ class ChatApp(App):
         # as LLM instructions; the rendered turn shows a short preview.
         # Resumed sessions skip this — the original turn 0 is already in
         # the session's turn list and instructions persist from prior run.
-        if (
-            self.enable_system_prompt
-            and self.session_id_to_resume is None
-        ):
+        if self.enable_system_prompt and self.session_id_to_resume is None:
             self._install_system_prompt()
         elif self.user_instructions:
             # System prompt disabled but user supplied --system: pass
@@ -237,9 +237,7 @@ class ChatApp(App):
         # Slash commands still work for /help /plan /statusline etc, but
         # nothing dispatches to the LLM and no artifacts mutate.
         if self.replay_mode and not text.startswith("/"):
-            self._emit_system(
-                "replay mode is read-only — start a new session to chat with the agent"
-            )
+            self._emit_system("replay mode is read-only — start a new session to chat with the agent")
             return
 
         # Phase 4: slash commands route to artifact creation rather than
@@ -254,7 +252,9 @@ class ChatApp(App):
 
         active = self.registry.active()
         if active is None:
-            self._emit_system("no provider configured — pass --provider NAME=URL or use builtin empirica-server defaults")
+            self._emit_system(
+                "no provider configured — pass --provider NAME=URL or use builtin empirica-server defaults"
+            )
             return
         if not self.registry.active_model:
             self._emit_system(f"provider '{active.name}' has no active model — use /model NAME to set one")
@@ -287,7 +287,9 @@ class ChatApp(App):
         # Phase 14: default source='intuition'; Phase 2b will flip to
         # 'search' when tool-call activity is observed mid-stream.
         agent_turn = Turn.new(
-            TurnKind.AGENT_TEXT, "", metadata={"source": "intuition"},
+            TurnKind.AGENT_TEXT,
+            "",
+            metadata={"source": "intuition"},
         )
         self.call_from_thread(self._convo().append_turn, agent_turn)
 
@@ -344,7 +346,7 @@ class ChatApp(App):
                     text = ""
                     output = (ev.get("response") or {}).get("output") or []
                     for item in output:
-                        for c in (item.get("content") or []):
+                        for c in item.get("content") or []:
                             if c.get("type") in ("output_text", "text"):
                                 text += c.get("text", "")
                     yield {"type": "completed", "text": text}
@@ -372,6 +374,7 @@ class ChatApp(App):
         except Exception:
             return
         from empirica.cli.tui.chat.turn import AgentTurn
+
         if isinstance(widget, AgentTurn):
             widget.turn.text = text
             widget.update(widget._format_body())
@@ -409,7 +412,9 @@ class ChatApp(App):
         """Show open goals + recent transactions for the project."""
         self.run_worker(
             lambda: self._plan_action(),
-            thread=True, exclusive=False, group="empirica-meta",
+            thread=True,
+            exclusive=False,
+            group="empirica-meta",
         )
 
     def _slash_compact(self, _rest: str) -> None:
@@ -420,6 +425,7 @@ class ChatApp(App):
         provider/model/mode/recent-turns context.
         """
         from empirica.core.chat.compact import save_breadcrumb
+
         assert self._session is not None  # noqa: S101 — type narrowing
         provider = self.registry.active()
         # Capture the last 8 user/agent turns as the recovery context tail
@@ -453,15 +459,12 @@ class ChatApp(App):
     def _slash_autonomy(self, rest: str) -> None:
         if not rest:
             self._emit_system(
-                f"/autonomy: missing MODE — current: {self.autonomy_mode}  "
-                f"(valid: {', '.join(AUTONOMY_MODES)})"
+                f"/autonomy: missing MODE — current: {self.autonomy_mode}  (valid: {', '.join(AUTONOMY_MODES)})"
             )
             return
         mode = rest.strip().lower()
         if mode not in AUTONOMY_MODES:
-            self._emit_system(
-                f"unknown autonomy mode: {rest!r} (valid: {', '.join(AUTONOMY_MODES)})"
-            )
+            self._emit_system(f"unknown autonomy mode: {rest!r} (valid: {', '.join(AUTONOMY_MODES)})")
             return
         if mode == self.autonomy_mode:
             self._emit_system(f"autonomy already {mode}")
@@ -505,7 +508,9 @@ class ChatApp(App):
     def _slash_models(self, _rest: str) -> None:
         self.run_worker(
             lambda: self._list_models_action(),
-            thread=True, exclusive=False, group="provider-meta",
+            thread=True,
+            exclusive=False,
+            group="provider-meta",
         )
 
     def _slash_model(self, rest: str) -> None:
@@ -536,13 +541,13 @@ class ChatApp(App):
     def _slash_artifact(self, artifact_type: str, rest: str) -> None:
         """Shared handler body for /finding | /decision | /unknown."""
         if not rest:
-            self._emit_system(
-                f"/{artifact_type}: missing text — usage: /{artifact_type} <description>"
-            )
+            self._emit_system(f"/{artifact_type}: missing text — usage: /{artifact_type} <description>")
             return
         self.run_worker(
             lambda: self._create_artifact(artifact_type, rest),
-            thread=True, exclusive=False, group="artifact-create",
+            thread=True,
+            exclusive=False,
+            group="artifact-create",
         )
 
     def _slash_finding(self, rest: str) -> None:
@@ -562,7 +567,9 @@ class ChatApp(App):
         path = rest.strip()
         self.run_worker(
             lambda: self._batch_log_action(path),
-            thread=True, exclusive=False, group="artifact-create",
+            thread=True,
+            exclusive=False,
+            group="artifact-create",
         )
 
     def _slash_resolve_batch(self, rest: str) -> None:
@@ -573,7 +580,9 @@ class ChatApp(App):
             return
         self.run_worker(
             lambda: self._batch_resolve_action(ids),
-            thread=True, exclusive=False, group="artifact-create",
+            thread=True,
+            exclusive=False,
+            group="artifact-create",
         )
 
     def _slash_delete_batch(self, rest: str) -> None:
@@ -584,7 +593,9 @@ class ChatApp(App):
             return
         self.run_worker(
             lambda: self._batch_delete_action(ids),
-            thread=True, exclusive=False, group="artifact-create",
+            thread=True,
+            exclusive=False,
+            group="artifact-create",
         )
 
     def _batch_log_action(self, path: str) -> None:
@@ -594,6 +605,7 @@ class ChatApp(App):
         from empirica.core.chat.actions import (
             log_artifacts_from_file,
         )
+
         try:
             resp = log_artifacts_from_file(path)
         except _ActionError as e:
@@ -619,13 +631,18 @@ class ChatApp(App):
         from empirica.core.chat.actions import (
             resolve_artifacts_batch,
         )
+
         try:
             resp = resolve_artifacts_batch(ids)
         except _ActionError as e:
             self.call_from_thread(self._emit_system, f"/resolve-batch: {e}")
             return
         n = resp.get("resolved") if isinstance(resp, dict) else None
-        msg = f"/resolve-batch: resolved {n} of {len(ids)} unknowns" if isinstance(n, int) else f"/resolve-batch: completed ({len(ids)} IDs)"
+        msg = (
+            f"/resolve-batch: resolved {n} of {len(ids)} unknowns"
+            if isinstance(n, int)
+            else f"/resolve-batch: completed ({len(ids)} IDs)"
+        )
         self.call_from_thread(self._emit_system, msg)
 
     def _batch_delete_action(self, ids: list[str]) -> None:
@@ -635,18 +652,24 @@ class ChatApp(App):
         from empirica.core.chat.actions import (
             delete_artifacts_batch,
         )
+
         try:
             resp = delete_artifacts_batch(ids)
         except _ActionError as e:
             self.call_from_thread(self._emit_system, f"/delete-batch: {e}")
             return
         n = resp.get("deleted") if isinstance(resp, dict) else None
-        msg = f"/delete-batch: deleted {n} of {len(ids)} artifacts" if isinstance(n, int) else f"/delete-batch: completed ({len(ids)} IDs)"
+        msg = (
+            f"/delete-batch: deleted {n} of {len(ids)} artifacts"
+            if isinstance(n, int)
+            else f"/delete-batch: completed ({len(ids)} IDs)"
+        )
         self.call_from_thread(self._emit_system, msg)
 
     def _plan_action(self) -> None:
         """Worker thread: query empirica goals-list + format for chat."""
         from empirica.core.chat.actions import ActionError, _run_cli
+
         try:
             data = _run_cli(["goals-list"])
         except ActionError as e:
@@ -670,9 +693,7 @@ class ChatApp(App):
             pct_str = f" {int(pct)}%" if isinstance(pct, (int, float)) else ""
             lines.append(f"  • [{status}{pct_str}] {obj}")
         if len(open_goals) > 15:
-            lines.append(
-                f"  … and {len(open_goals) - 15} more (use `empirica goals-list` for full)"
-            )
+            lines.append(f"  … and {len(open_goals) - 15} more (use `empirica goals-list` for full)")
         self.call_from_thread(self._emit_system, "\n".join(lines))
 
     # Dispatch table — populated below the class body so methods exist.
@@ -689,9 +710,7 @@ class ChatApp(App):
             elif artifact_type == "unknown":
                 resp = log_unknown(text)
             else:
-                self.call_from_thread(
-                    self._emit_system, f"artifact type not yet supported: {artifact_type}"
-                )
+                self.call_from_thread(self._emit_system, f"artifact type not yet supported: {artifact_type}")
                 return
         except ActionError as e:
             self.call_from_thread(self._emit_system, f"artifact creation failed: {e}")
@@ -818,7 +837,9 @@ class ChatApp(App):
                 return
             self.run_worker(
                 lambda: self._resolve_unknown_action(artifact_id),
-                thread=True, exclusive=False, group="artifact-card-action",
+                thread=True,
+                exclusive=False,
+                group="artifact-card-action",
             )
             return
         # Fallback for confirm/ack/reverse/escalate/challenge: log a chained
@@ -826,17 +847,17 @@ class ChatApp(App):
         chain_note = f"{atype} {(artifact_id or 'unknown')[:8]}: {action}"
         self.run_worker(
             lambda: self._chain_finding_action(chain_note, atype, action),
-            thread=True, exclusive=False, group="artifact-card-action",
+            thread=True,
+            exclusive=False,
+            group="artifact-card-action",
         )
 
     def _pin_artifact(self, atype: str, artifact_id: str | None, turn_id: str) -> None:
         """Write a pin entry to ~/.empirica/chat_pinned_{session_id}.json."""
         assert self._session is not None  # noqa: S101 — type narrowing
         import json as _json
-        pin_path = (
-            Path.home() / ".empirica"
-            / f"chat_pinned_{self._session.session_id}.json"
-        )
+
+        pin_path = Path.home() / ".empirica" / f"chat_pinned_{self._session.session_id}.json"
         pin_path.parent.mkdir(parents=True, exist_ok=True)
         existing: list[dict] = []
         if pin_path.exists():
@@ -846,20 +867,20 @@ class ChatApp(App):
                     existing = []
             except Exception:
                 existing = []
-        existing.append({
-            "artifact_type": atype,
-            "artifact_id": artifact_id,
-            "turn_id": turn_id,
-            "pinned_at": int(__import__("time").time()),
-        })
+        existing.append(
+            {
+                "artifact_type": atype,
+                "artifact_id": artifact_id,
+                "turn_id": turn_id,
+                "pinned_at": int(__import__("time").time()),
+            }
+        )
         try:
             pin_path.write_text(_json.dumps(existing, indent=2))
         except OSError as e:
             self._emit_system(f"pin failed: {e}")
             return
-        self._emit_system(
-            f"pinned {atype} {(artifact_id or 'unknown')[:8]} → {pin_path.name}"
-        )
+        self._emit_system(f"pinned {atype} {(artifact_id or 'unknown')[:8]} → {pin_path.name}")
 
     def _resolve_unknown_action(self, unknown_id: str) -> None:
         """Worker thread: invoke empirica unknown-resolve."""
@@ -869,14 +890,13 @@ class ChatApp(App):
         from empirica.core.chat.actions import (
             resolve_unknown,
         )
+
         try:
             resolve_unknown(unknown_id, resolved_by="resolved via empirica chat")
         except _ActionError as e:
             self.call_from_thread(self._emit_system, f"resolve failed: {e}")
             return
-        self.call_from_thread(
-            self._emit_system, f"resolved unknown {unknown_id[:8]}"
-        )
+        self.call_from_thread(self._emit_system, f"resolved unknown {unknown_id[:8]}")
 
     def _chain_finding_action(self, note: str, atype: str, action: str) -> None:
         """Worker thread: log a chained finding for confirm/ack/reverse/etc."""
@@ -886,6 +906,7 @@ class ChatApp(App):
         from empirica.core.chat.actions import (
             log_finding,
         )
+
         try:
             log_finding(note, impact=0.4, subject=f"chat-action-{atype}-{action}")
         except _ActionError as e:
@@ -906,9 +927,8 @@ class ChatApp(App):
         def _on_dismiss(model_name: str | None) -> None:
             if model_name and self.registry.set_active_model(model_name):
                 self._refresh_subtitle()
-                self._emit_system(
-                    f"model set to {model_name} on provider {self.registry.active_provider_name}"
-                )
+                self._emit_system(f"model set to {model_name} on provider {self.registry.active_provider_name}")
+
         self.push_screen(ModelSelectorModal(self.registry), _on_dismiss)
 
 

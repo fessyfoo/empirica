@@ -22,10 +22,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-EMPIRICA_DIR = Path.home() / '.empirica'
+EMPIRICA_DIR = Path.home() / ".empirica"
 
 
 # ─── ask state ─────────────────────────────────────────────────────────────
+
 
 def is_asking(instance_id: str) -> bool:
     """True if the instance is currently waiting for user input.
@@ -36,13 +37,13 @@ def is_asking(instance_id: str) -> bool:
     The hook that writes this is a follow-up — until it ships, this
     always returns False, which keeps the column blank rather than wrong.
     """
-    safe_id = instance_id.replace('/', '-').replace('%', '')
-    return (EMPIRICA_DIR / f'asking_{safe_id}').exists()
+    safe_id = instance_id.replace("/", "-").replace("%", "")
+    return (EMPIRICA_DIR / f"asking_{safe_id}").exists()
 
 
 # ─── notifications (project-scoped from enp-watcher pending.json) ─────────
 
-ENP_PENDING_PATH = EMPIRICA_DIR / 'enp' / 'pending.json'
+ENP_PENDING_PATH = EMPIRICA_DIR / "enp" / "pending.json"
 
 
 def _load_pending() -> list[dict[str, Any]]:
@@ -50,7 +51,7 @@ def _load_pending() -> list[dict[str, Any]]:
     if not ENP_PENDING_PATH.exists():
         return []
     try:
-        with open(ENP_PENDING_PATH, encoding='utf-8') as f:
+        with open(ENP_PENDING_PATH, encoding="utf-8") as f:
             data = json.load(f)
     except (OSError, json.JSONDecodeError):
         return []
@@ -68,9 +69,9 @@ def _normalize_path(p: str | None) -> str:
     differ by trailing slash or `~` expansion.
     """
     if not p:
-        return ''
+        return ""
     s = str(Path(p).expanduser())
-    return s.rstrip('/')
+    return s.rstrip("/")
 
 
 @dataclass
@@ -80,13 +81,15 @@ class NotificationSummary:
     `instance_id` retained for backward-compat with the existing per-row
     notif glyph; the project_path is the actual scope key.
     """
+
     instance_id: str
     open_count: int
     has_attention: bool
 
 
 def notification_summary(
-    instance_id: str, project_path: str | None = None,
+    instance_id: str,
+    project_path: str | None = None,
 ) -> NotificationSummary:
     """Count unacked notifications scoped to this instance's project.
 
@@ -98,18 +101,17 @@ def notification_summary(
         return NotificationSummary(instance_id=instance_id, open_count=0, has_attention=False)
     target = _normalize_path(project_path)
     pending = _load_pending()
-    count = sum(
-        1 for n in pending
-        if not n.get('acknowledged') and _normalize_path(n.get('repo')) == target
-    )
+    count = sum(1 for n in pending if not n.get("acknowledged") and _normalize_path(n.get("repo")) == target)
     return NotificationSummary(
-        instance_id=instance_id, open_count=count, has_attention=count > 0,
+        instance_id=instance_id,
+        open_count=count,
+        has_attention=count > 0,
     )
 
 
 def notifications_total() -> int:
     """Total unacked notifications across all projects (top-bar N count)."""
-    return sum(1 for n in _load_pending() if not n.get('acknowledged'))
+    return sum(1 for n in _load_pending() if not n.get("acknowledged"))
 
 
 def clear_notifications(instance_id: str, project_path: str | None = None) -> int:
@@ -125,15 +127,15 @@ def clear_notifications(instance_id: str, project_path: str | None = None) -> in
     pending = _load_pending()
     cleared = 0
     for n in pending:
-        if n.get('acknowledged'):
+        if n.get("acknowledged"):
             continue
-        if _normalize_path(n.get('repo')) != target:
+        if _normalize_path(n.get("repo")) != target:
             continue
-        n['acknowledged'] = True
+        n["acknowledged"] = True
         cleared += 1
     if cleared:
         try:
-            with open(ENP_PENDING_PATH, 'w', encoding='utf-8') as f:
+            with open(ENP_PENDING_PATH, "w", encoding="utf-8") as f:
                 json.dump(pending, f, indent=2)
         except OSError:
             pass
@@ -141,6 +143,7 @@ def clear_notifications(instance_id: str, project_path: str | None = None) -> in
 
 
 # ─── statusline summary ────────────────────────────────────────────────────
+
 
 @dataclass
 class StatuslineSummary:
@@ -172,10 +175,10 @@ def calculate_confidence(vectors: dict[str, Any]) -> float:
     """
     if not vectors:
         return 0.0
-    know = float(vectors.get('know', 0.5) or 0.5)
-    uncertainty = float(vectors.get('uncertainty', 0.5) or 0.5)
-    context = float(vectors.get('context', 0.5) or 0.5)
-    completion = float(vectors.get('completion', 0.0) or 0.0)
+    know = float(vectors.get("know", 0.5) or 0.5)
+    uncertainty = float(vectors.get("uncertainty", 0.5) or 0.5)
+    context = float(vectors.get("context", 0.5) or 0.5)
+    completion = float(vectors.get("completion", 0.0) or 0.0)
     score = 0.40 * know + 0.30 * (1.0 - uncertainty) + 0.20 * context + 0.10 * completion
     return max(0.0, min(1.0, score))
 
@@ -195,9 +198,17 @@ def statusline_summary(
       2. ~/.empirica/statusline_cache/{instance_id}_*.json (legacy cache)
     """
     blank = StatuslineSummary(
-        instance_id=instance_id, found=False, label=label_fallback,
-        know=None, uncertainty=None, context=None, completion=None,
-        confidence=None, open_goals=None, artifact_count=None, raw=None,
+        instance_id=instance_id,
+        found=False,
+        label=label_fallback,
+        know=None,
+        uncertainty=None,
+        context=None,
+        completion=None,
+        confidence=None,
+        open_goals=None,
+        artifact_count=None,
+        raw=None,
     )
 
     if project_path and session_id:
@@ -209,7 +220,9 @@ def statusline_summary(
 
 
 def _live_statusline_from_db(
-    project_path: str, session_id: str, label_fallback: str | None,
+    project_path: str,
+    session_id: str,
+    label_fallback: str | None,
 ) -> StatuslineSummary | None:
     """Pull the most-recent vectors + open-goal count from project DB.
 
@@ -221,8 +234,8 @@ def _live_statusline_from_db(
     current project, excluding goals from prior project_id values left
     over from test runs or schema migrations.
     """
-    nested = Path(project_path) / '.empirica' / 'sessions' / 'sessions.db'
-    bare = Path(project_path) / '.empirica' / 'sessions.db'
+    nested = Path(project_path) / ".empirica" / "sessions" / "sessions.db"
+    bare = Path(project_path) / ".empirica" / "sessions.db"
     if nested.exists() and nested.stat().st_size > 0:
         db_path = nested
     elif bare.exists() and bare.stat().st_size > 0:
@@ -231,11 +244,10 @@ def _live_statusline_from_db(
         return None
 
     try:
-        conn = sqlite3.connect(f'file:{db_path}?mode=ro', uri=True, timeout=1.0)
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=1.0)
         cur = conn.cursor()
         cur.execute(
-            'SELECT vectors FROM epistemic_snapshots '
-            'WHERE session_id = ? ORDER BY timestamp DESC LIMIT 1',
+            "SELECT vectors FROM epistemic_snapshots WHERE session_id = ? ORDER BY timestamp DESC LIMIT 1",
             (session_id,),
         )
         row = cur.fetchone()
@@ -243,7 +255,7 @@ def _live_statusline_from_db(
         # Resolve project_id from sessions table for accurate goal scoping.
         project_id: str | None = None
         try:
-            cur.execute('SELECT project_id FROM sessions WHERE session_id = ?', (session_id,))
+            cur.execute("SELECT project_id FROM sessions WHERE session_id = ?", (session_id,))
             row_pid = cur.fetchone()
             if row_pid and row_pid[0]:
                 project_id = str(row_pid[0])
@@ -265,31 +277,32 @@ def _live_statusline_from_db(
 
     confidence = calculate_confidence(vectors)
     return StatuslineSummary(
-        instance_id='',
+        instance_id="",
         found=True,
         label=label_fallback,
-        know=_safe_float(vectors.get('know')),
-        uncertainty=_safe_float(vectors.get('uncertainty')),
-        context=_safe_float(vectors.get('context')),
-        completion=_safe_float(vectors.get('completion')),
+        know=_safe_float(vectors.get("know")),
+        uncertainty=_safe_float(vectors.get("uncertainty")),
+        context=_safe_float(vectors.get("context")),
+        completion=_safe_float(vectors.get("completion")),
         confidence=round(confidence, 2),
         open_goals=open_goals,
         artifact_count=open_goals,
-        raw={'vectors': vectors, 'source': 'epistemic_snapshots'},
+        raw={"vectors": vectors, "source": "epistemic_snapshots"},
     )
 
 
 def _statusline_from_cache(
-    instance_id: str, label_fallback: str | None,
+    instance_id: str,
+    label_fallback: str | None,
 ) -> StatuslineSummary | None:
     """Legacy cache fallback for instances without project/session binding."""
-    safe_id = instance_id.replace('/', '-').replace('%', '')
-    cache_dir = EMPIRICA_DIR / 'statusline_cache'
+    safe_id = instance_id.replace("/", "-").replace("%", "")
+    cache_dir = EMPIRICA_DIR / "statusline_cache"
     if not cache_dir.exists():
         return None
 
     candidates = sorted(
-        cache_dir.glob(f'{safe_id}_*.json'),
+        cache_dir.glob(f"{safe_id}_*.json"),
         key=lambda p: p.stat().st_mtime if p.exists() else 0,
         reverse=True,
     )
@@ -297,29 +310,29 @@ def _statusline_from_cache(
         return None
 
     try:
-        with open(candidates[0], encoding='utf-8') as f:
+        with open(candidates[0], encoding="utf-8") as f:
             data = json.load(f)
     except (OSError, json.JSONDecodeError):
         return None
 
-    vectors = data.get('vectors') or {}
-    label = data.get('project_name') or label_fallback
-    open_goals = data.get('open_goals')
+    vectors = data.get("vectors") or {}
+    label = data.get("project_name") or label_fallback
+    open_goals = data.get("open_goals")
     if open_goals is None:
-        open_goals = (data.get('open_goals') or 0) + (data.get('open_unknowns') or 0)
+        open_goals = (data.get("open_goals") or 0) + (data.get("open_unknowns") or 0)
     confidence = calculate_confidence(vectors) if vectors else None
     return StatuslineSummary(
         instance_id=instance_id,
         found=True,
         label=label,
-        know=_safe_float(vectors.get('know')),
-        uncertainty=_safe_float(vectors.get('uncertainty')),
-        context=_safe_float(vectors.get('context')),
-        completion=_safe_float(vectors.get('completion')),
+        know=_safe_float(vectors.get("know")),
+        uncertainty=_safe_float(vectors.get("uncertainty")),
+        context=_safe_float(vectors.get("context")),
+        completion=_safe_float(vectors.get("completion")),
         confidence=round(confidence, 2) if confidence is not None else None,
         open_goals=int(open_goals) if open_goals is not None else None,
         artifact_count=int(open_goals) if open_goals is not None else None,
-        raw={**data, 'source': 'statusline_cache'},
+        raw={**data, "source": "statusline_cache"},
     )
 
 
@@ -331,6 +344,7 @@ def _safe_float(value: Any) -> float | None:
 
 
 # ─── open goals ────────────────────────────────────────────────────────────
+
 
 @dataclass
 class OpenGoal:
@@ -359,8 +373,8 @@ def open_goals_list(
     """
     if not project_path:
         return []
-    nested = Path(project_path) / '.empirica' / 'sessions' / 'sessions.db'
-    bare = Path(project_path) / '.empirica' / 'sessions.db'
+    nested = Path(project_path) / ".empirica" / "sessions" / "sessions.db"
+    bare = Path(project_path) / ".empirica" / "sessions.db"
     if nested.exists() and nested.stat().st_size > 0:
         db_path = nested
     elif bare.exists() and bare.stat().st_size > 0:
@@ -370,7 +384,7 @@ def open_goals_list(
 
     goals: list[OpenGoal] = []
     try:
-        conn = sqlite3.connect(f'file:{db_path}?mode=ro', uri=True, timeout=1.0)
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=1.0)
         cur = conn.cursor()
         project_id = _resolve_project_id(cur, session_id) if session_id else None
         if project_id:
@@ -393,11 +407,13 @@ def open_goals_list(
                 age = max(0.0, now - float(created)) if created is not None else None
             except (TypeError, ValueError):
                 age = None
-            goals.append(OpenGoal(
-                objective=str(objective or ''),
-                status=str(status or 'in_progress'),
-                age_seconds=age,
-            ))
+            goals.append(
+                OpenGoal(
+                    objective=str(objective or ""),
+                    status=str(status or "in_progress"),
+                    age_seconds=age,
+                )
+            )
         conn.close()
     except sqlite3.Error:
         return []
@@ -407,7 +423,7 @@ def open_goals_list(
 def _resolve_project_id(cur: sqlite3.Cursor, session_id: str) -> str | None:
     """Look up project_id for a session. Returns None if not found or table absent."""
     try:
-        cur.execute('SELECT project_id FROM sessions WHERE session_id = ?', (session_id,))
+        cur.execute("SELECT project_id FROM sessions WHERE session_id = ?", (session_id,))
         row = cur.fetchone()
         if row and row[0]:
             return str(row[0])
@@ -424,11 +440,11 @@ def _count_open_goals(cur: sqlite3.Cursor, project_id: str | None) -> int | None
     try:
         if project_id:
             cur.execute(
-                'SELECT COUNT(*) FROM goals WHERE is_completed = 0 AND project_id = ?',
+                "SELECT COUNT(*) FROM goals WHERE is_completed = 0 AND project_id = ?",
                 (project_id,),
             )
         else:
-            cur.execute('SELECT COUNT(*) FROM goals WHERE is_completed = 0')
+            cur.execute("SELECT COUNT(*) FROM goals WHERE is_completed = 0")
         row = cur.fetchone()
         if row:
             return int(row[0])
@@ -439,6 +455,7 @@ def _count_open_goals(cur: sqlite3.Cursor, project_id: str | None) -> int | None
 
 # ─── notifications list (placeholder companion to notification_summary) ────
 
+
 @dataclass
 class NotificationItem:
     title: str
@@ -448,7 +465,8 @@ class NotificationItem:
 
 
 def notifications_for_project(
-    project_path: str | None, limit: int = 5,
+    project_path: str | None,
+    limit: int = 5,
 ) -> list[NotificationItem]:
     """Return the `limit` most recent unacked notifications for this project.
 
@@ -464,21 +482,20 @@ def notifications_for_project(
     target = _normalize_path(project_path)
     pending = _load_pending()
 
-    matched = [
-        n for n in pending
-        if not n.get('acknowledged') and _normalize_path(n.get('repo')) == target
-    ]
+    matched = [n for n in pending if not n.get("acknowledged") and _normalize_path(n.get("repo")) == target]
     # Sort by received timestamp descending; missing ts goes last.
-    matched.sort(key=lambda n: n.get('received') or '', reverse=True)
+    matched.sort(key=lambda n: n.get("received") or "", reverse=True)
 
     out: list[NotificationItem] = []
     for raw in matched[:limit]:
-        out.append(NotificationItem(
-            title=str(raw.get('title', '(untitled)')),
-            body=raw.get('body'),
-            received_iso=raw.get('received'),
-            source=str(raw.get('source', 'enp')),
-        ))
+        out.append(
+            NotificationItem(
+                title=str(raw.get("title", "(untitled)")),
+                body=raw.get("body"),
+                received_iso=raw.get("received"),
+                source=str(raw.get("source", "enp")),
+            )
+        )
     return out
 
 
@@ -490,6 +507,7 @@ def notifications_list(instance_id: str, limit: int = 5) -> list[NotificationIte
 
 # ─── context window usage (CC writes the file; cockpit reads it) ──────────
 
+
 def context_usage(instance_id: str) -> int | None:
     """Read CC's context window usage % for this instance.
 
@@ -497,14 +515,14 @@ def context_usage(instance_id: str) -> int | None:
     statusline command when CC invokes it with stdin payload). Returns
     the integer percentage 0-100, or None if no recent file.
     """
-    safe_id = instance_id.replace('/', '-').replace('%', '')
-    path = EMPIRICA_DIR / f'context_usage_{safe_id}.json'
+    safe_id = instance_id.replace("/", "-").replace("%", "")
+    path = EMPIRICA_DIR / f"context_usage_{safe_id}.json"
     if not path.exists():
         return None
     try:
-        with open(path, encoding='utf-8') as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
-        used = data.get('used_percentage')
+        used = data.get("used_percentage")
         if used is None:
             return None
         return max(0, min(100, int(used)))
@@ -513,6 +531,7 @@ def context_usage(instance_id: str) -> int | None:
 
 
 # ─── recent actions ────────────────────────────────────────────────────────
+
 
 @dataclass
 class RecentAction:
@@ -536,8 +555,8 @@ def recent_actions(
     if not project_path:
         return []
     # Same path resolution as _live_statusline_from_db.
-    nested = Path(project_path) / '.empirica' / 'sessions' / 'sessions.db'
-    bare = Path(project_path) / '.empirica' / 'sessions.db'
+    nested = Path(project_path) / ".empirica" / "sessions" / "sessions.db"
+    bare = Path(project_path) / ".empirica" / "sessions.db"
     if nested.exists() and nested.stat().st_size > 0:
         db_path = nested
     elif bare.exists() and bare.stat().st_size > 0:
@@ -547,7 +566,7 @@ def recent_actions(
 
     actions: list[RecentAction] = []
     try:
-        conn = sqlite3.connect(f'file:{db_path}?mode=ro', uri=True, timeout=1.0)
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=1.0)
         cur = conn.cursor()
 
         # Pull latest epistemic events. event_type values include
@@ -555,15 +574,14 @@ def recent_actions(
         try:
             if session_id:
                 cur.execute(
-                    'SELECT timestamp, event_type, data_json '
-                    'FROM epistemic_events WHERE session_id = ? '
-                    'ORDER BY timestamp DESC LIMIT ?',
+                    "SELECT timestamp, event_type, data_json "
+                    "FROM epistemic_events WHERE session_id = ? "
+                    "ORDER BY timestamp DESC LIMIT ?",
                     (session_id, limit * 3),
                 )
             else:
                 cur.execute(
-                    'SELECT timestamp, event_type, data_json '
-                    'FROM epistemic_events ORDER BY timestamp DESC LIMIT ?',
+                    "SELECT timestamp, event_type, data_json FROM epistemic_events ORDER BY timestamp DESC LIMIT ?",
                     (limit * 3,),
                 )
             for ts, kind, raw in cur.fetchall():
@@ -581,33 +599,33 @@ def recent_actions(
 def _format_event_action(ts: float | None, kind: str, raw: str | None) -> RecentAction:
     if not isinstance(ts, (int, float)):
         ts = 0.0
-    iso = datetime.fromtimestamp(float(ts), tz=timezone.utc).astimezone().strftime('%H:%M')
-    summary = kind.replace('_complete', '').replace('_', ' ')
+    iso = datetime.fromtimestamp(float(ts), tz=timezone.utc).astimezone().strftime("%H:%M")
+    summary = kind.replace("_complete", "").replace("_", " ")
     if raw:
         try:
             data = json.loads(raw)
-            decision = data.get('decision') or data.get('phase') or data.get('reasoning')
+            decision = data.get("decision") or data.get("phase") or data.get("reasoning")
             if decision:
-                summary = f'{summary}: {str(decision)[:40]}'
+                summary = f"{summary}: {str(decision)[:40]}"
         except (json.JSONDecodeError, TypeError):
             pass
     return RecentAction(timestamp=float(ts), iso_time=iso, kind=kind, summary=summary)
 
 
 __all__ = [
-    'NotificationItem',
-    'NotificationSummary',
-    'OpenGoal',
-    'RecentAction',
-    'StatuslineSummary',
-    'calculate_confidence',
-    'clear_notifications',
-    'context_usage',
-    'is_asking',
-    'notification_summary',
-    'notifications_list',
-    'notifications_total',
-    'open_goals_list',
-    'recent_actions',
-    'statusline_summary',
+    "NotificationItem",
+    "NotificationSummary",
+    "OpenGoal",
+    "RecentAction",
+    "StatuslineSummary",
+    "calculate_confidence",
+    "clear_notifications",
+    "context_usage",
+    "is_asking",
+    "notification_summary",
+    "notifications_list",
+    "notifications_total",
+    "open_goals_list",
+    "recent_actions",
+    "statusline_summary",
 ]

@@ -43,6 +43,7 @@ def isolate_home_and_cortex_env(monkeypatch, tmp_path):
     # get_credentials_loader() call re-reads from the isolated HOME.
     from empirica.config import credentials_loader as cl_mod
     from empirica.config.credentials_loader import CredentialsLoader
+
     CredentialsLoader._instance = None
     CredentialsLoader._credentials_cache = None
     cl_mod._loader = None
@@ -93,7 +94,8 @@ def _seed_source(db_path: Path, project_id: str = "p1", **overrides) -> str:
         "epistemic_layer, discovered_at, archived) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)",
         (
-            sid, project_id,
+            sid,
+            project_id,
             overrides.get("source_type", "doc"),
             overrides.get("title", "Test source"),
             overrides.get("description", ""),
@@ -125,7 +127,10 @@ def _make_args(**kwargs):
 
 def test_valid_reasons_set():
     assert _VALID_ARCHIVE_REASONS == (
-        "user_deleted", "file_missing", "url_unreachable", "superseded",
+        "user_deleted",
+        "file_missing",
+        "url_unreachable",
+        "superseded",
     )
 
 
@@ -134,9 +139,12 @@ def test_invalid_reason_rejected(project_db: Path, capsys):
         MockDB.return_value.conn = sqlite3.connect(
             str(project_db / ".empirica" / "sessions" / "sessions.db"),
         )
-        rc = handle_source_archive_command(_make_args(
-            source_id="abc", reason="garbage",
-        ))
+        rc = handle_source_archive_command(
+            _make_args(
+                source_id="abc",
+                reason="garbage",
+            )
+        )
     assert rc == 1
     out = capsys.readouterr().out
     payload = json.loads(out.strip().split("\n")[-1])
@@ -149,9 +157,12 @@ def test_superseded_requires_target_id(project_db: Path, capsys):
         MockDB.return_value.conn = sqlite3.connect(
             str(project_db / ".empirica" / "sessions" / "sessions.db"),
         )
-        rc = handle_source_archive_command(_make_args(
-            source_id="abc", reason="superseded",
-        ))
+        rc = handle_source_archive_command(
+            _make_args(
+                source_id="abc",
+                reason="superseded",
+            )
+        )
     assert rc == 1
     out = capsys.readouterr().out
     payload = json.loads(out.strip().split("\n")[-1])
@@ -172,9 +183,12 @@ def test_archive_user_deleted_round_trip(project_db: Path, capsys):
             "empirica.cli.command_handlers.artifact_log_commands._hard_delete_source_chunks",
             return_value=0,
         ):
-            rc = handle_source_archive_command(_make_args(
-                source_id=sid, reason="user_deleted",
-            ))
+            rc = handle_source_archive_command(
+                _make_args(
+                    source_id=sid,
+                    reason="user_deleted",
+                )
+            )
 
     assert rc == 0
     out = capsys.readouterr().out
@@ -214,9 +228,13 @@ def test_archive_superseded_with_target(project_db: Path, capsys):
             "empirica.cli.command_handlers.artifact_log_commands._hard_delete_source_chunks",
             return_value=0,
         ):
-            rc = handle_source_archive_command(_make_args(
-                source_id=src, reason="superseded", target_id=replacement,
-            ))
+            rc = handle_source_archive_command(
+                _make_args(
+                    source_id=src,
+                    reason="superseded",
+                    target_id=replacement,
+                )
+            )
 
     assert rc == 0
     out = capsys.readouterr().out
@@ -237,13 +255,19 @@ def test_archive_idempotent(project_db: Path, capsys):
             "empirica.cli.command_handlers.artifact_log_commands._hard_delete_source_chunks",
             return_value=0,
         ):
-            handle_source_archive_command(_make_args(
-                source_id=sid, reason="user_deleted",
-            ))
+            handle_source_archive_command(
+                _make_args(
+                    source_id=sid,
+                    reason="user_deleted",
+                )
+            )
             capsys.readouterr()  # discard first run's output
-            rc = handle_source_archive_command(_make_args(
-                source_id=sid, reason="user_deleted",
-            ))
+            rc = handle_source_archive_command(
+                _make_args(
+                    source_id=sid,
+                    reason="user_deleted",
+                )
+            )
 
     assert rc == 0
     out = capsys.readouterr().out
@@ -267,9 +291,12 @@ def test_archive_resolves_uuid_prefix(project_db: Path, capsys):
             "empirica.cli.command_handlers.artifact_log_commands._hard_delete_source_chunks",
             return_value=0,
         ):
-            rc = handle_source_archive_command(_make_args(
-                source_id=prefix, reason="file_missing",
-            ))
+            rc = handle_source_archive_command(
+                _make_args(
+                    source_id=prefix,
+                    reason="file_missing",
+                )
+            )
 
     assert rc == 0
     out = capsys.readouterr().out
@@ -282,9 +309,12 @@ def test_archive_source_not_found(project_db: Path, capsys):
         MockDB.return_value.conn = sqlite3.connect(
             str(project_db / ".empirica" / "sessions" / "sessions.db"),
         )
-        rc = handle_source_archive_command(_make_args(
-            source_id="nonexistent-id-9999", reason="user_deleted",
-        ))
+        rc = handle_source_archive_command(
+            _make_args(
+                source_id="nonexistent-id-9999",
+                reason="user_deleted",
+            )
+        )
     assert rc == 1
     out = capsys.readouterr().out
     payload = json.loads(out)
@@ -361,10 +391,13 @@ def test_cortex_push_success_path(monkeypatch):
 
     class _FakeResponse:
         status = 200
+
         def __enter__(self):
             return self
+
         def __exit__(self, *a):
             return False
+
         def read(self):
             return b""
 
@@ -375,11 +408,16 @@ def test_cortex_push_success_path(monkeypatch):
 
 def test_cortex_push_returns_failure_on_http_error(monkeypatch):
     import urllib.error
+
     monkeypatch.setenv("CORTEX_REMOTE_URL", "https://cortex.example.com")
     monkeypatch.setenv("CORTEX_API_KEY", "sk-test")
 
     err = urllib.error.HTTPError(
-        url="x", code=404, msg="Not Found", hdrs=None, fp=None,  # type: ignore[arg-type]
+        url="x",
+        code=404,
+        msg="Not Found",
+        hdrs=None,
+        fp=None,  # type: ignore[arg-type]
     )
     with patch("urllib.request.urlopen", side_effect=err):
         result = _push_source_archive_to_cortex("missing-id", "user_deleted", None)
@@ -390,6 +428,7 @@ def test_cortex_push_returns_failure_on_http_error(monkeypatch):
 
 def test_cortex_push_returns_failure_on_network_error(monkeypatch):
     import urllib.error
+
     monkeypatch.setenv("CORTEX_REMOTE_URL", "https://cortex.example.com")
     monkeypatch.setenv("CORTEX_API_KEY", "sk-test")
 
@@ -409,10 +448,13 @@ def test_cortex_push_uses_cortex_url_fallback(monkeypatch):
 
     class _FakeResponse:
         status = 204
+
         def __enter__(self):
             return self
+
         def __exit__(self, *a):
             return False
+
         def read(self):
             return b""
 

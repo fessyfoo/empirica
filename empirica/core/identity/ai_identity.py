@@ -130,10 +130,7 @@ class AIIdentity:
             raise RuntimeError("No public key available.")
 
         if self.keypair_path.exists() and not overwrite:
-            raise RuntimeError(
-                f"Keypair already exists at {self.keypair_path}. "
-                "Use overwrite=True to replace."
-            )
+            raise RuntimeError(f"Keypair already exists at {self.keypair_path}. Use overwrite=True to replace.")
 
         # Ensure directory exists
         self.identity_dir.mkdir(parents=True, exist_ok=True)
@@ -147,9 +144,9 @@ class AIIdentity:
             private_pem = self.private_key.private_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.BestAvailableEncryption(effective_password)
+                encryption_algorithm=serialization.BestAvailableEncryption(effective_password),
             )
-            private_key_data = base64.b64encode(private_pem).decode('ascii')
+            private_key_data = base64.b64encode(private_pem).decode("ascii")
             encrypted = True
             logger.info("Private key will be encrypted at rest")
         else:
@@ -157,32 +154,28 @@ class AIIdentity:
             private_bytes = self.private_key.private_bytes(
                 encoding=serialization.Encoding.Raw,
                 format=serialization.PrivateFormat.Raw,
-                encryption_algorithm=serialization.NoEncryption()
+                encryption_algorithm=serialization.NoEncryption(),
             )
             private_key_data = private_bytes.hex()
             encrypted = False
-            logger.warning(
-                "Private key stored UNENCRYPTED. "
-                "Set EMPIRICA_IDENTITY_PASSWORD for production use."
-            )
+            logger.warning("Private key stored UNENCRYPTED. Set EMPIRICA_IDENTITY_PASSWORD for production use.")
 
         public_bytes = self.public_key.public_bytes(
-            encoding=serialization.Encoding.Raw,
-            format=serialization.PublicFormat.Raw
+            encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw
         )
 
         # Create keypair JSON
         keypair_data = {
-            'ai_id': self.ai_id,
-            'created_at': self.created_at,
-            'private_key': private_key_data,
-            'public_key': public_bytes.hex(),
-            'encrypted': encrypted,
-            'metadata': self.metadata
+            "ai_id": self.ai_id,
+            "created_at": self.created_at,
+            "private_key": private_key_data,
+            "public_key": public_bytes.hex(),
+            "encrypted": encrypted,
+            "metadata": self.metadata,
         }
 
         # Write keypair file
-        with open(self.keypair_path, 'w') as f:
+        with open(self.keypair_path, "w") as f:
             json.dump(keypair_data, f, indent=2)
 
         # Set restrictive permissions (0600)
@@ -190,13 +183,13 @@ class AIIdentity:
 
         # Write public key file (for distribution)
         public_data = {
-            'ai_id': self.ai_id,
-            'created_at': self.created_at,
-            'public_key': public_bytes.hex(),
-            'metadata': self.metadata
+            "ai_id": self.ai_id,
+            "created_at": self.created_at,
+            "public_key": public_bytes.hex(),
+            "metadata": self.metadata,
         }
 
-        with open(self.public_key_path, 'w') as f:
+        with open(self.public_key_path, "w") as f:
             json.dump(public_data, f, indent=2)
 
         encryption_status = "encrypted" if encrypted else "unencrypted"
@@ -225,31 +218,25 @@ class AIIdentity:
             keypair_data = json.load(f)
 
         # Verify ai_id matches
-        if keypair_data['ai_id'] != self.ai_id:
-            raise ValueError(
-                f"AI ID mismatch: file has {keypair_data['ai_id']}, "
-                f"expected {self.ai_id}"
-            )
+        if keypair_data["ai_id"] != self.ai_id:
+            raise ValueError(f"AI ID mismatch: file has {keypair_data['ai_id']}, expected {self.ai_id}")
 
         # Check if encrypted
-        is_encrypted = keypair_data.get('encrypted', False)
+        is_encrypted = keypair_data.get("encrypted", False)
 
         if is_encrypted:
             # Get password from parameter or environment
             effective_password = password or _get_identity_password()
             if not effective_password:
                 raise ValueError(
-                    "Encrypted keypair requires password. "
-                    "Set EMPIRICA_IDENTITY_PASSWORD environment variable."
+                    "Encrypted keypair requires password. Set EMPIRICA_IDENTITY_PASSWORD environment variable."
                 )
 
             # Decode and decrypt PEM
-            private_pem = base64.b64decode(keypair_data['private_key'])
+            private_pem = base64.b64decode(keypair_data["private_key"])
             try:
                 loaded_key = serialization.load_pem_private_key(
-                    private_pem,
-                    password=effective_password,
-                    backend=default_backend()
+                    private_pem, password=effective_password, backend=default_backend()
                 )
             except Exception as e:
                 raise ValueError(f"Failed to decrypt private key: {e}") from e
@@ -263,8 +250,8 @@ class AIIdentity:
             logger.info(f"✓ Loaded encrypted keypair for {self.ai_id}")
         else:
             # Unencrypted (legacy format)
-            private_bytes = bytes.fromhex(keypair_data['private_key'])
-            public_bytes = bytes.fromhex(keypair_data['public_key'])
+            private_bytes = bytes.fromhex(keypair_data["private_key"])
+            public_bytes = bytes.fromhex(keypair_data["public_key"])
 
             self.private_key = Ed25519PrivateKey.from_private_bytes(private_bytes)
             self.public_key = Ed25519PublicKey.from_public_bytes(public_bytes)
@@ -274,8 +261,8 @@ class AIIdentity:
                 "with EMPIRICA_IDENTITY_PASSWORD set to encrypt."
             )
 
-        self.created_at = keypair_data['created_at']
-        self.metadata = keypair_data.get('metadata', {})
+        self.created_at = keypair_data["created_at"]
+        self.metadata = keypair_data.get("metadata", {})
 
     def sign(self, message: bytes) -> bytes:
         """
@@ -321,8 +308,7 @@ class AIIdentity:
             raise RuntimeError("No public key loaded")
 
         return self.public_key.public_bytes(
-            encoding=serialization.Encoding.Raw,
-            format=serialization.PublicFormat.Raw
+            encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw
         ).hex()
 
     def export_public_key(self) -> dict[str, Any]:
@@ -336,10 +322,10 @@ class AIIdentity:
             raise RuntimeError("No public key loaded")
 
         return {
-            'ai_id': self.ai_id,
-            'created_at': self.created_at,
-            'public_key': self.public_key_hex(),
-            'metadata': self.metadata
+            "ai_id": self.ai_id,
+            "created_at": self.created_at,
+            "public_key": self.public_key_hex(),
+            "metadata": self.metadata,
         }
 
 
@@ -381,12 +367,14 @@ class IdentityManager:
                 with open(key_file) as f:
                     data = json.load(f)
 
-                identities.append({
-                    'ai_id': data['ai_id'],
-                    'created_at': data['created_at'],
-                    'key_file': str(key_file),
-                    'has_public_key': (self.identity_dir / f"{data['ai_id']}.pub").exists()
-                })
+                identities.append(
+                    {
+                        "ai_id": data["ai_id"],
+                        "created_at": data["created_at"],
+                        "key_file": str(key_file),
+                        "has_public_key": (self.identity_dir / f"{data['ai_id']}.pub").exists(),
+                    }
+                )
             except Exception as e:
                 logger.warning(f"Failed to load {key_file}: {e}")
 

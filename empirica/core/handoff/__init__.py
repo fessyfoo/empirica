@@ -15,7 +15,7 @@ from .report_generator import EpistemicHandoffReportGenerator
 from .storage import DatabaseHandoffStorage, GitHandoffStorage
 
 __all__ = [
-    'DatabaseHandoffStorage',
-    'EpistemicHandoffReportGenerator',
-    'GitHandoffStorage',
+    "DatabaseHandoffStorage",
+    "EpistemicHandoffReportGenerator",
+    "GitHandoffStorage",
 ]

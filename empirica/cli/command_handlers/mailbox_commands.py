@@ -28,6 +28,7 @@ def _default_resolve_cortex_creds() -> tuple[str | None, str | None]:
     """Resolve Cortex URL + api_key from credentials_loader."""
     try:
         from empirica.config.credentials_loader import get_credentials_loader
+
         cfg = get_credentials_loader().get_cortex_config()
         return cfg.get("url"), cfg.get("api_key")
     except Exception:
@@ -38,6 +39,7 @@ def _default_resolve_ai_id() -> str | None:
     """Read ai_id from .empirica/project.yaml in current project root."""
     try:
         import yaml
+
         # Walk up from cwd looking for .empirica/project.yaml
         cwd = Path.cwd()
         for parent in [cwd, *cwd.parents]:
@@ -50,11 +52,11 @@ def _default_resolve_ai_id() -> str | None:
         return None
 
 
-def _default_http_post(url: str, body: dict, api_key: str,
-                      timeout: float = 10.0) -> tuple[int, dict]:
+def _default_http_post(url: str, body: dict, api_key: str, timeout: float = 10.0) -> tuple[int, dict]:
     """POST to cortex with Bearer auth. Returns (status, parsed_body)."""
     req = urllib.request.Request(
-        url, data=json.dumps(body).encode("utf-8"),
+        url,
+        data=json.dumps(body).encode("utf-8"),
         method="POST",
         headers={
             "Authorization": f"Bearer {api_key}",
@@ -73,12 +75,12 @@ def _default_http_post(url: str, body: dict, api_key: str,
         return -1, {"error": f"{type(e).__name__}: {e}"}
 
 
-def _default_fetch_parent(cortex_url: str, api_key: str,
-                         parent_id: str, timeout: float = 5.0) -> dict | None:
+def _default_fetch_parent(cortex_url: str, api_key: str, parent_id: str, timeout: float = 5.0) -> dict | None:
     """GET /v1/orchestration/<id> for parent body. Response is the proposal object directly."""
     url = f"{cortex_url.rstrip('/')}/v1/orchestration/{parent_id}"
     req = urllib.request.Request(
-        url, method="GET",
+        url,
+        method="GET",
         headers={"Authorization": f"Bearer {api_key}"},
     )
     try:
@@ -129,8 +131,7 @@ def handle_mailbox_reply_command(  # noqa: C901 — CLI handler with 7 validatio
     source_claude = getattr(args, "source_claude", None) or _resolve_ai_id()
     if not source_claude:
         sys.stderr.write(
-            "mailbox reply: source_claude unresolved — set --source-claude or "
-            "add ai_id to .empirica/project.yaml.\n"
+            "mailbox reply: source_claude unresolved — set --source-claude or add ai_id to .empirica/project.yaml.\n"
         )
         return 1
 
@@ -138,8 +139,7 @@ def handle_mailbox_reply_command(  # noqa: C901 — CLI handler with 7 validatio
     parent = _fetch_parent(cortex_url, api_key, parent_id)
     if parent is None:
         sys.stderr.write(
-            f"mailbox reply: parent {parent_id} not found or inaccessible. "
-            f"Check the id and your Cortex tenant scope.\n"
+            f"mailbox reply: parent {parent_id} not found or inaccessible. Check the id and your Cortex tenant scope.\n"
         )
         return 1
 
@@ -156,8 +156,7 @@ def handle_mailbox_reply_command(  # noqa: C901 — CLI handler with 7 validatio
         target_claudes = [parent_source] if parent_source else []
     if not target_claudes:
         sys.stderr.write(
-            "mailbox reply: target_claudes empty — parent has no source_claude "
-            "and --target-claudes not set.\n"
+            "mailbox reply: target_claudes empty — parent has no source_claude and --target-claudes not set.\n"
         )
         return 1
 
@@ -187,15 +186,10 @@ def handle_mailbox_reply_command(  # noqa: C901 — CLI handler with 7 validatio
     new_proposal_id = propose_resp.get("proposal_id") if isinstance(propose_resp, dict) else None
     propose_ok = (200 <= status < 300) and new_proposal_id is not None
     if not propose_ok:
-        sys.stderr.write(
-            f"mailbox reply: cortex_propose failed (status={status}): "
-            f"{propose_resp}\n"
-        )
+        sys.stderr.write(f"mailbox reply: cortex_propose failed (status={status}): {propose_resp}\n")
         return 1
     if not new_proposal_id:
-        sys.stderr.write(
-            f"mailbox reply: cortex_propose returned no proposal_id: {propose_resp}\n"
-        )
+        sys.stderr.write(f"mailbox reply: cortex_propose returned no proposal_id: {propose_resp}\n")
         return 1
 
     # Step 2: cortex_complete_proposal (unless --no-close)
@@ -281,9 +275,7 @@ def handle_mailbox_reply_command(  # noqa: C901 — CLI handler with 7 validatio
             action = f"closed (result={result['result']}){tag}"
         else:
             action = "complete-failed (see stderr; manual ack needed)"
-        sys.stdout.write(
-            f"reply {new_proposal_id[:18]}… sent · parent {parent_id[:18]}… {action}\n"
-        )
+        sys.stdout.write(f"reply {new_proposal_id[:18]}… sent · parent {parent_id[:18]}… {action}\n")
     else:
         sys.stdout.write(json.dumps(result, indent=2) + "\n")
     return 0

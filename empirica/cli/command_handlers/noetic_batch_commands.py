@@ -34,6 +34,7 @@ def handle_noetic_batch_command(args) -> None:
 
     if getattr(args, "dry_run", False):
         from empirica.core.noetic_batch.schema import NoeticBatchInput
+
         try:
             parsed = NoeticBatchInput(**payload)
             result = {
@@ -50,6 +51,7 @@ def handle_noetic_batch_command(args) -> None:
             sys.exit(2)
 
     from empirica.core.noetic_batch import run_batch
+
     # Project-root resolution: explicit --project-root wins, otherwise let
     # run_batch fall through to InstanceResolver → cwd. Defaulting to "."
     # here would mask cross-project investigation by silently using cwd.
@@ -135,6 +137,7 @@ def _parse_grep_flag(spec: str) -> dict:
 
 def _print_schema(output_format: str) -> None:
     from empirica.core.noetic_batch.schema import NoeticBatchInput
+
     schema = NoeticBatchInput.model_json_schema()
     if output_format == "json":
         print(json.dumps(schema, indent=2))

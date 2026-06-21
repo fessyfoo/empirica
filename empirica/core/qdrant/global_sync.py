@@ -1,6 +1,7 @@
 """
 Global learnings: cross-project knowledge aggregation and dead-end detection.
 """
+
 from __future__ import annotations
 
 from empirica.core.qdrant.collections import (
@@ -28,7 +29,7 @@ def embed_to_global(
     impact: float | None = None,
     resolved_by: str | None = None,
     timestamp: str | None = None,
-    tags: list[str] | None = None
+    tags: list[str] | None = None,
 ) -> bool:
     """
     Embed a high-impact item to global learnings collection.
@@ -69,6 +70,7 @@ def embed_to_global(
 
         # Use hash of item_id for numeric Qdrant point ID
         import hashlib
+
         point_id = int(hashlib.md5(f"global_{item_id}".encode()).hexdigest()[:15], 16)
 
         point = PointStruct(id=point_id, vector=vector, payload=payload)
@@ -80,10 +82,7 @@ def embed_to_global(
 
 
 def search_global(
-    query_text: str,
-    item_types: list[str] | None = None,
-    min_impact: float | None = None,
-    limit: int = 10
+    query_text: str, item_types: list[str] | None = None, min_impact: float | None = None, limit: int = 10
 ) -> list[dict]:
     """
     Search global learnings across all projects.
@@ -117,6 +116,7 @@ def search_global(
         query_filter = None
         if item_types or min_impact:
             from qdrant_client.models import FieldCondition, Filter, MatchAny, Range
+
             conditions = []
             if item_types:
                 conditions.append(FieldCondition(key="type", match=MatchAny(any=item_types)))
@@ -126,16 +126,12 @@ def search_global(
                 query_filter = Filter(must=conditions)
 
         results = client.query_points(
-            collection_name=coll,
-            query=qvec,
-            query_filter=query_filter,
-            limit=limit,
-            with_payload=True
+            collection_name=coll, query=qvec, query_filter=query_filter, limit=limit, with_payload=True
         )
 
         return [
             {
-                "score": getattr(r, 'score', 0.0) or 0.0,
+                "score": getattr(r, "score", 0.0) or 0.0,
                 "type": (r.payload or {}).get("type"),
                 "text": (r.payload or {}).get("text"),
                 "project_id": (r.payload or {}).get("project_id"),
@@ -192,8 +188,8 @@ def search_cross_project(
     all_collections = [c.name for c in client.get_collections().collections]
     project_ids = set()
     for cname in all_collections:
-        if cname.startswith('project_') and '_' in cname[8:]:
-            pid = cname[8:cname.rindex('_')]
+        if cname.startswith("project_") and "_" in cname[8:]:
+            pid = cname[8 : cname.rindex("_")]
             project_ids.add(pid)
 
     if exclude_project_id:
@@ -225,7 +221,7 @@ def search_cross_project(
 
     deduped = _deduplicate_results(all_results)
     deduped.sort(key=lambda x: x["score"], reverse=True)
-    return deduped[:limit * 3]  # Return more results since they span projects
+    return deduped[: limit * 3]  # Return more results since they span projects
 
 
 def _query_collection_safe(client, coll_name, qvec, limit, min_points):
@@ -250,7 +246,7 @@ def _query_collection_safe(client, coll_name, qvec, limit, min_points):
 def _build_cross_project_result(r, pid, coll_type):
     """Build a result dict from a Qdrant point for cross-project search."""
     payload = r.payload or {}
-    score = getattr(r, 'score', 0.0) or 0.0
+    score = getattr(r, "score", 0.0) or 0.0
 
     result = {
         "score": score,
@@ -305,16 +301,20 @@ def sync_high_impact_to_global(project_id: str, min_impact: float = 0.7) -> int:
 
     try:
         from empirica.data.session_database import SessionDatabase
+
         db = SessionDatabase()
         synced = 0
 
         # Get high-impact findings
         cursor = db.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, finding, impact, session_id, created_timestamp
             FROM project_findings
             WHERE project_id = ? AND impact >= ?
-        """, (project_id, min_impact))
+        """,
+            (project_id, min_impact),
+        )
 
         for row in cursor.fetchall():
             if embed_to_global(
@@ -324,16 +324,19 @@ def sync_high_impact_to_global(project_id: str, min_impact: float = 0.7) -> int:
                 project_id=project_id,
                 session_id=row[3],
                 impact=row[2],
-                timestamp=str(row[4])
+                timestamp=str(row[4]),
             ):
                 synced += 1
 
         # Get resolved unknowns (these contain valuable resolution patterns)
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, unknown, resolved_by, session_id, resolved_timestamp
             FROM project_unknowns
             WHERE project_id = ? AND is_resolved = 1 AND resolved_by IS NOT NULL
-        """, (project_id,))
+        """,
+            (project_id,),
+        )
 
         for row in cursor.fetchall():
             resolution_text = f"Unknown: {row[1]}\nResolved by: {row[2]}"
@@ -344,16 +347,19 @@ def sync_high_impact_to_global(project_id: str, min_impact: float = 0.7) -> int:
                 project_id=project_id,
                 session_id=row[3],
                 resolved_by=row[2],
-                timestamp=str(row[4]) if row[4] else None
+                timestamp=str(row[4]) if row[4] else None,
             ):
                 synced += 1
 
         # Get dead ends (anti-patterns to avoid)
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, approach, why_failed, session_id, created_timestamp
             FROM project_dead_ends
             WHERE project_id = ?
-        """, (project_id,))
+        """,
+            (project_id,),
+        )
 
         for row in cursor.fetchall():
             deadend_text = f"Approach: {row[1]}\nWhy failed: {row[2]}"
@@ -363,7 +369,7 @@ def sync_high_impact_to_global(project_id: str, min_impact: float = 0.7) -> int:
                 item_type="dead_end",
                 project_id=project_id,
                 session_id=row[3],
-                timestamp=str(row[4])
+                timestamp=str(row[4]),
             ):
                 synced += 1
 
@@ -378,6 +384,7 @@ def sync_high_impact_to_global(project_id: str, min_impact: float = 0.7) -> int:
 # DEAD END SPECIFIC - Branch divergence and anti-pattern detection
 # ============================================================================
 
+
 def embed_dead_end_with_branch_context(
     project_id: str,
     dead_end_id: str,
@@ -389,7 +396,7 @@ def embed_dead_end_with_branch_context(
     score_diff: float | None = None,
     preflight_vectors: dict | None = None,
     postflight_vectors: dict | None = None,
-    timestamp: str | None = None
+    timestamp: str | None = None,
 ) -> bool:
     """
     Embed a dead end with full branch context for similarity search.
@@ -451,6 +458,7 @@ def embed_dead_end_with_branch_context(
 
         # Use hash of dead_end_id for numeric Qdrant point ID
         import hashlib
+
         point_id = int(hashlib.md5(dead_end_id.encode()).hexdigest()[:15], 16)
 
         point = PointStruct(id=point_id, vector=vector, payload=payload)
@@ -462,10 +470,7 @@ def embed_dead_end_with_branch_context(
 
 
 def search_similar_dead_ends(
-    project_id: str,
-    query_approach: str,
-    include_branch_deadends: bool = True,
-    limit: int = 5
+    project_id: str, query_approach: str, include_branch_deadends: bool = True, limit: int = 5
 ) -> list[dict]:
     """
     Search for similar past dead ends before starting a new approach.
@@ -489,6 +494,7 @@ def search_similar_dead_ends(
 
     try:
         from qdrant_client.models import FieldCondition, Filter, MatchValue
+
         client = _get_qdrant_client()
         if client is None:
             return []
@@ -507,16 +513,12 @@ def search_similar_dead_ends(
         query_filter = Filter(must=conditions)
 
         results = client.query_points(
-            collection_name=coll,
-            query=qvec,
-            query_filter=query_filter,
-            limit=limit,
-            with_payload=True
+            collection_name=coll, query=qvec, query_filter=query_filter, limit=limit, with_payload=True
         )
 
         return [
             {
-                "score": getattr(r, 'score', 0.0) or 0.0,
+                "score": getattr(r, "score", 0.0) or 0.0,
                 "approach": (r.payload or {}).get("approach"),
                 "why_failed": (r.payload or {}).get("why_failed"),
                 "session_id": (r.payload or {}).get("session_id"),
@@ -531,10 +533,7 @@ def search_similar_dead_ends(
         return []
 
 
-def search_global_dead_ends(
-    query_approach: str,
-    limit: int = 5
-) -> list[dict]:
+def search_global_dead_ends(query_approach: str, limit: int = 5) -> list[dict]:
     """
     Search for similar dead ends across ALL projects (global learnings).
     Use to avoid repeating mistakes made in other projects.
@@ -549,9 +548,4 @@ def search_global_dead_ends(
     if not _check_qdrant_available():
         return []
 
-    return search_global(
-        query_text=f"Dead end approach: {query_approach}",
-        item_types=["dead_end"],
-        limit=limit
-    )
-
+    return search_global(query_text=f"Dead end approach: {query_approach}", item_types=["dead_end"], limit=limit)

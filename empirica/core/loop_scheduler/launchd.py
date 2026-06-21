@@ -116,13 +116,17 @@ def parse_interval_seconds(interval: str | int) -> int:
 def _launchctl(*args: str, check: bool = False) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["launchctl", *args],
-        capture_output=True, text=True, timeout=5, check=check,
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=check,
     )
 
 
 @dataclass
 class LoopUnitFiles:
     """On-disk paths for one loop's launchd plist (single file, not pair)."""
+
     plist: Path
 
     @property
@@ -139,6 +143,7 @@ class LoopUnitFiles:
 @dataclass
 class LoopStatus:
     """Parallels the systemd backend's LoopStatus."""
+
     name: str
     active: bool
     enabled: bool
@@ -178,7 +183,11 @@ class LaunchdLoopScheduler:
         plist_dict = {
             "Label": label,
             "ProgramArguments": [
-                self.empirica_bin, "loop", "tick", instance_id, name,
+                self.empirica_bin,
+                "loop",
+                "tick",
+                instance_id,
+                name,
             ],
             "StartInterval": seconds,
             "RunAtLoad": False,
@@ -262,4 +271,5 @@ class LaunchdLoopScheduler:
         transaction. Single implementation in systemd module; we delegate
         here so plists and timers share one code path."""
         from empirica.core.loop_scheduler.systemd import SystemdLoopScheduler
+
         return SystemdLoopScheduler.tick(instance_id, name, force=force)

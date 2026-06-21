@@ -30,33 +30,36 @@ class ScanRule:
 
 
 SCAN_RULES: tuple[ScanRule, ...] = (
-    ScanRule(glob="docs/architecture/**/*.md", doc_type="architecture",
-             base_tags=("architecture",)),
-    ScanRule(glob="docs/reference/**/*.md", doc_type="reference",
-             base_tags=("reference",)),
-    ScanRule(glob="docs/guides/**/*.md", doc_type="guide",
-             base_tags=("guide",)),
-    ScanRule(glob="docs/human/**/*.md", doc_type="user-docs",
-             base_tags=("documentation",)),
-    ScanRule(glob="docs/*.md", doc_type="documentation",
-             base_tags=("documentation",)),
-    ScanRule(glob="empirica/core/**/*.py", doc_type="core-module",
-             base_tags=("core", "python"), extract_docstring=True),
-    ScanRule(glob="empirica/cli/command_handlers/*.py", doc_type="cli-handler",
-             base_tags=("cli", "commands"), extract_docstring=True),
-    ScanRule(glob="empirica/data/**/*.py", doc_type="data-layer",
-             base_tags=("data", "database"), extract_docstring=True),
-    ScanRule(glob="empirica/utils/*.py", doc_type="utility",
-             base_tags=("utils",), extract_docstring=True),
-    ScanRule(glob="empirica/config/*.py", doc_type="config",
-             base_tags=("config",), extract_docstring=True),
-    ScanRule(glob="*.md", doc_type="project-root",
-             base_tags=("project",), tags_from_path=False),
+    ScanRule(glob="docs/architecture/**/*.md", doc_type="architecture", base_tags=("architecture",)),
+    ScanRule(glob="docs/reference/**/*.md", doc_type="reference", base_tags=("reference",)),
+    ScanRule(glob="docs/guides/**/*.md", doc_type="guide", base_tags=("guide",)),
+    ScanRule(glob="docs/human/**/*.md", doc_type="user-docs", base_tags=("documentation",)),
+    ScanRule(glob="docs/*.md", doc_type="documentation", base_tags=("documentation",)),
+    ScanRule(
+        glob="empirica/core/**/*.py", doc_type="core-module", base_tags=("core", "python"), extract_docstring=True
+    ),
+    ScanRule(
+        glob="empirica/cli/command_handlers/*.py",
+        doc_type="cli-handler",
+        base_tags=("cli", "commands"),
+        extract_docstring=True,
+    ),
+    ScanRule(
+        glob="empirica/data/**/*.py", doc_type="data-layer", base_tags=("data", "database"), extract_docstring=True
+    ),
+    ScanRule(glob="empirica/utils/*.py", doc_type="utility", base_tags=("utils",), extract_docstring=True),
+    ScanRule(glob="empirica/config/*.py", doc_type="config", base_tags=("config",), extract_docstring=True),
+    ScanRule(glob="*.md", doc_type="project-root", base_tags=("project",), tags_from_path=False),
 )
 
 SKIP_PATTERNS = (
-    "__pycache__", ".pyc", "__init__.py",
-    "build/", ".venv", ".egg-info", "node_modules",
+    "__pycache__",
+    ".pyc",
+    "__init__.py",
+    "build/",
+    ".venv",
+    ".egg-info",
+    "node_modules",
 )
 
 MIN_FILE_SIZE = 100  # bytes
@@ -74,7 +77,8 @@ def _extract_module_docstring(filepath: Path) -> str | None:
         return None
     match = re.search(
         r'^(?:\s*#[^\n]*\n)*\s*(?:"""(.*?)"""|\'\'\'(.*?)\'\'\')',
-        content, re.DOTALL,
+        content,
+        re.DOTALL,
     )
     if not match:
         return None

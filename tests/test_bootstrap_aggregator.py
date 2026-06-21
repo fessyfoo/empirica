@@ -54,6 +54,7 @@ def test_recency_decay_halves_at_half_life():
 def test_recency_decay_iso_string_timestamp():
     """ISO 8601 strings parsed correctly."""
     from datetime import datetime, timedelta, timezone
+
     one_day_ago = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
     weight = recency_decay(one_day_ago, 24)
     assert 0.49 < weight < 0.51
@@ -99,9 +100,7 @@ def _build_test_project(tmp_path: Path, name: str = "test-proj") -> tuple[Path, 
     proj.mkdir()
     (proj / ".empirica").mkdir()
     project_uuid = str(uuid.uuid4())
-    (proj / ".empirica" / "project.yaml").write_text(
-        f"name: {name}\nproject_id: {project_uuid}\n", encoding="utf-8"
-    )
+    (proj / ".empirica" / "project.yaml").write_text(f"name: {name}\nproject_id: {project_uuid}\n", encoding="utf-8")
     db_dir = proj / ".empirica" / "sessions"
     db_dir.mkdir()
     db_path = db_dir / "sessions.db"
@@ -181,9 +180,9 @@ def _build_test_project(tmp_path: Path, name: str = "test-proj") -> tuple[Path, 
     return proj, project_uuid
 
 
-def _insert_finding(db_path: Path, project_id: str, text: str, *,
-                    goal_id: str | None = None, age_hours: float = 0,
-                    impact: float = 0.5) -> str:
+def _insert_finding(
+    db_path: Path, project_id: str, text: str, *, goal_id: str | None = None, age_hours: float = 0, impact: float = 0.5
+) -> str:
     art_id = str(uuid.uuid4())
     ts = time.time() - age_hours * 3600
     conn = sqlite3.connect(str(db_path))
@@ -197,23 +196,32 @@ def _insert_finding(db_path: Path, project_id: str, text: str, *,
     return art_id
 
 
-def _insert_goal(db_path: Path, project_id: str, objective: str, *,
-                  status: str = "in_progress", is_completed: int = 0) -> str:
+def _insert_goal(
+    db_path: Path, project_id: str, objective: str, *, status: str = "in_progress", is_completed: int = 0
+) -> str:
     art_id = str(uuid.uuid4())
     conn = sqlite3.connect(str(db_path))
     conn.execute(
         "INSERT INTO goals (id, project_id, session_id, objective, status, is_completed, "
         "goal_data, created_timestamp, completed_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (art_id, project_id, "sess-1", objective, status, is_completed, "{}",
-         time.time(), time.time() if is_completed else None),
+        (
+            art_id,
+            project_id,
+            "sess-1",
+            objective,
+            status,
+            is_completed,
+            "{}",
+            time.time(),
+            time.time() if is_completed else None,
+        ),
     )
     conn.commit()
     conn.close()
     return art_id
 
 
-def _insert_decision(db_path: Path, project_id: str, choice: str, *,
-                     outcome: str | None = None) -> str:
+def _insert_decision(db_path: Path, project_id: str, choice: str, *, outcome: str | None = None) -> str:
     art_id = str(uuid.uuid4())
     conn = sqlite3.connect(str(db_path))
     conn.execute(
@@ -227,8 +235,9 @@ def _insert_decision(db_path: Path, project_id: str, choice: str, *,
     return art_id
 
 
-def _insert_assumption(db_path: Path, project_id: str, assumption: str, *,
-                       status: str = "unverified", confidence: float = 0.5) -> str:
+def _insert_assumption(
+    db_path: Path, project_id: str, assumption: str, *, status: str = "unverified", confidence: float = 0.5
+) -> str:
     art_id = str(uuid.uuid4())
     conn = sqlite3.connect(str(db_path))
     conn.execute(
@@ -254,8 +263,7 @@ def _insert_source(db_path: Path, project_id: str, title: str, url: str = "https
     return art_id
 
 
-def _insert_unknown(db_path: Path, project_id: str, unknown: str, *,
-                    is_resolved: int = 0, impact: float = 0.5) -> str:
+def _insert_unknown(db_path: Path, project_id: str, unknown: str, *, is_resolved: int = 0, impact: float = 0.5) -> str:
     art_id = str(uuid.uuid4())
     conn = sqlite3.connect(str(db_path))
     conn.execute(
@@ -399,8 +407,7 @@ def test_circle_2_no_recency_decay(tmp_path):
     # Backdate it artificially to 1 year old via direct sqlite update
     one_year_ago = time.time() - 365 * 24 * 3600
     conn = sqlite3.connect(str(db))
-    conn.execute("UPDATE decisions SET created_timestamp = ? WHERE id = ?",
-                 (one_year_ago, d_id))
+    conn.execute("UPDATE decisions SET created_timestamp = ? WHERE id = ?", (one_year_ago, d_id))
     conn.commit()
     conn.close()
 
@@ -528,12 +535,15 @@ def test_edge_walker_handles_missing_artifact_edges_table(tmp_path):
 
 def test_render_returns_empty_for_empty_payload():
     payload = {
-        "persistent_reference": {"decisions_with_active_outcome": [],
-                                  "verified_assumptions": [], "sources": []},
-        "topic_relevant_backlog": {"open_unknowns": [], "open_assumptions": [],
-                                    "planned_goals": [], "completed_goals_relevant": [],
-                                    "resolved_unknowns_relevant": [],
-                                    "dead_ends_relevant": []},
+        "persistent_reference": {"decisions_with_active_outcome": [], "verified_assumptions": [], "sources": []},
+        "topic_relevant_backlog": {
+            "open_unknowns": [],
+            "open_assumptions": [],
+            "planned_goals": [],
+            "completed_goals_relevant": [],
+            "resolved_unknowns_relevant": [],
+            "dead_ends_relevant": [],
+        },
         "active_topic": {"detected": False},
     }
     assert render_v2_supplemental(payload) == ""
@@ -542,15 +552,18 @@ def test_render_returns_empty_for_empty_payload():
 def test_render_includes_persistent_reference_when_populated():
     payload = {
         "persistent_reference": {
-            "decisions_with_active_outcome": [
-                {"id": "d1", "choice": "Use SQLite", "rationale": "single user"}
-            ],
-            "verified_assumptions": [], "sources": [],
+            "decisions_with_active_outcome": [{"id": "d1", "choice": "Use SQLite", "rationale": "single user"}],
+            "verified_assumptions": [],
+            "sources": [],
         },
-        "topic_relevant_backlog": {"open_unknowns": [], "open_assumptions": [],
-                                    "planned_goals": [], "completed_goals_relevant": [],
-                                    "resolved_unknowns_relevant": [],
-                                    "dead_ends_relevant": []},
+        "topic_relevant_backlog": {
+            "open_unknowns": [],
+            "open_assumptions": [],
+            "planned_goals": [],
+            "completed_goals_relevant": [],
+            "resolved_unknowns_relevant": [],
+            "dead_ends_relevant": [],
+        },
         "active_topic": {"detected": False},
     }
     md = render_v2_supplemental(payload)
@@ -560,17 +573,16 @@ def test_render_includes_persistent_reference_when_populated():
 
 def test_render_marks_completed_goals_with_anti_clobber_warning():
     payload = {
-        "persistent_reference": {"decisions_with_active_outcome": [],
-                                  "verified_assumptions": [], "sources": []},
+        "persistent_reference": {"decisions_with_active_outcome": [], "verified_assumptions": [], "sources": []},
         "topic_relevant_backlog": {
-            "open_unknowns": [], "open_assumptions": [], "planned_goals": [],
-            "completed_goals_relevant": [
-                {"id": "g1", "objective": "Implement auth", "completed_at": "2026-04-15"}
-            ],
-            "resolved_unknowns_relevant": [], "dead_ends_relevant": [],
+            "open_unknowns": [],
+            "open_assumptions": [],
+            "planned_goals": [],
+            "completed_goals_relevant": [{"id": "g1", "objective": "Implement auth", "completed_at": "2026-04-15"}],
+            "resolved_unknowns_relevant": [],
+            "dead_ends_relevant": [],
         },
-        "active_topic": {"detected": True, "source": "transaction",
-                         "similarity_threshold": 0.65},
+        "active_topic": {"detected": True, "source": "transaction", "similarity_threshold": 0.65},
     }
     md = render_v2_supplemental(payload)
     assert "anti-clobber" in md.lower() or "completed" in md.lower()
@@ -590,15 +602,19 @@ def test_attach_edges_idempotent(tmp_path):
     _insert_edge(db, f1, d1, "evidence")
 
     payload = build_bootstrap_payload(proj)
-    first_edges = sum(len(item.get("related_to", []))
-                      for c in ("active_state", "persistent_reference", "topic_relevant_backlog")
-                      for items in payload[c].values()
-                      for item in items)
+    first_edges = sum(
+        len(item.get("related_to", []))
+        for c in ("active_state", "persistent_reference", "topic_relevant_backlog")
+        for items in payload[c].values()
+        for item in items
+    )
 
     attach_edges_to_payload(proj, payload)
-    second_edges = sum(len(item.get("related_to", []))
-                       for c in ("active_state", "persistent_reference", "topic_relevant_backlog")
-                       for items in payload[c].values()
-                       for item in items)
+    second_edges = sum(
+        len(item.get("related_to", []))
+        for c in ("active_state", "persistent_reference", "topic_relevant_backlog")
+        for items in payload[c].values()
+        for item in items
+    )
 
     assert first_edges == second_edges

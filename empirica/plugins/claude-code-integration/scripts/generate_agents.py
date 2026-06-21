@@ -104,7 +104,7 @@ def agent_name_from_file(filepath: Path) -> str:
     # Remove common suffixes that aren't meaningful for agent names
     for suffix in ["-comp", "-demo"]:
         if name.endswith(suffix):
-            name = name[:-len(suffix)]
+            name = name[: -len(suffix)]
     return name
 
 
@@ -121,7 +121,7 @@ def build_description(persona: dict, phase: str, agent_name: str) -> str:
     # Example 1: Direct invocation
     examples.append(f"""<example>
 Context: User needs {domain_str} expertise for {phase_desc}
-user: "Investigate the {domains[0] if domains else 'system'} aspects of this component"
+user: "Investigate the {domains[0] if domains else "system"} aspects of this component"
 assistant: "I'll use the empirica:{agent_name} agent for specialized {domain_str} analysis."
 <commentary>
 Task matches {name}'s focus domains ({domain_str}), triggering specialized agent.
@@ -132,7 +132,7 @@ Task matches {name}'s focus domains ({domain_str}), triggering specialized agent
     if phase == "praxic":
         examples.append(f"""<example>
 Context: Implementation task requiring {domain_str} expertise
-user: "Fix the {domains[0] if domains else 'code'} issues in this module"
+user: "Fix the {domains[0] if domains else "code"} issues in this module"
 assistant: "I'll use the empirica:{agent_name} agent to analyze and fix these issues."
 <commentary>
 Praxic task matching {name}'s capabilities - agent can read, analyze, and modify code.
@@ -141,7 +141,7 @@ Praxic task matching {name}'s capabilities - agent can read, analyze, and modify
     else:
         examples.append(f"""<example>
 Context: Investigation requiring {domain_str} analysis
-user: "What are the {domains[0] if domains else 'potential'} concerns here?"
+user: "What are the {domains[0] if domains else "potential"} concerns here?"
 assistant: "I'll use the empirica:{agent_name} agent for focused investigation."
 <commentary>
 Noetic investigation matching {name}'s focus domains - read-only deep analysis.
@@ -296,9 +296,9 @@ def _resolve_personas_dir(args_personas_dir: str | None) -> Path:
 
     try:
         import subprocess
+
         git_root = subprocess.check_output(
-            ["git", "rev-parse", "--show-toplevel"],
-            stderr=subprocess.DEVNULL, text=True
+            ["git", "rev-parse", "--show-toplevel"], stderr=subprocess.DEVNULL, text=True
         ).strip()
         return Path(git_root) / ".empirica" / "personas"
     except (subprocess.CalledProcessError, FileNotFoundError):
@@ -311,12 +311,12 @@ def _process_persona_file(pf, args, output_dir) -> str:
     """Process a single persona file. Returns 'generated', 'skipped', or 'error'."""
     persona = load_persona(pf)
     if not persona:
-        return 'error'
+        return "error"
 
     if not should_generate(persona, pf):
         if args.verbose:
             print(f"  Skip: {pf.name} (filtered)")
-        return 'skipped'
+        return "skipped"
 
     name = agent_name_from_file(pf)
     output_file = output_dir / f"{name}.md"
@@ -324,11 +324,11 @@ def _process_persona_file(pf, args, output_dir) -> str:
     if output_file.exists() and not args.force:
         if args.verbose:
             print(f"  Skip: {name}.md (exists, use --force to overwrite)")
-        return 'skipped'
+        return "skipped"
 
     content = generate_agent_md(persona, name)
     if not content:
-        return 'error'
+        return "error"
 
     if args.dry_run:
         print(f"  Would write: {name}.md ({len(content)} bytes)")
@@ -340,7 +340,7 @@ def _process_persona_file(pf, args, output_dir) -> str:
         output_file.write_text(content)
         print(f"  Generated: {name}.md")
 
-    return 'generated'
+    return "generated"
 
 
 def main():
@@ -376,14 +376,14 @@ def main():
     print(f"Output directory: {output_dir}")
     print()
 
-    counts = {'generated': 0, 'skipped': 0, 'error': 0}
+    counts = {"generated": 0, "skipped": 0, "error": 0}
     for pf in persona_files:
         result = _process_persona_file(pf, args, output_dir)
         counts[result] += 1
 
     print()
     print(f"Results: {counts['generated']} generated, {counts['skipped']} skipped, {counts['error']} errors")
-    return 0 if counts['error'] == 0 else 1
+    return 0 if counts["error"] == 0 else 1
 
 
 if __name__ == "__main__":

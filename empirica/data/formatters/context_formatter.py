@@ -2,7 +2,7 @@
 
 
 def _format_project_header(breadcrumbs: dict) -> list:
-    project = breadcrumbs.get('project', {})
+    project = breadcrumbs.get("project", {})
     return [
         f"# Project: {project.get('name', 'Unknown')}",
         f"> {project.get('description', 'No description')}",
@@ -12,8 +12,8 @@ def _format_project_header(breadcrumbs: dict) -> list:
 
 
 def _format_last_activity_section(breadcrumbs: dict) -> list:
-    last = breadcrumbs.get('last_activity', {})
-    if not last.get('summary'):
+    last = breadcrumbs.get("last_activity", {})
+    if not last.get("summary"):
         return []
     return [
         "## Last Activity",
@@ -24,7 +24,7 @@ def _format_last_activity_section(breadcrumbs: dict) -> list:
 
 
 def _format_findings_section(breadcrumbs: dict) -> list:
-    findings = breadcrumbs.get('findings', [])
+    findings = breadcrumbs.get("findings", [])
     if not findings:
         return []
     lines = ["## Key Findings"]
@@ -35,8 +35,8 @@ def _format_findings_section(breadcrumbs: dict) -> list:
 
 
 def _format_unknowns_section(breadcrumbs: dict) -> list:
-    unknowns = breadcrumbs.get('unknowns', [])
-    unresolved = [u for u in unknowns if not u.get('is_resolved', False)]
+    unknowns = breadcrumbs.get("unknowns", [])
+    unresolved = [u for u in unknowns if not u.get("is_resolved", False)]
     if not unresolved:
         return []
     lines = ["## Remaining Unknowns"]
@@ -47,7 +47,7 @@ def _format_unknowns_section(breadcrumbs: dict) -> list:
 
 
 def _format_dead_ends_section(breadcrumbs: dict) -> list:
-    dead_ends = breadcrumbs.get('dead_ends', [])
+    dead_ends = breadcrumbs.get("dead_ends", [])
     if not dead_ends:
         return []
     lines = ["## Dead Ends (Avoid These)"]
@@ -58,7 +58,7 @@ def _format_dead_ends_section(breadcrumbs: dict) -> list:
 
 
 def _format_mistakes_section(breadcrumbs: dict) -> list:
-    mistakes = breadcrumbs.get('mistakes_to_avoid', [])
+    mistakes = breadcrumbs.get("mistakes_to_avoid", [])
     if not mistakes:
         return []
     lines = ["## Mistakes to Avoid"]
@@ -69,13 +69,13 @@ def _format_mistakes_section(breadcrumbs: dict) -> list:
 
 
 def _format_incomplete_work_section(breadcrumbs: dict) -> list:
-    incomplete = breadcrumbs.get('incomplete_work', [])
+    incomplete = breadcrumbs.get("incomplete_work", [])
     if not incomplete:
         return []
     lines = ["## Incomplete Work"]
     for item in incomplete:
-        goal = item.get('goal') or item.get('objective', 'Unknown goal')
-        progress = item.get('progress', 'unknown')
+        goal = item.get("goal") or item.get("objective", "Unknown goal")
+        progress = item.get("progress", "unknown")
         lines.append(f"- {goal} ({progress})")
     lines.append("")
     return lines
@@ -86,30 +86,27 @@ def _format_skill_entry(skill: dict) -> list:
         f"### {skill.get('title') or skill.get('id', 'Unknown Skill')}",
         f"**Tags:** {', '.join(skill.get('tags', []))}",
     ]
-    if skill.get('summary'):
+    if skill.get("summary"):
         lines.append(f"**Summary:** {skill['summary']}")
-    if skill.get('steps'):
+    if skill.get("steps"):
         lines.append("**Steps:**")
-        for step in skill['steps']:
+        for step in skill["steps"]:
             lines.append(f"1. {step}")
-    if skill.get('gotchas'):
+    if skill.get("gotchas"):
         lines.append("**Gotchas:**")
-        for gotcha in skill['gotchas']:
+        for gotcha in skill["gotchas"]:
             lines.append(f"- ⚠️ {gotcha}")
-    if skill.get('references'):
+    if skill.get("references"):
         lines.append("**References:**")
-        for ref in skill['references']:
+        for ref in skill["references"]:
             lines.append(f"- {ref}")
     lines.append("")
     return lines
 
 
 def _format_skills_section(breadcrumbs: dict) -> list:
-    full_skills = breadcrumbs.get('full_skills', [])
-    non_empty_skills = [
-        s for s in full_skills
-        if s.get('summary') or s.get('steps') or s.get('gotchas')
-    ]
+    full_skills = breadcrumbs.get("full_skills", [])
+    non_empty_skills = [s for s in full_skills if s.get("summary") or s.get("steps") or s.get("gotchas")]
     if not non_empty_skills:
         return []
     lines = ["## Relevant Skills"]
@@ -119,7 +116,7 @@ def _format_skills_section(breadcrumbs: dict) -> list:
 
 
 def _format_context_budget_section(breadcrumbs: dict) -> list:
-    budget = breadcrumbs.get('context_budget')
+    budget = breadcrumbs.get("context_budget")
     if not budget:
         return []
     return [
@@ -131,7 +128,7 @@ def _format_context_budget_section(breadcrumbs: dict) -> list:
 
 
 def _format_reference_docs_section(breadcrumbs: dict) -> list:
-    ref_docs = breadcrumbs.get('reference_docs', [])
+    ref_docs = breadcrumbs.get("reference_docs", [])
     if not ref_docs:
         return []
     lines = ["## Reference Documentation"]
@@ -142,14 +139,14 @@ def _format_reference_docs_section(breadcrumbs: dict) -> list:
 
 
 def _format_recent_artifacts_section(breadcrumbs: dict) -> list:
-    artifacts = breadcrumbs.get('recent_artifacts', [])
+    artifacts = breadcrumbs.get("recent_artifacts", [])
     if not artifacts:
         return []
     lines = ["## Recent File Changes"]
     for art in artifacts[:5]:  # Top 5
         lines.append(f"- {art.get('ai_id', 'unknown')}: {art.get('task_summary', '')}")
-        if art.get('files_modified'):
-            for file in art['files_modified'][:3]:  # Top 3 files
+        if art.get("files_modified"):
+            for file in art["files_modified"][:3]:  # Top 3 files
                 lines.append(f"  - `{file}`")
     lines.append("")
     return lines

@@ -16,22 +16,24 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-DEFAULT_CONFIG_PATH = Path.home() / '.empirica' / 'cockpit' / 'config.yaml'
-DEFAULT_PROJECTS_ROOT = Path.home() / 'empirical-ai'
+DEFAULT_CONFIG_PATH = Path.home() / ".empirica" / "cockpit" / "config.yaml"
+DEFAULT_PROJECTS_ROOT = Path.home() / "empirical-ai"
 
 
 @dataclass
 class ProjectSpec:
     """One tmux window in the cockpit — typically one project."""
+
     name: str
     path: str
-    launch: str = 'claude'   # command to run in this window
-    kind: str = 'code'       # placeholder for future split / pane semantics
+    launch: str = "claude"  # command to run in this window
+    kind: str = "code"  # placeholder for future split / pane semantics
 
 
 @dataclass
 class StatusWindow:
     """An always-on observability window (monitor, log tail, etc.)."""
+
     name: str
     command: str
 
@@ -46,9 +48,10 @@ class PaneSpec:
       - ``inline_command``: raw shell command to run in the pane (e.g.
         ``empirica cockpit`` for the cockpit pane).
     """
+
     project_ref: str | None = None
     inline_command: str | None = None
-    label: str | None = None     # optional human-readable pane title
+    label: str | None = None  # optional human-readable pane title
 
 
 @dataclass
@@ -59,9 +62,10 @@ class GroupSpec:
     ``WM_CLASS=empirica-<name>`` so KDE/wmctrl can target it individually
     (Meta+1..N for taskbar slots once pinned).
     """
+
     name: str
     panes: list[PaneSpec] = field(default_factory=list)
-    split: str = 'horizontal'    # 'horizontal' (left/right) | 'vertical' (top/bottom)
+    split: str = "horizontal"  # 'horizontal' (left/right) | 'vertical' (top/bottom)
 
 
 @dataclass
@@ -79,12 +83,13 @@ class LauncherConfig:
        group's alacritty gets a unique WM_CLASS for keyboard-shortcut
        window switching (Meta+1..N in KDE).
     """
-    session_name: str = 'cockpit'
+
+    session_name: str = "cockpit"
     attach_on_launch: bool = True
     projects: list[ProjectSpec] = field(default_factory=list)
     status_windows: list[StatusWindow] = field(default_factory=list)
     groups: list[GroupSpec] = field(default_factory=list)
-    surface: str = 'tmux'        # 'tmux' (legacy single attach) | 'alacritty' (groups mode)
+    surface: str = "tmux"  # 'tmux' (legacy single attach) | 'alacritty' (groups mode)
     alacritty_args: list[str] = field(default_factory=list)
     warn_on_abnormal_exit: bool = True
     auto_prune_dead: bool = False
@@ -106,13 +111,13 @@ class LauncherConfig:
 def _builtin_default(projects: list[ProjectSpec] | None = None) -> LauncherConfig:
     """Sensible defaults for first-run config."""
     return LauncherConfig(
-        session_name='cockpit',
+        session_name="cockpit",
         attach_on_launch=True,
         projects=projects or [],
         status_windows=[
             StatusWindow(
-                name='monitor',
-                command='watch -n 2 empirica status --all --pretty',
+                name="monitor",
+                command="watch -n 2 empirica status --all --pretty",
             ),
         ],
         warn_on_abnormal_exit=True,
@@ -134,13 +139,15 @@ def detect_projects(projects_root: Path | None = None) -> list[ProjectSpec]:
     for entry in sorted(root.iterdir()):
         if not entry.is_dir():
             continue
-        if (entry / '.empirica').is_dir():
-            discovered.append(ProjectSpec(
-                name=entry.name,
-                path=str(entry.resolve()),
-                launch='claude',
-                kind='code',
-            ))
+        if (entry / ".empirica").is_dir():
+            discovered.append(
+                ProjectSpec(
+                    name=entry.name,
+                    path=str(entry.resolve()),
+                    launch="claude",
+                    kind="code",
+                )
+            )
     return discovered
 
 
@@ -150,29 +157,33 @@ def _parse_groups(raw_groups: list) -> list[GroupSpec]:
     for entry in raw_groups:
         if not isinstance(entry, dict):
             continue
-        gname = entry.get('name')
+        gname = entry.get("name")
         if not gname:
             continue
         panes: list[PaneSpec] = []
-        for pane in entry.get('panes') or []:
+        for pane in entry.get("panes") or []:
             if not isinstance(pane, dict):
                 continue
-            project_ref = pane.get('project')
-            inline = pane.get('command')
+            project_ref = pane.get("project")
+            inline = pane.get("command")
             if not project_ref and not inline:
                 continue
-            panes.append(PaneSpec(
-                project_ref=str(project_ref) if project_ref else None,
-                inline_command=str(inline) if inline else None,
-                label=str(pane.get('label')) if pane.get('label') else None,
-            ))
+            panes.append(
+                PaneSpec(
+                    project_ref=str(project_ref) if project_ref else None,
+                    inline_command=str(inline) if inline else None,
+                    label=str(pane.get("label")) if pane.get("label") else None,
+                )
+            )
         if not panes:
             continue
-        groups.append(GroupSpec(
-            name=str(gname),
-            panes=panes,
-            split=str(entry.get('split') or 'horizontal'),
-        ))
+        groups.append(
+            GroupSpec(
+                name=str(gname),
+                panes=panes,
+                split=str(entry.get("split") or "horizontal"),
+            )
+        )
     return groups
 
 
@@ -185,7 +196,8 @@ def load_config(path: Path | None = None) -> LauncherConfig:
         return _builtin_default()
     try:
         import yaml
-        with config_path.open(encoding='utf-8') as fh:
+
+        with config_path.open(encoding="utf-8") as fh:
             raw = yaml.safe_load(fh) or {}
     except Exception:
         return _builtin_default()
@@ -194,82 +206,80 @@ def load_config(path: Path | None = None) -> LauncherConfig:
         return _builtin_default()
 
     projects = []
-    for entry in raw.get('projects') or []:
+    for entry in raw.get("projects") or []:
         if not isinstance(entry, dict):
             continue
-        name = entry.get('name')
-        path = entry.get('path')
+        name = entry.get("name")
+        path = entry.get("path")
         if not name or not path:
             continue
-        projects.append(ProjectSpec(
-            name=str(name),
-            path=str(path),
-            launch=str(entry.get('launch') or 'claude'),
-            kind=str(entry.get('kind') or 'code'),
-        ))
+        projects.append(
+            ProjectSpec(
+                name=str(name),
+                path=str(path),
+                launch=str(entry.get("launch") or "claude"),
+                kind=str(entry.get("kind") or "code"),
+            )
+        )
 
     status_windows = []
-    for entry in raw.get('status_windows') or []:
+    for entry in raw.get("status_windows") or []:
         if not isinstance(entry, dict):
             continue
-        name = entry.get('name')
-        command = entry.get('command')
+        name = entry.get("name")
+        command = entry.get("command")
         if not name or not command:
             continue
         status_windows.append(StatusWindow(name=str(name), command=str(command)))
 
-    groups = _parse_groups(raw.get('groups') or [])
+    groups = _parse_groups(raw.get("groups") or [])
 
-    abnormal = raw.get('on_abnormal_exit') or {}
-    surface = str(raw.get('surface') or ('alacritty' if groups else 'tmux'))
-    alacritty_args_raw = raw.get('alacritty_args') or []
+    abnormal = raw.get("on_abnormal_exit") or {}
+    surface = str(raw.get("surface") or ("alacritty" if groups else "tmux"))
+    alacritty_args_raw = raw.get("alacritty_args") or []
     alacritty_args = [str(a) for a in alacritty_args_raw if a]
 
     return LauncherConfig(
-        session_name=str(raw.get('session_name') or 'cockpit'),
-        attach_on_launch=bool(raw.get('attach_on_launch', True)),
+        session_name=str(raw.get("session_name") or "cockpit"),
+        attach_on_launch=bool(raw.get("attach_on_launch", True)),
         projects=projects,
         status_windows=status_windows,
         groups=groups,
         surface=surface,
         alacritty_args=alacritty_args,
-        warn_on_abnormal_exit=bool(abnormal.get('warn', True)),
-        auto_prune_dead=bool(abnormal.get('auto_prune_dead', False)),
-        notify_on_abnormal_exit=bool(abnormal.get('notify', True)),
+        warn_on_abnormal_exit=bool(abnormal.get("warn", True)),
+        auto_prune_dead=bool(abnormal.get("auto_prune_dead", False)),
+        notify_on_abnormal_exit=bool(abnormal.get("notify", True)),
     )
 
 
 def _serialize(config: LauncherConfig) -> dict[str, Any]:
     out: dict[str, Any] = {
-        'session_name': config.session_name,
-        'attach_on_launch': config.attach_on_launch,
-        'surface': config.surface,
-        'projects': [
-            {'name': p.name, 'path': p.path, 'launch': p.launch, 'kind': p.kind}
-            for p in config.projects
-        ],
-        'status_windows': [
-            {'name': w.name, 'command': w.command}
-            for w in config.status_windows
-        ],
-        'on_abnormal_exit': {
-            'warn': config.warn_on_abnormal_exit,
-            'auto_prune_dead': config.auto_prune_dead,
-            'notify': config.notify_on_abnormal_exit,
+        "session_name": config.session_name,
+        "attach_on_launch": config.attach_on_launch,
+        "surface": config.surface,
+        "projects": [{"name": p.name, "path": p.path, "launch": p.launch, "kind": p.kind} for p in config.projects],
+        "status_windows": [{"name": w.name, "command": w.command} for w in config.status_windows],
+        "on_abnormal_exit": {
+            "warn": config.warn_on_abnormal_exit,
+            "auto_prune_dead": config.auto_prune_dead,
+            "notify": config.notify_on_abnormal_exit,
         },
     }
     if config.groups:
-        out['groups'] = [
+        out["groups"] = [
             {
-                'name': g.name,
-                'split': g.split,
-                'panes': [
+                "name": g.name,
+                "split": g.split,
+                "panes": [
                     {
-                        k: v for k, v in {
-                            'project': p.project_ref,
-                            'command': p.inline_command,
-                            'label': p.label,
-                        }.items() if v is not None
+                        k: v
+                        for k, v in {
+                            "project": p.project_ref,
+                            "command": p.inline_command,
+                            "label": p.label,
+                        }.items()
+                        if v is not None
                     }
                     for p in g.panes
                 ],
@@ -277,7 +287,7 @@ def _serialize(config: LauncherConfig) -> dict[str, Any]:
             for g in config.groups
         ]
     if config.alacritty_args:
-        out['alacritty_args'] = config.alacritty_args
+        out["alacritty_args"] = config.alacritty_args
     return out
 
 
@@ -298,6 +308,7 @@ def write_default_config(
     config = _builtin_default(projects=projects)
 
     import yaml
-    with config_path.open('w', encoding='utf-8') as fh:
+
+    with config_path.open("w", encoding="utf-8") as fh:
         yaml.safe_dump(_serialize(config), fh, default_flow_style=False, sort_keys=False)
     return config_path

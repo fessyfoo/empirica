@@ -40,6 +40,7 @@ COLLECTOR_PATH = REPO_ROOT / "empirica/core/post_test/collector.py"
 # Bug 1 regression: sentinel investigation_rounds formula
 # ---------------------------------------------------------------------------
 
+
 class TestInvestigationRoundsFormula:
     """The sentinel investigation_rounds source should produce MORE uncertainty
     value for MORE check rounds — monotonically increasing."""
@@ -48,6 +49,7 @@ class TestInvestigationRoundsFormula:
         """Lock in the correct formula: (total_checks - 1) / 4.0 clamped to [0,1].
         This replaces the prior inverted `1.0 - (total_checks - 1) / 4.0` which
         would be monotonically DECREASING."""
+
         def formula(total_checks: int) -> float:
             return min(1.0, (total_checks - 1) / 4.0)
 
@@ -59,23 +61,28 @@ class TestInvestigationRoundsFormula:
 
     def test_one_round_is_certain(self):
         """1 round = 0.0 uncertainty (ideal single-pass proceed)."""
+
         def formula(total_checks: int) -> float:
             return min(1.0, (total_checks - 1) / 4.0)
+
         assert formula(1) == 0.0
 
     def test_two_rounds_low_uncertainty(self):
         def formula(total_checks: int) -> float:
             return min(1.0, (total_checks - 1) / 4.0)
+
         assert formula(2) == 0.25
 
     def test_five_rounds_max_uncertainty(self):
         def formula(total_checks: int) -> float:
             return min(1.0, (total_checks - 1) / 4.0)
+
         assert formula(5) == 1.0
 
     def test_many_rounds_cap_at_one(self):
         def formula(total_checks: int) -> float:
             return min(1.0, (total_checks - 1) / 4.0)
+
         assert formula(20) == 1.0
 
     def test_source_file_has_no_direct_uncertainty_sources(self):
@@ -106,6 +113,7 @@ class TestInvestigationRoundsFormula:
 # Bug 2 regression: unknowns_surfaced supports_vectors
 # ---------------------------------------------------------------------------
 
+
 class TestUnknownsSurfacedSupportsVectors:
     """The `unknowns_surfaced` evidence item should ground `know` only,
     not `uncertainty`. Prior version double-counted by listing both."""
@@ -132,23 +140,14 @@ class TestUnknownsSurfacedSupportsVectors:
                 continue
 
             supports_node = kw.get("supports_vectors")
-            assert isinstance(supports_node, ast.List), (
-                "supports_vectors should be a list literal"
-            )
-            vectors = [
-                e.value for e in supports_node.elts
-                if isinstance(e, ast.Constant)
-            ]
+            assert isinstance(supports_node, ast.List), "supports_vectors should be a list literal"
+            vectors = [e.value for e in supports_node.elts if isinstance(e, ast.Constant)]
             found_items.append(vectors)
 
-        assert len(found_items) >= 1, (
-            "Expected at least one EvidenceItem with metric_name='unknowns_surfaced'"
-        )
+        assert len(found_items) >= 1, "Expected at least one EvidenceItem with metric_name='unknowns_surfaced'"
 
         for vectors in found_items:
-            assert "know" in vectors, (
-                f"unknowns_surfaced must ground 'know'. Got: {vectors}"
-            )
+            assert "know" in vectors, f"unknowns_surfaced must ground 'know'. Got: {vectors}"
             assert "uncertainty" not in vectors, (
                 f"unknowns_surfaced must NOT ground 'uncertainty'. "
                 f"Got: {vectors}. This is the double-counting bug that was "
@@ -160,6 +159,7 @@ class TestUnknownsSurfacedSupportsVectors:
 # ---------------------------------------------------------------------------
 # Statusline alignment
 # ---------------------------------------------------------------------------
+
 
 class TestMetaUncertaintyFormula:
     """The meta-uncertainty computation should derive uncertainty from the
@@ -174,6 +174,7 @@ class TestMetaUncertaintyFormula:
 
     def _compute(self, grounded, gaps, grounded_coverage):
         from empirica.core.post_test.mapper import _compute_meta_uncertainty
+
         return _compute_meta_uncertainty(grounded, gaps, grounded_coverage)
 
     def test_perfect_calibration_yields_low_uncertainty(self):
@@ -251,9 +252,7 @@ class TestMetaUncertaintyFormula:
                 gaps = {"know": gap, "do": gap}
                 result = self._compute({}, gaps, coverage)
                 assert result is not None
-                assert 0.0 <= result <= 1.0, (
-                    f"Out of range for coverage={coverage}, gap={gap}: {result}"
-                )
+                assert 0.0 <= result <= 1.0, f"Out of range for coverage={coverage}, gap={gap}: {result}"
 
 
 class TestStatuslineAlignment:
@@ -265,9 +264,8 @@ class TestStatuslineAlignment:
 
     def _load_statusline(self):
         import importlib.util
-        spec = importlib.util.spec_from_file_location(
-            "statusline_empirica", self.STATUSLINE_PATH
-        )
+
+        spec = importlib.util.spec_from_file_location("statusline_empirica", self.STATUSLINE_PATH)
         assert spec is not None and spec.loader is not None
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)

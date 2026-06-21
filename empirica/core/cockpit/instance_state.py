@@ -47,7 +47,7 @@ from empirica.core.cockpit.notify_dispatcher_view import (
 from empirica.core.cockpit.sentinel_pause import sentinel_status
 from empirica.core.cockpit.services_view import read_services_summary
 
-EMPIRICA_DIR = Path.home() / '.empirica'
+EMPIRICA_DIR = Path.home() / ".empirica"
 
 # Stale thresholds — drive the state symbol in --pretty.
 ACTIVE_WINDOW_S = 60
@@ -56,25 +56,25 @@ ABANDONED_WINDOW_S = 24 * 60 * 60
 
 # Files we scan to discover instance_ids.
 INSTANCE_GLOBS = (
-    'instance_projects/*.json',
-    'sentinel_paused_*',
-    'loops_*.json',
-    'listeners_*.json',
-    'active_session_*',
-    'hook_counters_*.json',
-    'context_usage_*.json',
+    "instance_projects/*.json",
+    "sentinel_paused_*",
+    "loops_*.json",
+    "listeners_*.json",
+    "active_session_*",
+    "hook_counters_*.json",
+    "context_usage_*.json",
 )
 
 # Files to exclude from instance discovery — they match the glob but are
 # not per-instance footprints (e.g. the global pause file).
 INSTANCE_EXCLUDE = {
-    'sentinel_paused',  # global pause file (no instance suffix)
-    'active_session',  # legacy global session
-    'active_transaction',  # legacy global transaction
+    "sentinel_paused",  # global pause file (no instance suffix)
+    "active_session",  # legacy global session
+    "active_transaction",  # legacy global transaction
 }
 
 # Loop pause files use a different suffix shape — strip the loop component.
-LOOP_PAUSE_PATTERN = re.compile(r'^loop_paused_(.+?)_(.+)$')
+LOOP_PAUSE_PATTERN = re.compile(r"^loop_paused_(.+?)_(.+)$")
 
 
 def _instance_id_from_filename(filename: str) -> str | None:
@@ -83,23 +83,23 @@ def _instance_id_from_filename(filename: str) -> str | None:
         return None
 
     # JSON files: strip .json suffix
-    name = filename[:-5] if filename.endswith('.json') else filename
+    name = filename[:-5] if filename.endswith(".json") else filename
 
     # Strip known prefixes
     prefixes = (
-        'sentinel_paused_',
-        'loops_',
-        'listeners_',
-        'active_session_',
-        'active_transaction_',
-        'hook_counters_',
-        'context_usage_',
-        'cortex_remote_cache_',
-        'pre_tx_calls_',
+        "sentinel_paused_",
+        "loops_",
+        "listeners_",
+        "active_session_",
+        "active_transaction_",
+        "hook_counters_",
+        "context_usage_",
+        "cortex_remote_cache_",
+        "pre_tx_calls_",
     )
     for prefix in prefixes:
         if name.startswith(prefix):
-            return name[len(prefix):]
+            return name[len(prefix) :]
 
     # instance_projects/{id}.json — name is just the instance_id
     return name
@@ -113,10 +113,10 @@ def _instance_label(instance_id: str, project_path: str | None = None) -> str:
     2. basename of project_path           (matches what statusline shows)
     3. instance_id                        (last-resort fallback)
     """
-    label_file = EMPIRICA_DIR / f'instance_label_{instance_id}'
+    label_file = EMPIRICA_DIR / f"instance_label_{instance_id}"
     if label_file.exists():
         try:
-            text = label_file.read_text(encoding='utf-8').strip()
+            text = label_file.read_text(encoding="utf-8").strip()
             if text:
                 return text.splitlines()[0].strip()
         except OSError:
@@ -136,29 +136,30 @@ def _project_ai_id(project_path: str | None) -> str | None:
     derivation). See docs/architecture/AI_ID_AS_ANCHOR.md.
     """
     from empirica.utils.session_resolver import InstanceResolver
+
     return InstanceResolver.ai_id(project_path=project_path)
 
 
 def _instance_project_path(instance_id: str) -> str | None:
     """Return the project_path the instance is currently bound to, or None."""
-    candidate = EMPIRICA_DIR / 'instance_projects' / f'{instance_id}.json'
+    candidate = EMPIRICA_DIR / "instance_projects" / f"{instance_id}.json"
     if candidate.exists():
         try:
-            with open(candidate, encoding='utf-8') as f:
+            with open(candidate, encoding="utf-8") as f:
                 data = json.load(f)
-            project_path = data.get('project_path')
+            project_path = data.get("project_path")
             if isinstance(project_path, str) and project_path:
                 return project_path
         except (OSError, json.JSONDecodeError):
             pass
 
     # Fallback: parse legacy active_session_{id}
-    session_file = EMPIRICA_DIR / f'active_session_{instance_id}'
+    session_file = EMPIRICA_DIR / f"active_session_{instance_id}"
     if session_file.exists():
         try:
-            with open(session_file, encoding='utf-8') as f:
+            with open(session_file, encoding="utf-8") as f:
                 data = json.load(f)
-            project_path = data.get('project_path')
+            project_path = data.get("project_path")
             if isinstance(project_path, str) and project_path:
                 return project_path
         except (OSError, json.JSONDecodeError):
@@ -195,64 +196,64 @@ def _read_transaction_state(project_path: str, instance_id: str) -> dict[str, An
             'criticality': str | None,
         }
     """
-    suffix = f'_{instance_id}'
-    empirica_dir = Path(project_path) / '.empirica'
-    tx_file = empirica_dir / f'active_transaction{suffix}.json'
-    counters_file = empirica_dir / f'hook_counters{suffix}.json'
+    suffix = f"_{instance_id}"
+    empirica_dir = Path(project_path) / ".empirica"
+    tx_file = empirica_dir / f"active_transaction{suffix}.json"
+    counters_file = empirica_dir / f"hook_counters{suffix}.json"
 
     result: dict[str, Any] = {
-        'phase': 'no-transaction',
-        'transaction_id': None,
-        'session_id': None,
-        'transaction_age_seconds': None,
-        'last_activity_iso': None,
-        'last_activity_seconds': None,
-        'work_type': None,
-        'domain': None,
-        'criticality': None,
+        "phase": "no-transaction",
+        "transaction_id": None,
+        "session_id": None,
+        "transaction_age_seconds": None,
+        "last_activity_iso": None,
+        "last_activity_seconds": None,
+        "work_type": None,
+        "domain": None,
+        "criticality": None,
     }
 
     if not tx_file.exists():
         return result
 
     try:
-        with open(tx_file, encoding='utf-8') as f:
+        with open(tx_file, encoding="utf-8") as f:
             tx = json.load(f)
     except (OSError, json.JSONDecodeError):
         return result
 
-    result['transaction_id'] = tx.get('transaction_id')
-    result['session_id'] = tx.get('session_id')
-    result['work_type'] = tx.get('work_type')
-    result['domain'] = tx.get('domain')
-    result['criticality'] = tx.get('criticality')
+    result["transaction_id"] = tx.get("transaction_id")
+    result["session_id"] = tx.get("session_id")
+    result["work_type"] = tx.get("work_type")
+    result["domain"] = tx.get("domain")
+    result["criticality"] = tx.get("criticality")
 
-    preflight_ts = tx.get('preflight_timestamp')
+    preflight_ts = tx.get("preflight_timestamp")
     now = datetime.now(tz=timezone.utc).timestamp()
     if isinstance(preflight_ts, (int, float)):
-        result['transaction_age_seconds'] = max(0.0, now - preflight_ts)
+        result["transaction_age_seconds"] = max(0.0, now - preflight_ts)
 
     # Last activity = newest mtime across tx + counters file
     last_mtime = _newest_mtime([tx_file, counters_file])
     if last_mtime is not None:
-        result['last_activity_iso'] = datetime.fromtimestamp(last_mtime, tz=timezone.utc).isoformat()
-        result['last_activity_seconds'] = max(0.0, now - last_mtime)
+        result["last_activity_iso"] = datetime.fromtimestamp(last_mtime, tz=timezone.utc).isoformat()
+        result["last_activity_seconds"] = max(0.0, now - last_mtime)
 
-    status = tx.get('status', 'open')
-    if status == 'closed':
-        result['phase'] = 'closed'
+    status = tx.get("status", "open")
+    if status == "closed":
+        result["phase"] = "closed"
         return result
 
     # Status open — distinguish noetic vs praxic from hook counters.
     praxic = 0
     if counters_file.exists():
         try:
-            with open(counters_file, encoding='utf-8') as f:
+            with open(counters_file, encoding="utf-8") as f:
                 counters = json.load(f)
-            praxic = int(counters.get('praxic_tool_calls', 0) or 0)
+            praxic = int(counters.get("praxic_tool_calls", 0) or 0)
         except (OSError, json.JSONDecodeError, TypeError, ValueError):
             praxic = 0
-    result['phase'] = 'praxic' if praxic > 0 else 'noetic'
+    result["phase"] = "praxic" if praxic > 0 else "noetic"
     return result
 
 
@@ -273,25 +274,25 @@ def _derive_state_symbol(
     if not alive:
         # Dead — distinguish 'cleanly closed' (had a finished transaction)
         # from 'no-claude' (no transaction or abandoned > 24h).
-        if tx_state['phase'] == 'closed':
-            return 'closed'
-        if tx_state['phase'] == 'no-transaction' and instance_files_mtime is not None:
+        if tx_state["phase"] == "closed":
+            return "closed"
+        if tx_state["phase"] == "no-transaction" and instance_files_mtime is not None:
             age = datetime.now(tz=timezone.utc).timestamp() - instance_files_mtime
             if age <= ABANDONED_WINDOW_S:
-                return 'closed'
-        return 'no-claude'
+                return "closed"
+        return "no-claude"
 
     # Alive with an open transaction — bucket on last_activity age.
-    if tx_state['phase'] in ('noetic', 'praxic'):
-        last_seconds = tx_state.get('last_activity_seconds')
+    if tx_state["phase"] in ("noetic", "praxic"):
+        last_seconds = tx_state.get("last_activity_seconds")
         if last_seconds is None or last_seconds < ACTIVE_WINDOW_S:
-            return 'active'
+            return "active"
         if last_seconds < IDLE_WINDOW_S:
-            return 'idle'
-        return 'stuck'
+            return "idle"
+        return "stuck"
 
     # Alive but no open transaction — Claude is running between tasks.
-    return 'idle'
+    return "idle"
 
 
 def discover_instances() -> list[str]:
@@ -319,7 +320,7 @@ def discover_instances() -> list[str]:
     live_panes = _live_tmux_panes()
     if live_panes:
         for pane in live_panes:
-            seen.add(f'tmux_{pane}')
+            seen.add(f"tmux_{pane}")
 
     return sorted(seen)
 
@@ -327,13 +328,13 @@ def discover_instances() -> list[str]:
 def _newest_instance_file_mtime(instance_id: str) -> float | None:
     """Newest mtime of any known per-instance state file. Used for staleness."""
     candidates = [
-        EMPIRICA_DIR / 'instance_projects' / f'{instance_id}.json',
-        EMPIRICA_DIR / f'sentinel_paused_{instance_id}',
-        EMPIRICA_DIR / f'loops_{instance_id}.json',
-        EMPIRICA_DIR / f'listeners_{instance_id}.json',
-        EMPIRICA_DIR / f'active_session_{instance_id}',
-        EMPIRICA_DIR / f'hook_counters_{instance_id}.json',
-        EMPIRICA_DIR / f'context_usage_{instance_id}.json',
+        EMPIRICA_DIR / "instance_projects" / f"{instance_id}.json",
+        EMPIRICA_DIR / f"sentinel_paused_{instance_id}",
+        EMPIRICA_DIR / f"loops_{instance_id}.json",
+        EMPIRICA_DIR / f"listeners_{instance_id}.json",
+        EMPIRICA_DIR / f"active_session_{instance_id}",
+        EMPIRICA_DIR / f"hook_counters_{instance_id}.json",
+        EMPIRICA_DIR / f"context_usage_{instance_id}.json",
     ]
     return _newest_mtime(candidates)
 
@@ -378,7 +379,8 @@ def _read_recent_events_for_instance(instance_id: str, limit: int = 5) -> list[d
 
 
 def _annotate_loops_with_systemd_state(
-    instance_id: str, loops_dict: dict[str, Any],
+    instance_id: str,
+    loops_dict: dict[str, Any],
 ) -> None:
     """For each loop with scheduler_kind='systemd', query live systemd state
     and inject systemd_active / systemd_enabled fields.
@@ -390,8 +392,9 @@ def _annotate_loops_with_systemd_state(
     module isn't importable or systemd-user isn't available.
     """
     systemd_loops = [
-        name for name, info in loops_dict.items()
-        if (info.get('scheduling') or {}).get('scheduler_kind') == 'systemd-user'
+        name
+        for name, info in loops_dict.items()
+        if (info.get("scheduling") or {}).get("scheduler_kind") == "systemd-user"
     ]
     if not systemd_loops:
         return
@@ -411,15 +414,15 @@ def _annotate_loops_with_systemd_state(
         for name in systemd_loops:
             try:
                 st = sched.status(instance_id, name)
-                loops_dict[name]['systemd_active'] = st.active
-                loops_dict[name]['systemd_enabled'] = st.enabled
-                loops_dict[name]['last_trigger'] = st.last_trigger
-                loops_dict[name]['next_trigger'] = st.next_trigger
+                loops_dict[name]["systemd_active"] = st.active
+                loops_dict[name]["systemd_enabled"] = st.enabled
+                loops_dict[name]["last_trigger"] = st.last_trigger
+                loops_dict[name]["next_trigger"] = st.next_trigger
             except Exception:
                 # Per-loop probe failure → leave fields absent. UI treats
                 # absent as "unknown / unhealthy" → conservative.
-                loops_dict[name]['systemd_active'] = False
-                loops_dict[name]['systemd_enabled'] = False
+                loops_dict[name]["systemd_active"] = False
+                loops_dict[name]["systemd_enabled"] = False
     except Exception:  # noqa: S110 — best-effort systemd state probe
         pass
 
@@ -445,21 +448,21 @@ def aggregate_instance_state(
         tx_state = _read_transaction_state(project_path, instance_id)
     else:
         tx_state = {
-            'phase': 'no-transaction',
-            'transaction_id': None,
-            'session_id': None,
-            'transaction_age_seconds': None,
-            'last_activity_iso': None,
-            'last_activity_seconds': None,
-            'work_type': None,
-            'domain': None,
+            "phase": "no-transaction",
+            "transaction_id": None,
+            "session_id": None,
+            "transaction_age_seconds": None,
+            "last_activity_iso": None,
+            "last_activity_seconds": None,
+            "work_type": None,
+            "domain": None,
         }
 
     instance_mtime = _newest_instance_file_mtime(instance_id)
 
     liveness = is_alive(
         instance_id,
-        last_activity_seconds=tx_state['last_activity_seconds'],
+        last_activity_seconds=tx_state["last_activity_seconds"],
         live_panes=live_panes,
         current_instance_id=current_instance_id,
     )
@@ -473,7 +476,7 @@ def aggregate_instance_state(
     loops_dict: dict[str, Any] = {}
     for entry in registry.list_loops():
         d = entry.to_dict()
-        d['paused'] = is_loop_paused(instance_id, entry.name)
+        d["paused"] = is_loop_paused(instance_id, entry.name)
         loops_dict[entry.name] = d
 
     # systemd state annotation (Phase 1c-tail, goal f718156c): for loops
@@ -492,24 +495,24 @@ def aggregate_instance_state(
     listeners_dict: dict[str, Any] = {}
     for entry in listener_registry.list_listeners():
         d = entry.to_dict()
-        d['paused'] = is_listener_paused(instance_id, entry.name)
+        d["paused"] = is_listener_paused(instance_id, entry.name)
         listeners_dict[entry.name] = d
 
     transaction: dict[str, Any] | None
-    if tx_state['transaction_id']:
+    if tx_state["transaction_id"]:
         transaction = {
-            'id': tx_state['transaction_id'],
-            'age_seconds': tx_state['transaction_age_seconds'],
-            'work_type': tx_state['work_type'],
-            'domain': tx_state['domain'],
-            'criticality': tx_state['criticality'],
+            "id": tx_state["transaction_id"],
+            "age_seconds": tx_state["transaction_age_seconds"],
+            "work_type": tx_state["work_type"],
+            "domain": tx_state["domain"],
+            "criticality": tx_state["criticality"],
         }
     else:
         transaction = None
 
     # 'ask' supersedes the file-derived phase when CC is waiting for input.
     asking = is_asking(instance_id)
-    phase = 'ask' if asking and tx_state['phase'] in ('noetic', 'praxic') else tx_state['phase']
+    phase = "ask" if asking and tx_state["phase"] in ("noetic", "praxic") else tx_state["phase"]
 
     notif = notification_summary(instance_id, project_path=project_path)
 
@@ -528,41 +531,39 @@ def aggregate_instance_state(
     services = read_services_summary(project_path)
 
     return {
-        'instance_id': instance_id,
-        'ai_id': _project_ai_id(project_path),
-        'label': label,
-        'project_path': project_path,
-        'session_id': tx_state['session_id'],
-        'state': state,
-        'phase': phase,
-        'asking': asking,
-        'transaction': transaction,
-        'last_activity': tx_state['last_activity_iso'],
-        'last_activity_seconds': tx_state['last_activity_seconds'],
-        'alive': liveness.alive,
-        'liveness_reason': liveness.reason,
-        'sentinel': {
-            'paused': sentinel.paused,
-            'scope': sentinel.scope,
-            'since': sentinel.since,
-            'reason': sentinel.reason,
+        "instance_id": instance_id,
+        "ai_id": _project_ai_id(project_path),
+        "label": label,
+        "project_path": project_path,
+        "session_id": tx_state["session_id"],
+        "state": state,
+        "phase": phase,
+        "asking": asking,
+        "transaction": transaction,
+        "last_activity": tx_state["last_activity_iso"],
+        "last_activity_seconds": tx_state["last_activity_seconds"],
+        "alive": liveness.alive,
+        "liveness_reason": liveness.reason,
+        "sentinel": {
+            "paused": sentinel.paused,
+            "scope": sentinel.scope,
+            "since": sentinel.since,
+            "reason": sentinel.reason,
         },
-        'loops': loops_dict,
-        'listeners': listeners_dict,
-        'notifications': {
-            'open_count': notif.open_count,
-            'has_attention': notif.has_attention,
+        "loops": loops_dict,
+        "listeners": listeners_dict,
+        "notifications": {
+            "open_count": notif.open_count,
+            "has_attention": notif.has_attention,
         },
-        'compliance': compliance,
-        'services': services,
+        "compliance": compliance,
+        "services": services,
         # T9: latest 5 fires-log events for the cockpit detail pane.
         # ECO-decided proposal events surface here (one row per inbox-act
         # or outbox-ack), making "notifications" the unified surface that
         # subsumes the older separate loops/listeners columns.
-        'recent_events': _read_recent_events_for_instance(instance_id, limit=5),
+        "recent_events": _read_recent_events_for_instance(instance_id, limit=5),
     }
-
-
 
 
 def aggregate_all(include_dead: bool = False) -> dict[str, Any]:
@@ -581,56 +582,54 @@ def aggregate_all(include_dead: bool = False) -> dict[str, Any]:
     # weren't captured by an old session-init).
     try:
         from empirica.utils.session_resolver import get_instance_id
+
         current_id = get_instance_id()
     except Exception:
         current_id = None
 
     instances = [
         aggregate_instance_state(
-            i, live_panes=live_panes, current_instance_id=current_id,
+            i,
+            live_panes=live_panes,
+            current_instance_id=current_id,
         )
         for i in discover_instances()
     ]
 
     if not include_dead:
-        instances = [i for i in instances if i.get('alive')]
+        instances = [i for i in instances if i.get("alive")]
 
-    loops_registered = sum(len(i['loops']) for i in instances)
-    loops_paused = sum(
-        1 for i in instances for loop in i['loops'].values() if loop.get('paused')
-    )
-    listeners_registered = sum(len(i.get('listeners') or {}) for i in instances)
+    loops_registered = sum(len(i["loops"]) for i in instances)
+    loops_paused = sum(1 for i in instances for loop in i["loops"].values() if loop.get("paused"))
+    listeners_registered = sum(len(i.get("listeners") or {}) for i in instances)
     listeners_paused = sum(
-        1 for i in instances
-        for listener in (i.get('listeners') or {}).values()
-        if listener.get('paused')
+        1 for i in instances for listener in (i.get("listeners") or {}).values() if listener.get("paused")
     )
-    active_tx = sum(
-        1 for i in instances if i['phase'] in ('noetic', 'praxic')
-    )
+    active_tx = sum(1 for i in instances if i["phase"] in ("noetic", "praxic"))
 
     # T11: auto-accept mode (per-user, cortex-persisted). Cached at module
     # scope so the TUI's 5s refresh doesn't hammer cortex. None → state
     # unknown / cortex unreachable / endpoint not shipped — TUI hides chip.
     try:
         from empirica.core.cockpit.auto_accept import fetch_auto_accept_mode
+
         auto_accept = fetch_auto_accept_mode()
     except Exception:
         auto_accept = None
 
     return {
-        'generated_at': datetime.now(tz=timezone.utc).isoformat(),
-        'instances': instances,
-        'summary': {
-            'instances': len(instances),
-            'loops_registered': loops_registered,
-            'loops_paused': loops_paused,
-            'listeners_registered': listeners_registered,
-            'listeners_paused': listeners_paused,
-            'active_tx': active_tx,
-            'open_notifications': notifications_total(),
-            'notify_dispatcher': build_notify_dispatcher_block(),
-            'auto_accept': auto_accept,
+        "generated_at": datetime.now(tz=timezone.utc).isoformat(),
+        "instances": instances,
+        "summary": {
+            "instances": len(instances),
+            "loops_registered": loops_registered,
+            "loops_paused": loops_paused,
+            "listeners_registered": listeners_registered,
+            "listeners_paused": listeners_paused,
+            "active_tx": active_tx,
+            "open_notifications": notifications_total(),
+            "notify_dispatcher": build_notify_dispatcher_block(),
+            "auto_accept": auto_accept,
         },
     }
 
@@ -644,6 +643,7 @@ def discover_dead_instances() -> list[str]:
     live_panes = _live_tmux_panes()
     try:
         from empirica.utils.session_resolver import get_instance_id
+
         current_id = get_instance_id()
     except Exception:
         current_id = None
@@ -657,7 +657,7 @@ def discover_dead_instances() -> list[str]:
         last_activity = None
         if project_path:
             tx = _read_transaction_state(project_path, iid)
-            last_activity = tx.get('last_activity_seconds')
+            last_activity = tx.get("last_activity_seconds")
         liveness = is_alive(
             iid,
             last_activity_seconds=last_activity,
@@ -670,8 +670,8 @@ def discover_dead_instances() -> list[str]:
 
 
 __all__ = [
-    'aggregate_all',
-    'aggregate_instance_state',
-    'discover_dead_instances',
-    'discover_instances',
+    "aggregate_all",
+    "aggregate_instance_state",
+    "discover_dead_instances",
+    "discover_instances",
 ]

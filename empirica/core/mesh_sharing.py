@@ -23,17 +23,17 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-ENTITY_TYPE = 'mesh_sharing_agreement'
-SOURCE_DB = 'cortex'
-SOURCE_TABLE = 'mesh_sharing_agreements'
+ENTITY_TYPE = "mesh_sharing_agreement"
+SOURCE_DB = "cortex"
+SOURCE_TABLE = "mesh_sharing_agreements"
 
 # Valid lifecycle states (mirrors cortex's CHECK constraint)
-VALID_STATES = ('proposed', 'active', 'suspended', 'revoked')
+VALID_STATES = ("proposed", "active", "suspended", "revoked")
 
 # Valid layer derivations
-LAYER_L1 = 'L1'  # same org + same tenant — should not appear (L1 doesn't need agreements)
-LAYER_L2 = 'L2'  # same org, different tenant
-LAYER_L3 = 'L3'  # different org
+LAYER_L1 = "L1"  # same org + same tenant — should not appear (L1 doesn't need agreements)
+LAYER_L2 = "L2"  # same org, different tenant
+LAYER_L3 = "L3"  # different org
 
 
 @dataclass(frozen=True)
@@ -74,22 +74,24 @@ class MeshSharingAgreement:
 
     def to_metadata_json(self) -> str:
         """Serialize the row's metadata for entity_registry.metadata."""
-        return json.dumps({
-            'party_a_org': self.party_a_org,
-            'party_a_tenant': self.party_a_tenant,
-            'party_b_org': self.party_b_org,
-            'party_b_tenant': self.party_b_tenant,
-            'surfaces_json': self.surfaces,
-            'direction': self.direction,
-            'eco_always': self.eco_always,
-            'layer': self.layer,
-            'terms_json': self.terms,
-            'created_at': self.created_at,
-            'created_by_admin': self.created_by_admin,
-            'last_transition_at': self.last_transition_at,
-            'last_transition_actor': self.last_transition_actor,
-            'expires_at': self.expires_at,
-        })
+        return json.dumps(
+            {
+                "party_a_org": self.party_a_org,
+                "party_a_tenant": self.party_a_tenant,
+                "party_b_org": self.party_b_org,
+                "party_b_tenant": self.party_b_tenant,
+                "surfaces_json": self.surfaces,
+                "direction": self.direction,
+                "eco_always": self.eco_always,
+                "layer": self.layer,
+                "terms_json": self.terms,
+                "created_at": self.created_at,
+                "created_by_admin": self.created_by_admin,
+                "last_transition_at": self.last_transition_at,
+                "last_transition_actor": self.last_transition_actor,
+                "expires_at": self.expires_at,
+            }
+        )
 
     @classmethod
     def from_cortex_row(cls, row: dict[str, Any]) -> MeshSharingAgreement:
@@ -107,22 +109,22 @@ class MeshSharingAgreement:
         from the minimal shape with sensible defaults.
         """
         # Detect shape — enriched if explicit *_org fields present
-        if 'party_a_org' in row and 'party_b_org' in row:
-            party_a_org = row['party_a_org']
-            party_a_tenant = row.get('party_a_tenant')
-            party_b_org = row['party_b_org']
-            party_b_tenant = row.get('party_b_tenant')
+        if "party_a_org" in row and "party_b_org" in row:
+            party_a_org = row["party_a_org"]
+            party_a_tenant = row.get("party_a_tenant")
+            party_b_org = row["party_b_org"]
+            party_b_tenant = row.get("party_b_tenant")
             layer = derive_layer(party_a_org, party_a_tenant, party_b_org, party_b_tenant)
         else:
             # Minimal shape: party_a/party_b are opaque user_id strings;
             # scope tells us layer. Treat user_id AS tenant identifier
             # until cortex enriches the response.
-            party_a = row.get('party_a') or row.get('party_a_id')
-            party_b = row.get('party_b') or row.get('party_b_id')
+            party_a = row.get("party_a") or row.get("party_a_id")
+            party_b = row.get("party_b") or row.get("party_b_id")
             if not party_a or not party_b:
-                raise KeyError('party_a/party_b required')
-            scope = row.get('scope', '').lower()
-            if scope == 'org_org':
+                raise KeyError("party_a/party_b required")
+            scope = row.get("scope", "").lower()
+            if scope == "org_org":
                 # party_a/party_b are org identifiers; no tenant narrowing
                 party_a_org, party_a_tenant = str(party_a), None
                 party_b_org, party_b_tenant = str(party_b), None
@@ -131,57 +133,51 @@ class MeshSharingAgreement:
                 # scope='tenant_tenant' (or unknown). Use a placeholder
                 # org until cortex enriches the response; the user_id IS
                 # the tenant identifier.
-                party_a_org = row.get('party_a_org_id') or 'cortex'
-                party_b_org = row.get('party_b_org_id') or 'cortex'
+                party_a_org = row.get("party_a_org_id") or "cortex"
+                party_b_org = row.get("party_b_org_id") or "cortex"
                 party_a_tenant = str(party_a)
                 party_b_tenant = str(party_b)
                 layer = derive_layer(party_a_org, party_a_tenant, party_b_org, party_b_tenant)
 
         # Surfaces / direction / eco_always — defaults until cortex ships
         # the enriched fields
-        surfaces = row.get('surfaces') or row.get('surfaces_json') or ['collab']
+        surfaces = row.get("surfaces") or row.get("surfaces_json") or ["collab"]
         if isinstance(surfaces, str):
             try:
                 surfaces = json.loads(surfaces)
             except (json.JSONDecodeError, TypeError):
                 surfaces = [surfaces]
-        terms = row.get('terms') or row.get('terms_json') or {}
+        terms = row.get("terms") or row.get("terms_json") or {}
         if isinstance(terms, str):
             try:
                 terms = json.loads(terms)
             except (json.JSONDecodeError, TypeError):
-                terms = {'raw': terms}
+                terms = {"raw": terms}
 
         # last_transition_at: use activated_at for active rows, revoked_at
         # for revoked rows, fall through to explicit field
-        last_transition = (
-            row.get('last_transition_at')
-            or row.get('revoked_at')
-            or row.get('activated_at')
-        )
+        last_transition = row.get("last_transition_at") or row.get("revoked_at") or row.get("activated_at")
         last_transition_actor = (
-            row.get('last_transition_actor')
-            or row.get('revoked_by_user_id')
-            or row.get('initiator_user_id')
+            row.get("last_transition_actor") or row.get("revoked_by_user_id") or row.get("initiator_user_id")
         )
 
         return cls(
-            id=row['id'],
+            id=row["id"],
             party_a_org=party_a_org,
             party_a_tenant=party_a_tenant,
             party_b_org=party_b_org,
             party_b_tenant=party_b_tenant,
-            state=row.get('state', 'proposed'),
+            state=row.get("state", "proposed"),
             surfaces=list(surfaces),
-            direction=row.get('direction', 'bidirectional'),
-            eco_always=bool(row.get('eco_always', layer == LAYER_L3)),
+            direction=row.get("direction", "bidirectional"),
+            eco_always=bool(row.get("eco_always", layer == LAYER_L3)),
             layer=layer,
             terms=dict(terms),
-            created_at=float(row.get('created_at', 0.0)),
-            created_by_admin=row.get('created_by_admin') or row.get('initiator_user_id'),
+            created_at=float(row.get("created_at", 0.0)),
+            created_by_admin=row.get("created_by_admin") or row.get("initiator_user_id"),
             last_transition_at=last_transition,
             last_transition_actor=last_transition_actor,
-            expires_at=row.get('expires_at'),
+            expires_at=row.get("expires_at"),
         )
 
 
@@ -211,6 +207,7 @@ def derive_layer(
 @dataclass
 class SyncResult:
     """Outcome of a sync run — what changed in the mirror."""
+
     added: int = 0
     updated: int = 0
     marked_revoked: int = 0
@@ -223,10 +220,7 @@ class SyncResult:
     def summary_line(self) -> str:
         if self.error:
             return f"sync failed: {self.error}"
-        return (
-            f"sync ok: {self.added} added, {self.updated} updated, "
-            f"{self.marked_revoked} marked-revoked"
-        )
+        return f"sync ok: {self.added} added, {self.updated} updated, {self.marked_revoked} marked-revoked"
 
 
 def fetch_agreements_from_cortex(
@@ -243,15 +237,15 @@ def fetch_agreements_from_cortex(
     req = urllib.request.Request(
         url,
         headers={
-            'Authorization': f'Bearer {api_key}',
-            'Accept': 'application/json',
+            "Authorization": f"Bearer {api_key}",
+            "Accept": "application/json",
         },
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        payload = json.loads(resp.read().decode('utf-8'))
+        payload = json.loads(resp.read().decode("utf-8"))
     if isinstance(payload, list):
         return payload
-    return list(payload.get('agreements') or payload.get('items') or [])
+    return list(payload.get("agreements") or payload.get("items") or [])
 
 
 def sync_from_cortex(
@@ -297,7 +291,8 @@ def sync_from_cortex(
         except (KeyError, ValueError) as exc:
             logger.warning(
                 "mesh-agreements sync: skipping malformed row %r: %s",
-                row.get('id', '?'), exc,
+                row.get("id", "?"),
+                exc,
             )
             continue
         seen_ids.add(agr.id)
@@ -309,8 +304,8 @@ def sync_from_cortex(
             display_name=agr.display_name,
             source_db=SOURCE_DB,
             source_table=SOURCE_TABLE,
-            description=str(agr.terms.get('description') or '') or None,
-            status=agr.state if agr.state in VALID_STATES else 'proposed',
+            description=str(agr.terms.get("description") or "") or None,
+            status=agr.state if agr.state in VALID_STATES else "proposed",
             metadata=agr.to_metadata_json(),
         )
         if existing is None:
@@ -319,13 +314,13 @@ def sync_from_cortex(
             result.updated += 1
 
     # Mark-revoked sweep: anything previously mirrored but not in this response.
-    existing_rows = repo.list_entities(entity_type=ENTITY_TYPE, status='all', limit=10000)
+    existing_rows = repo.list_entities(entity_type=ENTITY_TYPE, status="all", limit=10000)
     for existing in existing_rows:
-        if existing['entity_id'] in seen_ids:
+        if existing["entity_id"] in seen_ids:
             continue
-        if existing.get('status') == 'revoked':
+        if existing.get("status") == "revoked":
             continue  # already revoked, no-op
-        if repo.mark_entity_status(ENTITY_TYPE, existing['entity_id'], 'revoked'):
+        if repo.mark_entity_status(ENTITY_TYPE, existing["entity_id"], "revoked"):
             result.marked_revoked += 1
 
     return result
@@ -364,17 +359,17 @@ def is_agreement_active(
     if layer == LAYER_L1:
         return True
 
-    rows = repo.list_entities(entity_type=ENTITY_TYPE, status='active', limit=1000)
+    rows = repo.list_entities(entity_type=ENTITY_TYPE, status="active", limit=1000)
     for row in rows:
         try:
-            meta = json.loads(row.get('metadata') or '{}')
+            meta = json.loads(row.get("metadata") or "{}")
         except json.JSONDecodeError:
             continue
         if not _parties_match(meta, party_a_org, party_a_tenant, party_b_org, party_b_tenant):
             continue
         if surface is not None:
-            surfaces = meta.get('surfaces_json') or []
-            if 'all' not in surfaces and surface not in surfaces:
+            surfaces = meta.get("surfaces_json") or []
+            if "all" not in surfaces and surface not in surfaces:
                 continue
         return True
     return False
@@ -388,14 +383,12 @@ def _parties_match(
     party_b_tenant: str | None,
 ) -> bool:
     """Check if metadata's parties match the query pair (either direction)."""
-    pa_org, pa_tenant = meta.get('party_a_org'), meta.get('party_a_tenant')
-    pb_org, pb_tenant = meta.get('party_b_org'), meta.get('party_b_tenant')
+    pa_org, pa_tenant = meta.get("party_a_org"), meta.get("party_a_tenant")
+    pb_org, pb_tenant = meta.get("party_b_org"), meta.get("party_b_tenant")
     forward = (
-        pa_org == party_a_org and pa_tenant == party_a_tenant
-        and pb_org == party_b_org and pb_tenant == party_b_tenant
+        pa_org == party_a_org and pa_tenant == party_a_tenant and pb_org == party_b_org and pb_tenant == party_b_tenant
     )
     reverse = (
-        pa_org == party_b_org and pa_tenant == party_b_tenant
-        and pb_org == party_a_org and pb_tenant == party_a_tenant
+        pa_org == party_b_org and pa_tenant == party_b_tenant and pb_org == party_a_org and pb_tenant == party_a_tenant
     )
     return forward or reverse

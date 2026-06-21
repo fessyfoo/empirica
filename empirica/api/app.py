@@ -23,6 +23,7 @@ def get_db():
     global _db
     if _db is None:
         from empirica.data.session_database import SessionDatabase
+
         db_type = os.environ.get("EMPIRICA_DB_TYPE")
         _db = SessionDatabase(db_type=db_type)
         logger.info(f"Database initialized: dialect={_db.adapter.dialect}")
@@ -32,11 +33,7 @@ def get_db():
 def create_app() -> Flask:
     """Create and configure Flask application"""
 
-    app = Flask(
-        __name__,
-        static_url_path="/api/v1/static",
-        static_folder="./static"
-    )
+    app = Flask(__name__, static_url_path="/api/v1/static", static_folder="./static")
 
     # CORS configuration
     # Security: In production, set CORS_ORIGIN to your specific frontend domain(s)
@@ -49,9 +46,9 @@ def create_app() -> Flask:
     @app.after_request
     def add_cors_headers(response):  # pyright: ignore[reportUnusedFunction]
         """Add CORS headers to all responses."""
-        response.headers['Access-Control-Allow-Origin'] = allowed_origin
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.headers["Access-Control-Allow-Origin"] = allowed_origin
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
         return response
 
     # Eagerly initialize database (creates tables if needed)
@@ -70,11 +67,7 @@ def create_app() -> Flask:
             dialect = db.adapter.dialect
         except Exception:
             dialect = "unavailable"
-        return jsonify({
-            "status": "ok",
-            "service": "empirica-api",
-            "backend": dialect
-        })
+        return jsonify({"status": "ok", "service": "empirica-api", "backend": dialect})
 
     # Register blueprints
     from .auth import APIKeyMiddleware
@@ -104,12 +97,9 @@ def create_app() -> Flask:
         is_debug = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
         error_message = str(error) if is_debug else "An internal error occurred"
 
-        return jsonify({
-            "ok": False,
-            "error": "internal_server_error",
-            "message": error_message,
-            "status_code": 500
-        }), 500
+        return jsonify(
+            {"ok": False, "error": "internal_server_error", "message": error_message, "status_code": 500}
+        ), 500
 
     logger.info("Empirica Dashboard API initialized")
     return app

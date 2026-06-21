@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 # Try to import YAML, fallback to JSON if not available
 try:
     import yaml
+
     YAML_AVAILABLE = True
 except ImportError:
     YAML_AVAILABLE = False
@@ -57,27 +58,27 @@ class CredentialsLoader:
         4. ~/.empirica/credentials.yaml (home dir)
         """
         # Check environment variable first
-        env_path = os.getenv('EMPIRICA_CREDENTIALS_PATH')
+        env_path = os.getenv("EMPIRICA_CREDENTIALS_PATH")
         if env_path and Path(env_path).exists():
             return Path(env_path)
 
         # Repo root .empirica directory
         # Navigate from empirica/config/ to repo root
         repo_root = Path(__file__).parent.parent.parent
-        local_config = repo_root / '.empirica'
+        local_config = repo_root / ".empirica"
 
-        if YAML_AVAILABLE and (local_config / 'credentials.yaml').exists():
-            return local_config / 'credentials.yaml'
-        if (local_config / 'credentials.json').exists():
-            return local_config / 'credentials.json'
+        if YAML_AVAILABLE and (local_config / "credentials.yaml").exists():
+            return local_config / "credentials.yaml"
+        if (local_config / "credentials.json").exists():
+            return local_config / "credentials.json"
 
         # Home directory
-        home_config = Path.home() / '.empirica'
+        home_config = Path.home() / ".empirica"
 
-        if YAML_AVAILABLE and (home_config / 'credentials.yaml').exists():
-            return home_config / 'credentials.yaml'
-        if (home_config / 'credentials.json').exists():
-            return home_config / 'credentials.json'
+        if YAML_AVAILABLE and (home_config / "credentials.yaml").exists():
+            return home_config / "credentials.yaml"
+        if (home_config / "credentials.json").exists():
+            return home_config / "credentials.json"
 
         return None
 
@@ -89,7 +90,7 @@ class CredentialsLoader:
             logger.info(f"✅ Loading credentials from: {config_file}")
 
             try:
-                if config_file.suffix in ['.yaml', '.yml']:
+                if config_file.suffix in [".yaml", ".yml"]:
                     if not YAML_AVAILABLE:
                         logger.error("YAML config found but PyYAML not installed")
                         self._credentials_cache = self._load_from_dotfiles()
@@ -116,6 +117,7 @@ class CredentialsLoader:
 
     def _interpolate_env_vars(self, config: dict) -> dict:
         """Replace ${VAR_NAME} with environment variable values"""
+
         def replace_vars(obj: Any) -> Any:
             """Recursively replace env vars in nested structure."""
             if isinstance(obj, dict):
@@ -124,7 +126,7 @@ class CredentialsLoader:
                 return [replace_vars(item) for item in obj]
             elif isinstance(obj, str):
                 # Replace ${VAR_NAME} with env var value
-                pattern = r'\$\{([A-Z_0-9]+)\}'
+                pattern = r"\$\{([A-Z_0-9]+)\}"
 
                 def replacer(match: re.Match) -> str:
                     """Replace single env var match with its value."""
@@ -145,20 +147,16 @@ class CredentialsLoader:
         """Fallback: Load from legacy dotfiles"""
         repo_root = Path(__file__).parent.parent.parent
 
-        credentials = {
-            'version': '1.0',
-            'providers': {},
-            'source': 'dotfiles'
-        }
+        credentials = {"version": "1.0", "providers": {}, "source": "dotfiles"}
 
         # Map dotfiles to providers
         dotfile_map = {
-            'qwen': '.qwen_api',
-            'minimax': '.minimax_key',  # Note: user has .minimax_key
-            'rovodev': '.rovodev_api',
-            'gemini': '.gemini_api',
-            'qodo': '.qodo_api',
-            'openrouter': '.open_router_api'
+            "qwen": ".qwen_api",
+            "minimax": ".minimax_key",  # Note: user has .minimax_key
+            "rovodev": ".rovodev_api",
+            "gemini": ".gemini_api",
+            "qodo": ".qodo_api",
+            "openrouter": ".open_router_api",
         }
 
         loaded_count = 0
@@ -170,10 +168,10 @@ class CredentialsLoader:
                         api_key = f.read().strip()
 
                     if api_key:
-                        credentials['providers'][provider] = {
-                            'api_key': api_key,
-                            'source': 'dotfile',
-                            'dotfile': str(dotfile_path)
+                        credentials["providers"][provider] = {
+                            "api_key": api_key,
+                            "source": "dotfile",
+                            "dotfile": str(dotfile_path),
                         }
                         loaded_count += 1
                         logger.debug(f"   Loaded {provider} from {dotfile}")
@@ -210,9 +208,7 @@ class CredentialsLoader:
         Returns the path written to.
         """
         if url is None and api_key is None:
-            raise ValueError(
-                "save_cortex_config: at least one of url/api_key required"
-            )
+            raise ValueError("save_cortex_config: at least one of url/api_key required")
 
         # Resolve target:
         # 1. Explicit config_path argument
@@ -260,13 +256,18 @@ class CredentialsLoader:
 
         # Atomic write (tempfile in same dir → rename)
         tmp_fd, tmp_path = tempfile.mkstemp(
-            prefix=".credentials-", suffix=".yaml.tmp", dir=str(target.parent),
+            prefix=".credentials-",
+            suffix=".yaml.tmp",
+            dir=str(target.parent),
         )
         try:
             with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
                 yaml.dump(
-                    existing, f, default_flow_style=False,
-                    sort_keys=False, allow_unicode=True,
+                    existing,
+                    f,
+                    default_flow_style=False,
+                    sort_keys=False,
+                    allow_unicode=True,
                 )
             os.replace(tmp_path, target)
         except Exception:
@@ -311,9 +312,7 @@ class CredentialsLoader:
         wall without ntfy creds. Mirrors save_cortex_config.
         """
         if all(v is None for v in (url, topic, token, user, password)):
-            raise ValueError(
-                "save_ntfy_config: at least one field required"
-            )
+            raise ValueError("save_ntfy_config: at least one field required")
 
         target = config_path
         if target is None:
@@ -353,13 +352,18 @@ class CredentialsLoader:
             )
 
         tmp_fd, tmp_path = tempfile.mkstemp(
-            prefix=".credentials-", suffix=".yaml.tmp", dir=str(target.parent),
+            prefix=".credentials-",
+            suffix=".yaml.tmp",
+            dir=str(target.parent),
         )
         try:
             with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
                 yaml.dump(
-                    existing, f, default_flow_style=False,
-                    sort_keys=False, allow_unicode=True,
+                    existing,
+                    f,
+                    default_flow_style=False,
+                    sort_keys=False,
+                    allow_unicode=True,
                 )
             os.replace(tmp_path, target)
         except Exception:
@@ -417,8 +421,7 @@ class CredentialsLoader:
             )
         if env_url and file_url and env_url.rstrip("/") != file_url.rstrip("/"):
             logger.warning(
-                "CORTEX_REMOTE_URL env var differs from credentials.yaml url; "
-                "ignoring env, file is canonical.",
+                "CORTEX_REMOTE_URL env var differs from credentials.yaml url; ignoring env, file is canonical.",
             )
 
         # File wins per-field; env only fills what the file lacks.
@@ -479,27 +482,11 @@ class CredentialsLoader:
         notify_map = self._load_notify_ntfy_block()
 
         return {
-            "url": (
-                env_map["url"]
-                or file_map.get("url")
-                or notify_map.get("url")
-                or defaults["url"]
-            ).rstrip("/"),
-            "topic": (
-                env_map["topic"]
-                or file_map.get("topic")
-                or notify_map.get("topic")
-                or defaults["topic"]
-            ),
+            "url": (env_map["url"] or file_map.get("url") or notify_map.get("url") or defaults["url"]).rstrip("/"),
+            "topic": (env_map["topic"] or file_map.get("topic") or notify_map.get("topic") or defaults["topic"]),
             "user": env_map["user"] or file_map.get("user") or notify_map.get("user") or None,
-            "password": (
-                env_map["password"] or file_map.get("password")
-                or notify_map.get("password") or None
-            ),
-            "token": (
-                env_map["token"] or file_map.get("token")
-                or notify_map.get("token") or None
-            ),
+            "password": (env_map["password"] or file_map.get("password") or notify_map.get("password") or None),
+            "token": (env_map["token"] or file_map.get("token") or notify_map.get("token") or None),
         }
 
     def _load_notify_ntfy_block(self) -> dict[str, str | None]:
@@ -514,8 +501,10 @@ class CredentialsLoader:
         defaults.
         """
         from pathlib import Path
+
         try:
             import yaml
+
             notify_path = Path.home() / ".empirica" / "notify.yaml"
             if not notify_path.exists():
                 return {}
@@ -557,18 +546,18 @@ class CredentialsLoader:
         if not self._credentials_cache:
             self._load_credentials()
 
-        providers = self._credentials_cache.get('providers', {})
+        providers = self._credentials_cache.get("providers", {})
         return providers.get(provider)
 
     def get_api_key(self, provider: str) -> str | None:
         """Get API key for provider"""
         config = self.get_provider_config(provider)
-        return config.get('api_key') if config else None
+        return config.get("api_key") if config else None
 
     def get_base_url(self, provider: str) -> str | None:
         """Get base URL for provider"""
         config = self.get_provider_config(provider)
-        return config.get('base_url') if config else None
+        return config.get("base_url") if config else None
 
     def get_headers(self, provider: str) -> dict[str, str]:
         """
@@ -580,14 +569,14 @@ class CredentialsLoader:
         if not config:
             return {}
 
-        headers = config.get('headers', {})
-        api_key = config.get('api_key', '')
+        headers = config.get("headers", {})
+        api_key = config.get("api_key", "")
 
         # Replace ${api_key} in header values
         interpolated_headers = {}
         for key, value in headers.items():
             if isinstance(value, str):
-                interpolated_headers[key] = value.replace('${api_key}', api_key)
+                interpolated_headers[key] = value.replace("${api_key}", api_key)
             else:
                 interpolated_headers[key] = value
 
@@ -596,12 +585,12 @@ class CredentialsLoader:
     def get_default_model(self, provider: str) -> str | None:
         """Get default model for provider"""
         config = self.get_provider_config(provider)
-        return config.get('default_model') if config else None
+        return config.get("default_model") if config else None
 
     def get_available_models(self, provider: str) -> list:
         """Get list of available models for provider"""
         config = self.get_provider_config(provider)
-        return config.get('available_models', []) if config else []
+        return config.get("available_models", []) if config else []
 
     def validate_model(self, provider: str, model: str) -> bool:
         """Check if model is available for provider"""
@@ -613,13 +602,13 @@ class CredentialsLoader:
     def get_auth_method(self, provider: str) -> str:
         """Get authentication method (header, query_param, cli)"""
         config = self.get_provider_config(provider)
-        return config.get('auth_method', 'header') if config else 'header'
+        return config.get("auth_method", "header") if config else "header"
 
     def list_providers(self) -> list:
         """List all configured providers"""
         if not self._credentials_cache:
             self._load_credentials()
-        return list(self._credentials_cache.get('providers', {}).keys())
+        return list(self._credentials_cache.get("providers", {}).keys())
 
     def reload(self):
         """Reload credentials from file"""
@@ -676,13 +665,15 @@ if __name__ == "__main__":
 
                 models = loader.get_available_models(provider)
                 if models:
-                    print(f"  Available Models ({len(models)}): {', '.join(models[:3])}{'...' if len(models) > 3 else ''}")
+                    print(
+                        f"  Available Models ({len(models)}): {', '.join(models[:3])}{'...' if len(models) > 3 else ''}"
+                    )
 
                 headers = loader.get_headers(provider)
                 if headers:
                     print(f"  Headers: {', '.join(headers.keys())}")
 
-                source = config.get('source')
+                source = config.get("source")
                 if source:
                     print(f"  Source: {source}")
 

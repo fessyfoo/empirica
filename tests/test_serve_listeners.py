@@ -26,25 +26,41 @@ def fake_home(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     emp = tmp_path / ".empirica"
     # canonical seat WITH health
-    _write(emp / "listeners_empirica.json", {
-        "instance_id": "empirica", "instance_label": None,
-        "listeners": {"empirica-inbox": {
-            "topic": "ntfy:empirica-orchestration-events-david?tags=empirica",
-            "description": "Canonical mesh listener for ai_id=empirica",
-            "registered_at": "2026-06-04T10:00:00Z",
-            "last_wake_at": "2026-06-17T20:00:00Z", "last_message": "woke",
-            "wake_count": 5,
-        }},
-    })
-    _write(emp / "listener_health_empirica.json", {
-        "instance_id": "empirica", "loop": "cortex-mailbox-poll",
-        "status": "ok", "ts": "2026-06-17T21:00:00Z", "source": "liveness_probe",
-    })
+    _write(
+        emp / "listeners_empirica.json",
+        {
+            "instance_id": "empirica",
+            "instance_label": None,
+            "listeners": {
+                "empirica-inbox": {
+                    "topic": "ntfy:empirica-orchestration-events-david?tags=empirica",
+                    "description": "Canonical mesh listener for ai_id=empirica",
+                    "registered_at": "2026-06-04T10:00:00Z",
+                    "last_wake_at": "2026-06-17T20:00:00Z",
+                    "last_message": "woke",
+                    "wake_count": 5,
+                }
+            },
+        },
+    )
+    _write(
+        emp / "listener_health_empirica.json",
+        {
+            "instance_id": "empirica",
+            "loop": "cortex-mailbox-poll",
+            "status": "ok",
+            "ts": "2026-06-17T21:00:00Z",
+            "source": "liveness_probe",
+        },
+    )
     # canonical seat WITHOUT health (health_* must be null)
-    _write(emp / "listeners_ecodex.json", {
-        "instance_id": "ecodex",
-        "listeners": {"ecodex-inbox": {"topic": "ntfy:x?tags=ecodex", "wake_count": 0}},
-    })
+    _write(
+        emp / "listeners_ecodex.json",
+        {
+            "instance_id": "ecodex",
+            "listeners": {"ecodex-inbox": {"topic": "ntfy:x?tags=ecodex", "wake_count": 0}},
+        },
+    )
     # fixtures — must be skipped
     _write(emp / "listeners_smoke_test.json", {"instance_id": "smoke_test", "listeners": {"a": {"topic": "t"}}})
     _write(emp / "listeners_tmux_0.json", {"instance_id": "tmux_0", "listeners": {"b": {"topic": "t"}}})

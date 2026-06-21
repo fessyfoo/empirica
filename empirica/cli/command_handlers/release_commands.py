@@ -30,6 +30,7 @@ from ..cli_utils import handle_cli_error
 
 class AssessmentStatus(Enum):
     """Status indicators for release readiness assessments."""
+
     PASS = "pass"  # noqa: S105
     WARN = "warn"
     FAIL = "fail"
@@ -39,6 +40,7 @@ class AssessmentStatus(Enum):
 @dataclass
 class CheckResult:
     """Result of a single release readiness check."""
+
     name: str
     status: AssessmentStatus
     message: str
@@ -52,7 +54,7 @@ class CheckResult:
             "status": self.status.value,
             "message": self.message,
             "details": self.details,
-            "moon": self.moon
+            "moon": self.moon,
         }
 
 
@@ -92,7 +94,7 @@ class EpistemicReleaseAgent:
             AssessmentStatus.PASS: "🌕",
             AssessmentStatus.WARN: "🌓",
             AssessmentStatus.FAIL: "🌑",
-            AssessmentStatus.SKIP: "🌒"
+            AssessmentStatus.SKIP: "🌒",
         }.get(status, "🌒")
 
     # =========================================================================
@@ -109,7 +111,7 @@ class EpistemicReleaseAgent:
             content = pyproject.read_text()
             match = re.search(r'^version\s*=\s*["\']([^"\']+)["\']', content, re.MULTILINE)
             if match:
-                versions['pyproject.toml'] = match.group(1)
+                versions["pyproject.toml"] = match.group(1)
                 self.version = match.group(1)
                 details.append(f"pyproject.toml: {match.group(1)}")
 
@@ -119,21 +121,21 @@ class EpistemicReleaseAgent:
             content = init_file.read_text()
             match = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', content)
             if match:
-                versions['empirica/__init__.py'] = match.group(1)
+                versions["empirica/__init__.py"] = match.group(1)
                 details.append(f"empirica/__init__.py: {match.group(1)}")
 
         # CLAUDE.md system prompt version (look for "Lean v" pattern)
         claude_md_paths = [
             Path.home() / ".claude" / "CLAUDE.md",
             self.root / "CLAUDE.md",
-            self.root / "docs" / "CLAUDE.md"
+            self.root / "docs" / "CLAUDE.md",
         ]
         for claude_md in claude_md_paths:
             if claude_md.exists():
                 content = claude_md.read_text()
-                match = re.search(r'Lean v(\d+\.\d+)', content)
+                match = re.search(r"Lean v(\d+\.\d+)", content)
                 if match:
-                    versions[f'CLAUDE.md ({claude_md})'] = f"prompt-v{match.group(1)}"
+                    versions[f"CLAUDE.md ({claude_md})"] = f"prompt-v{match.group(1)}"
                     details.append(f"CLAUDE.md prompt: v{match.group(1)}")
                 break
 
@@ -141,14 +143,13 @@ class EpistemicReleaseAgent:
         copilot_md = self.root / ".github" / "copilot-instructions.md"
         if copilot_md.exists():
             content = copilot_md.read_text()
-            match = re.search(r'Lean v(\d+\.\d+)', content)
+            match = re.search(r"Lean v(\d+\.\d+)", content)
             if match:
-                versions['copilot-instructions.md'] = f"prompt-v{match.group(1)}"
+                versions["copilot-instructions.md"] = f"prompt-v{match.group(1)}"
                 details.append(f"Copilot prompt: v{match.group(1)}")
 
         # Check package versions match
-        pkg_versions = {k: v for k, v in versions.items()
-                       if not k.startswith('CLAUDE') and 'copilot' not in k.lower()}
+        pkg_versions = {k: v for k, v in versions.items() if not k.startswith("CLAUDE") and "copilot" not in k.lower()}
         unique_pkg_versions = set(pkg_versions.values())
 
         if len(unique_pkg_versions) == 1:
@@ -161,12 +162,7 @@ class EpistemicReleaseAgent:
             status = AssessmentStatus.FAIL
             message = f"Package version mismatch: {pkg_versions}"
 
-        result = CheckResult(
-            name="Version Sync",
-            status=status,
-            message=message,
-            details=details
-        )
+        result = CheckResult(name="Version Sync", status=status, message=message, details=details)
         result.moon = self._status_to_moon(status)
         return result
 
@@ -177,10 +173,7 @@ class EpistemicReleaseAgent:
         """Run turtle assessment on architecture."""
         if self.quick:
             return CheckResult(
-                name="Architecture Assessment",
-                status=AssessmentStatus.SKIP,
-                message="Skipped (quick mode)",
-                moon="🌒"
+                name="Architecture Assessment", status=AssessmentStatus.SKIP, message="Skipped (quick mode)", moon="🌒"
             )
 
         details = []
@@ -202,7 +195,10 @@ class EpistemicReleaseAgent:
             try:
                 result = subprocess.run(
                     ["empirica", "assess-directory", str(full_path), "--output", "json"],
-                    capture_output=True, text=True, cwd=self.root, timeout=60
+                    capture_output=True,
+                    text=True,
+                    cwd=self.root,
+                    timeout=60,
                 )
                 if result.returncode == 0:
                     data = json.loads(result.stdout)
@@ -237,12 +233,7 @@ class EpistemicReleaseAgent:
             message = "Could not assess architecture"
             moon = "🌒"
 
-        result = CheckResult(
-            name="Architecture Assessment",
-            status=status,
-            message=message,
-            details=details
-        )
+        result = CheckResult(name="Architecture Assessment", status=status, message=message, details=details)
         result.moon = moon if scores else "🌒"
         return result
 
@@ -258,14 +249,11 @@ class EpistemicReleaseAgent:
 
         for pkg in packages:
             try:
-                result = subprocess.run(
-                    ["pip", "index", "versions", pkg],
-                    capture_output=True, text=True, timeout=30
-                )
+                result = subprocess.run(["pip", "index", "versions", pkg], capture_output=True, text=True, timeout=30)
                 if result.returncode == 0:
                     # Parse versions from output
                     output = result.stdout + result.stderr
-                    match = re.search(rf'{pkg}\s+\(([^)]+)\)', output)
+                    match = re.search(rf"{pkg}\s+\(([^)]+)\)", output)
                     if match:
                         latest = match.group(1)
                         details.append(f"{pkg}: latest={latest}")
@@ -278,12 +266,9 @@ class EpistemicReleaseAgent:
                         details.append(f"{pkg}: available on PyPI")
                 else:
                     # Try alternative method
-                    result2 = subprocess.run(
-                        ["pip", "show", pkg],
-                        capture_output=True, text=True, timeout=30
-                    )
+                    result2 = subprocess.run(["pip", "show", pkg], capture_output=True, text=True, timeout=30)
                     if result2.returncode == 0:
-                        match = re.search(r'Version:\s*(\S+)', result2.stdout)
+                        match = re.search(r"Version:\s*(\S+)", result2.stdout)
                         if match:
                             details.append(f"{pkg}: installed={match.group(1)}")
                     else:
@@ -302,12 +287,7 @@ class EpistemicReleaseAgent:
             status = AssessmentStatus.PASS
             message = "PyPI packages verified"
 
-        result = CheckResult(
-            name="PyPI Packages",
-            status=status,
-            message=message,
-            details=details
-        )
+        result = CheckResult(name="PyPI Packages", status=status, message=message, details=details)
         result.moon = self._status_to_moon(status)
         return result
 
@@ -321,10 +301,10 @@ class EpistemicReleaseAgent:
         for line in gitignore.read_text().splitlines():
             line = line.strip()
             # Skip comments and empty lines
-            if not line or line.startswith('#'):
+            if not line or line.startswith("#"):
                 continue
             # Normalize pattern
-            patterns.append(line.rstrip('/'))
+            patterns.append(line.rstrip("/"))
         return patterns
 
     def _is_gitignored(self, path: Path, gitignore_patterns: list[str]) -> bool:
@@ -336,12 +316,12 @@ class EpistemicReleaseAgent:
             if pattern in path_str:
                 return True
             # Directory match (pattern ends with /)
-            if pattern.endswith('/') and pattern.rstrip('/') in path_str:
+            if pattern.endswith("/") and pattern.rstrip("/") in path_str:
                 return True
             # Glob-style match for simple patterns
-            if pattern.startswith('*') and path_str.endswith(pattern[1:]):
+            if pattern.startswith("*") and path_str.endswith(pattern[1:]):
                 return True
-            if pattern.endswith('*') and path_str.startswith(pattern[:-1]):
+            if pattern.endswith("*") and path_str.startswith(pattern[:-1]):
                 return True
         return False
 
@@ -409,10 +389,18 @@ class EpistemicReleaseAgent:
         gitignore_patterns = self._parse_gitignore()
 
         forbidden_file_patterns = [
-            ".env", ".env.local", ".env.production",
-            "secrets.json", "credentials.json", "config.secret",
-            "*.pem", "*.key", "id_rsa", "id_ed25519",
-            ".aws/credentials", ".gcp/credentials",
+            ".env",
+            ".env.local",
+            ".env.production",
+            "secrets.json",
+            "credentials.json",
+            "config.secret",
+            "*.pem",
+            "*.key",
+            "id_rsa",
+            "id_ed25519",
+            ".aws/credentials",
+            ".gcp/credentials",
         ]
         content_patterns = [
             r"sk-[a-zA-Z0-9]{20,}",
@@ -423,12 +411,31 @@ class EpistemicReleaseAgent:
             r"C:\\Users\\\w+\\",
         ]
         warn_file_patterns = [
-            "*.draft*", "*.wip*", "*scratch*", "*tmp*",
-            "*.bak", "*.backup", "*_old*",
-            "research/*", "private/*", "internal/*",
+            "*.draft*",
+            "*.wip*",
+            "*scratch*",
+            "*tmp*",
+            "*.bak",
+            "*.backup",
+            "*_old*",
+            "research/*",
+            "private/*",
+            "internal/*",
         ]
-        exclude_dirs = [".git", ".venv", "venv", ".venv-mcp", "node_modules", "__pycache__",
-                        ".empirica", ".beads", ".qdrant_data", "dist", "build", "*.egg-info"]
+        exclude_dirs = [
+            ".git",
+            ".venv",
+            "venv",
+            ".venv-mcp",
+            "node_modules",
+            "__pycache__",
+            ".empirica",
+            ".beads",
+            ".qdrant_data",
+            "dist",
+            "build",
+            "*.egg-info",
+        ]
 
         issues = self._scan_forbidden_files(forbidden_file_patterns, exclude_dirs, gitignore_patterns)
         issues.extend(self._scan_hardcoded_secrets(content_patterns))
@@ -450,10 +457,7 @@ class EpistemicReleaseAgent:
             status = AssessmentStatus.PASS
             message = "No sensitive content detected"
 
-        result = CheckResult(
-            name="Privacy/Security Scan", status=status,
-            message=message, details=details[:10]
-        )
+        result = CheckResult(name="Privacy/Security Scan", status=status, message=message, details=details[:10])
         result.moon = self._status_to_moon(status)
         return result
 
@@ -504,12 +508,7 @@ class EpistemicReleaseAgent:
             status = AssessmentStatus.PASS
             message = "Documentation verified"
 
-        result = CheckResult(
-            name="Documentation",
-            status=status,
-            message=message,
-            details=details + issues
-        )
+        result = CheckResult(name="Documentation", status=status, message=message, details=details + issues)
         result.moon = self._status_to_moon(status)
         return result
 
@@ -524,8 +523,7 @@ class EpistemicReleaseAgent:
         try:
             # Current branch
             result = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                capture_output=True, text=True, cwd=self.root
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, cwd=self.root
             )
             branch = result.stdout.strip()
             details.append(f"Branch: {branch}")
@@ -534,10 +532,7 @@ class EpistemicReleaseAgent:
                 issues.append(f"Not on main branch: {branch}")
 
             # Uncommitted changes
-            result = subprocess.run(
-                ["git", "status", "--porcelain"],
-                capture_output=True, text=True, cwd=self.root
-            )
+            result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, cwd=self.root)
             if result.stdout.strip():
                 changes = len(result.stdout.strip().split("\n"))
                 issues.append(f"Uncommitted changes: {changes} files")
@@ -546,8 +541,7 @@ class EpistemicReleaseAgent:
 
             # Unpushed commits
             result = subprocess.run(
-                ["git", "log", "@{u}..", "--oneline"],
-                capture_output=True, text=True, cwd=self.root
+                ["git", "log", "@{u}..", "--oneline"], capture_output=True, text=True, cwd=self.root
             )
             if result.stdout.strip():
                 commits = len(result.stdout.strip().split("\n"))
@@ -565,12 +559,7 @@ class EpistemicReleaseAgent:
             status = AssessmentStatus.PASS
             message = "Git ready for release"
 
-        result = CheckResult(
-            name="Git Status",
-            status=status,
-            message=message,
-            details=details + issues
-        )
+        result = CheckResult(name="Git Status", status=status, message=message, details=details + issues)
         result.moon = self._status_to_moon(status)
         return result
 
@@ -593,12 +582,14 @@ class EpistemicReleaseAgent:
                 result = check()
                 self.results.append(result)
             except Exception as e:
-                self.results.append(CheckResult(
-                    name=check.__name__.replace("check_", "").replace("_", " ").title(),
-                    status=AssessmentStatus.FAIL,
-                    message=f"Check failed: {str(e)[:50]}",
-                    moon="🌑"
-                ))
+                self.results.append(
+                    CheckResult(
+                        name=check.__name__.replace("check_", "").replace("_", " ").title(),
+                        status=AssessmentStatus.FAIL,
+                        message=f"Check failed: {str(e)[:50]}",
+                        moon="🌑",
+                    )
+                )
 
         # Calculate overall status
         statuses = [r.status for r in self.results]
@@ -623,21 +614,21 @@ class EpistemicReleaseAgent:
                 "warn": sum(1 for r in self.results if r.status == AssessmentStatus.WARN),
                 "fail": sum(1 for r in self.results if r.status == AssessmentStatus.FAIL),
                 "skip": sum(1 for r in self.results if r.status == AssessmentStatus.SKIP),
-            }
+            },
         }
 
 
 def handle_release_ready_command(args):
     """Handle release-ready command - Epistemic release assessment."""
     try:
-        project_root = Path(getattr(args, 'project_root', None) or os.getcwd())
-        quick = getattr(args, 'quick', False)
-        output_format = getattr(args, 'output', 'human')
+        project_root = Path(getattr(args, "project_root", None) or os.getcwd())
+        quick = getattr(args, "quick", False)
+        output_format = getattr(args, "output", "human")
 
         agent = EpistemicReleaseAgent(project_root=project_root, quick=quick)
         result = agent.run()
 
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(result, indent=2))
         else:
             # Human-readable output
@@ -647,44 +638,41 @@ def handle_release_ready_command(args):
             print("=" * 60)
             print()
 
-            if result['version']:
+            if result["version"]:
                 print(f"  Version: {result['version']}")
                 print()
 
-            for check in result['checks']:
-                status_icon = {
-                    "pass": "✅",
-                    "warn": "⚠️",
-                    "fail": "❌",
-                    "skip": "⏭️"
-                }.get(check['status'], "?")
+            for check in result["checks"]:
+                status_icon = {"pass": "✅", "warn": "⚠️", "fail": "❌", "skip": "⏭️"}.get(check["status"], "?")
 
                 print(f"{check['moon']} {check['name']}")
                 print(f"   {status_icon} {check['message']}")
 
-                for detail in check['details'][:5]:
+                for detail in check["details"][:5]:
                     print(f"      • {detail}")
                 print()
 
             print("=" * 60)
-            summary = result['summary']
-            print(f"  Summary: {summary['pass']} pass, {summary['warn']} warn, "
-                  f"{summary['fail']} fail, {summary['skip']} skip")
+            summary = result["summary"]
+            print(
+                f"  Summary: {summary['pass']} pass, {summary['warn']} warn, "
+                f"{summary['fail']} fail, {summary['skip']} skip"
+            )
             print()
 
-            if result['status'] == "READY":
+            if result["status"] == "READY":
                 print("  🌕 RELEASE READY")
-            elif result['status'] == "READY WITH WARNINGS":
+            elif result["status"] == "READY WITH WARNINGS":
                 print("  🌓 RELEASE READY (with warnings)")
             else:
                 print("  🌑 NOT READY FOR RELEASE")
             print("=" * 60)
             print()
 
-        return 0 if result['ok'] else 1
+        return 0 if result["ok"] else 1
 
     except Exception as e:
-        handle_cli_error(e, "release-ready", getattr(args, 'output', 'json'))
+        handle_cli_error(e, "release-ready", getattr(args, "output", "json"))
         return 1
 
 
@@ -706,16 +694,16 @@ def handle_release_command(args):
     # Build subprocess command, forwarding flags
     cmd = [sys.executable, str(release_script)]
 
-    if getattr(args, 'dry_run', False):
-        cmd.append('--dry-run')
-    if getattr(args, 'prepare', False):
-        cmd.append('--prepare')
-    if getattr(args, 'publish', False):
-        cmd.append('--publish')
-    if getattr(args, 'version_only', False):
-        cmd.append('--version-only')
-    if getattr(args, 'old_version', None):
-        cmd.extend(['--old-version', args.old_version])
+    if getattr(args, "dry_run", False):
+        cmd.append("--dry-run")
+    if getattr(args, "prepare", False):
+        cmd.append("--prepare")
+    if getattr(args, "publish", False):
+        cmd.append("--publish")
+    if getattr(args, "version_only", False):
+        cmd.append("--version-only")
+    if getattr(args, "old_version", None):
+        cmd.extend(["--old-version", args.old_version])
 
     try:
         result = subprocess.run(cmd, cwd=str(repo_root))

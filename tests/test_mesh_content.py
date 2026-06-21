@@ -59,6 +59,7 @@ def test_canonical_address_uses_tilde_separator():
     """Locks `~` as the cross-mesh separator (transport-safe per cortex's
     pushback on `#`/`::`/etc. — see CANONICAL_SEPARATOR docstring)."""
     from empirica.core.mesh_content import CANONICAL_SEPARATOR
+
     assert CANONICAL_SEPARATOR == "~"
     addr = canonical_address("org.tenant.proj", "src", "abc")
     assert "~" in addr
@@ -96,9 +97,9 @@ def test_canonical_address_accepts_all_registered_types():
         "",
         "no-hash",
         "practice~no-underscore",
-        "~src_abc",         # empty practice before separator
-        "practice~_abc",    # empty type
-        "practice~src_",    # empty uuid
+        "~src_abc",  # empty practice before separator
+        "practice~_abc",  # empty type
+        "practice~src_",  # empty uuid
         "practice~bogus_abc",  # unknown type
     ],
 )
@@ -121,7 +122,9 @@ def test_render_result_preserves_explicit_overrides():
     """Caller can pre-set size_bytes / sha256 (e.g. for pre-truncation
     metadata) and the defaults won't clobber."""
     r = RenderResult(
-        canonical_bytes=b"hi", size_bytes=999, sha256="custom",
+        canonical_bytes=b"hi",
+        size_bytes=999,
+        sha256="custom",
     )
     assert r.size_bytes == 999
     assert r.sha256 == "custom"
@@ -172,8 +175,16 @@ def sqlite_row():
     """)
     conn.execute(
         "INSERT INTO epistemic_sources VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        ("src-uuid-1", "RFC 7519", "JWT spec", "https://datatracker.ietf.org/doc/html/rfc7519",
-         "spec", "shared", 0, "claude-code"),
+        (
+            "src-uuid-1",
+            "RFC 7519",
+            "JWT spec",
+            "https://datatracker.ietf.org/doc/html/rfc7519",
+            "spec",
+            "shared",
+            0,
+            "claude-code",
+        ),
     )
     conn.commit()
     row = conn.execute("SELECT * FROM epistemic_sources").fetchone()
@@ -183,7 +194,8 @@ def sqlite_row():
 
 def test_from_row_hydrates_post_049_columns(sqlite_row):
     mcs = MeshContentSource.from_row(
-        sqlite_row, practice_canonical="empirica.david.empirica",
+        sqlite_row,
+        practice_canonical="empirica.david.empirica",
     )
     assert mcs.source_id == "src-uuid-1"
     assert mcs.title == "RFC 7519"
@@ -201,10 +213,13 @@ def test_from_row_normalizes_bogus_visibility():
     promote to public (safety invariant inherited from
     normalize_visibility)."""
     bogus_row = {
-        "id": "abc", "title": "T", "visibility": "top-secret",
+        "id": "abc",
+        "title": "T",
+        "visibility": "top-secret",
     }
     mcs = MeshContentSource.from_row(
-        bogus_row, practice_canonical="empirica.david.empirica",
+        bogus_row,
+        practice_canonical="empirica.david.empirica",
     )
     assert mcs.visibility == "shared"  # the safe default per normalize_visibility
 
@@ -214,7 +229,8 @@ def test_from_row_handles_missing_optional_fields():
     with safe defaults."""
     sparse = {"id": "abc", "title": "T"}
     mcs = MeshContentSource.from_row(
-        sparse, practice_canonical="empirica.david.empirica",
+        sparse,
+        practice_canonical="empirica.david.empirica",
     )
     assert mcs.source_type == "document"
     assert mcs.archived is False
@@ -230,14 +246,20 @@ def test_canonical_address_composition():
     assert mcs.canonical_address() == "empirica.david.empirica~src_abc-123"
 
 
-@pytest.mark.parametrize("tier,expected", [
-    ("local", False),
-    ("shared", True),
-    ("public", True),
-])
+@pytest.mark.parametrize(
+    "tier,expected",
+    [
+        ("local", False),
+        ("shared", True),
+        ("public", True),
+    ],
+)
 def test_is_shareable_per_tier(tier, expected):
     mcs = MeshContentSource(
-        source_id="abc", practice_canonical="x", title="T", visibility=tier,
+        source_id="abc",
+        practice_canonical="x",
+        title="T",
+        visibility=tier,
     )
     assert mcs.is_shareable() is expected
 

@@ -31,8 +31,13 @@ def tmp_workspace_repo(tmp_path):
 
 
 def _insert_entity(
-    repo, entity_type, entity_id, display_name,
-    description="", source_db="workspace", source_table="test",
+    repo,
+    entity_type,
+    entity_id,
+    display_name,
+    description="",
+    source_db="workspace",
+    source_table="test",
     status="active",
 ):
     now = time.time()
@@ -41,8 +46,7 @@ def _insert_entity(
            (entity_type, entity_id, display_name, description,
             source_db, source_table, status, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (entity_type, entity_id, display_name, description,
-         source_db, source_table, status, now, now),
+        (entity_type, entity_id, display_name, description, source_db, source_table, status, now, now),
     )
     repo.conn.commit()
 
@@ -120,7 +124,10 @@ class TestSearchEntities:
 
     def test_matches_description(self, tmp_workspace_repo):
         _insert_entity(
-            tmp_workspace_repo, "project", "p-1", "Foo",
+            tmp_workspace_repo,
+            "project",
+            "p-1",
+            "Foo",
             description="empirica-outreach voice loader fix",
         )
         results = tmp_workspace_repo.search_entities("voice loader")

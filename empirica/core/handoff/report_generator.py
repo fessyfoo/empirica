@@ -56,7 +56,7 @@ class EpistemicHandoffReportGenerator:
         artifacts_created: list[str] | None = None,
         start_assessment: dict | None = None,
         end_assessment: dict | None = None,
-        handoff_subtype: str = "complete"
+        handoff_subtype: str = "complete",
     ) -> dict[str, Any]:
         """
         Generate comprehensive handoff report
@@ -119,19 +119,14 @@ class EpistemicHandoffReportGenerator:
             )
 
         # Calculate vector deltas
-        deltas = self._calculate_deltas(
-            start_assessment.get('vectors', {}),
-            end_assessment.get('vectors', {})
-        )
+        deltas = self._calculate_deltas(start_assessment.get("vectors", {}), end_assessment.get("vectors", {}))
 
         # Check calibration (pass end_assessment to detect investigation handoffs)
         calibration = self._check_calibration(session_id, deltas, end_assessment)
 
         # Identify knowledge gaps filled
         gaps_filled = self._identify_filled_gaps(
-            start_assessment.get('vectors', {}),
-            end_assessment.get('vectors', {}),
-            key_findings
+            start_assessment.get("vectors", {}), end_assessment.get("vectors", {}), key_findings
         )
 
         # Extract investigation tools used
@@ -139,9 +134,7 @@ class EpistemicHandoffReportGenerator:
 
         # Generate recommendations
         recommendations = self._generate_recommendations(
-            end_assessment.get('vectors', {}),
-            remaining_unknowns,
-            calibration
+            end_assessment.get("vectors", {}), remaining_unknowns, calibration
         )
 
         # Get session metadata
@@ -152,29 +145,29 @@ class EpistemicHandoffReportGenerator:
 
         # Build structured report
         report = {
-            'session_id': session_id,
-            'ai_id': session_meta.get('ai_id', 'unknown'),
-            'timestamp': datetime.now().isoformat(),
-            'handoff_subtype': handoff_subtype,
-            'task_summary': task_summary,
-            'duration_seconds': duration,
-            'epistemic_deltas': deltas,
-            'key_findings': key_findings,
-            'knowledge_gaps_filled': gaps_filled,
-            'remaining_unknowns': remaining_unknowns,
-            'noetic_tools': tools_used,
-            'next_session_context': next_session_context,
-            'recommended_next_steps': recommendations,
-            'artifacts_created': artifacts_created or [],
-            'calibration_status': calibration['status'],
-            'overall_confidence_delta': deltas.get('overall_confidence', 0.0)
+            "session_id": session_id,
+            "ai_id": session_meta.get("ai_id", "unknown"),
+            "timestamp": datetime.now().isoformat(),
+            "handoff_subtype": handoff_subtype,
+            "task_summary": task_summary,
+            "duration_seconds": duration,
+            "epistemic_deltas": deltas,
+            "key_findings": key_findings,
+            "knowledge_gaps_filled": gaps_filled,
+            "remaining_unknowns": remaining_unknowns,
+            "noetic_tools": tools_used,
+            "next_session_context": next_session_context,
+            "recommended_next_steps": recommendations,
+            "artifacts_created": artifacts_created or [],
+            "calibration_status": calibration["status"],
+            "overall_confidence_delta": deltas.get("overall_confidence", 0.0),
         }
 
         # Generate markdown
-        report['markdown'] = self._generate_markdown(report, start_assessment, end_assessment, calibration)
+        report["markdown"] = self._generate_markdown(report, start_assessment, end_assessment, calibration)
 
         # Generate compressed JSON (minimal, for storage)
-        report['compressed_json'] = self._compress_report(report)
+        report["compressed_json"] = self._compress_report(report)
 
         logger.info(f"✅ Handoff report generated ({len(report['compressed_json'])} chars)")
 
@@ -187,7 +180,7 @@ class EpistemicHandoffReportGenerator:
         key_findings: list[str],
         remaining_unknowns: list[str],
         next_session_context: str,
-        artifacts_created: list[str] | None = None
+        artifacts_created: list[str] | None = None,
     ) -> dict[str, Any]:
         """
         Generate planning handoff (documentation without CASCADE workflow assessments)
@@ -211,22 +204,22 @@ class EpistemicHandoffReportGenerator:
 
         # Build planning handoff (no epistemic deltas)
         report = {
-            'session_id': session_id,
-            'ai_id': session_meta.get('ai_id', 'unknown'),
-            'timestamp': datetime.now().isoformat(),
-            'task_summary': task_summary,
-            'duration_seconds': duration,
-            'epistemic_deltas': {},  # Empty - no CASCADE workflow
-            'key_findings': key_findings,
-            'knowledge_gaps_filled': [],  # Can't measure without assessments
-            'remaining_unknowns': remaining_unknowns,
-            'noetic_tools': [],  # Not tracked in planning mode
-            'next_session_context': next_session_context,
-            'recommended_next_steps': [],  # Can't recommend without epistemic data
-            'artifacts_created': artifacts_created or [],
-            'calibration_status': 'planning-only (no CASCADE workflow)',
-            'overall_confidence_delta': 0.0,
-            'handoff_type': 'planning'  # Mark as planning handoff
+            "session_id": session_id,
+            "ai_id": session_meta.get("ai_id", "unknown"),
+            "timestamp": datetime.now().isoformat(),
+            "task_summary": task_summary,
+            "duration_seconds": duration,
+            "epistemic_deltas": {},  # Empty - no CASCADE workflow
+            "key_findings": key_findings,
+            "knowledge_gaps_filled": [],  # Can't measure without assessments
+            "remaining_unknowns": remaining_unknowns,
+            "noetic_tools": [],  # Not tracked in planning mode
+            "next_session_context": next_session_context,
+            "recommended_next_steps": [],  # Can't recommend without epistemic data
+            "artifacts_created": artifacts_created or [],
+            "calibration_status": "planning-only (no CASCADE workflow)",
+            "overall_confidence_delta": 0.0,
+            "handoff_type": "planning",  # Mark as planning handoff
         }
 
         # Generate markdown for planning handoff
@@ -247,21 +240,25 @@ class EpistemicHandoffReportGenerator:
         for finding in key_findings:
             markdown_lines.append(f"- {finding}")
 
-        markdown_lines.extend([
-            "",
-            "## Remaining Unknowns",
-        ])
+        markdown_lines.extend(
+            [
+                "",
+                "## Remaining Unknowns",
+            ]
+        )
 
         for unknown in remaining_unknowns:
             markdown_lines.append(f"- {unknown}")
 
-        markdown_lines.extend([
-            "",
-            "## Context for Next Session",
-            f"{next_session_context}",
-            "",
-            "## Artifacts Created",
-        ])
+        markdown_lines.extend(
+            [
+                "",
+                "## Context for Next Session",
+                f"{next_session_context}",
+                "",
+                "## Artifacts Created",
+            ]
+        )
 
         if artifacts_created:
             for artifact in artifacts_created:
@@ -269,10 +266,10 @@ class EpistemicHandoffReportGenerator:
         else:
             markdown_lines.append("- (none)")
 
-        report['markdown'] = '\n'.join(markdown_lines)
+        report["markdown"] = "\n".join(markdown_lines)
 
         # Generate compressed JSON
-        report['compressed_json'] = self._compress_planning_handoff(report)
+        report["compressed_json"] = self._compress_planning_handoff(report)
 
         logger.info(f"✅ Planning handoff generated ({len(report['compressed_json'])} chars)")
 
@@ -286,9 +283,9 @@ class EpistemicHandoffReportGenerator:
                 return None
 
             return {
-                'vectors': vectors_data.get('vectors', {}),
-                'reasoning': vectors_data.get('reasoning', ''),
-                'timestamp': vectors_data.get('timestamp')
+                "vectors": vectors_data.get("vectors", {}),
+                "reasoning": vectors_data.get("reasoning", ""),
+                "timestamp": vectors_data.get("timestamp"),
             }
         except Exception as e:
             logger.warning(f"Failed to fetch PREFLIGHT: {e}")
@@ -302,18 +299,16 @@ class EpistemicHandoffReportGenerator:
                 return None
 
             return {
-                'vectors': vectors_data.get('vectors', {}),
-                'reasoning': vectors_data.get('reasoning', ''),
-                'timestamp': vectors_data.get('timestamp')
+                "vectors": vectors_data.get("vectors", {}),
+                "reasoning": vectors_data.get("reasoning", ""),
+                "timestamp": vectors_data.get("timestamp"),
             }
         except Exception as e:
             logger.warning(f"Failed to fetch POSTFLIGHT: {e}")
             return None
 
     def _calculate_deltas(
-        self,
-        preflight_vectors: dict[str, float],
-        postflight_vectors: dict[str, float]
+        self, preflight_vectors: dict[str, float], postflight_vectors: dict[str, float]
     ) -> dict[str, float]:
         """
         Calculate epistemic vector deltas
@@ -324,10 +319,19 @@ class EpistemicHandoffReportGenerator:
 
         # Standard 13 vectors
         vector_keys = [
-            'know', 'do', 'context',
-            'clarity', 'coherence', 'signal', 'density',
-            'state', 'change', 'completion', 'impact',
-            'engagement', 'uncertainty'
+            "know",
+            "do",
+            "context",
+            "clarity",
+            "coherence",
+            "signal",
+            "density",
+            "state",
+            "change",
+            "completion",
+            "impact",
+            "engagement",
+            "uncertainty",
         ]
 
         for key in vector_keys:
@@ -336,9 +340,9 @@ class EpistemicHandoffReportGenerator:
             deltas[key] = round(after - before, 3)
 
         # Calculate overall confidence (inverse of uncertainty)
-        before_conf = 1.0 - preflight_vectors.get('uncertainty', 0.5)
-        after_conf = 1.0 - postflight_vectors.get('uncertainty', 0.5)
-        deltas['overall_confidence'] = round(after_conf - before_conf, 3)
+        before_conf = 1.0 - preflight_vectors.get("uncertainty", 0.5)
+        after_conf = 1.0 - postflight_vectors.get("uncertainty", 0.5)
+        deltas["overall_confidence"] = round(after_conf - before_conf, 3)
 
         return deltas
 
@@ -359,11 +363,11 @@ class EpistemicHandoffReportGenerator:
         """
         # Check if this is investigation handoff (CHECK phase)
         # Investigation handoffs don't have calibration - they're decision gates
-        if end_assessment and end_assessment.get('phase') == 'CHECK':
+        if end_assessment and end_assessment.get("phase") == "CHECK":
             return {
-                'status': 'investigation-only',
-                'reasoning': 'Investigation handoff (PREFLIGHT→CHECK) - calibration not applicable',
-                'source': 'n/a'
+                "status": "investigation-only",
+                "reasoning": "Investigation handoff (PREFLIGHT→CHECK) - calibration not applicable",
+                "source": "n/a",
             }
 
         # PRIMARY: Use AI's genuine self-assessment from POSTFLIGHT
@@ -371,25 +375,25 @@ class EpistemicHandoffReportGenerator:
         try:
             vectors_data = self.db.get_latest_vectors(session_id, phase="POSTFLIGHT")
             if vectors_data:
-                metadata = vectors_data.get('metadata', {})
-                if metadata and isinstance(metadata, dict) and metadata.get('calibration_accuracy'):
-                    genuine_status = metadata['calibration_accuracy']
-                    genuine_reasoning = vectors_data.get('reasoning', 'Genuine self-assessment from POSTFLIGHT')
+                metadata = vectors_data.get("metadata", {})
+                if metadata and isinstance(metadata, dict) and metadata.get("calibration_accuracy"):
+                    genuine_status = metadata["calibration_accuracy"]
+                    genuine_reasoning = vectors_data.get("reasoning", "Genuine self-assessment from POSTFLIGHT")
 
                     # Run heuristic validation for cross-check
                     heuristic_result = self._heuristic_calibration_check(deltas)
 
                     # Check if introspection matches heuristic
                     mismatch_note = None
-                    if heuristic_result['status'] != genuine_status:
+                    if heuristic_result["status"] != genuine_status:
                         mismatch_note = f"Note: Heuristic suggests '{heuristic_result['status']}' but AI assessed '{genuine_status}' - trusting introspection"
                         logger.info(f"Calibration mismatch for {session_id[:8]}...: {mismatch_note}")
 
                     return {
-                        'status': genuine_status,
-                        'reasoning': genuine_reasoning,
-                        'source': 'introspection',
-                        'heuristic_validation': mismatch_note
+                        "status": genuine_status,
+                        "reasoning": genuine_reasoning,
+                        "source": "introspection",
+                        "heuristic_validation": mismatch_note,
                     }
 
         except Exception as e:
@@ -398,8 +402,8 @@ class EpistemicHandoffReportGenerator:
         # FALLBACK: Heuristic calibration check
         # Use heuristic without warning for investigation handoffs
         heuristic_result = self._heuristic_calibration_check(deltas)
-        heuristic_result['source'] = 'heuristic'
-        heuristic_result['reasoning'] += " (heuristic-based assessment)"
+        heuristic_result["source"] = "heuristic"
+        heuristic_result["reasoning"] += " (heuristic-based assessment)"
 
         return heuristic_result
 
@@ -411,35 +415,29 @@ class EpistemicHandoffReportGenerator:
         1. Fallback when genuine introspection missing
         2. Validation check against AI's self-assessment
         """
-        know_delta = deltas.get('know', 0.0)
-        uncertainty_delta = -deltas.get('uncertainty', 0.0)  # Negative because uncertainty should decrease
+        know_delta = deltas.get("know", 0.0)
+        uncertainty_delta = -deltas.get("uncertainty", 0.0)  # Negative because uncertainty should decrease
 
         # Well-calibrated: similar magnitudes
         if abs(know_delta - uncertainty_delta) < 0.15:
-            status = 'well_calibrated'
+            status = "well_calibrated"
             reasoning = "Knowledge gain matches uncertainty reduction"
         # Overconfident: uncertainty reduced more than knowledge gained
         elif uncertainty_delta > know_delta + 0.20:
-            status = 'overconfident'
+            status = "overconfident"
             reasoning = "Uncertainty reduced significantly but knowledge gain modest"
         # Underconfident: knowledge gained but uncertainty stayed high
         elif know_delta > uncertainty_delta + 0.20:
-            status = 'underconfident'
+            status = "underconfident"
             reasoning = "Significant knowledge gained but uncertainty remains elevated"
         else:
-            status = 'well_calibrated'
+            status = "well_calibrated"
             reasoning = "Reasonable epistemic progression"
 
-        return {
-            'status': status,
-            'reasoning': reasoning
-        }
+        return {"status": status, "reasoning": reasoning}
 
     def _identify_filled_gaps(
-        self,
-        preflight_vectors: dict,
-        postflight_vectors: dict,
-        key_findings: list[str]
+        self, preflight_vectors: dict, postflight_vectors: dict, key_findings: list[str]
     ) -> list[dict]:
         """
         Identify which knowledge gaps were filled during session
@@ -457,44 +455,52 @@ class EpistemicHandoffReportGenerator:
         gaps = []
 
         # Check KNOW vector improvement
-        know_delta = postflight_vectors.get('know', 0) - preflight_vectors.get('know', 0)
+        know_delta = postflight_vectors.get("know", 0) - preflight_vectors.get("know", 0)
         if know_delta >= 0.15:  # Significant improvement
-            gaps.append({
-                'gap': 'Domain knowledge',
-                'before': f"KNOW: {preflight_vectors.get('know', 0):.2f}",
-                'after': f"KNOW: {postflight_vectors.get('know', 0):.2f}",
-                'confidence_change': round(know_delta, 2)
-            })
+            gaps.append(
+                {
+                    "gap": "Domain knowledge",
+                    "before": f"KNOW: {preflight_vectors.get('know', 0):.2f}",
+                    "after": f"KNOW: {postflight_vectors.get('know', 0):.2f}",
+                    "confidence_change": round(know_delta, 2),
+                }
+            )
 
         # Check UNCERTAINTY reduction
-        uncertainty_delta = preflight_vectors.get('uncertainty', 1) - postflight_vectors.get('uncertainty', 1)
+        uncertainty_delta = preflight_vectors.get("uncertainty", 1) - postflight_vectors.get("uncertainty", 1)
         if uncertainty_delta >= 0.20:  # Significant reduction
-            gaps.append({
-                'gap': 'Task uncertainty',
-                'before': f"UNCERTAINTY: {preflight_vectors.get('uncertainty', 1):.2f}",
-                'after': f"UNCERTAINTY: {postflight_vectors.get('uncertainty', 1):.2f}",
-                'confidence_change': round(uncertainty_delta, 2)
-            })
+            gaps.append(
+                {
+                    "gap": "Task uncertainty",
+                    "before": f"UNCERTAINTY: {preflight_vectors.get('uncertainty', 1):.2f}",
+                    "after": f"UNCERTAINTY: {postflight_vectors.get('uncertainty', 1):.2f}",
+                    "confidence_change": round(uncertainty_delta, 2),
+                }
+            )
 
         # Check CONTEXT improvement
-        context_delta = postflight_vectors.get('context', 0) - preflight_vectors.get('context', 0)
+        context_delta = postflight_vectors.get("context", 0) - preflight_vectors.get("context", 0)
         if context_delta >= 0.15:
-            gaps.append({
-                'gap': 'Contextual understanding',
-                'before': f"CONTEXT: {preflight_vectors.get('context', 0):.2f}",
-                'after': f"CONTEXT: {postflight_vectors.get('context', 0):.2f}",
-                'confidence_change': round(context_delta, 2)
-            })
+            gaps.append(
+                {
+                    "gap": "Contextual understanding",
+                    "before": f"CONTEXT: {preflight_vectors.get('context', 0):.2f}",
+                    "after": f"CONTEXT: {postflight_vectors.get('context', 0):.2f}",
+                    "confidence_change": round(context_delta, 2),
+                }
+            )
 
         # Extract from key findings (heuristic)
         for finding in (key_findings or [])[:3]:  # Top 3 findings
-            if any(keyword in finding.lower() for keyword in ['learned', 'discovered', 'found', 'validated']):
-                gaps.append({
-                    'gap': 'Investigation finding',
-                    'before': 'Unknown',
-                    'after': finding[:150],  # Truncate
-                    'confidence_change': None
-                })
+            if any(keyword in finding.lower() for keyword in ["learned", "discovered", "found", "validated"]):
+                gaps.append(
+                    {
+                        "gap": "Investigation finding",
+                        "before": "Unknown",
+                        "after": finding[:150],  # Truncate
+                        "confidence_change": None,
+                    }
+                )
 
         return gaps
 
@@ -516,10 +522,13 @@ class EpistemicHandoffReportGenerator:
             """)
 
             if cursor.fetchone():
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT DISTINCT tool_name FROM noetic_tools
                     WHERE session_id = ?
-                """, (session_id,))
+                """,
+                    (session_id,),
+                )
 
                 for row in cursor.fetchall():
                     tools_used.add(row[0])
@@ -527,13 +536,10 @@ class EpistemicHandoffReportGenerator:
         except Exception as e:
             logger.debug(f"No investigation tools tracked: {e}")
 
-        return sorted(tools_used) if tools_used else ['N/A']
+        return sorted(tools_used) if tools_used else ["N/A"]
 
     def _generate_recommendations(
-        self,
-        postflight_vectors: dict,
-        remaining_unknowns: list[str],
-        calibration: dict
+        self, postflight_vectors: dict, remaining_unknowns: list[str], calibration: dict
     ) -> list[str]:
         """
         Generate recommended next steps based on epistemic state
@@ -541,42 +547,30 @@ class EpistemicHandoffReportGenerator:
         recommendations = []
 
         # Check if still high uncertainty
-        uncertainty = postflight_vectors.get('uncertainty', 0)
+        uncertainty = postflight_vectors.get("uncertainty", 0)
         if uncertainty > 0.40:
-            recommendations.append(
-                f"Continue investigation - uncertainty still elevated ({uncertainty:.2f})"
-            )
+            recommendations.append(f"Continue investigation - uncertainty still elevated ({uncertainty:.2f})")
 
         # Check remaining unknowns
         if remaining_unknowns:
-            recommendations.append(
-                f"Address {len(remaining_unknowns)} remaining unknown(s)"
-            )
+            recommendations.append(f"Address {len(remaining_unknowns)} remaining unknown(s)")
 
         # Check calibration
-        if calibration['status'] == 'overconfident':
-            recommendations.append(
-                "Validate assumptions - showing overconfidence pattern"
-            )
-        elif calibration['status'] == 'underconfident':
-            recommendations.append(
-                "Consider execution - showing underconfidence pattern"
-            )
+        if calibration["status"] == "overconfident":
+            recommendations.append("Validate assumptions - showing overconfidence pattern")
+        elif calibration["status"] == "underconfident":
+            recommendations.append("Consider execution - showing underconfidence pattern")
 
         # Check if ready for next phase
-        know = postflight_vectors.get('know', 0)
-        do = postflight_vectors.get('do', 0)
+        know = postflight_vectors.get("know", 0)
+        do = postflight_vectors.get("do", 0)
         if uncertainty < 0.30 and know > 0.80 and do > 0.80:
-            recommendations.append(
-                "Ready for execution - strong epistemic foundation"
-            )
+            recommendations.append("Ready for execution - strong epistemic foundation")
 
         # Check completion
-        completion = postflight_vectors.get('completion', 0)
+        completion = postflight_vectors.get("completion", 0)
         if completion >= 0.90:
-            recommendations.append(
-                "Task appears complete - consider POSTFLIGHT review"
-            )
+            recommendations.append("Task appears complete - consider POSTFLIGHT review")
 
         # Default if no specific recommendations
         if not recommendations:
@@ -588,94 +582,98 @@ class EpistemicHandoffReportGenerator:
         """Get session metadata from database"""
         try:
             cursor = self.db.conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT ai_id, start_time, bootstrap_level, components_loaded
                 FROM sessions
                 WHERE session_id = ?
-            """, (session_id,))
+            """,
+                (session_id,),
+            )
 
             row = cursor.fetchone()
             if row:
                 return {
-                    'ai_id': row['ai_id'],
-                    'start_time': row['start_time'],
-                    'bootstrap_level': row['bootstrap_level'],
-                    'components_loaded': row['components_loaded']
+                    "ai_id": row["ai_id"],
+                    "start_time": row["start_time"],
+                    "bootstrap_level": row["bootstrap_level"],
+                    "components_loaded": row["components_loaded"],
                 }
         except Exception as e:
             logger.warning(f"Failed to fetch session metadata: {e}")
 
         return {
-            'ai_id': 'unknown',
-            'start_time': datetime.now().isoformat(),
-            'bootstrap_level': 1,
-            'components_loaded': 0
+            "ai_id": "unknown",
+            "start_time": datetime.now().isoformat(),
+            "bootstrap_level": 1,
+            "components_loaded": 0,
         }
 
     def _calculate_duration(self, session_id: str) -> float:
         """Calculate session duration in seconds"""
         try:
             cursor = self.db.conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT start_time, end_time FROM sessions
                 WHERE session_id = ?
-            """, (session_id,))
+            """,
+                (session_id,),
+            )
 
             row = cursor.fetchone()
-            if row and row['start_time']:
-                start = datetime.fromisoformat(row['start_time'])
-                end = datetime.fromisoformat(row['end_time']) if row['end_time'] else datetime.now()
+            if row and row["start_time"]:
+                start = datetime.fromisoformat(row["start_time"])
+                end = datetime.fromisoformat(row["end_time"]) if row["end_time"] else datetime.now()
                 return (end - start).total_seconds()
         except Exception as e:
             logger.debug(f"Could not calculate duration: {e}")
 
         return 0.0
 
-    def _generate_markdown(
-        self,
-        report: dict,
-        start_assessment: dict,
-        end_assessment: dict,
-        calibration: dict
-    ) -> str:
+    def _generate_markdown(self, report: dict, start_assessment: dict, end_assessment: dict, calibration: dict) -> str:
         """Generate full markdown report"""
 
         # Format duration
-        duration_min = report['duration_seconds'] / 60
-        duration_str = f"{duration_min:.1f} min" if duration_min < 60 else f"{duration_min/60:.1f} hrs"
+        duration_min = report["duration_seconds"] / 60
+        duration_str = f"{duration_min:.1f} min" if duration_min < 60 else f"{duration_min / 60:.1f} hrs"
 
         # Build vector delta table
         delta_table = self._build_delta_table(
-            start_assessment.get('vectors', {}),
-            end_assessment.get('vectors', {}),
-            report['epistemic_deltas']
+            start_assessment.get("vectors", {}), end_assessment.get("vectors", {}), report["epistemic_deltas"]
         )
 
         # Format lists
-        findings_md = '\n'.join(f"- {f}" for f in report['key_findings'])
-        unknowns_md = '\n'.join(f"- {u}" for u in report['remaining_unknowns']) if report['remaining_unknowns'] else "- None"
-        recommendations_md = '\n'.join(f"- {r}" for r in report['recommended_next_steps'])
-        gaps_md = self._format_gaps(report['knowledge_gaps_filled'])
-        artifacts_md = '\n'.join(f"- `{a}`" for a in report['artifacts_created']) if report['artifacts_created'] else "- None tracked"
-        tools_md = ', '.join(report['noetic_tools'])
+        findings_md = "\n".join(f"- {f}" for f in report["key_findings"])
+        unknowns_md = (
+            "\n".join(f"- {u}" for u in report["remaining_unknowns"]) if report["remaining_unknowns"] else "- None"
+        )
+        recommendations_md = "\n".join(f"- {r}" for r in report["recommended_next_steps"])
+        gaps_md = self._format_gaps(report["knowledge_gaps_filled"])
+        artifacts_md = (
+            "\n".join(f"- `{a}`" for a in report["artifacts_created"])
+            if report["artifacts_created"]
+            else "- None tracked"
+        )
+        tools_md = ", ".join(report["noetic_tools"])
 
         # Calibration indicator
-        cal_status = report['calibration_status']
-        cal_source = calibration.get('source', 'unknown')
-        cal_emoji = '✅' if cal_status == 'well_calibrated' else '⚠️'
+        cal_status = report["calibration_status"]
+        cal_source = calibration.get("source", "unknown")
+        cal_emoji = "✅" if cal_status == "well_calibrated" else "⚠️"
 
         # Show source and any validation notes
         cal_display = f"{cal_emoji} **{cal_status.replace('_', ' ').title()}** ({cal_source})"
-        if calibration.get('heuristic_validation'):
+        if calibration.get("heuristic_validation"):
             cal_display += f"\n\n> {calibration['heuristic_validation']}"
 
         markdown = f"""# Epistemic Handoff Report
 
-**Session:** `{report['session_id'][:12]}...`
-**AI Agent:** {report['ai_id']}
-**Date:** {report['timestamp']}
+**Session:** `{report["session_id"][:12]}...`
+**AI Agent:** {report["ai_id"]}
+**Date:** {report["timestamp"]}
 **Duration:** {duration_str}
-**Task:** {report['task_summary']}
+**Task:** {report["task_summary"]}
 
 ---
 
@@ -683,7 +681,7 @@ class EpistemicHandoffReportGenerator:
 
 {delta_table}
 
-**Overall Confidence Change:** {report['overall_confidence_delta']:+.3f}
+**Overall Confidence Change:** {report["overall_confidence_delta"]:+.3f}
 **Calibration Status:** {cal_display}
 
 ---
@@ -720,7 +718,7 @@ class EpistemicHandoffReportGenerator:
 
 ## Context for Next Session
 
-{report['next_session_context']}
+{report["next_session_context"]}
 
 ---
 
@@ -742,20 +740,15 @@ class EpistemicHandoffReportGenerator:
 
         return markdown
 
-    def _build_delta_table(
-        self,
-        start_vectors: dict,
-        end_vectors: dict,
-        deltas: dict
-    ) -> str:
+    def _build_delta_table(self, start_vectors: dict, end_vectors: dict, deltas: dict) -> str:
         """Build markdown table of vector deltas"""
 
         # Group vectors by tier
         tiers = {
-            'Foundation': ['know', 'do', 'context'],
-            'Comprehension': ['clarity', 'coherence', 'signal', 'density'],
-            'Execution': ['state', 'change', 'completion', 'impact'],
-            'Meta': ['engagement', 'uncertainty']
+            "Foundation": ["know", "do", "context"],
+            "Comprehension": ["clarity", "coherence", "signal", "density"],
+            "Execution": ["state", "change", "completion", "impact"],
+            "Meta": ["engagement", "uncertainty"],
         }
 
         lines = ["| Vector | Before | After | Delta | Status |", "|--------|--------|-------|-------|--------|"]
@@ -772,13 +765,13 @@ class EpistemicHandoffReportGenerator:
                 if abs(delta) < 0.05:
                     status = "→ Stable"
                 elif delta > 0:
-                    status = "✅ Improved" if vec != 'uncertainty' else "⚠️ Increased"
+                    status = "✅ Improved" if vec != "uncertainty" else "⚠️ Increased"
                 else:
-                    status = "⚠️ Decreased" if vec != 'uncertainty' else "✅ Reduced"
+                    status = "⚠️ Decreased" if vec != "uncertainty" else "✅ Reduced"
 
                 lines.append(f"| {vec.upper()} | {before:.2f} | {after:.2f} | {delta:+.2f} | {status} |")
 
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
     def _format_gaps(self, gaps: list[dict]) -> str:
         """Format knowledge gaps as markdown"""
@@ -787,13 +780,13 @@ class EpistemicHandoffReportGenerator:
 
         lines = []
         for gap in gaps:
-            conf = gap.get('confidence_change')
+            conf = gap.get("confidence_change")
             conf_str = f" (+{conf:.2f})" if conf else ""
             lines.append(f"- **{gap['gap']}**{conf_str}")
             lines.append(f"  - Before: {gap['before']}")
             lines.append(f"  - After: {gap['after']}")
 
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
     def _compress_report(self, report: dict) -> str:
         """
@@ -802,34 +795,35 @@ class EpistemicHandoffReportGenerator:
         Strips verbose markdown, keeps critical data
         """
         compressed = {
-            's': report['session_id'][:8],  # Short session ID
-            'ai': report['ai_id'],
-            'ts': report['timestamp'],
-            'task': report['task_summary'][:200],  # Truncate
-            'dur': round(report['duration_seconds'], 1),
-            'deltas': {
-                k: round(v, 2) for k, v in report['epistemic_deltas'].items()
+            "s": report["session_id"][:8],  # Short session ID
+            "ai": report["ai_id"],
+            "ts": report["timestamp"],
+            "task": report["task_summary"][:200],  # Truncate
+            "dur": round(report["duration_seconds"], 1),
+            "deltas": {
+                k: round(v, 2)
+                for k, v in report["epistemic_deltas"].items()
                 if abs(v) >= 0.10  # Only significant deltas
             },
-            'findings': [f[:150] for f in report['key_findings'][:5]],  # Top 5, truncate
-            'gaps': [
+            "findings": [f[:150] for f in report["key_findings"][:5]],  # Top 5, truncate
+            "gaps": [
                 {
-                    'g': gap['gap'][:50],
-                    'b': gap['before'][:50],
-                    'a': gap['after'][:50],
-                    'c': gap.get('confidence_change')
+                    "g": gap["gap"][:50],
+                    "b": gap["before"][:50],
+                    "a": gap["after"][:50],
+                    "c": gap.get("confidence_change"),
                 }
-                for gap in report['knowledge_gaps_filled'][:3]  # Top 3
+                for gap in report["knowledge_gaps_filled"][:3]  # Top 3
             ],
-            'unknowns': [u[:100] for u in report['remaining_unknowns'][:5]],
-            'next': report['next_session_context'][:300],
-            'recommend': [r[:100] for r in report['recommended_next_steps'][:3]],
-            'artifacts': [a[:100] for a in report['artifacts_created'][:10]],
-            'tools': report['noetic_tools'][:5],
-            'cal': report['calibration_status']
+            "unknowns": [u[:100] for u in report["remaining_unknowns"][:5]],
+            "next": report["next_session_context"][:300],
+            "recommend": [r[:100] for r in report["recommended_next_steps"][:3]],
+            "artifacts": [a[:100] for a in report["artifacts_created"][:10]],
+            "tools": report["noetic_tools"][:5],
+            "cal": report["calibration_status"],
         }
 
-        return json.dumps(compressed, separators=(',', ':'))
+        return json.dumps(compressed, separators=(",", ":"))
 
     def _compress_planning_handoff(self, report: dict) -> str:
         """
@@ -838,16 +832,16 @@ class EpistemicHandoffReportGenerator:
         Similar to epistemic handoff but without deltas/calibration
         """
         compressed = {
-            's': report['session_id'][:8],  # Short session ID
-            'ai': report['ai_id'],
-            'ts': report['timestamp'],
-            'task': report['task_summary'][:200],  # Truncate
-            'dur': round(report['duration_seconds'], 1),
-            'type': 'planning',  # Mark as planning
-            'findings': [f[:150] for f in report['key_findings'][:5]],  # Top 5, truncate
-            'unknowns': [u[:100] for u in report['remaining_unknowns'][:5]],
-            'next': report['next_session_context'][:300],
-            'artifacts': [a[:100] for a in report['artifacts_created'][:10]],
+            "s": report["session_id"][:8],  # Short session ID
+            "ai": report["ai_id"],
+            "ts": report["timestamp"],
+            "task": report["task_summary"][:200],  # Truncate
+            "dur": round(report["duration_seconds"], 1),
+            "type": "planning",  # Mark as planning
+            "findings": [f[:150] for f in report["key_findings"][:5]],  # Top 5, truncate
+            "unknowns": [u[:100] for u in report["remaining_unknowns"][:5]],
+            "next": report["next_session_context"][:300],
+            "artifacts": [a[:100] for a in report["artifacts_created"][:10]],
         }
 
-        return json.dumps(compressed, separators=(',', ':'))
+        return json.dumps(compressed, separators=(",", ":"))

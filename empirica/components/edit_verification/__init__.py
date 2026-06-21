@@ -8,4 +8,4 @@ Prevents whitespace mismatch failures by assessing epistemic uncertainty before 
 from .confidence_assessor import EditConfidenceAssessor
 from .strategy_executor import EditStrategyExecutor
 
-__all__ = ['EditConfidenceAssessor', 'EditStrategyExecutor']
+__all__ = ["EditConfidenceAssessor", "EditStrategyExecutor"]

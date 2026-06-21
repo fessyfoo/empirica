@@ -44,7 +44,7 @@ def test_query_untriaged_scoped_to_transaction():
     conn = _conn()
     _add(conn, "a", transaction_id="t1")
     _add(conn, "b", transaction_id="t1")
-    _add(conn, "c", transaction_id="t2")           # other transaction
+    _add(conn, "c", transaction_id="t2")  # other transaction
     _add(conn, "d", transaction_id="t1", triaged=1)  # already triaged
     rows = nc._query_untriaged(conn, _ctx(transaction_id="t1"))
     texts = sorted(r[1] for r in rows)

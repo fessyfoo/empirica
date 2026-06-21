@@ -54,6 +54,7 @@ def _n_postflight(e: dict[str, Any]) -> str:
 
 def _n_artifact(prefix: str, alt: str, *body_keys: str):
     """Factory for artifact_log narrators that share the body-extraction shape."""
+
     def _fn(e: dict[str, Any]) -> str:
         body = ""
         for k in body_keys:
@@ -62,6 +63,7 @@ def _n_artifact(prefix: str, alt: str, *body_keys: str):
                 body = _ellipsize(v, 60)
                 break
         return f"{prefix}: {body}" if body else alt
+
     return _fn
 
 
@@ -163,8 +165,10 @@ def narrate(event: dict[str, Any]) -> str | None:
         return narrate_translator_event(event)
     # Translator events also identifiable by characteristic keys
     if event.get("kind") in (
-        "request_started", "request_completed",
-        "request_errored", "stream_event",
+        "request_started",
+        "request_completed",
+        "request_errored",
+        "stream_event",
     ):
         return narrate_translator_event(event)
     return narrate_empirica_event(event)

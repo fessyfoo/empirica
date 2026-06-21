@@ -58,7 +58,9 @@ def test_start_no_op_when_no_creds(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     err = io.StringIO()
     probe = LivenessProbe(
-        "empirica", _err_stream=err, _cortex_loader=_stub_cortex_loader_empty,
+        "empirica",
+        _err_stream=err,
+        _cortex_loader=_stub_cortex_loader_empty,
         _probe_fn=lambda *a, **k: 200,
     )
     probe.start()
@@ -164,9 +166,7 @@ def test_probe_miss_on_urlerror_increments_counter():
     probe = LivenessProbe(
         "empirica",
         _cortex_loader=_stub_cortex_loader,
-        _probe_fn=lambda u, k: (_ for _ in ()).throw(
-            urllib.error.URLError("network down")
-        ),
+        _probe_fn=lambda u, k: (_ for _ in ()).throw(urllib.error.URLError("network down")),
     )
     probe._do_probe("https://cortex.test", "k")
     assert probe._consecutive_failures == 1
@@ -262,7 +262,9 @@ def test_env_override_threshold(monkeypatch):
 def test_constructor_overrides_env(monkeypatch):
     monkeypatch.setenv("EMPIRICA_LIVENESS_PROBE_INTERVAL_SEC", "30")
     probe = LivenessProbe(
-        "empirica", interval_sec=15.0, _cortex_loader=_stub_cortex_loader,
+        "empirica",
+        interval_sec=15.0,
+        _cortex_loader=_stub_cortex_loader,
     )
     assert probe.interval_sec == 15.0
 
@@ -296,6 +298,7 @@ def test_probe_target_url_uses_roster_endpoint():
         return _Resp()
 
     import urllib.request as _urlreq
+
     orig = _urlreq.urlopen
     _urlreq.urlopen = fake_urlopen
     try:

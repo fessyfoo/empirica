@@ -85,8 +85,7 @@ def test_dep_summary_does_not_create_empirica_under_subdir(tmp_path: Path):
         # Returns None (refused) rather than walking and writing cache
         assert result is None
         # CRITICAL: no stray .empirica/ created under subdir
-        assert not (subdir / ".empirica").exists(), \
-            "Writer created stray .empirica/ under non-project subdir"
+        assert not (subdir / ".empirica").exists(), "Writer created stray .empirica/ under non-project subdir"
     finally:
         db.close()
 
@@ -119,9 +118,7 @@ def test_dep_summary_works_for_real_project_root(tmp_path: Path):
 # ── _resolve_canonical_project_root never falls back to CWD ──────────────
 
 
-def test_canonical_resolver_returns_none_when_unresolvable(
-    tmp_path: Path, monkeypatch
-):
+def test_canonical_resolver_returns_none_when_unresolvable(tmp_path: Path, monkeypatch):
     """Even with CWD inside a non-project subdir, never return CWD."""
     from empirica.data.session_database import _resolve_canonical_project_root
 

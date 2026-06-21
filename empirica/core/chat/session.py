@@ -24,10 +24,10 @@ from pathlib import Path
 class TurnKind(str, Enum):
     USER = "user"
     AGENT_TEXT = "agent_text"
-    AGENT_REASONING = "agent_reasoning"     # Phase 3
-    TOOL_CALL = "tool_call"                 # Phase 2
-    TOOL_RESULT = "tool_result"             # Phase 2
-    EPISTEMIC_ACTION = "epistemic_action"   # Phase 4
+    AGENT_REASONING = "agent_reasoning"  # Phase 3
+    TOOL_CALL = "tool_call"  # Phase 2
+    TOOL_RESULT = "tool_result"  # Phase 2
+    EPISTEMIC_ACTION = "epistemic_action"  # Phase 4
     SYSTEM = "system"
 
 

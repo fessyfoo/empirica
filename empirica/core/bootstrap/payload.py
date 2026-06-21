@@ -74,10 +74,10 @@ def build_bootstrap_payload(
     # Three circles
     if project_id:
         c1 = circle_1_active_state(project_path, project_id, limits=_subdict(limits, "active_state"))
-        c2 = circle_2_persistent_reference(project_path, project_id,
-                                            limits=_subdict(limits, "persistent_reference"))
-        c3 = circle_3_topic_relevant_backlog(project_path, project_id, topic,
-                                              limits=_subdict(limits, "topic_relevant_backlog"))
+        c2 = circle_2_persistent_reference(project_path, project_id, limits=_subdict(limits, "persistent_reference"))
+        c3 = circle_3_topic_relevant_backlog(
+            project_path, project_id, topic, limits=_subdict(limits, "topic_relevant_backlog")
+        )
     else:
         # No project_id resolved — empty payload but valid shape
         c1 = _empty_circle_1()
@@ -118,9 +118,7 @@ def build_bootstrap_payload(
     return payload
 
 
-def _attach_sidecar_blocks(
-    payload: dict[str, Any], project_path: Path, project_id: str | None
-) -> None:
+def _attach_sidecar_blocks(payload: dict[str, Any], project_path: Path, project_id: str | None) -> None:
     """Surface CLI-only fields on the HTTP wire — Option B per proposal.
 
     Three blocks query the DB directly with bare SQL (decouples from
@@ -158,6 +156,7 @@ def _attach_sidecar_blocks(
 
     try:
         from empirica.data.session_database import SessionDatabase
+
         db = SessionDatabase(db_path=str(db_path))
         flow = db.calculate_flow_metrics(project_id, limit=5)
         if flow and flow.get("current_flow"):
@@ -170,6 +169,7 @@ def _build_project_block(db_path: Path, project_id: str) -> dict | None:
     """Direct-SQL build of the project metadata block. Returns None if no row."""
     import json as _json
     import sqlite3 as _sq
+
     conn = _sq.connect(str(db_path))
     conn.row_factory = _sq.Row
     try:
@@ -203,7 +203,8 @@ def _build_project_block(db_path: Path, project_id: str) -> dict | None:
         # previous query targeted a non-existent table, silent except
         # swallowed the error, tt always returned 0 on the bootstrap card.)
         try:
-            tt = conn.execute("""
+            tt = conn.execute(
+                """
                 WITH project_sessions AS (
                     SELECT session_id FROM sessions WHERE project_id = ?
                 )
@@ -240,7 +241,9 @@ def _build_project_block(db_path: Path, project_id: str) -> dict | None:
                         WHERE session_id IN (SELECT session_id FROM project_sessions)
                         AND transaction_id IS NOT NULL
                 )
-            """, (project_id,)).fetchone()[0]
+            """,
+                (project_id,),
+            ).fetchone()[0]
         except _sq.OperationalError:
             # Narrow exception: catches "no such table" / "no such column"
             # if the schema drifts again, surfaces other DB errors instead
@@ -272,10 +275,14 @@ def _build_project_block(db_path: Path, project_id: str) -> dict | None:
 def _build_git_status(project_path: Path) -> dict | None:
     """Direct subprocess git for the activity-rhythm block."""
     import subprocess as _sp
+
     try:
         br = _sp.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=str(project_path), capture_output=True, text=True, timeout=2,
+            cwd=str(project_path),
+            capture_output=True,
+            text=True,
+            timeout=2,
         )
         if br.returncode != 0:
             return None
@@ -286,7 +293,10 @@ def _build_git_status(project_path: Path) -> dict | None:
         try:
             st = _sp.run(
                 ["git", "status", "--porcelain"],
-                cwd=str(project_path), capture_output=True, text=True, timeout=2,
+                cwd=str(project_path),
+                capture_output=True,
+                text=True,
+                timeout=2,
             )
             for line in st.stdout.splitlines():
                 if line.startswith("??"):
@@ -300,7 +310,10 @@ def _build_git_status(project_path: Path) -> dict | None:
         try:
             lg = _sp.run(
                 ["git", "log", "-3", "--format=%h %s"],
-                cwd=str(project_path), capture_output=True, text=True, timeout=2,
+                cwd=str(project_path),
+                capture_output=True,
+                text=True,
+                timeout=2,
             )
             if lg.returncode == 0:
                 recent = [ln for ln in lg.stdout.splitlines() if ln.strip()]
@@ -320,6 +333,7 @@ def _build_git_status(project_path: Path) -> dict | None:
 def _count_reference_docs(db_path: Path, project_id: str) -> int:
     """Direct SQL count of project-scoped reference docs."""
     import sqlite3 as _sq
+
     conn = _sq.connect(str(db_path))
     try:
         try:
@@ -348,6 +362,7 @@ def _resolve_project_id(project_path: Path) -> str | None:
     or via projects.name → projects.id slug→UUID lookup."""
     try:
         from empirica.api.daemon_project import _read_project_yaml, _resolve_project_uuid
+
         project_yaml = _read_project_yaml(project_path)
         yaml_id = project_yaml.get("project_id") if isinstance(project_yaml, dict) else None
         return _resolve_project_uuid(project_path, yaml_id)
@@ -359,6 +374,7 @@ def _resolve_project_name(project_path: Path) -> str:
     """Read project.yaml's display_name → name → folder name."""
     try:
         from empirica.api.daemon_project import _read_project_yaml
+
         py = _read_project_yaml(project_path)
         if isinstance(py, dict):
             return py.get("display_name") or py.get("name") or project_path.name
@@ -371,6 +387,7 @@ def _resolve_ai_id() -> str:
     """Resolve active session's ai_id; defaults to 'claude-code'."""
     try:
         from empirica.utils.session_resolver import InstanceResolver as R
+
         ctx = R.context()
         if isinstance(ctx, dict):
             return ctx.get("ai_id") or "claude-code"
@@ -387,6 +404,7 @@ def _load_calibration_summary(project_path: Path) -> dict:
     """
     try:
         import yaml
+
         bc_path = project_path / ".breadcrumbs.yaml"
         if not bc_path.exists():
             return {}
@@ -395,7 +413,9 @@ def _load_calibration_summary(project_path: Path) -> dict:
         if not isinstance(data, dict):
             return {}
         return {
-            "track_1_observations": data.get("calibration", {}).get("observations") if isinstance(data.get("calibration"), dict) else None,
+            "track_1_observations": data.get("calibration", {}).get("observations")
+            if isinstance(data.get("calibration"), dict)
+            else None,
             "biases_summary": _summarize_biases(data.get("calibration", {})),
         }
     except Exception:

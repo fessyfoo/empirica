@@ -21,13 +21,9 @@ from empirica.cli.command_handlers.artifact_log_commands import (
 def test_decay_related_lessons_is_disabled_noop():
     # Keyword-rich finding in a real domain — would previously decay lessons
     # sharing >=2 keywords. Must now be a no-op.
-    assert _decay_related_lessons(
-        "the sentinel gate blocks praxic tools before check", "sentinel", "proj"
-    ) == []
+    assert _decay_related_lessons("the sentinel gate blocks praxic tools before check", "sentinel", "proj") == []
 
 
 def test_decay_eidetic_by_finding_is_disabled_noop():
     # Would previously decay eidetic facts with cosine >= 0.85. Must now be a no-op.
-    assert _decay_eidetic_by_finding(
-        "proj", "the sentinel gate blocks praxic tools before check", "sentinel"
-    ) == 0
+    assert _decay_eidetic_by_finding("proj", "the sentinel gate blocks praxic tools before check", "sentinel") == 0

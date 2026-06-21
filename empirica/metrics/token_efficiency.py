@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TokenMeasurement:
     """Single token usage measurement"""
+
     phase: str
     method: str  # "git" or "prompt"
     tokens: int
@@ -58,11 +59,7 @@ class TokenEfficiencyMetrics:
     loading (baseline) to validate token reduction hypothesis.
     """
 
-    def __init__(
-        self,
-        session_id: str,
-        storage_dir: str = ".empirica/metrics"
-    ):
+    def __init__(self, session_id: str, storage_dir: str = ".empirica/metrics"):
         """
         Initialize token efficiency tracker.
 
@@ -77,20 +74,10 @@ class TokenEfficiencyMetrics:
         self.measurements: list[TokenMeasurement] = []
 
         # Expected baseline token counts (from empirical data)
-        self.baseline_tokens = {
-            "PREFLIGHT": 6500,
-            "CHECK": 3500,
-            "ACT": 1500,
-            "POSTFLIGHT": 5500
-        }
+        self.baseline_tokens = {"PREFLIGHT": 6500, "CHECK": 3500, "ACT": 1500, "POSTFLIGHT": 5500}
 
         # Target token counts (compressed checkpoints)
-        self.target_tokens = {
-            "PREFLIGHT": 450,
-            "CHECK": 400,
-            "ACT": 500,
-            "POSTFLIGHT": 850
-        }
+        self.target_tokens = {"PREFLIGHT": 450, "CHECK": 400, "ACT": 500, "POSTFLIGHT": 850}
 
     def measure_context_load(
         self,
@@ -98,7 +85,7 @@ class TokenEfficiencyMetrics:
         method: str,
         content: str,
         content_type: str = "checkpoint",
-        metadata: dict[str, Any] | None = None
+        metadata: dict[str, Any] | None = None,
     ) -> TokenMeasurement:
         """
         Measure token usage for context loading operation.
@@ -121,15 +108,12 @@ class TokenEfficiencyMetrics:
             tokens=token_count,
             timestamp=datetime.now(timezone.utc).isoformat(),
             content_type=content_type,
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         self.measurements.append(measurement)
 
-        logger.info(
-            f"Token measurement: {phase}/{method} = {token_count} tokens "
-            f"({content_type})"
-        )
+        logger.info(f"Token measurement: {phase}/{method} = {token_count} tokens ({content_type})")
 
         return measurement
 
@@ -165,10 +149,7 @@ class TokenEfficiencyMetrics:
         Returns:
             Total token count for phase
         """
-        filtered = [
-            m for m in self.measurements
-            if m.phase == phase and (method is None or m.method == method)
-        ]
+        filtered = [m for m in self.measurements if m.phase == phase and (method is None or m.method == method)]
 
         return sum(m.tokens for m in filtered)
 
@@ -182,10 +163,7 @@ class TokenEfficiencyMetrics:
         Returns:
             Total token count
         """
-        filtered = [
-            m for m in self.measurements
-            if method is None or m.method == method
-        ]
+        filtered = [m for m in self.measurements if method is None or m.method == method]
 
         return sum(m.tokens for m in filtered)
 
@@ -216,7 +194,7 @@ class TokenEfficiencyMetrics:
             "reduction_percentage": round(reduction_percentage, 2),
             "baseline_cost_usd": round(baseline_cost, 4),
             "actual_cost_usd": round(actual_cost, 4),
-            "cost_savings_usd": round(cost_savings, 4)
+            "cost_savings_usd": round(cost_savings, 4),
         }
 
     def compare_efficiency(self, baseline_session_id: str | None = None) -> dict[str, Any]:
@@ -235,7 +213,7 @@ class TokenEfficiencyMetrics:
             "baseline_session_id": baseline_session_id or "theoretical",
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "phases": {},
-            "total": {}
+            "total": {},
         }
 
         # Per-phase comparison
@@ -244,9 +222,7 @@ class TokenEfficiencyMetrics:
             baseline_tokens = self.baseline_tokens.get(phase, 0)
 
             if actual_tokens > 0 or baseline_tokens > 0:
-                report["phases"][phase] = self.calculate_reduction(
-                    baseline_tokens, actual_tokens
-                )
+                report["phases"][phase] = self.calculate_reduction(baseline_tokens, actual_tokens)
 
         # Total session comparison
         actual_total = self.get_session_total(method="git")
@@ -261,16 +237,12 @@ class TokenEfficiencyMetrics:
         report["success_criteria"] = {
             "target_reduction_pct": target_reduction_pct,
             "achieved_reduction_pct": achieved_reduction_pct,
-            "target_met": achieved_reduction_pct >= target_reduction_pct
+            "target_met": achieved_reduction_pct >= target_reduction_pct,
         }
 
         return report
 
-    def export_report(
-        self,
-        format: str = "json",
-        output_path: str | None = None
-    ) -> str:
+    def export_report(self, format: str = "json", output_path: str | None = None) -> str:
         """
         Export efficiency report.
 
@@ -300,7 +272,7 @@ class TokenEfficiencyMetrics:
             output_file = Path(output_path)
             output_file.parent.mkdir(parents=True, exist_ok=True)
 
-            with open(output_file, 'w') as f:
+            with open(output_file, "w") as f:
                 f.write(content)
 
             logger.info(f"Report exported to: {output_file}")
@@ -331,10 +303,10 @@ class TokenEfficiencyMetrics:
             "## Per-Phase Breakdown",
             "",
             "| Phase | Baseline | Actual | Reduction | % |",
-            "|-------|----------|--------|-----------|---|"
+            "|-------|----------|--------|-----------|---|",
         ]
 
-        for phase, metrics in report['phases'].items():
+        for phase, metrics in report["phases"].items():
             lines.append(
                 f"| {phase} | {metrics['baseline_tokens']:,} | "
                 f"{metrics['actual_tokens']:,} | "
@@ -342,13 +314,7 @@ class TokenEfficiencyMetrics:
                 f"{metrics['reduction_percentage']:.1f}% |"
             )
 
-        lines.extend([
-            "",
-            "## Detailed Measurements",
-            "",
-            f"Total measurements recorded: {len(self.measurements)}",
-            ""
-        ])
+        lines.extend(["", "## Detailed Measurements", "", f"Total measurements recorded: {len(self.measurements)}", ""])
 
         for i, measurement in enumerate(self.measurements, 1):
             lines.append(
@@ -360,11 +326,9 @@ class TokenEfficiencyMetrics:
 
     def _format_csv_report(self, report: dict[str, Any]) -> str:
         """Format report as CSV."""
-        lines = [
-            "phase,method,baseline_tokens,actual_tokens,reduction_absolute,reduction_percentage,cost_savings_usd"
-        ]
+        lines = ["phase,method,baseline_tokens,actual_tokens,reduction_absolute,reduction_percentage,cost_savings_usd"]
 
-        for phase, metrics in report['phases'].items():
+        for phase, metrics in report["phases"].items():
             lines.append(
                 f"{phase},git,{metrics['baseline_tokens']},{metrics['actual_tokens']},"
                 f"{metrics['reduction_absolute']},{metrics['reduction_percentage']},"
@@ -372,7 +336,7 @@ class TokenEfficiencyMetrics:
             )
 
         # Add total row
-        total = report['total']
+        total = report["total"]
         lines.append(
             f"TOTAL,git,{total['baseline_tokens']},{total['actual_tokens']},"
             f"{total['reduction_absolute']},{total['reduction_percentage']},"
@@ -388,10 +352,10 @@ class TokenEfficiencyMetrics:
         data = {
             "session_id": self.session_id,
             "measurements": [asdict(m) for m in self.measurements],
-            "saved_at": datetime.now(timezone.utc).isoformat()
+            "saved_at": datetime.now(timezone.utc).isoformat(),
         }
 
-        with open(filepath, 'w') as f:
+        with open(filepath, "w") as f:
             json.dump(data, f, indent=2)
 
         logger.info(f"Metrics saved to: {filepath}")
@@ -412,9 +376,7 @@ class TokenEfficiencyMetrics:
             with open(filepath) as f:
                 data = json.load(f)
 
-            self.measurements = [
-                TokenMeasurement(**m) for m in data['measurements']
-            ]
+            self.measurements = [TokenMeasurement(**m) for m in data["measurements"]]
 
             logger.info(f"Loaded {len(self.measurements)} measurements from {filepath}")
             return True

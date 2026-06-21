@@ -114,14 +114,14 @@ class LivenessProbe:
         self.ai_id = ai_id
         self.loop_name = loop_name
         self.interval_sec = float(
-            interval_sec if interval_sec is not None else
-            os.environ.get("EMPIRICA_LIVENESS_PROBE_INTERVAL_SEC", _DEFAULT_INTERVAL_SEC)
+            interval_sec
+            if interval_sec is not None
+            else os.environ.get("EMPIRICA_LIVENESS_PROBE_INTERVAL_SEC", _DEFAULT_INTERVAL_SEC)
         )
         self.fail_threshold_sec = float(
-            fail_threshold_sec if fail_threshold_sec is not None else
-            os.environ.get(
-                "EMPIRICA_LIVENESS_PROBE_FAIL_THRESHOLD_SEC", _DEFAULT_FAIL_THRESHOLD_SEC
-            )
+            fail_threshold_sec
+            if fail_threshold_sec is not None
+            else os.environ.get("EMPIRICA_LIVENESS_PROBE_FAIL_THRESHOLD_SEC", _DEFAULT_FAIL_THRESHOLD_SEC)
         )
         self.exit_code = exit_code
         self._probe_fn = _probe_fn or _probe_cortex_roster
@@ -147,7 +147,9 @@ class LivenessProbe:
             return
         self._stop_evt.clear()
         self._thread = threading.Thread(
-            target=self._run, name=f"liveness-probe-{self.ai_id}", daemon=True,
+            target=self._run,
+            name=f"liveness-probe-{self.ai_id}",
+            daemon=True,
         )
         self._thread.start()
 
@@ -180,10 +182,7 @@ class LivenessProbe:
             status = self._probe_fn(cortex_url, api_key)
         except (TimeoutError, urllib.error.URLError, urllib.error.HTTPError, OSError) as e:
             self._consecutive_failures += 1
-            self._log(
-                f"liveness probe miss ({self._consecutive_failures} consecutive): "
-                f"{type(e).__name__}: {e}"
-            )
+            self._log(f"liveness probe miss ({self._consecutive_failures} consecutive): {type(e).__name__}: {e}")
             return
         if 200 <= status < 300:
             self._last_ok_at = self._now()
@@ -191,10 +190,7 @@ class LivenessProbe:
             self._write_health_marker(status="ok")
         else:
             self._consecutive_failures += 1
-            self._log(
-                f"liveness probe miss ({self._consecutive_failures} consecutive): "
-                f"HTTP {status}"
-            )
+            self._log(f"liveness probe miss ({self._consecutive_failures} consecutive): HTTP {status}")
 
     def _check_staleness(self) -> None:
         if self._last_ok_at is None:
@@ -250,6 +246,7 @@ class LivenessProbe:
 def _default_cortex_loader() -> dict[str, Any] | None:
     try:
         from empirica.config.credentials_loader import get_credentials_loader
+
         cfg = get_credentials_loader().get_cortex_config()
         return cfg or None
     except Exception as e:

@@ -1,6 +1,7 @@
 """
 Project Embed Command - Build Qdrant indices from docs + project memory.
 """
+
 from __future__ import annotations
 
 import json
@@ -15,13 +16,14 @@ logger = logging.getLogger(__name__)
 def _load_semantic_index(root: str) -> dict:
     """Load semantic index (per-project, with graceful fallback)"""
     from empirica.config.semantic_index_loader import load_semantic_index
+
     index = load_semantic_index(root)
     return index or {}
 
 
 def _read_file(path: str) -> str:
     try:
-        with open(path, encoding='utf-8') as f:
+        with open(path, encoding="utf-8") as f:
             return f.read()
     except Exception:
         return ""
@@ -41,10 +43,10 @@ def _resolve_doc_path(root: str, relpath: str) -> str:
 
     candidates = [os.path.join(root, relpath)]
 
-    if relpath.startswith('docs/'):
-        candidates.append(os.path.join(root, relpath.split('docs/', 1)[-1]))
+    if relpath.startswith("docs/"):
+        candidates.append(os.path.join(root, relpath.split("docs/", 1)[-1]))
     else:
-        candidates.append(os.path.join(root, 'docs', relpath))
+        candidates.append(os.path.join(root, "docs", relpath))
 
     for candidate in candidates:
         if os.path.exists(candidate):
@@ -96,49 +98,91 @@ def _build_memory_items(findings, unknowns, mistakes, dead_ends, lessons, snapsh
     """Build Qdrant memory items from all artifact types. Uses actual artifact IDs."""
     items = []
     for f in findings:
-        fid = f.get('finding_id') or str(f.get('id', ''))
+        fid = f.get("finding_id") or str(f.get("id", ""))
         if fid:
-            items.append({'id': fid, 'text': f.get('finding', ''), 'type': 'finding',
-                          'goal_id': f.get('goal_id'), 'subtask_id': f.get('subtask_id'),
-                          'session_id': f.get('session_id'), 'timestamp': f.get('created_timestamp'),
-                          'subject': f.get('subject')})
+            items.append(
+                {
+                    "id": fid,
+                    "text": f.get("finding", ""),
+                    "type": "finding",
+                    "goal_id": f.get("goal_id"),
+                    "subtask_id": f.get("subtask_id"),
+                    "session_id": f.get("session_id"),
+                    "timestamp": f.get("created_timestamp"),
+                    "subject": f.get("subject"),
+                }
+            )
     for u in unknowns:
-        uid = u.get('unknown_id') or str(u.get('id', ''))
+        uid = u.get("unknown_id") or str(u.get("id", ""))
         if uid:
-            items.append({'id': uid, 'text': u.get('unknown', ''), 'type': 'unknown',
-                          'goal_id': u.get('goal_id'), 'subtask_id': u.get('subtask_id'),
-                          'session_id': u.get('session_id'), 'timestamp': u.get('created_timestamp'),
-                          'subject': u.get('subject'), 'is_resolved': u.get('is_resolved', False)})
+            items.append(
+                {
+                    "id": uid,
+                    "text": u.get("unknown", ""),
+                    "type": "unknown",
+                    "goal_id": u.get("goal_id"),
+                    "subtask_id": u.get("subtask_id"),
+                    "session_id": u.get("session_id"),
+                    "timestamp": u.get("created_timestamp"),
+                    "subject": u.get("subject"),
+                    "is_resolved": u.get("is_resolved", False),
+                }
+            )
     for m in mistakes:
-        mid = str(m.get('id', ''))
+        mid = str(m.get("id", ""))
         if mid:
-            items.append({'id': f"mistake_{mid}",
-                          'text': f"{m.get('mistake','')} Prevention: {m.get('prevention','')}",
-                          'type': 'mistake', 'session_id': m.get('session_id'),
-                          'goal_id': m.get('goal_id'), 'timestamp': m.get('created_timestamp')})
+            items.append(
+                {
+                    "id": f"mistake_{mid}",
+                    "text": f"{m.get('mistake', '')} Prevention: {m.get('prevention', '')}",
+                    "type": "mistake",
+                    "session_id": m.get("session_id"),
+                    "goal_id": m.get("goal_id"),
+                    "timestamp": m.get("created_timestamp"),
+                }
+            )
     for d in dead_ends:
-        did = d.get('dead_end_id') or str(d.get('id', ''))
+        did = d.get("dead_end_id") or str(d.get("id", ""))
         if did:
-            items.append({'id': did,
-                          'text': f"DEAD END: {d.get('approach', '')} Why failed: {d.get('why_failed', '')}",
-                          'type': 'dead_end', 'session_id': d.get('session_id'),
-                          'goal_id': d.get('goal_id'), 'subtask_id': d.get('subtask_id'),
-                          'timestamp': d.get('created_timestamp')})
+            items.append(
+                {
+                    "id": did,
+                    "text": f"DEAD END: {d.get('approach', '')} Why failed: {d.get('why_failed', '')}",
+                    "type": "dead_end",
+                    "session_id": d.get("session_id"),
+                    "goal_id": d.get("goal_id"),
+                    "subtask_id": d.get("subtask_id"),
+                    "timestamp": d.get("created_timestamp"),
+                }
+            )
     for lesson in lessons:
-        lid = str(lesson.get('id', ''))
+        lid = str(lesson.get("id", ""))
         if lid:
-            items.append({'id': f"lesson_{lid}",
-                          'text': f"LESSON: {lesson.get('name', '')} - {lesson.get('description', '')} Domain: {lesson.get('domain', '')}",
-                          'type': 'lesson', 'lesson_id': lesson.get('id'),
-                          'domain': lesson.get('domain'), 'tags': lesson.get('tags'),
-                          'timestamp': lesson.get('created_timestamp')})
+            items.append(
+                {
+                    "id": f"lesson_{lid}",
+                    "text": f"LESSON: {lesson.get('name', '')} - {lesson.get('description', '')} Domain: {lesson.get('domain', '')}",
+                    "type": "lesson",
+                    "lesson_id": lesson.get("id"),
+                    "domain": lesson.get("domain"),
+                    "tags": lesson.get("tags"),
+                    "timestamp": lesson.get("created_timestamp"),
+                }
+            )
     for snap in snapshots:
-        context = snap.get('context_summary', '')
-        sid = snap.get('snapshot_id') or str(snap.get('id', ''))
+        context = snap.get("context_summary", "")
+        sid = snap.get("snapshot_id") or str(snap.get("id", ""))
         if context and sid:
-            items.append({'id': f"snap_{sid}", 'text': f"SESSION NARRATIVE: {context}",
-                          'type': 'episodic', 'session_id': snap.get('session_id'),
-                          'snapshot_id': snap.get('snapshot_id'), 'timestamp': snap.get('timestamp')})
+            items.append(
+                {
+                    "id": f"snap_{sid}",
+                    "text": f"SESSION NARRATIVE: {context}",
+                    "type": "episodic",
+                    "session_id": snap.get("session_id"),
+                    "snapshot_id": snap.get("snapshot_id"),
+                    "timestamp": snap.get("timestamp"),
+                }
+            )
     return items
 
 
@@ -152,9 +196,9 @@ def _resolve_project_root_and_db(project_id, root):
     db_path = None
     try:
         project_info = R.resolve_workspace_project(project_id)
-        if project_info and project_info.get('project_path'):
-            project_root = project_info['project_path']
-            candidate = os.path.join(project_root, '.empirica', 'sessions', 'sessions.db')
+        if project_info and project_info.get("project_path"):
+            project_root = project_info["project_path"]
+            candidate = os.path.join(project_root, ".empirica", "sessions", "sessions.db")
             if os.path.exists(candidate):
                 db_path = candidate
                 root = project_root
@@ -171,15 +215,19 @@ def _prepare_docs_from_semantic_index(root, docs_cfg):
         doc_path = _resolve_doc_path(root, relpath)
         file_text = _read_file(doc_path)
         text = _build_embedding_text(relpath, meta, file_text)
-        docs_to_upsert.append({
-            'id': did, 'text': text,
-            'metadata': {
-                'doc_path': relpath, 'tags': meta.get('tags', []),
-                'concepts': meta.get('concepts', []),
-                'questions': meta.get('questions', []),
-                'use_cases': meta.get('use_cases', []),
+        docs_to_upsert.append(
+            {
+                "id": did,
+                "text": text,
+                "metadata": {
+                    "doc_path": relpath,
+                    "tags": meta.get("tags", []),
+                    "concepts": meta.get("concepts", []),
+                    "questions": meta.get("questions", []),
+                    "use_cases": meta.get("use_cases", []),
+                },
             }
-        })
+        )
         did += 1
     return docs_to_upsert, did
 
@@ -190,20 +238,23 @@ def _append_reference_docs(db, project_id, docs_to_upsert, start_id):
     try:
         refdocs = db.get_project_reference_docs(project_id)
         for rdoc in refdocs:
-            doc_path = rdoc.get('doc_path', '')
-            file_text = _read_file(doc_path) if doc_path else ''
+            doc_path = rdoc.get("doc_path", "")
+            file_text = _read_file(doc_path) if doc_path else ""
             if not file_text:
-                file_text = rdoc.get('description', '') or f"Reference: {doc_path}"
+                file_text = rdoc.get("description", "") or f"Reference: {doc_path}"
 
-            description = rdoc.get('description', '') or ''
-            doc_type = rdoc.get('doc_type', '') or ''
-            keywords = [w.lower() for w in (description + ' ' + doc_type).split() if len(w) > 3]
+            description = rdoc.get("description", "") or ""
+            doc_type = rdoc.get("doc_type", "") or ""
+            keywords = [w.lower() for w in (description + " " + doc_type).split() if len(w) > 3]
             meta = {
-                'doc_path': doc_path, 'doc_type': doc_type,
-                'description': description, 'tags': keywords, 'source': 'refdoc',
+                "doc_path": doc_path,
+                "doc_type": doc_type,
+                "description": description,
+                "tags": keywords,
+                "source": "refdoc",
             }
             text = _build_embedding_text(doc_path, meta, file_text)
-            docs_to_upsert.append({'id': did, 'text': text, 'metadata': meta})
+            docs_to_upsert.append({"id": did, "text": text, "metadata": meta})
             did += 1
         logger.debug(f"Added {len(refdocs)} reference docs to embedding queue")
     except Exception as e:
@@ -220,17 +271,23 @@ def _query_memory_artifacts(db, project_id):
     unknowns = db.get_project_unknowns(project_id)
 
     cur = db.conn.cursor()
-    cur.execute("""
+    cur.execute(
+        """
         SELECT m.id, m.mistake, m.prevention
         FROM mistakes_made m JOIN sessions s ON m.session_id = s.session_id
         WHERE s.project_id = ? ORDER BY m.created_timestamp DESC
-    """, (project_id,))
+    """,
+        (project_id,),
+    )
     mistakes = [dict(row) for row in cur.fetchall()]
 
-    cur.execute("""
+    cur.execute(
+        """
         SELECT id, approach, why_failed, session_id, goal_id, subtask_id, created_timestamp
         FROM project_dead_ends WHERE project_id = ? ORDER BY created_timestamp DESC
-    """, (project_id,))
+    """,
+        (project_id,),
+    )
     dead_ends = [dict(row) for row in cur.fetchall()]
 
     cur.execute("""
@@ -239,12 +296,15 @@ def _query_memory_artifacts(db, project_id):
     """)
     lessons = [dict(row) for row in cur.fetchall()]
 
-    cur.execute("""
+    cur.execute(
+        """
         SELECT snapshot_id, session_id, context_summary, timestamp
         FROM epistemic_snapshots
         WHERE session_id IN (SELECT session_id FROM sessions WHERE project_id = ?)
         ORDER BY timestamp DESC
-    """, (project_id,))
+    """,
+        (project_id,),
+    )
     snapshots = [dict(row) for row in cur.fetchall()]
 
     return findings, unknowns, mistakes, dead_ends, lessons, snapshots
@@ -268,7 +328,7 @@ def _rehydrate_eidetic(project_id, findings, embed_eidetic_fn, check_fn):
     # Pre-filter empty-text findings and pair each with its content hash.
     valid = []
     for f in findings:
-        finding_text = f.get('finding', '')
+        finding_text = f.get("finding", "")
         if not finding_text:
             continue
         valid.append((f, finding_text, hashlib.md5(finding_text.encode()).hexdigest()))
@@ -283,6 +343,7 @@ def _rehydrate_eidetic(project_id, findings, embed_eidetic_fn, check_fn):
             _get_qdrant_client,
             _get_qdrant_imports,
         )
+
         _, _, _, PointStruct = _get_qdrant_imports()
         client = _get_qdrant_client()
         if client is None:
@@ -295,7 +356,9 @@ def _rehydrate_eidetic(project_id, findings, embed_eidetic_fn, check_fn):
         create_if_missing = True
         for i in range(0, len(texts), embed_batch_size):
             batch_vectors = _get_embeddings_batch_for_collection(
-                client, coll, texts[i:i + embed_batch_size],
+                client,
+                coll,
+                texts[i : i + embed_batch_size],
                 create_if_missing=create_if_missing,
             )
             vectors.extend(batch_vectors)
@@ -306,23 +369,23 @@ def _rehydrate_eidetic(project_id, findings, embed_eidetic_fn, check_fn):
         for (f, finding_text, content_hash), vector in zip(valid, vectors):
             if vector is None:
                 continue
-            impact = f.get('impact')
+            impact = f.get("impact")
             base_confidence = float(impact) if impact else 0.6
-            fact_id = f.get('id', content_hash)
+            fact_id = f.get("id", content_hash)
             point_id = int(hashlib.md5(fact_id.encode()).hexdigest()[:15], 16)
             payload = {
                 "type": "fact",
                 "content": finding_text[:500] if finding_text else None,
                 "content_full": finding_text if len(finding_text) <= 500 else None,
                 "content_hash": content_hash,
-                "domain": f.get('subject'),
+                "domain": f.get("subject"),
                 "confidence": base_confidence,
                 "confirmation_count": 1,
                 "first_seen": now,
                 "last_confirmed": now,
-                "source_sessions": [f.get('session_id')] if f.get('session_id') else [],
-                "source_findings": [f.get('id')] if f.get('id') else [],
-                "tags": [f.get('subject')] if f.get('subject') else [],
+                "source_sessions": [f.get("session_id")] if f.get("session_id") else [],
+                "source_findings": [f.get("id")] if f.get("id") else [],
+                "tags": [f.get("subject")] if f.get("subject") else [],
             }
             points.append(PointStruct(id=point_id, vector=vector, payload=payload))
 
@@ -331,25 +394,26 @@ def _rehydrate_eidetic(project_id, findings, embed_eidetic_fn, check_fn):
             # when finding counts run into the thousands.
             upsert_chunk = 256
             for i in range(0, len(points), upsert_chunk):
-                client.upsert(collection_name=coll, points=points[i:i + upsert_chunk])
+                client.upsert(collection_name=coll, points=points[i : i + upsert_chunk])
         return len(points)
     except Exception as e:
         logger.debug(f"Eidetic batch path unavailable ({e}); falling back to per-finding embed")
 
     # Fallback: sequential per-finding via the injected embed_eidetic_fn.
     for f, finding_text, content_hash in valid:
-        impact = f.get('impact')
+        impact = f.get("impact")
         base_confidence = float(impact) if impact else 0.6
         try:
             success = embed_eidetic_fn(
                 project_id=project_id,
-                fact_id=f.get('id', content_hash),
-                content=finding_text, fact_type="fact",
-                domain=f.get('subject'),
-                source_sessions=[f.get('session_id')] if f.get('session_id') else None,
-                source_findings=[f.get('id')] if f.get('id') else None,
+                fact_id=f.get("id", content_hash),
+                content=finding_text,
+                fact_type="fact",
+                domain=f.get("subject"),
+                source_sessions=[f.get("session_id")] if f.get("session_id") else None,
+                source_findings=[f.get("id")] if f.get("id") else None,
                 confidence=base_confidence,
-                tags=[f.get('subject')] if f.get('subject') else None,
+                tags=[f.get("subject")] if f.get("subject") else None,
             )
             if success:
                 eidetic_count += 1
@@ -376,7 +440,7 @@ def handle_project_embed_command(args):
         project_id = args.project_id
         context_project = R.project_path()
         root = context_project if context_project else os.getcwd()
-        sync_global = getattr(args, 'global_sync', False)
+        sync_global = getattr(args, "global_sync", False)
 
         init_collections(project_id)
         if sync_global:
@@ -386,7 +450,7 @@ def handle_project_embed_command(args):
         db = SessionDatabase(db_path=db_path)
 
         idx = _load_semantic_index(root)
-        docs_cfg = idx.get('index', {})
+        docs_cfg = idx.get("index", {})
         docs_to_upsert, did = _prepare_docs_from_semantic_index(root, docs_cfg)
         _append_reference_docs(db, project_id, docs_to_upsert, did)
         upsert_docs(project_id, docs_to_upsert)
@@ -404,30 +468,37 @@ def handle_project_embed_command(args):
             from pathlib import Path
 
             from empirica.core.qdrant.code_embeddings import embed_project_code
+
             code_root = Path(root)
             if _has_indexed_python_files(docs_cfg) and code_root.is_dir():
                 code_result = embed_project_code(project_id, code_root)
-                code_embedded = code_result.get('modules_embedded', 0)
+                code_embedded = code_result.get("modules_embedded", 0)
         except Exception as e:
             logger.debug(f"Code embedding skipped: {e}")
 
         global_synced = 0
         if sync_global:
-            min_impact = getattr(args, 'min_impact', 0.7)
+            min_impact = getattr(args, "min_impact", 0.7)
             global_synced = sync_high_impact_to_global(project_id, min_impact)
 
         result = {
-            'ok': True, 'docs': len(docs_to_upsert), 'memory': len(mem_items),
-            'eidetic': eidetic_count, 'code_api': code_embedded,
-            'breakdown': {
-                'findings': len(findings), 'unknowns': len(unknowns),
-                'mistakes': len(mistakes), 'dead_ends': len(dead_ends),
-                'lessons': len(lessons), 'snapshots': len(snapshots)
+            "ok": True,
+            "docs": len(docs_to_upsert),
+            "memory": len(mem_items),
+            "eidetic": eidetic_count,
+            "code_api": code_embedded,
+            "breakdown": {
+                "findings": len(findings),
+                "unknowns": len(unknowns),
+                "mistakes": len(mistakes),
+                "dead_ends": len(dead_ends),
+                "lessons": len(lessons),
+                "snapshots": len(snapshots),
             },
-            'global_synced': global_synced if sync_global else None
+            "global_synced": global_synced if sync_global else None,
         }
 
-        if getattr(args, 'output', 'default') == 'json':
+        if getattr(args, "output", "default") == "json":
             print(json.dumps(result, indent=2))
         else:
             msg = f"✅ Embedded docs: {len(docs_to_upsert)} | memory: {len(mem_items)}"
@@ -438,5 +509,5 @@ def handle_project_embed_command(args):
 
         return result
     except Exception as e:
-        handle_cli_error(e, "Project embed", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Project embed", getattr(args, "verbose", False))
         return None

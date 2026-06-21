@@ -17,6 +17,7 @@ from datetime import datetime, timezone  # type: ignore[reportAttributeAccessIss
 @dataclass
 class SigningIdentityConfig:
     """Configuration for persona's cryptographic identity (Phase 2 integration)"""
+
     user_id: str
     identity_name: str
     public_key: str
@@ -26,6 +27,7 @@ class SigningIdentityConfig:
         """Convert to dictionary representation."""
         return asdict(self)
 
+
 @dataclass
 class EpistemicConfig:
     """Epistemic configuration for a persona"""
@@ -34,20 +36,19 @@ class EpistemicConfig:
     priors: dict[str, float]
 
     # Decision thresholds
-    thresholds: dict[str, float] = field(default_factory=lambda: {
-        "uncertainty_trigger": 0.4,
-        "confidence_to_proceed": 0.75,
-        "signal_quality_min": 0.6,
-        "engagement_gate": 0.6
-    })
+    thresholds: dict[str, float] = field(
+        default_factory=lambda: {
+            "uncertainty_trigger": 0.4,
+            "confidence_to_proceed": 0.75,
+            "signal_quality_min": 0.6,
+            "engagement_gate": 0.6,
+        }
+    )
 
     # Tier weights (must sum to 1.0)
-    weights: dict[str, float] = field(default_factory=lambda: {
-        "foundation": 0.35,
-        "comprehension": 0.25,
-        "execution": 0.25,
-        "engagement": 0.15
-    })
+    weights: dict[str, float] = field(
+        default_factory=lambda: {"foundation": 0.35, "comprehension": 0.25, "execution": 0.25, "engagement": 0.15}
+    )
 
     # Focus domains (areas of expertise)
     focus_domains: list[str] = field(default_factory=list)
@@ -56,9 +57,19 @@ class EpistemicConfig:
         """Validate epistemic config"""
         # Validate priors has all 13 vectors
         required_vectors = [
-            "engagement", "know", "do", "context",
-            "clarity", "coherence", "signal", "density",
-            "state", "change", "completion", "impact", "uncertainty"
+            "engagement",
+            "know",
+            "do",
+            "context",
+            "clarity",
+            "coherence",
+            "signal",
+            "density",
+            "state",
+            "change",
+            "completion",
+            "impact",
+            "uncertainty",
         ]
 
         for vector in required_vectors:
@@ -78,9 +89,11 @@ class EpistemicConfig:
         """Convert to dictionary representation."""
         return asdict(self)
 
+
 @dataclass
 class CapabilitiesConfig:
     """What this persona can/cannot do"""
+
     can_spawn_subpersonas: bool = False
     can_call_external_tools: bool = True
     can_modify_code: bool = True
@@ -93,20 +106,24 @@ class CapabilitiesConfig:
         """Convert to dictionary representation."""
         return asdict(self)
 
+
 @dataclass
 class EscalationTrigger:
     """Condition that triggers Sentinel intervention"""
+
     condition: str  # e.g., "uncertainty > 0.8"
-    action: str     # notify, pause, handoff, escalate, terminate
+    action: str  # notify, pause, handoff, escalate, terminate
     priority: str = "medium"  # low, medium, high, critical
 
     def to_dict(self) -> dict:
         """Convert to dictionary representation."""
         return asdict(self)
 
+
 @dataclass
 class SentinelConfig:
     """How Sentinel should manage this persona"""
+
     reporting_frequency: str = "per_phase"  # per_phase, per_round, on_completion, realtime
     escalation_triggers: list[EscalationTrigger] = field(default_factory=list)
     timeout_minutes: int = 60
@@ -117,12 +134,14 @@ class SentinelConfig:
         """Convert sentinel config to dictionary representation."""
         result = asdict(self)
         # Convert escalation triggers
-        result['escalation_triggers'] = [t.to_dict() for t in self.escalation_triggers]
+        result["escalation_triggers"] = [t.to_dict() for t in self.escalation_triggers]
         return result
+
 
 @dataclass
 class PersonaMetadata:
     """Metadata about the persona"""
+
     created_by: str | None = None
     created_at: str | None = None
     modified_at: str | None = None
@@ -142,6 +161,7 @@ class PersonaMetadata:
     def to_dict(self) -> dict:
         """Convert to dictionary representation."""
         return asdict(self)
+
 
 @dataclass
 class PersonaProfile:
@@ -209,16 +229,19 @@ class PersonaProfile:
         """Validate persona profile"""
         # Validate persona_id format
         import re
-        if not re.match(r'^[a-z0-9_-]+$', self.persona_id):
+
+        if not re.match(r"^[a-z0-9_-]+$", self.persona_id):
             raise ValueError(f"persona_id must be lowercase alphanumeric with _ or -, got: {self.persona_id}")
 
         # Validate version format (semver)
-        if not re.match(r'^\d+\.\d+\.\d+$', self.version):
+        if not re.match(r"^\d+\.\d+\.\d+$", self.version):
             raise ValueError(f"version must be semantic version (x.y.z), got: {self.version}")
 
         # Validate public key format (64 hex chars for Ed25519)
-        if not re.match(r'^[0-9a-f]{64}$', self.signing_identity.public_key):
-            raise ValueError(f"public_key must be 64 hex chars (Ed25519), got length: {len(self.signing_identity.public_key)}")
+        if not re.match(r"^[0-9a-f]{64}$", self.signing_identity.public_key):
+            raise ValueError(
+                f"public_key must be 64 hex chars (Ed25519), got length: {len(self.signing_identity.public_key)}"
+            )
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization"""
@@ -230,54 +253,48 @@ class PersonaProfile:
             "epistemic_config": self.epistemic_config.to_dict(),
             "capabilities": self.capabilities.to_dict(),
             "sentinel_config": self.sentinel_config.to_dict(),
-            "metadata": self.metadata.to_dict()
+            "metadata": self.metadata.to_dict(),
         }
 
     @classmethod
-    def _parse_sentinel_config(cls, sentinel_data: dict) -> 'SentinelConfig':
+    def _parse_sentinel_config(cls, sentinel_data: dict) -> "SentinelConfig":
         """Parse sentinel config from dictionary"""
         # Extract escalation_triggers separately to avoid double-pass
-        escalation_triggers = [
-            EscalationTrigger(**t)
-            for t in sentinel_data.get('escalation_triggers', [])
-        ]
+        escalation_triggers = [EscalationTrigger(**t) for t in sentinel_data.get("escalation_triggers", [])]
 
         # Remove from dict to avoid passing twice
         sentinel_data_copy = sentinel_data.copy()
-        sentinel_data_copy.pop('escalation_triggers', None)
+        sentinel_data_copy.pop("escalation_triggers", None)
 
-        return SentinelConfig(
-            **sentinel_data_copy,
-            escalation_triggers=escalation_triggers
-        )
+        return SentinelConfig(**sentinel_data_copy, escalation_triggers=escalation_triggers)
 
     @classmethod
-    def from_dict(cls, data: dict) -> 'PersonaProfile':
+    def from_dict(cls, data: dict) -> "PersonaProfile":
         """Load persona profile from dictionary"""
         return cls(
-            persona_id=data['persona_id'],
-            name=data['name'],
-            version=data['version'],
-            signing_identity=SigningIdentityConfig(**data['signing_identity']),
-            epistemic_config=EpistemicConfig(**data['epistemic_config']),
-            capabilities=CapabilitiesConfig(**data.get('capabilities', {})),
-            sentinel_config=cls._parse_sentinel_config(data.get('sentinel_config', {})),
-            metadata=PersonaMetadata(**data.get('metadata', {}))
+            persona_id=data["persona_id"],
+            name=data["name"],
+            version=data["version"],
+            signing_identity=SigningIdentityConfig(**data["signing_identity"]),
+            epistemic_config=EpistemicConfig(**data["epistemic_config"]),
+            capabilities=CapabilitiesConfig(**data.get("capabilities", {})),
+            sentinel_config=cls._parse_sentinel_config(data.get("sentinel_config", {})),
+            metadata=PersonaMetadata(**data.get("metadata", {})),
         )
 
     def get_type(self) -> str:
         """Get persona type based on focus domains"""
         domains = self.epistemic_config.focus_domains
 
-        if any(d in domains for d in ['security', 'vulnerabilities', 'threats']):
-            return 'security'
-        elif any(d in domains for d in ['usability', 'ux', 'accessibility']):
-            return 'ux'
-        elif any(d in domains for d in ['performance', 'optimization', 'latency']):
-            return 'performance'
-        elif any(d in domains for d in ['architecture', 'patterns', 'design']):
-            return 'architecture'
-        elif any(d in domains for d in ['code', 'review', 'quality']):
-            return 'code_review'
+        if any(d in domains for d in ["security", "vulnerabilities", "threats"]):
+            return "security"
+        elif any(d in domains for d in ["usability", "ux", "accessibility"]):
+            return "ux"
+        elif any(d in domains for d in ["performance", "optimization", "latency"]):
+            return "performance"
+        elif any(d in domains for d in ["architecture", "patterns", "design"]):
+            return "architecture"
+        elif any(d in domains for d in ["code", "review", "quality"]):
+            return "code_review"
         else:
-            return 'general'
+            return "general"

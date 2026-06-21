@@ -108,13 +108,10 @@ def save_registry(registry: dict[str, Any], path: Path | None = None) -> None:
     }
 
     # Atomic write: tempfile in same dir → rename.
-    tmp_fd, tmp_path = tempfile.mkstemp(
-        prefix=".registry-", suffix=".yaml.tmp", dir=str(p.parent)
-    )
+    tmp_fd, tmp_path = tempfile.mkstemp(prefix=".registry-", suffix=".yaml.tmp", dir=str(p.parent))
     try:
         with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
-            yaml.dump(payload, f, default_flow_style=False, sort_keys=False,
-                      allow_unicode=True)
+            yaml.dump(payload, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
         os.replace(tmp_path, p)
     except Exception:
         # Clean up tempfile on failure
@@ -213,8 +210,7 @@ def dedupe_registry(
             if e is not survivor:
                 removed.append(e)
                 logger.info(
-                    f"registry: legacy-only group at {raw_path!r}, kept "
-                    f"{survivor.get('project_id')!r} by last_seen"
+                    f"registry: legacy-only group at {raw_path!r}, kept {survivor.get('project_id')!r} by last_seen"
                 )
 
     deduped = {

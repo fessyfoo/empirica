@@ -68,10 +68,7 @@ def _build_insufficient_evidence_response(
     grounded_coverage: float,
     reason: str,
     status: str = "insufficient_evidence",
-    note: str = (
-        "Insufficient grounded evidence to compute calibration. "
-        "Self-assessment stands."
-    ),
+    note: str = ("Insufficient grounded evidence to compute calibration. Self-assessment stands."),
 ) -> dict:
     """Build the calibration response for insufficient-evidence cases.
 
@@ -86,38 +83,39 @@ def _build_insufficient_evidence_response(
     operations in _run_single_phase_verification.
     """
     return {
-        'verification_id': None,
-        'phase': phase,
-        'evidence_count': len(bundle.items) if bundle else 0,
-        'sources': bundle.sources_available if bundle else [],
-        'sources_failed': bundle.sources_failed if bundle else [],
-        'sources_empty': getattr(bundle, 'sources_empty', []) if bundle else [],
-        'source_errors': getattr(bundle, 'source_errors', {}) if bundle else {},
-        'grounded_coverage': round(grounded_coverage, 2),
-        'calibration_score': None,
-        'holistic_calibration_score': None,
-        'calibration_status': status,
-        'reason': reason,
-        'evidence_summary': {
-            'sources': {},
-            'signals': [],
-            'coverage': round(grounded_coverage, 2),
-            'evidence_count': len(bundle.items) if bundle else 0,
+        "verification_id": None,
+        "phase": phase,
+        "evidence_count": len(bundle.items) if bundle else 0,
+        "sources": bundle.sources_available if bundle else [],
+        "sources_failed": bundle.sources_failed if bundle else [],
+        "sources_empty": getattr(bundle, "sources_empty", []) if bundle else [],
+        "source_errors": getattr(bundle, "source_errors", {}) if bundle else {},
+        "grounded_coverage": round(grounded_coverage, 2),
+        "calibration_score": None,
+        "holistic_calibration_score": None,
+        "calibration_status": status,
+        "reason": reason,
+        "evidence_summary": {
+            "sources": {},
+            "signals": [],
+            "coverage": round(grounded_coverage, 2),
+            "evidence_count": len(bundle.items) if bundle else 0,
         },
-        '_internal_gaps': {},
-        '_internal_updates': {},
+        "_internal_gaps": {},
+        "_internal_updates": {},
         # Backward compatibility aliases
-        'gaps': {},
-        'updates': {},
-        'insufficient_evidence_vectors': sorted(vectors.keys()),
-        'self_assessed': dict(vectors),
-        'note': note,
+        "gaps": {},
+        "updates": {},
+        "insufficient_evidence_vectors": sorted(vectors.keys()),
+        "self_assessed": dict(vectors),
+        "note": note,
     }
 
 
 @dataclass
 class GroundedBelief:
     """A Bayesian belief grounded in objective evidence."""
+
     vector_name: str
     mean: float
     variance: float
@@ -145,9 +143,19 @@ class GroundedCalibrationManager:
     OBSERVATION_VARIANCE = 0.05
 
     TRACKED_VECTORS: ClassVar[list[str]] = [
-        'engagement', 'know', 'do', 'context',
-        'clarity', 'coherence', 'signal', 'density',
-        'state', 'change', 'completion', 'impact', 'uncertainty'
+        "engagement",
+        "know",
+        "do",
+        "context",
+        "clarity",
+        "coherence",
+        "signal",
+        "density",
+        "state",
+        "change",
+        "completion",
+        "impact",
+        "uncertainty",
     ]
 
     def __init__(self, db):
@@ -158,14 +166,17 @@ class GroundedCalibrationManager:
         """Get current grounded beliefs for an AI, most recent per vector."""
         cursor = self.conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT vector_name, mean, variance, evidence_count,
                    last_observation, last_observation_source,
                    self_referential_mean, divergence, last_updated
             FROM grounded_beliefs
             WHERE ai_id = ?
             ORDER BY last_updated DESC
-        """, (ai_id,))
+        """,
+            (ai_id,),
+        )
 
         beliefs = {}
         seen = set()
@@ -217,8 +228,8 @@ class GroundedCalibrationManager:
             for row in cursor.fetchall():
                 if row[0] not in disputed:
                     disputed[row[0]] = {
-                        'expected': row[1],
-                        'reported': row[2],
+                        "expected": row[1],
+                        "reported": row[2],
                     }
             return disputed
         except Exception:
@@ -280,15 +291,11 @@ class GroundedCalibrationManager:
             if is_disputed:
                 obs_var *= 4.0
                 logger.debug(
-                    f"Vector '{vector_name}' has open dispute — "
-                    f"observation variance increased 4x to {obs_var:.4f}"
+                    f"Vector '{vector_name}' has open dispute — observation variance increased 4x to {obs_var:.4f}"
                 )
 
             # Bayesian update
-            posterior_mean = (
-                (prior_var * estimate.estimated_value + obs_var * prior_mean)
-                / (prior_var + obs_var)
-            )
+            posterior_mean = (prior_var * estimate.estimated_value + obs_var * prior_mean) / (prior_var + obs_var)
             posterior_var = 1.0 / (1.0 / prior_var + 1.0 / obs_var)
             new_evidence_count = evidence_count + estimate.evidence_count
 
@@ -300,7 +307,8 @@ class GroundedCalibrationManager:
 
             # Store
             belief_id = str(uuid.uuid4())
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO grounded_beliefs (
                     belief_id, session_id, ai_id, vector_name,
                     mean, variance, evidence_count,
@@ -308,25 +316,34 @@ class GroundedCalibrationManager:
                     self_referential_mean, divergence, last_updated,
                     phase
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                belief_id, session_id, ai_id, vector_name,
-                posterior_mean, posterior_var, new_evidence_count,
-                estimate.estimated_value, estimate.primary_source,
-                self_val, divergence,
-                datetime.now().timestamp(),
-                phase,
-            ))
+            """,
+                (
+                    belief_id,
+                    session_id,
+                    ai_id,
+                    vector_name,
+                    posterior_mean,
+                    posterior_var,
+                    new_evidence_count,
+                    estimate.estimated_value,
+                    estimate.primary_source,
+                    self_val,
+                    divergence,
+                    datetime.now().timestamp(),
+                    phase,
+                ),
+            )
 
             updates[vector_name] = {
-                'prior_mean': prior_mean,
-                'prior_variance': prior_var,
-                'observation': estimate.estimated_value,
-                'observation_source': estimate.primary_source,
-                'posterior_mean': posterior_mean,
-                'posterior_variance': posterior_var,
-                'evidence_count': new_evidence_count,
-                'self_assessed': self_val,
-                'divergence': divergence,
+                "prior_mean": prior_mean,
+                "prior_variance": prior_var,
+                "observation": estimate.estimated_value,
+                "observation_source": estimate.primary_source,
+                "posterior_mean": posterior_mean,
+                "posterior_variance": posterior_var,
+                "evidence_count": new_evidence_count,
+                "self_assessed": self_val,
+                "divergence": divergence,
             }
 
         self.conn.commit()
@@ -342,24 +359,27 @@ class GroundedCalibrationManager:
 
         for item in bundle.items:
             evidence_id = str(uuid.uuid4())
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO verification_evidence (
                     evidence_id, session_id, source, metric_name,
                     raw_value, normalized_value, quality,
                     supports_vectors, collected_at, metadata
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                evidence_id,
-                bundle.session_id,
-                item.source,
-                item.metric_name,
-                json.dumps(item.raw_value),
-                item.value,
-                item.quality.value,
-                json.dumps(item.supports_vectors),
-                bundle.collection_timestamp,
-                json.dumps(item.metadata) if item.metadata else None,
-            ))
+            """,
+                (
+                    evidence_id,
+                    bundle.session_id,
+                    item.source,
+                    item.metric_name,
+                    json.dumps(item.raw_value),
+                    item.value,
+                    item.quality.value,
+                    json.dumps(item.supports_vectors),
+                    bundle.collection_timestamp,
+                    json.dumps(item.metadata) if item.metadata else None,
+                ),
+            )
             stored += 1
 
         self.conn.commit()
@@ -389,10 +409,10 @@ class GroundedCalibrationManager:
         grounded_data = {}
         for name, est in assessment.grounded.items():
             grounded_data[name] = {
-                'value': est.estimated_value,
-                'confidence': est.confidence,
-                'evidence_count': est.evidence_count,
-                'source': est.primary_source,
+                "value": est.estimated_value,
+                "confidence": est.confidence,
+                "evidence_count": est.evidence_count,
+                "source": est.primary_source,
             }
 
         verification_id = str(uuid.uuid4())
@@ -401,11 +421,12 @@ class GroundedCalibrationManager:
         # to call "grounded"). grounded_rationale stores AI's reasoning.
         # criticality + compliance_status from the assessment's A3 fields.
         observed_json = json.dumps(grounded_data)
-        grounded_rationale = getattr(assessment, 'grounded_rationale', None)
-        criticality = getattr(assessment, 'criticality', None)
-        compliance_status = getattr(assessment, 'calibration_status', 'grounded')
+        grounded_rationale = getattr(assessment, "grounded_rationale", None)
+        criticality = getattr(assessment, "criticality", None)
+        compliance_status = getattr(assessment, "calibration_status", "grounded")
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO grounded_verifications (
                 verification_id, session_id, ai_id,
                 self_assessed_vectors, grounded_vectors, calibration_gaps,
@@ -414,26 +435,28 @@ class GroundedCalibrationManager:
                 domain, goal_id, phase,
                 observed_vectors, grounded_rationale, criticality, compliance_status
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            verification_id,
-            session_id,
-            ai_id,
-            json.dumps(assessment.self_assessed),
-            json.dumps(grounded_data),  # legacy column — keeps working
-            json.dumps(assessment.calibration_gaps),
-            assessment.grounded_coverage,
-            assessment.overall_calibration_score,
-            len(bundle.items),
-            json.dumps(bundle.sources_available),
-            json.dumps(bundle.sources_failed),
-            domain,
-            goal_id,
-            phase,
-            observed_json,      # A3: new column with correct name
-            grounded_rationale, # B3: AI's reasoning
-            criticality,        # A3: domain criticality
-            compliance_status,  # A3: compliance loop state
-        ))
+        """,
+            (
+                verification_id,
+                session_id,
+                ai_id,
+                json.dumps(assessment.self_assessed),
+                json.dumps(grounded_data),  # legacy column — keeps working
+                json.dumps(assessment.calibration_gaps),
+                assessment.grounded_coverage,
+                assessment.overall_calibration_score,
+                len(bundle.items),
+                json.dumps(bundle.sources_available),
+                json.dumps(bundle.sources_failed),
+                domain,
+                goal_id,
+                phase,
+                observed_json,  # A3: new column with correct name
+                grounded_rationale,  # B3: AI's reasoning
+                criticality,  # A3: domain criticality
+                compliance_status,  # A3: compliance loop state
+            ),
+        )
 
         self.conn.commit()
         return verification_id
@@ -461,12 +484,12 @@ class GroundedCalibrationManager:
             g_ec = grounded.evidence_count if grounded and isinstance(grounded.evidence_count, (int, float)) else 0
             if self_ref and grounded and g_ec > 0:
                 divergence[vector] = {
-                    'self_referential_mean': self_ref.mean,
-                    'grounded_mean': grounded.mean,
-                    'gap': round(self_ref.mean - grounded.mean, 4),
-                    'self_ref_evidence': self_ref.evidence_count,
-                    'grounded_evidence': grounded.evidence_count,
-                    'grounded_variance': grounded.variance,
+                    "self_referential_mean": self_ref.mean,
+                    "grounded_mean": grounded.mean,
+                    "gap": round(self_ref.mean - grounded.mean, 4),
+                    "self_ref_evidence": self_ref.evidence_count,
+                    "grounded_evidence": grounded.evidence_count,
+                    "grounded_variance": grounded.variance,
                 }
 
         return divergence
@@ -482,6 +505,7 @@ class GroundedCalibrationManager:
         adjustments = {}
 
         from ..bayesian_beliefs import BayesianBeliefManager
+
         max_correction = BayesianBeliefManager.MAX_CORRECTION_MAGNITUDE
 
         for vector, belief in beliefs.items():
@@ -496,8 +520,19 @@ class GroundedCalibrationManager:
 
         return adjustments
 
-    def _build_grounded_yaml(self, ai_id, beliefs, adjustments, divergence, total_evidence, coverage,
-                             phase_weights, holistic_calibration_score, holistic_gaps, insights):
+    def _build_grounded_yaml(
+        self,
+        ai_id,
+        beliefs,
+        adjustments,
+        divergence,
+        total_evidence,
+        coverage,
+        phase_weights,
+        holistic_calibration_score,
+        holistic_gaps,
+        insights,
+    ):
         """Build the YAML block for grounded calibration export."""
         timestamp = datetime.now().isoformat()
         lines = [
@@ -507,19 +542,21 @@ class GroundedCalibrationManager:
             "# fully measure holistic epistemic state. Use alongside self-assessment,\n",
             "# not as a replacement. See dual-track calibration philosophy in docs.\n",
             "grounded_calibration:\n",
-            f'  last_updated: "{timestamp}"\n', f"  ai_id: {ai_id}\n",
-            f"  observations: {total_evidence}\n", f"  grounded_coverage: {coverage:.2f}\n",
+            f'  last_updated: "{timestamp}"\n',
+            f"  ai_id: {ai_id}\n",
+            f"  observations: {total_evidence}\n",
+            f"  grounded_coverage: {coverage:.2f}\n",
         ]
         if divergence:
             lines.append("  divergence:\n")
-            for vector, data in sorted(divergence.items(), key=lambda x: abs(x[1]['gap']), reverse=True):
-                sign = '+' if data['gap'] >= 0 else ''
+            for vector, data in sorted(divergence.items(), key=lambda x: abs(x[1]["gap"]), reverse=True):
+                sign = "+" if data["gap"] >= 0 else ""
                 lines.append(f"    {vector}: {sign}{data['gap']:.2f}\n")
         lines.append(f"  ungrounded: [{', '.join(sorted(UNGROUNDABLE_VECTORS))}]\n")
         if adjustments:
             lines.append("  grounded_bias_corrections:\n")
             for vector, adj in sorted(adjustments.items(), key=lambda x: abs(x[1]), reverse=True):
-                sign = '+' if adj >= 0 else ''
+                sign = "+" if adj >= 0 else ""
                 lines.append(f"    {vector}: {sign}{adj:.2f}\n")
         if phase_weights:
             lines.append("  phase_weights:\n")
@@ -531,25 +568,32 @@ class GroundedCalibrationManager:
         if holistic_gaps:
             lines.append("  holistic_gaps:\n")
             for vector, gap in sorted(holistic_gaps.items(), key=lambda x: abs(x[1]), reverse=True):
-                sign = '+' if gap >= 0 else ''
+                sign = "+" if gap >= 0 else ""
                 lines.append(f"    {vector}: {sign}{gap:.4f}\n")
         if insights:
             lines.append("  insights:\n")
             for insight in insights[:5]:
-                _get = (lambda k, _i=insight: _i.get(k, '')) if isinstance(insight, dict) else (lambda k, _i=insight: getattr(_i, k, ''))
+                _get = (
+                    (lambda k, _i=insight: _i.get(k, ""))
+                    if isinstance(insight, dict)
+                    else (lambda k, _i=insight: getattr(_i, k, ""))
+                )
                 lines.append(f"    - vector: {_get('vector')}\n")
                 lines.append(f"      phase: {_get('phase')}\n")
                 lines.append(f"      pattern: {_get('pattern')}\n")
-                sev = _get('severity')
-                lines.append(f"      severity: {sev:.2f}\n" if isinstance(sev, (int, float)) else f"      severity: {sev}\n")
-                lines.append(f"      description: \"{_get('description')}\"\n")
-                lines.append(f"      suggestion: \"{_get('suggestion')}\"\n")
-        return ''.join(lines)
+                sev = _get("severity")
+                lines.append(
+                    f"      severity: {sev:.2f}\n" if isinstance(sev, (int, float)) else f"      severity: {sev}\n"
+                )
+                lines.append(f'      description: "{_get("description")}"\n')
+                lines.append(f'      suggestion: "{_get("suggestion")}"\n')
+        return "".join(lines)
 
     @staticmethod
     def _replace_yaml_section(breadcrumbs_path, yaml_block):
         """Replace or append the grounded_calibration section in breadcrumbs file."""
         import os
+
         try:
             existing_lines = []
             if os.path.exists(breadcrumbs_path):
@@ -559,13 +603,13 @@ class GroundedCalibrationManager:
             section_end = -1
             in_section = False
             for i, line in enumerate(existing_lines):
-                if '# Grounded calibration' in line and section_start == -1:
+                if "# Grounded calibration" in line and section_start == -1:
                     section_start = i
-                elif line.strip().startswith('grounded_calibration:'):
+                elif line.strip().startswith("grounded_calibration:"):
                     if section_start == -1:
                         section_start = i
                     in_section = True
-                elif in_section and line.strip() and not line.startswith(' ') and not line.startswith('\t'):
+                elif in_section and line.strip() and not line.startswith(" ") and not line.startswith("\t"):
                     section_end = i
                     break
             if in_section and section_end == -1:
@@ -576,7 +620,7 @@ class GroundedCalibrationManager:
                 new_lines = existing_lines + [yaml_block]
             else:
                 new_lines = [yaml_block]
-            with open(breadcrumbs_path, 'w') as f:
+            with open(breadcrumbs_path, "w") as f:
                 f.writelines(new_lines)
             return True
         except Exception as e:
@@ -604,8 +648,10 @@ class GroundedCalibrationManager:
         if not git_root:
             try:
                 result = subprocess.run(
-                    ['git', 'rev-parse', '--show-toplevel'],
-                    capture_output=True, text=True, timeout=5,
+                    ["git", "rev-parse", "--show-toplevel"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
                 )
                 if result.returncode == 0:
                     git_root = result.stdout.strip()
@@ -614,7 +660,7 @@ class GroundedCalibrationManager:
             except Exception:
                 return False
 
-        breadcrumbs_path = os.path.join(git_root, '.breadcrumbs.yaml')
+        breadcrumbs_path = os.path.join(git_root, ".breadcrumbs.yaml")
 
         beliefs = self.get_grounded_beliefs(ai_id)
         adjustments = self.get_grounded_adjustments(ai_id)
@@ -631,17 +677,21 @@ class GroundedCalibrationManager:
             return False
 
         # Compute grounded coverage (fraction of vectors with evidence)
-        grounded_count = sum(
-            1 for b in beliefs.values()
-            if _safe_ec(b) > 0
-        )
-        coverage = grounded_count / len(
-            [v for v in self.TRACKED_VECTORS if v not in UNGROUNDABLE_VECTORS]
-        )
+        grounded_count = sum(1 for b in beliefs.values() if _safe_ec(b) > 0)
+        coverage = grounded_count / len([v for v in self.TRACKED_VECTORS if v not in UNGROUNDABLE_VECTORS])
 
         yaml_block = self._build_grounded_yaml(
-            ai_id, beliefs, adjustments, divergence, total_evidence, coverage,
-            phase_weights, holistic_calibration_score, holistic_gaps, insights)
+            ai_id,
+            beliefs,
+            adjustments,
+            divergence,
+            total_evidence,
+            coverage,
+            phase_weights,
+            holistic_calibration_score,
+            holistic_gaps,
+            insights,
+        )
         return self._replace_yaml_section(breadcrumbs_path, yaml_block)
 
 
@@ -673,10 +723,7 @@ def _run_single_phase_verification(
             vectors=vectors,
             bundle=None,
             grounded_coverage=0.0,
-            reason=(
-                "work_type=remote-ops: local Sentinel has no signal "
-                "for this work by declaration"
-            ),
+            reason=("work_type=remote-ops: local Sentinel has no signal for this work by declaration"),
             status="ungrounded_remote_ops",
             note="Remote work by declaration. Self-assessment stands.",
         )
@@ -722,7 +769,10 @@ def _run_single_phase_verification(
 
     mapper = EvidenceMapper()
     assessment = mapper.map_evidence(
-        bundle, vectors, phase=phase, domain=domain or "default",
+        bundle,
+        vectors,
+        phase=phase,
+        domain=domain or "default",
         per_vector_weights=per_vector_weights,
         work_type=work_type,
     )
@@ -740,6 +790,7 @@ def _run_single_phase_verification(
     effective_coverage = assessment.grounded_coverage  # default: use raw
     try:
         from empirica.core.post_test.mapper import _load_domain_weights
+
         config = _load_domain_weights(domain or "default", work_type=work_type)
         cat_weights = config["category_weights"]
         vector_map = config["vector_category_map"]
@@ -763,9 +814,9 @@ def _run_single_phase_verification(
             # Single-category coverage is risky even if high-weight — apply
             # breadth penalty to require evidence across multiple categories.
             categories_covered = sum(
-                1 for cat in ("foundation", "comprehension", "execution", "meta")
-                if any(v in grounded_vectors for v in
-                       [v2 for v2, c in vector_map.items() if c == cat])
+                1
+                for cat in ("foundation", "comprehension", "execution", "meta")
+                if any(v in grounded_vectors for v in [v2 for v2, c in vector_map.items() if c == cat])
             )
             breadth_factor = categories_covered / 4.0  # 1 cat = 0.25, 2 = 0.50, etc.
             effective_coverage = (covered_weight / total_weight) * breadth_factor
@@ -784,8 +835,7 @@ def _run_single_phase_verification(
             bundle=bundle,
             grounded_coverage=effective_coverage,
             reason=(
-                f"grounded_coverage {assessment.grounded_coverage:.2f} < "
-                f"threshold {INSUFFICIENT_EVIDENCE_THRESHOLD}"
+                f"grounded_coverage {assessment.grounded_coverage:.2f} < threshold {INSUFFICIENT_EVIDENCE_THRESHOLD}"
             ),
         )
 
@@ -794,47 +844,53 @@ def _run_single_phase_verification(
 
     manager.store_evidence(bundle)
     verification_id = manager.store_verification(
-        session_id, assessment, bundle,
-        domain=domain, goal_id=goal_id, phase=phase,
+        session_id,
+        assessment,
+        bundle,
+        domain=domain,
+        goal_id=goal_id,
+        phase=phase,
     )
 
     from .trajectory_tracker import TrajectoryTracker
+
     tracker = TrajectoryTracker(db)
     tracker.record_trajectory_point(
-        session_id, assessment,
-        domain=domain, goal_id=goal_id, phase=phase,
+        session_id,
+        assessment,
+        domain=domain,
+        goal_id=goal_id,
+        phase=phase,
     )
 
     return {
-        'verification_id': verification_id,
-        'phase': phase,
-        'evidence_count': len(bundle.items),
-        'sources': bundle.sources_available,
-        'sources_failed': bundle.sources_failed,
-        'sources_empty': getattr(bundle, 'sources_empty', []),
-        'source_errors': getattr(bundle, 'source_errors', {}),
-        'grounded_coverage': round(assessment.grounded_coverage, 2),
-        'calibration_score': assessment.overall_calibration_score,
-        'calibration_status': 'grounded',
-        'evidence_summary': evidence_summary,
+        "verification_id": verification_id,
+        "phase": phase,
+        "evidence_count": len(bundle.items),
+        "sources": bundle.sources_available,
+        "sources_failed": bundle.sources_failed,
+        "sources_empty": getattr(bundle, "sources_empty", []),
+        "source_errors": getattr(bundle, "source_errors", {}),
+        "grounded_coverage": round(assessment.grounded_coverage, 2),
+        "calibration_score": assessment.overall_calibration_score,
+        "calibration_status": "grounded",
+        "evidence_summary": evidence_summary,
         # Internal fields: kept for storage/trajectory/embedding consumers
         # but prefixed with underscore to signal they're not the primary
         # calibration output the AI should attend to. The AI sees
         # evidence_summary (structured raw evidence + signals) instead.
-        '_internal_bundle': bundle,
-        '_internal_gaps': assessment.calibration_gaps,
-        '_internal_updates': {
+        "_internal_bundle": bundle,
+        "_internal_gaps": assessment.calibration_gaps,
+        "_internal_updates": {
             v: {
-                'observation': u['observation'],
-                'self_assessed': u['self_assessed'],
-                'divergence': u['divergence'],
+                "observation": u["observation"],
+                "self_assessed": u["self_assessed"],
+                "divergence": u["divergence"],
             }
             for v, u in updates.items()
         },
         # Vectors the instrument couldn't sample for this work_type.
-        'insufficient_evidence_vectors': getattr(
-            assessment, 'insufficient_evidence_vectors', []
-        ) or [],
+        "insufficient_evidence_vectors": getattr(assessment, "insufficient_evidence_vectors", []) or [],
     }
 
 
@@ -849,24 +905,24 @@ def _compute_phase_weights(
     Weights sum to 1.0. Floor of 0.1 for any phase with evidence.
     """
     if not phase_tool_counts or not results:
-        return {'noetic': 0.5, 'praxic': 0.5, 'source': 'default'}
+        return {"noetic": 0.5, "praxic": 0.5, "source": "default"}
 
-    noetic_calls = phase_tool_counts.get('noetic_tool_calls', 0)
-    praxic_calls = phase_tool_counts.get('praxic_tool_calls', 0)
+    noetic_calls = phase_tool_counts.get("noetic_tool_calls", 0)
+    praxic_calls = phase_tool_counts.get("praxic_tool_calls", 0)
     total = noetic_calls + praxic_calls
 
     if total == 0:
-        return {'noetic': 0.5, 'praxic': 0.5, 'source': 'no_tool_data'}
+        return {"noetic": 0.5, "praxic": 0.5, "source": "no_tool_data"}
 
-    if phase_boundary and phase_boundary.get('noetic_only'):
-        return {'noetic': 1.0, 'praxic': 0.0, 'source': 'noetic_only'}
+    if phase_boundary and phase_boundary.get("noetic_only"):
+        return {"noetic": 1.0, "praxic": 0.0, "source": "noetic_only"}
 
     noetic_w = noetic_calls / total
     praxic_w = praxic_calls / total
 
     # Floor: minimum 0.1 weight for any phase that has evidence
-    has_noetic_evidence = 'noetic' in results
-    has_praxic_evidence = 'praxic' in results
+    has_noetic_evidence = "noetic" in results
+    has_praxic_evidence = "praxic" in results
 
     if has_noetic_evidence and noetic_w < 0.1:
         noetic_w = 0.1
@@ -875,24 +931,29 @@ def _compute_phase_weights(
         praxic_w = 0.1
         noetic_w = 0.9
 
-    return {'noetic': round(noetic_w, 4), 'praxic': round(praxic_w, 4), 'source': 'tool_classification'}
+    return {"noetic": round(noetic_w, 4), "praxic": round(praxic_w, 4), "source": "tool_classification"}
 
 
 def _compute_holistic_calibration(results: dict, phase_weights: dict) -> tuple:
     """Compute holistic calibration score and gaps from grounded phase results."""
-    grounded_results = {p: r for p, r in results.items() if r.get('calibration_status', 'grounded') == 'grounded'}
-    if len(grounded_results) >= 2 and 'noetic' in grounded_results and 'praxic' in grounded_results:
-        nw, pw = phase_weights['noetic'], phase_weights['praxic']
-        score = round(nw * (grounded_results['noetic'].get('calibration_score') or 0) +
-                       pw * (grounded_results['praxic'].get('calibration_score') or 0), 4)
-        noetic_gaps = grounded_results['noetic'].get('_internal_gaps', {}) or {}
-        praxic_gaps = grounded_results['praxic'].get('_internal_gaps', {}) or {}
-        gaps = {v: round(nw * noetic_gaps.get(v, 0) + pw * praxic_gaps.get(v, 0), 4)
-                for v in set(noetic_gaps) | set(praxic_gaps)}
+    grounded_results = {p: r for p, r in results.items() if r.get("calibration_status", "grounded") == "grounded"}
+    if len(grounded_results) >= 2 and "noetic" in grounded_results and "praxic" in grounded_results:
+        nw, pw = phase_weights["noetic"], phase_weights["praxic"]
+        score = round(
+            nw * (grounded_results["noetic"].get("calibration_score") or 0)
+            + pw * (grounded_results["praxic"].get("calibration_score") or 0),
+            4,
+        )
+        noetic_gaps = grounded_results["noetic"].get("_internal_gaps", {}) or {}
+        praxic_gaps = grounded_results["praxic"].get("_internal_gaps", {}) or {}
+        gaps = {
+            v: round(nw * noetic_gaps.get(v, 0) + pw * praxic_gaps.get(v, 0), 4)
+            for v in set(noetic_gaps) | set(praxic_gaps)
+        }
         return score, gaps
     elif len(grounded_results) == 1:
         only = next(iter(grounded_results.values()))
-        return (only.get('calibration_score') or 0), (only.get('_internal_gaps', {}) or {})
+        return (only.get("calibration_score") or 0), (only.get("_internal_gaps", {}) or {})
     return None, {}
 
 
@@ -906,15 +967,15 @@ def _merge_phase_evidence_summaries(
     """
     merged_evidence: dict[str, Any] = {}
     for _phase_name, phase_result in results.items():
-        phase_evidence = phase_result.get('evidence_summary', {})
-        for source, data in phase_evidence.get('sources', {}).items():
+        phase_evidence = phase_result.get("evidence_summary", {})
+        for source, data in phase_evidence.get("sources", {}).items():
             if source not in merged_evidence:
                 merged_evidence[source] = {}
             merged_evidence[source].update(data)
 
     merged_signals: list[str] = []
     for _phase_name, phase_result in results.items():
-        for signal in phase_result.get('evidence_summary', {}).get('signals', []):
+        for signal in phase_result.get("evidence_summary", {}).get("signals", []):
             if signal not in merged_signals:
                 merged_signals.append(signal)
 
@@ -943,28 +1004,34 @@ def _compute_epistemic_provenance(db, transaction_id: str | None) -> dict[str, A
             'ratio': 'all_intuition' | 'all_search' | 'mixed' | 'untagged' | 'no_data',
         }
     """
-    counts = {'intuition': 0, 'search': 0, 'mixed': 0, 'untagged': 0}
-    if not transaction_id or not db or not getattr(db, 'conn', None):
+    counts = {"intuition": 0, "search": 0, "mixed": 0, "untagged": 0}
+    if not transaction_id or not db or not getattr(db, "conn", None):
         return {
-            'intuition_artifacts': 0, 'search_artifacts': 0,
-            'mixed_artifacts': 0, 'untagged_artifacts': 0,
-            'total_artifacts': 0, 'ratio': 'no_data',
+            "intuition_artifacts": 0,
+            "search_artifacts": 0,
+            "mixed_artifacts": 0,
+            "untagged_artifacts": 0,
+            "total_artifacts": 0,
+            "ratio": "no_data",
         }
 
     artifact_tables = (
-        'project_findings', 'project_unknowns', 'project_dead_ends',
-        'mistakes_made', 'assumptions', 'decisions',
+        "project_findings",
+        "project_unknowns",
+        "project_dead_ends",
+        "mistakes_made",
+        "assumptions",
+        "decisions",
     )
     cursor = db.conn.cursor()
     for table in artifact_tables:
         try:
             cursor.execute(
-                f"SELECT epistemic_source, COUNT(*) FROM {table} "
-                f"WHERE transaction_id = ? GROUP BY epistemic_source",
+                f"SELECT epistemic_source, COUNT(*) FROM {table} WHERE transaction_id = ? GROUP BY epistemic_source",
                 (transaction_id,),
             )
             for src, n in cursor.fetchall():
-                key = src if src in ('intuition', 'search', 'mixed') else 'untagged'
+                key = src if src in ("intuition", "search", "mixed") else "untagged"
                 counts[key] += n
         except Exception:
             # Table may lack the epistemic_source column on pre-040 DBs;
@@ -973,24 +1040,24 @@ def _compute_epistemic_provenance(db, transaction_id: str | None) -> dict[str, A
 
     total = sum(counts.values())
     if total == 0:
-        ratio = 'no_data'
-    elif counts['untagged'] == total:
-        ratio = 'untagged'
-    elif counts['intuition'] == total - counts['untagged'] and counts['intuition'] > 0:
+        ratio = "no_data"
+    elif counts["untagged"] == total:
+        ratio = "untagged"
+    elif counts["intuition"] == total - counts["untagged"] and counts["intuition"] > 0:
         # All tagged artifacts are intuition (untagged ones don't count as evidence)
-        ratio = 'all_intuition'
-    elif counts['search'] == total - counts['untagged'] and counts['search'] > 0:
-        ratio = 'all_search'
+        ratio = "all_intuition"
+    elif counts["search"] == total - counts["untagged"] and counts["search"] > 0:
+        ratio = "all_search"
     else:
-        ratio = 'mixed'
+        ratio = "mixed"
 
     return {
-        'intuition_artifacts': counts['intuition'],
-        'search_artifacts': counts['search'],
-        'mixed_artifacts': counts['mixed'],
-        'untagged_artifacts': counts['untagged'],
-        'total_artifacts': total,
-        'ratio': ratio,
+        "intuition_artifacts": counts["intuition"],
+        "search_artifacts": counts["search"],
+        "mixed_artifacts": counts["mixed"],
+        "untagged_artifacts": counts["untagged"],
+        "total_artifacts": total,
+        "ratio": ratio,
     }
 
 
@@ -1025,8 +1092,7 @@ def _build_calibration_reflection(
     # Discipline: source coverage
     if sources_failed:
         discipline_notes.append(
-            f"Evidence sources failed: {', '.join(sources_failed)} — "
-            "these couldn't contribute data this transaction"
+            f"Evidence sources failed: {', '.join(sources_failed)} — these couldn't contribute data this transaction"
         )
 
     # Assessment: note which phases had insufficient evidence
@@ -1047,14 +1113,12 @@ def _build_calibration_reflection(
                 "most vectors have no independent evidence this transaction"
             )
         elif coverage > 0.7:
-            assessment_notes.append(
-                f"{phase_name} phase: good evidence coverage ({coverage:.0%})"
-            )
+            assessment_notes.append(f"{phase_name} phase: good evidence coverage ({coverage:.0%})")
 
     # Insights from CalibrationInsightsAnalyzer (chronic patterns)
     for insight in insights:
-        suggestion = getattr(insight, 'suggestion', None) or (
-            insight.get('suggestion') if isinstance(insight, dict) else None
+        suggestion = getattr(insight, "suggestion", None) or (
+            insight.get("suggestion") if isinstance(insight, dict) else None
         )
         if suggestion:
             assessment_notes.append(suggestion)
@@ -1063,18 +1127,18 @@ def _build_calibration_reflection(
     # as a discipline note when the pattern is informative. v0 is
     # visibility-only — no routing rule.
     prov = epistemic_provenance or {}
-    if prov.get('total_artifacts', 0) > 0:
-        ratio = prov.get('ratio', 'no_data')
-        intuit = prov.get('intuition_artifacts', 0)
-        untag = prov.get('untagged_artifacts', 0)
-        if ratio == 'all_intuition' and intuit >= 2:
+    if prov.get("total_artifacts", 0) > 0:
+        ratio = prov.get("ratio", "no_data")
+        intuit = prov.get("intuition_artifacts", 0)
+        untag = prov.get("untagged_artifacts", 0)
+        if ratio == "all_intuition" and intuit >= 2:
             assessment_notes.append(
                 f"epistemic provenance: {intuit} intuition-tagged artifact(s), "
                 f"0 search-tagged — vectors asserted from training/loaded context, "
                 "no external retrieval since the goal opened. If claims are high, "
                 "consider noetic work to ground them."
             )
-        elif ratio == 'untagged' and untag >= 3:
+        elif ratio == "untagged" and untag >= 3:
             discipline_notes.append(
                 f"epistemic provenance: {untag} artifact(s) untagged — "
                 "use --epistemic-source {intuition|search|mixed} so the "
@@ -1110,13 +1174,13 @@ def _build_verification_summary(
     verification_ids = []
 
     for phase_name, phase_result in results.items():
-        total_evidence += phase_result['evidence_count']
-        all_sources.extend(phase_result['sources'])
-        all_failed.extend(phase_result['sources_failed'])
-        verification_ids.append(phase_result['verification_id'])
-        for v, gap in phase_result.get('_internal_gaps', {}).items():
+        total_evidence += phase_result["evidence_count"]
+        all_sources.extend(phase_result["sources"])
+        all_failed.extend(phase_result["sources_failed"])
+        verification_ids.append(phase_result["verification_id"])
+        for v, gap in phase_result.get("_internal_gaps", {}).items():
             all_gaps[f"{phase_name}:{v}"] = gap
-        for v, u in phase_result.get('_internal_updates', {}).items():
+        for v, u in phase_result.get("_internal_updates", {}).items():
             all_updates[f"{phase_name}:{v}"] = u
 
     # Merge evidence summaries from all phases
@@ -1151,40 +1215,44 @@ def _build_verification_summary(
 
     # Build calibration reflection — narrative for the AI to learn from
     reflection = _build_calibration_reflection(
-        results, merged_signals, all_sources, all_failed,
-        total_evidence, calibration_insights,
+        results,
+        merged_signals,
+        all_sources,
+        all_failed,
+        total_evidence,
+        calibration_insights,
         epistemic_provenance=epistemic_provenance,
     )
 
     return {
         # === AI-facing output ===
-        'evidence_summary': {
-            'sources': merged_evidence,
-            'signals': merged_signals,
-            'evidence_count': total_evidence,
+        "evidence_summary": {
+            "sources": merged_evidence,
+            "signals": merged_signals,
+            "evidence_count": total_evidence,
         },
-        'calibration_reflection': reflection,
-        'evidence_count': total_evidence,
-        'sources': list(set(all_sources)),
-        'sources_failed': list(set(all_failed)),
+        "calibration_reflection": reflection,
+        "evidence_count": total_evidence,
+        "sources": list(set(all_sources)),
+        "sources_failed": list(set(all_failed)),
         # === Metadata (structural, not scores) ===
-        'verification_ids': verification_ids,
-        'phase_aware': phase_boundary is not None and phase_boundary.get("has_check", False),
-        'phase_weights': phase_weights,
+        "verification_ids": verification_ids,
+        "phase_aware": phase_boundary is not None and phase_boundary.get("has_check", False),
+        "phase_weights": phase_weights,
         # === Internal storage (NOT for AI optimization) ===
-        '_internal_calibration_score': holistic_calibration_score,
-        '_internal_gaps': all_gaps,
-        '_internal_updates': all_updates,
-        '_internal_holistic_gaps': holistic_gaps,
-        '_internal_phases': results,
-        '_internal_insights': [
+        "_internal_calibration_score": holistic_calibration_score,
+        "_internal_gaps": all_gaps,
+        "_internal_updates": all_updates,
+        "_internal_holistic_gaps": holistic_gaps,
+        "_internal_phases": results,
+        "_internal_insights": [
             {
-                'vector': i.vector,
-                'phase': i.phase,
-                'pattern': i.pattern,
-                'severity': i.severity,
-                'description': i.description,
-                'suggestion': i.suggestion,
+                "vector": i.vector,
+                "phase": i.phase,
+                "pattern": i.pattern,
+                "severity": i.severity,
+                "description": i.description,
+                "suggestion": i.suggestion,
             }
             for i in calibration_insights
         ],
@@ -1195,6 +1263,7 @@ def _run_calibration_insights(db, session_id: str) -> list:
     """Run calibration insights analysis (non-fatal on failure)."""
     try:
         from empirica.core.post_test.calibration_insights import CalibrationInsightsAnalyzer
+
         analyzer = CalibrationInsightsAnalyzer(db, session_id, lookback=10)
         insights = analyzer.analyze()
         if insights:
@@ -1249,15 +1318,18 @@ def run_grounded_verification(
             noetic_self = {k: v for k, v in check_vectors.items() if v is not None}
 
             # Extract phase-specific Tier 2 weights
-            noetic_weights = (per_vector_weights or {}).get('noetic')
-            praxic_weights = (per_vector_weights or {}).get('praxic')
+            noetic_weights = (per_vector_weights or {}).get("noetic")
+            praxic_weights = (per_vector_weights or {}).get("praxic")
 
             if noetic_self:
                 noetic_result = _run_single_phase_verification(
-                    session_id, noetic_self, db,
+                    session_id,
+                    noetic_self,
+                    db,
                     phase="noetic",
                     project_id=project_id,
-                    domain=domain, goal_id=goal_id,
+                    domain=domain,
+                    goal_id=goal_id,
                     check_timestamp=check_ts,
                     evidence_profile=evidence_profile,
                     work_context=work_context,
@@ -1272,10 +1344,13 @@ def run_grounded_verification(
             # Praxic: only if not noetic-only (had a proceed CHECK)
             if not noetic_only:
                 praxic_result = _run_single_phase_verification(
-                    session_id, postflight_vectors, db,
+                    session_id,
+                    postflight_vectors,
+                    db,
                     phase="praxic",
                     project_id=project_id,
-                    domain=domain, goal_id=goal_id,
+                    domain=domain,
+                    goal_id=goal_id,
                     check_timestamp=check_ts,
                     evidence_profile=evidence_profile,
                     work_context=work_context,
@@ -1289,12 +1364,15 @@ def run_grounded_verification(
         else:
             # No phase boundary — combined mode (backward-compatible)
             # Use praxic weights as best default for combined mode
-            combined_weights = (per_vector_weights or {}).get('praxic')
+            combined_weights = (per_vector_weights or {}).get("praxic")
             combined_result = _run_single_phase_verification(
-                session_id, postflight_vectors, db,
+                session_id,
+                postflight_vectors,
+                db,
                 phase="combined",
                 project_id=project_id,
-                domain=domain, goal_id=goal_id,
+                domain=domain,
+                goal_id=goal_id,
                 evidence_profile=evidence_profile,
                 work_context=work_context,
                 work_type=work_type,
@@ -1308,7 +1386,9 @@ def run_grounded_verification(
             return None
 
         return _build_verification_summary(
-            results, session_id, db,
+            results,
+            session_id,
+            db,
             phase_boundary=phase_boundary,
             phase_tool_counts=phase_tool_counts,
             transaction_id=transaction_id,
@@ -1316,11 +1396,13 @@ def run_grounded_verification(
 
     except Exception as e:
         import traceback as _tb
+
         tb_str = _tb.format_exc()
         logger.warning(f"Grounded verification failed (non-fatal): {e}")
         logger.warning(f"Traceback:\n{tb_str}")
         try:
             from pathlib import Path as _P
+
             crash_log = _P.home() / ".empirica" / "grounded_verification_error.log"
             crash_log.parent.mkdir(parents=True, exist_ok=True)
             with open(crash_log, "w") as _f:

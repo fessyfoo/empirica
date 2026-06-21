@@ -12,38 +12,25 @@ def add_edit_verification_parsers(subparsers):
 
     # edit-with-confidence command - metacognitive edit guard
     edit_confidence_parser = subparsers.add_parser(
-        'edit-with-confidence',
-        help='Edit file with metacognitive confidence assessment (prevents 80%% of edit failures)'
+        "edit-with-confidence",
+        help="Edit file with metacognitive confidence assessment (prevents 80%% of edit failures)",
     )
     edit_confidence_parser.add_argument(
-        '--file-path',
-        required=True,
-        help=format_help_text('Path to file to edit', required=True)
+        "--file-path", required=True, help=format_help_text("Path to file to edit", required=True)
     )
     edit_confidence_parser.add_argument(
-        '--old-str',
-        required=True,
-        help=format_help_text('String to replace (exact match)', required=True)
+        "--old-str", required=True, help=format_help_text("String to replace (exact match)", required=True)
     )
     edit_confidence_parser.add_argument(
-        '--new-str',
-        required=True,
-        help=format_help_text('Replacement string', required=True)
+        "--new-str", required=True, help=format_help_text("Replacement string", required=True)
     )
     edit_confidence_parser.add_argument(
-        '--context-source',
-        choices=['view_output', 'fresh_read', 'memory'],
-        default='memory',
-        help=format_help_text('Source of context (affects confidence assessment)', default='memory')
+        "--context-source",
+        choices=["view_output", "fresh_read", "memory"],
+        default="memory",
+        help=format_help_text("Source of context (affects confidence assessment)", default="memory"),
     )
     edit_confidence_parser.add_argument(
-        '--output',
-        choices=['human', 'json'],
-        default='json',
-        help=format_help_text('Output format', default='json')
+        "--output", choices=["human", "json"], default="json", help=format_help_text("Output format", default="json")
     )
-    edit_confidence_parser.add_argument(
-        '--verbose',
-        action='store_true',
-        help='Show detailed operation info'
-    )
+    edit_confidence_parser.add_argument("--verbose", action="store_true", help="Show detailed operation info")

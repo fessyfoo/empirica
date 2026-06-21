@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 def _get_db():
     from empirica.api.app import get_db
+
     return get_db()
 
 
@@ -33,9 +34,7 @@ def project_stats():
         findings_count = (db.adapter.fetchone() or {}).get("cnt", 0)
 
         # Count unknowns (unresolved)
-        db.adapter.execute(
-            "SELECT count(*) as cnt FROM project_unknowns WHERE is_resolved = FALSE"
-        )
+        db.adapter.execute("SELECT count(*) as cnt FROM project_unknowns WHERE is_resolved = FALSE")
         unknowns_count = (db.adapter.fetchone() or {}).get("cnt", 0)
 
         # Count dead ends
@@ -54,17 +53,19 @@ def project_stats():
         db.adapter.execute("SELECT count(*) as cnt FROM sessions")
         sessions_count = (db.adapter.fetchone() or {}).get("cnt", 0)
 
-        return jsonify({
-            "ok": True,
-            "stats": {
-                "findings": findings_count,
-                "unknowns": unknowns_count,
-                "dead_ends": dead_ends_count,
-                "mistakes": mistakes_count,
-                "goals": goals_count,
-                "sessions": sessions_count
+        return jsonify(
+            {
+                "ok": True,
+                "stats": {
+                    "findings": findings_count,
+                    "unknowns": unknowns_count,
+                    "dead_ends": dead_ends_count,
+                    "mistakes": mistakes_count,
+                    "goals": goals_count,
+                    "sessions": sessions_count,
+                },
             }
-        })
+        )
 
     except Exception as e:
         logger.error(f"Error getting project stats: {e}")
@@ -87,24 +88,26 @@ def project_findings():
         db.adapter.execute(
             "SELECT id, finding, impact, subject, created_timestamp "
             "FROM project_findings ORDER BY created_timestamp DESC LIMIT ?",
-            (limit,)
+            (limit,),
         )
         rows = db.adapter.fetchall()
 
-        return jsonify({
-            "ok": True,
-            "findings": [
-                {
-                    "id": r["id"],
-                    "finding": r["finding"],
-                    "impact": r.get("impact", 0.5),
-                    "subject": r.get("subject"),
-                    "timestamp": r.get("created_timestamp")
-                }
-                for r in rows
-            ],
-            "total": len(rows)
-        })
+        return jsonify(
+            {
+                "ok": True,
+                "findings": [
+                    {
+                        "id": r["id"],
+                        "finding": r["finding"],
+                        "impact": r.get("impact", 0.5),
+                        "subject": r.get("subject"),
+                        "timestamp": r.get("created_timestamp"),
+                    }
+                    for r in rows
+                ],
+                "total": len(rows),
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error getting findings: {e}")
@@ -122,23 +125,25 @@ def project_unknowns():
             "SELECT id, unknown, subject, is_resolved, created_timestamp "
             "FROM project_unknowns WHERE is_resolved = FALSE "
             "ORDER BY created_timestamp DESC LIMIT ?",
-            (limit,)
+            (limit,),
         )
         rows = db.adapter.fetchall()
 
-        return jsonify({
-            "ok": True,
-            "unknowns": [
-                {
-                    "id": r["id"],
-                    "unknown": r["unknown"],
-                    "subject": r.get("subject"),
-                    "timestamp": r.get("created_timestamp")
-                }
-                for r in rows
-            ],
-            "total": len(rows)
-        })
+        return jsonify(
+            {
+                "ok": True,
+                "unknowns": [
+                    {
+                        "id": r["id"],
+                        "unknown": r["unknown"],
+                        "subject": r.get("subject"),
+                        "timestamp": r.get("created_timestamp"),
+                    }
+                    for r in rows
+                ],
+                "total": len(rows),
+            }
+        )
 
     except Exception as e:
         logger.error(f"Error getting unknowns: {e}")
@@ -162,59 +167,75 @@ def project_breadcrumbs():
         db.adapter.execute(
             "SELECT id, finding as text, impact, 'finding' as type, created_timestamp "
             "FROM project_findings ORDER BY created_timestamp DESC LIMIT ?",
-            (limit,)
+            (limit,),
         )
         for r in db.adapter.fetchall():
-            items.append({
-                "id": r["id"], "text": r["text"], "type": "finding",
-                "impact": r.get("impact", 0.5), "timestamp": r["created_timestamp"]
-            })
+            items.append(
+                {
+                    "id": r["id"],
+                    "text": r["text"],
+                    "type": "finding",
+                    "impact": r.get("impact", 0.5),
+                    "timestamp": r["created_timestamp"],
+                }
+            )
 
         # Unknowns
         db.adapter.execute(
             "SELECT id, unknown as text, 'unknown' as type, created_timestamp "
             "FROM project_unknowns WHERE is_resolved = FALSE "
             "ORDER BY created_timestamp DESC LIMIT ?",
-            (limit,)
+            (limit,),
         )
         for r in db.adapter.fetchall():
-            items.append({
-                "id": r["id"], "text": r["text"], "type": "unknown",
-                "impact": 0.5, "timestamp": r["created_timestamp"]
-            })
+            items.append(
+                {
+                    "id": r["id"],
+                    "text": r["text"],
+                    "type": "unknown",
+                    "impact": 0.5,
+                    "timestamp": r["created_timestamp"],
+                }
+            )
 
         # Dead ends
         db.adapter.execute(
             "SELECT id, approach as text, 'dead_end' as type, created_timestamp "
             "FROM project_dead_ends ORDER BY created_timestamp DESC LIMIT ?",
-            (limit,)
+            (limit,),
         )
         for r in db.adapter.fetchall():
-            items.append({
-                "id": r["id"], "text": r["text"], "type": "dead_end",
-                "impact": 0.5, "timestamp": r["created_timestamp"]
-            })
+            items.append(
+                {
+                    "id": r["id"],
+                    "text": r["text"],
+                    "type": "dead_end",
+                    "impact": 0.5,
+                    "timestamp": r["created_timestamp"],
+                }
+            )
 
         # Mistakes
         db.adapter.execute(
             "SELECT id, mistake as text, 'mistake' as type, created_timestamp "
             "FROM mistakes_made ORDER BY created_timestamp DESC LIMIT ?",
-            (limit,)
+            (limit,),
         )
         for r in db.adapter.fetchall():
-            items.append({
-                "id": r["id"], "text": r["text"], "type": "mistake",
-                "impact": 0.5, "timestamp": r["created_timestamp"]
-            })
+            items.append(
+                {
+                    "id": r["id"],
+                    "text": r["text"],
+                    "type": "mistake",
+                    "impact": 0.5,
+                    "timestamp": r["created_timestamp"],
+                }
+            )
 
         # Sort by timestamp, most recent first
         items.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
 
-        return jsonify({
-            "ok": True,
-            "breadcrumbs": items[:limit],
-            "total": len(items)
-        })
+        return jsonify({"ok": True, "breadcrumbs": items[:limit], "total": len(items)})
 
     except Exception as e:
         logger.error(f"Error getting breadcrumbs: {e}")

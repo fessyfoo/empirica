@@ -22,6 +22,7 @@ def handle_serve_command(args):
     # Fail-closed: never expose the entity-mint endpoint unauthenticated. A
     # non-loopback bind requires a configured service-token set.
     from empirica.api.entity_mint_auth import assert_bind_safe
+
     try:
         assert_bind_safe(host)
     except RuntimeError as e:

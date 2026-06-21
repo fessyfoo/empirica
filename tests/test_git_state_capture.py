@@ -1,6 +1,7 @@
 """
 Test git state capture in checkpoints (Phase 2.5)
 """
+
 import subprocess
 
 import pytest
@@ -37,17 +38,13 @@ class TestGitStateCapture:
             session_id="test-git-state-session",
             enable_git_notes=True,
             base_log_dir=str(git_repo / ".empirica_reflex_logs"),
-            git_repo_path=str(git_repo)
+            git_repo_path=str(git_repo),
         )
 
     def test_checkpoint_includes_git_state(self, logger, git_repo):
         """Test that checkpoints include git_state field"""
         # Create checkpoint
-        logger.add_checkpoint(
-            "PREFLIGHT",
-            1,
-            {"know": 0.6, "do": 0.7, "context": 0.8}
-        )
+        logger.add_checkpoint("PREFLIGHT", 1, {"know": 0.6, "do": 0.7, "context": 0.8})
 
         # Retrieve checkpoint
         checkpoint = logger.get_last_checkpoint()
@@ -61,12 +58,7 @@ class TestGitStateCapture:
     def test_git_state_captures_head_commit(self, logger, git_repo):
         """Test that git_state captures current HEAD commit"""
         # Get current HEAD
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            capture_output=True,
-            text=True,
-            cwd=git_repo
-        )
+        result = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, cwd=git_repo)
         expected_head = result.stdout.strip()
 
         # Create checkpoint
@@ -84,11 +76,7 @@ class TestGitStateCapture:
         # Make a commit
         (git_repo / "feature.py").write_text("# New feature\n")
         subprocess.run(["git", "add", "."], cwd=git_repo, check=True)
-        subprocess.run(
-            ["git", "commit", "-m", "feat: add feature"],
-            cwd=git_repo,
-            check=True
-        )
+        subprocess.run(["git", "commit", "-m", "feat: add feature"], cwd=git_repo, check=True)
 
         # Second checkpoint
         logger.add_checkpoint("CHECK", 1, {"know": 0.7})
@@ -159,11 +147,7 @@ class TestGitStateCapture:
         for i in range(3):
             (git_repo / f"file{i}.py").write_text(f"# File {i}\n")
             subprocess.run(["git", "add", f"file{i}.py"], cwd=git_repo, check=True)
-            subprocess.run(
-                ["git", "commit", "-m", f"feat: add file{i}"],
-                cwd=git_repo,
-                check=True
-            )
+            subprocess.run(["git", "commit", "-m", f"feat: add file{i}"], cwd=git_repo, check=True)
 
         logger.add_checkpoint("ACT", 1, {"know": 0.9})
         checkpoint = logger.get_last_checkpoint()

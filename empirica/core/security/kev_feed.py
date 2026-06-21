@@ -118,8 +118,6 @@ class KEVFeed:
             "total_entries": len(data.get("vulnerabilities", [])),
             "cache_path": str(self.cache_path),
             "cache_age_hours": (
-                (time.time() - self.cache_path.stat().st_mtime) / 3600
-                if self.cache_path.exists()
-                else None
+                (time.time() - self.cache_path.stat().st_mtime) / 3600 if self.cache_path.exists() else None
             ),
         }

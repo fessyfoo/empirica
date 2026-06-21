@@ -34,7 +34,7 @@ class EditConfidenceAssessor:
         old_str: str,
         context_source: str = "memory",
         last_read_turn: int | None = None,
-        current_turn: int | None = None
+        current_turn: int | None = None,
     ) -> dict[str, float]:
         """
         Assess confidence for an edit operation.
@@ -56,9 +56,7 @@ class EditConfidenceAssessor:
                 "overall": float       # Aggregate confidence
             }
         """
-        context = self._assess_context_freshness(
-            file_path, context_source, last_read_turn, current_turn
-        )
+        context = self._assess_context_freshness(file_path, context_source, last_read_turn, current_turn)
 
         uncertainty = self._assess_whitespace_confidence(old_str, context_source)
 
@@ -74,7 +72,7 @@ class EditConfidenceAssessor:
             "uncertainty": uncertainty,
             "signal": signal,
             "clarity": clarity,
-            "overall": overall
+            "overall": overall,
         }
 
     def recommend_strategy(self, assessment: dict[str, float]) -> tuple[str, str]:
@@ -94,51 +92,38 @@ class EditConfidenceAssessor:
 
         # Low confidence: re-read first
         if overall < self.confidence_threshold_fallback:
-            return (
-                "re_read_first",
-                f"Low confidence ({overall:.2f}) - file context may be stale or pattern ambiguous"
-            )
+            return ("re_read_first", f"Low confidence ({overall:.2f}) - file context may be stale or pattern ambiguous")
 
         # Stale context: re-read
         if context < 0.60:
             return (
                 "re_read_first",
-                f"Stale context ({context:.2f}) - file read {self._context_age_description(context)}"
+                f"Stale context ({context:.2f}) - file read {self._context_age_description(context)}",
             )
 
         # High whitespace uncertainty: use bash
         if uncertainty > 0.50:
             return (
                 "bash_fallback",
-                f"High whitespace uncertainty ({uncertainty:.2f}) - safer to use line-based replacement"
+                f"High whitespace uncertainty ({uncertainty:.2f}) - safer to use line-based replacement",
             )
 
         # Ambiguous pattern: use bash with line numbers
         if signal < 0.60:
-            return (
-                "bash_fallback",
-                f"Ambiguous pattern match ({signal:.2f}) - use line-based replacement for safety"
-            )
+            return ("bash_fallback", f"Ambiguous pattern match ({signal:.2f}) - use line-based replacement for safety")
 
         # High confidence: atomic edit
         if overall >= self.confidence_threshold_atomic:
             return (
                 "atomic_edit",
-                f"High confidence ({overall:.2f}) - fresh context, clear pattern, confident whitespace"
+                f"High confidence ({overall:.2f}) - fresh context, clear pattern, confident whitespace",
             )
 
         # Medium confidence: bash fallback (safer)
-        return (
-            "bash_fallback",
-            f"Medium confidence ({overall:.2f}) - use bash fallback for reliability"
-        )
+        return ("bash_fallback", f"Medium confidence ({overall:.2f}) - use bash fallback for reliability")
 
     def _assess_context_freshness(
-        self,
-        file_path: str,
-        context_source: str,
-        last_read_turn: int | None,
-        current_turn: int | None
+        self, file_path: str, context_source: str, last_read_turn: int | None, current_turn: int | None
     ) -> float:
         """
         Assess how recently the file was read.
@@ -173,11 +158,7 @@ class EditConfidenceAssessor:
         else:
             return 0.3
 
-    def _assess_whitespace_confidence(
-        self,
-        old_str: str,
-        context_source: str
-    ) -> float:
+    def _assess_whitespace_confidence(self, old_str: str, context_source: str) -> float:
         """
         Assess uncertainty about exact whitespace match.
 
@@ -219,7 +200,7 @@ class EditConfidenceAssessor:
             0.0: No match (will fail)
         """
         try:
-            with open(file_path, encoding='utf-8') as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
         except (FileNotFoundError, PermissionError, UnicodeDecodeError):
             # Can't read file - assume low confidence
@@ -280,7 +261,7 @@ if __name__ == "__main__":
     assessment1 = assessor.assess(
         file_path="/tmp/test.py",  # noqa: S108 — test harness path
         old_str="def my_function():",
-        context_source="view_output"
+        context_source="view_output",
     )
     strategy1, reason1 = assessor.recommend_strategy(assessment1)
     print("Test 1 - Fresh view, simple string:")
@@ -292,7 +273,7 @@ if __name__ == "__main__":
     assessment2 = assessor.assess(
         file_path="/tmp/test.py",  # noqa: S108 — test harness path
         old_str="    def my_function():\n        return 42",
-        context_source="memory"
+        context_source="memory",
     )
     strategy2, reason2 = assessor.recommend_strategy(assessment2)
     print("Test 2 - Memory, multi-line with indentation:")

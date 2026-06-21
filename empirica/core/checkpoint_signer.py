@@ -55,12 +55,7 @@ class CheckpointSigner:
     and were created by a specific AI identity.
     """
 
-    def __init__(
-        self,
-        ai_id: str,
-        git_repo_path: str | None = None,
-        identity_dir: str | None = None
-    ):
+    def __init__(self, ai_id: str, git_repo_path: str | None = None, identity_dir: str | None = None):
         """
         Initialize checkpoint signer
 
@@ -81,12 +76,7 @@ class CheckpointSigner:
             logger.warning(f"Identity not found for {ai_id}. Create with: empirica identity-create --ai-id {ai_id}")
             raise
 
-    def sign_checkpoint(
-        self,
-        session_id: str,
-        phase: str,
-        round_num: int
-    ) -> dict[str, Any]:
+    def sign_checkpoint(self, session_id: str, phase: str, round_num: int) -> dict[str, Any]:
         """
         Sign a git checkpoint note
 
@@ -121,27 +111,23 @@ class CheckpointSigner:
                 ["git", "rev-parse", f"refs/notes/{checkpoint_ref}"],
                 capture_output=True,
                 text=True,
-                cwd=self.git_repo_path
+                cwd=self.git_repo_path,
             )
 
             if result.returncode != 0:
                 return {
                     "ok": False,
                     "error": "checkpoint_not_found",
-                    "message": f"Checkpoint not found: {checkpoint_ref}"
+                    "message": f"Checkpoint not found: {checkpoint_ref}",
                 }
 
             checkpoint_sha = result.stdout.strip()
 
         except Exception as e:
-            return {
-                "ok": False,
-                "error": "git_error",
-                "message": str(e)
-            }
+            return {"ok": False, "error": "git_error", "message": str(e)}
 
         # Sign the SHA
-        signature = self.identity.sign(checkpoint_sha.encode('utf-8'))
+        signature = self.identity.sign(checkpoint_sha.encode("utf-8"))
         signature_hex = signature.hex()
 
         # Create signature payload
@@ -152,7 +138,7 @@ class CheckpointSigner:
             "ai_id": self.ai_id,
             "public_key": self.identity.public_key_hex(),
             "signed_at": datetime.now(timezone.utc).isoformat(),
-            "version": "1.0"
+            "version": "1.0",
         }
 
         # Store signature in git notes
@@ -160,19 +146,14 @@ class CheckpointSigner:
 
         try:
             result = subprocess.run(
-                ["git", "notes", "--ref", signature_ref, "add", "-f", "-m",
-                 json.dumps(signature_payload), "HEAD"],
+                ["git", "notes", "--ref", signature_ref, "add", "-f", "-m", json.dumps(signature_payload), "HEAD"],
                 capture_output=True,
                 text=True,
-                cwd=self.git_repo_path
+                cwd=self.git_repo_path,
             )
 
             if result.returncode != 0:
-                return {
-                    "ok": False,
-                    "error": "git_notes_error",
-                    "message": result.stderr
-                }
+                return {"ok": False, "error": "git_notes_error", "message": result.stderr}
 
             logger.info(f"✅ Signed checkpoint: {checkpoint_ref} ({checkpoint_sha[:8]})")
 
@@ -184,22 +165,14 @@ class CheckpointSigner:
                 "signature_hex": signature_hex,
                 "signed_at": signature_payload["signed_at"],
                 "ai_id": self.ai_id,
-                "message": "Checkpoint signed successfully"
+                "message": "Checkpoint signed successfully",
             }
 
         except Exception as e:
-            return {
-                "ok": False,
-                "error": "signing_error",
-                "message": str(e)
-            }
+            return {"ok": False, "error": "signing_error", "message": str(e)}
 
     def verify_checkpoint(
-        self,
-        session_id: str,
-        phase: str,
-        round_num: int,
-        public_key_hex: str | None = None
+        self, session_id: str, phase: str, round_num: int, public_key_hex: str | None = None
     ) -> dict[str, Any]:
         """
         Verify a signed checkpoint
@@ -236,24 +209,16 @@ class CheckpointSigner:
                 ["git", "rev-parse", f"refs/notes/{checkpoint_ref}"],
                 capture_output=True,
                 text=True,
-                cwd=self.git_repo_path
+                cwd=self.git_repo_path,
             )
 
             if result.returncode != 0:
-                return {
-                    "ok": False,
-                    "valid": False,
-                    "error": "checkpoint_not_found"
-                }
+                return {"ok": False, "valid": False, "error": "checkpoint_not_found"}
 
             checkpoint_sha = result.stdout.strip()
 
         except Exception as e:
-            return {
-                "ok": False,
-                "valid": False,
-                "error": str(e)
-            }
+            return {"ok": False, "valid": False, "error": str(e)}
 
         # Get signature payload
         try:
@@ -261,7 +226,7 @@ class CheckpointSigner:
                 ["git", "notes", "--ref", signature_ref, "show", "HEAD"],
                 capture_output=True,
                 text=True,
-                cwd=self.git_repo_path
+                cwd=self.git_repo_path,
             )
 
             if result.returncode != 0:
@@ -269,23 +234,15 @@ class CheckpointSigner:
                     "ok": False,
                     "valid": False,
                     "error": "signature_not_found",
-                    "message": f"No signature found for {checkpoint_ref}"
+                    "message": f"No signature found for {checkpoint_ref}",
                 }
 
             signature_payload = json.loads(result.stdout)
 
         except json.JSONDecodeError:
-            return {
-                "ok": False,
-                "valid": False,
-                "error": "invalid_signature_format"
-            }
+            return {"ok": False, "valid": False, "error": "invalid_signature_format"}
         except Exception as e:
-            return {
-                "ok": False,
-                "valid": False,
-                "error": str(e)
-            }
+            return {"ok": False, "valid": False, "error": str(e)}
 
         # Extract signature info
         signature_hex = signature_payload.get("signature")
@@ -302,7 +259,7 @@ class CheckpointSigner:
                 "error": "sha_mismatch",
                 "message": "Checkpoint SHA doesn't match signature",
                 "checkpoint_sha": checkpoint_sha,
-                "signed_sha": stored_checkpoint_sha
+                "signed_sha": stored_checkpoint_sha,
             }
 
         # Use provided public key or extract from signature
@@ -313,20 +270,16 @@ class CheckpointSigner:
                 "ok": False,
                 "valid": False,
                 "error": "no_public_key",
-                "message": "No public key provided for verification"
+                "message": "No public key provided for verification",
             }
 
         # Verify signature
         try:
             signature_bytes = bytes.fromhex(signature_hex)
             public_key_bytes = bytes.fromhex(verify_public_key_hex)
-            message = checkpoint_sha.encode('utf-8')
+            message = checkpoint_sha.encode("utf-8")
 
-            is_valid = AIIdentity.verify(
-                signature=signature_bytes,
-                message=message,
-                public_key_bytes=public_key_bytes
-            )
+            is_valid = AIIdentity.verify(signature=signature_bytes, message=message, public_key_bytes=public_key_bytes)
 
             result = {
                 "ok": True,
@@ -335,7 +288,7 @@ class CheckpointSigner:
                 "checkpoint_sha": checkpoint_sha,
                 "signed_by": signed_by,
                 "signed_at": signed_at,
-                "verified_with": verify_public_key_hex[:16] + "..."
+                "verified_with": verify_public_key_hex[:16] + "...",
             }
 
             if is_valid:
@@ -346,17 +299,9 @@ class CheckpointSigner:
             return result
 
         except Exception as e:
-            return {
-                "ok": False,
-                "valid": False,
-                "error": "verification_error",
-                "message": str(e)
-            }
+            return {"ok": False, "valid": False, "error": "verification_error", "message": str(e)}
 
-    def list_signed_checkpoints(
-        self,
-        session_id: str | None = None
-    ) -> list[dict[str, Any]]:
+    def list_signed_checkpoints(self, session_id: str | None = None) -> list[dict[str, Any]]:
         """
         List all signed checkpoints
 
@@ -380,17 +325,17 @@ class CheckpointSigner:
                 ["git", "for-each-ref", ref_prefix, "--format=%(refname)"],
                 capture_output=True,
                 text=True,
-                cwd=self.git_repo_path
+                cwd=self.git_repo_path,
             )
 
             if result.returncode != 0:
                 return []
 
-            refs = [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
+            refs = [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
 
             for ref in refs:
                 # Parse ref: refs/notes/empirica/signatures/{session_id}/{phase}/{round}
-                ref_parts = ref.split('/')
+                ref_parts = ref.split("/")
                 if len(ref_parts) < 7:
                     continue
 
@@ -404,21 +349,23 @@ class CheckpointSigner:
                     ["git", "notes", "--ref", note_ref, "show", "HEAD"],
                     capture_output=True,
                     text=True,
-                    cwd=self.git_repo_path
+                    cwd=self.git_repo_path,
                 )
 
                 if show_result.returncode == 0:
                     try:
                         signature_payload = json.loads(show_result.stdout)
-                        signatures.append({
-                            "session_id": sig_session_id,
-                            "phase": phase,
-                            "round": int(round_num),
-                            "checkpoint_sha": signature_payload.get("checkpoint_sha"),
-                            "signed_by": signature_payload.get("ai_id"),
-                            "signed_at": signature_payload.get("signed_at"),
-                            "ref": note_ref
-                        })
+                        signatures.append(
+                            {
+                                "session_id": sig_session_id,
+                                "phase": phase,
+                                "round": int(round_num),
+                                "checkpoint_sha": signature_payload.get("checkpoint_sha"),
+                                "signed_by": signature_payload.get("ai_id"),
+                                "signed_at": signature_payload.get("signed_at"),
+                                "ref": note_ref,
+                            }
+                        )
                     except json.JSONDecodeError:
                         continue
 

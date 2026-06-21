@@ -32,8 +32,14 @@ logger = logging.getLogger(__name__)
 # Excludes session/handoff/messages/signatures/tasks/test* — those have
 # different ref structures and aren't per-commit artifacts.
 ARTIFACT_NAMESPACES = (
-    "findings", "decisions", "dead_ends", "mistakes",
-    "unknowns", "assumptions", "goals", "cascades",
+    "findings",
+    "decisions",
+    "dead_ends",
+    "mistakes",
+    "unknowns",
+    "assumptions",
+    "goals",
+    "cascades",
 )
 
 
@@ -41,8 +47,11 @@ def _git(workspace: Path, *args: str, timeout: int = 30) -> tuple[int, str, str]
     """Run a git command and return (rc, stdout, stderr). Never raises."""
     try:
         r = subprocess.run(
-            ["git", *args], cwd=workspace,
-            capture_output=True, text=True, timeout=timeout,
+            ["git", *args],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
         )
         return r.returncode, r.stdout, r.stderr
     except subprocess.TimeoutExpired:
@@ -55,8 +64,7 @@ def _list_refs(workspace: Path) -> list[str]:
     """Enumerate all refs under refs/notes/empirica/<type>/ for tracked types."""
     refs: list[str] = []
     for ns in ARTIFACT_NAMESPACES:
-        rc, out, _ = _git(workspace, "for-each-ref", "--format=%(refname)",
-                          f"refs/notes/empirica/{ns}/")
+        rc, out, _ = _git(workspace, "for-each-ref", "--format=%(refname)", f"refs/notes/empirica/{ns}/")
         if rc == 0:
             refs.extend(r for r in out.strip().split("\n") if r)
     return refs
@@ -150,9 +158,13 @@ def _build_index(workspace: Path, verbose: bool = False) -> dict[str, list[dict]
         commit_sha = _ref_annotated_commit(workspace, ref)
         if not commit_sha:
             continue
-        index.setdefault(commit_sha, []).append({
-            "type": artifact_type, "ref": ref, "artifact_id": artifact_id,
-        })
+        index.setdefault(commit_sha, []).append(
+            {
+                "type": artifact_type,
+                "ref": ref,
+                "artifact_id": artifact_id,
+            }
+        )
         if verbose and i % 500 == 0:
             print(f"[commit-context] {i}/{len(refs)} ({time.time() - t0:.1f}s)", flush=True)
     return index
@@ -181,6 +193,7 @@ def _resolve_targets(workspace: Path, args: argparse.Namespace) -> list[str]:
     if args.session:
         # All commits authored within the Empirica session window.
         from empirica.data.session_database import SessionDatabase
+
         db = SessionDatabase()
         # session_id may be a prefix — expand to full id via a single lookup
         full_sid = args.session
@@ -347,10 +360,16 @@ def _walk_edges(payload: dict, artifact_type: str) -> list[tuple[str, str | None
     return edges
 
 
-def _walk_artifact_tree(workspace: Path, artifact_type: str, artifact_ref: str,
-                        artifact_id: str, depth: int, max_depth: int,
-                        visited: set[str], id_lookup: dict[str, tuple[str, str]],
-                        ) -> dict | None:
+def _walk_artifact_tree(
+    workspace: Path,
+    artifact_type: str,
+    artifact_ref: str,
+    artifact_id: str,
+    depth: int,
+    max_depth: int,
+    visited: set[str],
+    id_lookup: dict[str, tuple[str, str]],
+) -> dict | None:
     """Recursively walk edges from an artifact, returning a tree dict.
 
     Returns: {type, artifact_id, preview, depth, children: [tree...]} or None if cycle.
@@ -378,17 +397,18 @@ def _walk_artifact_tree(workspace: Path, artifact_type: str, artifact_ref: str,
             target = id_lookup.get(to_id) or _resolve_unknown_type_ref(workspace, to_id)
         if not target:
             # Unknown id — record stub so the edge isn't silent
-            node["children"].append({
-                "type": to_type or "unknown",
-                "artifact_id": to_id,
-                "depth": depth + 1,
-                "preview": f"[unresolved · {relation}]",
-                "children": [],
-            })
+            node["children"].append(
+                {
+                    "type": to_type or "unknown",
+                    "artifact_id": to_id,
+                    "depth": depth + 1,
+                    "preview": f"[unresolved · {relation}]",
+                    "children": [],
+                }
+            )
             continue
         target_type, target_ref = target
-        child = _walk_artifact_tree(workspace, target_type, target_ref, to_id,
-                                    depth + 1, max_depth, visited, id_lookup)
+        child = _walk_artifact_tree(workspace, target_type, target_ref, to_id, depth + 1, max_depth, visited, id_lookup)
         if child is not None:
             child["relation"] = relation
             node["children"].append(child)
@@ -408,9 +428,13 @@ def _format_tree(node: dict, indent: int = 0) -> list[str]:
     return lines
 
 
-def _format_commit_block(meta: dict, entries: list[dict], workspace: Path,
-                          depth: int = 0,
-                          id_lookup: dict[str, tuple[str, str]] | None = None) -> list[str]:
+def _format_commit_block(
+    meta: dict,
+    entries: list[dict],
+    workspace: Path,
+    depth: int = 0,
+    id_lookup: dict[str, tuple[str, str]] | None = None,
+) -> list[str]:
     lines: list[str] = []
     short_sha = meta["sha"][:8]
     subject = meta.get("subject", "")
@@ -436,9 +460,7 @@ def _format_commit_block(meta: dict, entries: list[dict], workspace: Path,
             if depth > 0 and id_lookup is not None:
                 # Walk this artifact's edges to depth N
                 visited: set[str] = set()
-                tree = _walk_artifact_tree(workspace, t, e["ref"],
-                                            e["artifact_id"], 0, depth,
-                                            visited, id_lookup)
+                tree = _walk_artifact_tree(workspace, t, e["ref"], e["artifact_id"], 0, depth, visited, id_lookup)
                 if tree and tree.get("children"):
                     for child in tree["children"]:
                         lines.extend(_format_tree(child, indent=0))
@@ -490,17 +512,19 @@ def handle_commit_context_command(args: argparse.Namespace) -> dict:
                 entry["payload"] = _read_note_json(workspace, e["ref"])
             if args.depth > 0:
                 visited: set[str] = set()
-                tree = _walk_artifact_tree(workspace, e["type"], e["ref"],
-                                            e["artifact_id"], 0, args.depth,
-                                            visited, id_lookup)
+                tree = _walk_artifact_tree(
+                    workspace, e["type"], e["ref"], e["artifact_id"], 0, args.depth, visited, id_lookup
+                )
                 if tree:
                     entry["tree"] = tree
             commit_artifacts.append(entry)
-        matches.append({
-            "commit": meta,
-            "artifact_count": len(entries),
-            "artifacts": commit_artifacts,
-        })
+        matches.append(
+            {
+                "commit": meta,
+                "artifact_count": len(entries),
+                "artifacts": commit_artifacts,
+            }
+        )
 
     if args.output == "json":
         return result
@@ -508,16 +532,17 @@ def handle_commit_context_command(args: argparse.Namespace) -> dict:
     # Human output
     total_artifacts = sum(m["artifact_count"] for m in matches)
     matched_commits = sum(1 for m in matches if m["artifact_count"] > 0)
-    print(f"Commit-context: {len(targets)} target commits, "
-          f"{matched_commits} with artifacts, {total_artifacts} artifacts total "
-          f"(index covers {len(index)} commits)")
+    print(
+        f"Commit-context: {len(targets)} target commits, "
+        f"{matched_commits} with artifacts, {total_artifacts} artifacts total "
+        f"(index covers {len(index)} commits)"
+    )
     for sha in targets:
         entries = index.get(sha, [])
         if not entries and args.only_with_artifacts:
             continue
         meta = _commit_meta(workspace, sha)
-        for line in _format_commit_block(meta, entries, workspace,
-                                          depth=args.depth, id_lookup=id_lookup):
+        for line in _format_commit_block(meta, entries, workspace, depth=args.depth, id_lookup=id_lookup):
             print(line)
     # Return None for human mode so cli_core doesn't dump the dict
     return None  # type: ignore[return-value]
@@ -534,14 +559,14 @@ def add_commit_context_parser(subparsers: argparse._SubParsersAction) -> None:
     p.add_argument("--since", help="Date string (e.g. 2026-04-01) — uses git log --since")
     p.add_argument("--until", help="Date string — uses git log --until")
     p.add_argument("--session", help="Empirica session_id prefix — all commits in session window")
-    p.add_argument("--depth", type=int, default=0, metavar="N",
-                   help="Walk artifact graph edges to depth N (default: 0, no walk)")
-    p.add_argument("--full", action="store_true",
-                   help="Include full artifact JSON payloads in output")
-    p.add_argument("--only-with-artifacts", action="store_true",
-                   help="Skip commits that have no notes (human output only)")
-    p.add_argument("--rebuild-index", action="store_true",
-                   help="Force rebuild of the commit→artifact index cache")
+    p.add_argument(
+        "--depth", type=int, default=0, metavar="N", help="Walk artifact graph edges to depth N (default: 0, no walk)"
+    )
+    p.add_argument("--full", action="store_true", help="Include full artifact JSON payloads in output")
+    p.add_argument(
+        "--only-with-artifacts", action="store_true", help="Skip commits that have no notes (human output only)"
+    )
+    p.add_argument("--rebuild-index", action="store_true", help="Force rebuild of the commit→artifact index cache")
     p.add_argument("--output", choices=("human", "json"), default="human")
     p.add_argument("--verbose", action="store_true", help="Show indexing progress")
     p.set_defaults(func=handle_commit_context_command)

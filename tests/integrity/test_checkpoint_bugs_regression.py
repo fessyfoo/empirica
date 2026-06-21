@@ -42,15 +42,13 @@ class TestCheckpointListMethod:
             session_id="test-session",
             enable_git_notes=True,
             base_log_dir=str(tmp_path / ".empirica_reflex_logs"),
-            git_repo_path=str(tmp_path)
+            git_repo_path=str(tmp_path),
         )
 
     def test_list_checkpoints_method_exists(self, git_logger):
         """REGRESSION: Verify list_checkpoints method exists"""
-        assert hasattr(git_logger, 'list_checkpoints'), \
-            "GitEnhancedReflexLogger must have list_checkpoints method"
-        assert callable(git_logger.list_checkpoints), \
-            "list_checkpoints must be callable"
+        assert hasattr(git_logger, "list_checkpoints"), "GitEnhancedReflexLogger must have list_checkpoints method"
+        assert callable(git_logger.list_checkpoints), "list_checkpoints must be callable"
 
     def test_list_checkpoints_empty(self, git_logger):
         """REGRESSION: list_checkpoints returns empty list when no checkpoints"""
@@ -89,7 +87,7 @@ class TestCheckpointListMethod:
             session_id="other-session",
             enable_git_notes=True,
             base_log_dir=str(tmp_path / ".empirica_reflex_logs"),
-            git_repo_path=str(tmp_path)
+            git_repo_path=str(tmp_path),
         )
         other_logger.add_checkpoint("PREFLIGHT", 1, {"know": 0.6})
 
@@ -117,7 +115,7 @@ class TestCheckpointListMethod:
         """REGRESSION: list_checkpoints respects limit parameter"""
         # Create many checkpoints
         for i in range(5):
-            git_logger.add_checkpoint("CHECK", i+1, {"know": 0.5 + i*0.1})
+            git_logger.add_checkpoint("CHECK", i + 1, {"know": 0.5 + i * 0.1})
 
         # List with limit
         checkpoints = git_logger.list_checkpoints(limit=3)
@@ -135,8 +133,9 @@ class TestCheckpointListMethod:
         if len(checkpoints) >= 2:
             # Verify descending timestamp order
             for i in range(len(checkpoints) - 1):
-                assert checkpoints[i]["timestamp"] >= checkpoints[i+1]["timestamp"], \
+                assert checkpoints[i]["timestamp"] >= checkpoints[i + 1]["timestamp"], (
                     "Checkpoints should be sorted newest first"
+                )
 
 
 class TestReflexesTableSchema:
@@ -173,8 +172,7 @@ class TestReflexesTableSchema:
         result = cursor.fetchone()
         conn.close()
 
-        assert result is not None, \
-            "reflexes table must exist in database schema"
+        assert result is not None, "reflexes table must exist in database schema"
         assert result[0] == "reflexes"
 
     def test_reflexes_table_schema(self, db_path):
@@ -197,15 +195,27 @@ class TestReflexesTableSchema:
 
         # Verify essential columns exist
         essential_columns = [
-            "id", "session_id", "phase", "timestamp",
-            "engagement", "know", "do", "context",
-            "clarity", "coherence", "signal", "density",
-            "state", "change", "completion", "impact", "uncertainty"
+            "id",
+            "session_id",
+            "phase",
+            "timestamp",
+            "engagement",
+            "know",
+            "do",
+            "context",
+            "clarity",
+            "coherence",
+            "signal",
+            "density",
+            "state",
+            "change",
+            "completion",
+            "impact",
+            "uncertainty",
         ]
 
         for col in essential_columns:
-            assert col in column_names, \
-                f"reflexes table must have {col} column"
+            assert col in column_names, f"reflexes table must have {col} column"
 
     def test_reflexes_table_can_store_vectors(self, db_path):
         """REGRESSION: Verify reflexes table can store epistemic vectors"""
@@ -232,35 +242,38 @@ class TestReflexesTableSchema:
             "change": 0.85,
             "completion": 0.80,
             "impact": 0.75,
-            "uncertainty": 0.35
+            "uncertainty": 0.35,
         }
 
         try:
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO reflexes (
                     session_id, phase, timestamp,
                     engagement, know, do, context,
                     clarity, coherence, signal, density,
                     state, change, completion, impact, uncertainty
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                test_vectors["session_id"],
-                test_vectors["phase"],
-                test_vectors["timestamp"],
-                test_vectors["engagement"],
-                test_vectors["know"],
-                test_vectors["do"],
-                test_vectors["context"],
-                test_vectors["clarity"],
-                test_vectors["coherence"],
-                test_vectors["signal"],
-                test_vectors["density"],
-                test_vectors["state"],
-                test_vectors["change"],
-                test_vectors["completion"],
-                test_vectors["impact"],
-                test_vectors["uncertainty"]
-            ))
+            """,
+                (
+                    test_vectors["session_id"],
+                    test_vectors["phase"],
+                    test_vectors["timestamp"],
+                    test_vectors["engagement"],
+                    test_vectors["know"],
+                    test_vectors["do"],
+                    test_vectors["context"],
+                    test_vectors["clarity"],
+                    test_vectors["coherence"],
+                    test_vectors["signal"],
+                    test_vectors["density"],
+                    test_vectors["state"],
+                    test_vectors["change"],
+                    test_vectors["completion"],
+                    test_vectors["impact"],
+                    test_vectors["uncertainty"],
+                ),
+            )
 
             # Rollback to avoid polluting database
             conn.rollback()
@@ -307,7 +320,7 @@ class TestCheckpointVectorStorage:
             "change": 0.85,
             "completion": 0.80,
             "impact": 0.75,
-            "uncertainty": 0.35
+            "uncertainty": 0.35,
         }
 
         # Store vectors in reflexes table
@@ -331,29 +344,21 @@ class TestCheckpointVectorStorage:
         subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
         subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_path, check=True, capture_output=True)
 
-        GitEnhancedReflexLogger(
-            session_id=session_id,
-            enable_git_notes=True,
-            git_repo_path=str(tmp_path)
-        )
+        GitEnhancedReflexLogger(session_id=session_id, enable_git_notes=True, git_repo_path=str(tmp_path))
 
         # Load vectors from database
         loaded_result = db.get_latest_vectors(session_id)
 
-        assert loaded_result is not None, \
-            "Must be able to load vectors from database"
-        assert 'vectors' in loaded_result, \
-            "Result must contain vectors key"
+        assert loaded_result is not None, "Must be able to load vectors from database"
+        assert "vectors" in loaded_result, "Result must contain vectors key"
 
-        loaded_vectors = loaded_result['vectors']
-        assert loaded_vectors != {}, \
-            "Loaded vectors must not be empty"
+        loaded_vectors = loaded_result["vectors"]
+        assert loaded_vectors != {}, "Loaded vectors must not be empty"
 
         # Verify vector values
         for key, value in expected_vectors.items():
             assert key in loaded_vectors, f"Vector {key} must be present"
-            assert loaded_vectors[key] == value, \
-                f"Vector {key} value must match stored value"
+            assert loaded_vectors[key] == value, f"Vector {key} value must match stored value"
 
     def test_checkpoint_create_includes_vectors(self, session_with_vectors, tmp_path):
         """REGRESSION: Verify created checkpoints include vectors"""
@@ -370,11 +375,7 @@ class TestCheckpointVectorStorage:
         subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
         subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_path, check=True, capture_output=True)
 
-        logger = GitEnhancedReflexLogger(
-            session_id=session_id,
-            enable_git_notes=True,
-            git_repo_path=str(tmp_path)
-        )
+        logger = GitEnhancedReflexLogger(session_id=session_id, enable_git_notes=True, git_repo_path=str(tmp_path))
 
         # Load vectors from database
         vectors = db.get_latest_vectors(session_id)
@@ -383,22 +384,14 @@ class TestCheckpointVectorStorage:
         logger.add_checkpoint("PREFLIGHT", 1, vectors=vectors)
 
         # Verify checkpoint in git notes
-        result = subprocess.run(
-            ["git", "notes", "show", "HEAD"],
-            cwd=tmp_path,
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run(["git", "notes", "show", "HEAD"], cwd=tmp_path, capture_output=True, text=True)
 
         if result.returncode == 0:
             checkpoint = json.loads(result.stdout)
 
-            assert "vectors" in checkpoint, \
-                "Checkpoint must include vectors field"
-            assert checkpoint["vectors"] != {}, \
-                "Checkpoint vectors must not be empty"
-            assert len(checkpoint["vectors"]) == 13, \
-                "Checkpoint must include all 13 epistemic vectors"
+            assert "vectors" in checkpoint, "Checkpoint must include vectors field"
+            assert checkpoint["vectors"] != {}, "Checkpoint vectors must not be empty"
+            assert len(checkpoint["vectors"]) == 13, "Checkpoint must include all 13 epistemic vectors"
 
             # Verify specific vectors
             assert checkpoint["vectors"]["know"] == 0.65
@@ -411,14 +404,11 @@ class TestCLICheckpointCommands:
 
     def test_checkpoint_list_command_exists(self):
         """REGRESSION: Verify checkpoint-list CLI command exists"""
-        result = subprocess.run(
-            ["empirica", "checkpoint-list", "--help"],
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run(["empirica", "checkpoint-list", "--help"], capture_output=True, text=True)
 
-        assert result.returncode == 0 or "checkpoint-list" in (result.stdout + result.stderr), \
+        assert result.returncode == 0 or "checkpoint-list" in (result.stdout + result.stderr), (
             "checkpoint-list command must be available in CLI"
+        )
 
     def test_checkpoint_list_executes_without_crash(self, tmp_path):
         """REGRESSION: Verify checkpoint-list doesn't crash with AttributeError"""
@@ -437,14 +427,14 @@ class TestCLICheckpointCommands:
             ["empirica", "checkpoint-list", "--session-id", "test-session"],
             capture_output=True,
             text=True,
-            cwd=tmp_path
+            cwd=tmp_path,
         )
 
         # Should not crash with AttributeError
-        assert "AttributeError" not in result.stderr, \
-            "checkpoint-list must not throw AttributeError"
-        assert "'GitEnhancedReflexLogger' object has no attribute 'list_checkpoints'" not in result.stderr, \
+        assert "AttributeError" not in result.stderr, "checkpoint-list must not throw AttributeError"
+        assert "'GitEnhancedReflexLogger' object has no attribute 'list_checkpoints'" not in result.stderr, (
             "list_checkpoints method must exist"
+        )
 
     def test_checkpoint_create_stores_vectors(self, tmp_path):
         """REGRESSION: Verify checkpoint-create includes vectors from database"""
@@ -460,22 +450,17 @@ class TestCLICheckpointCommands:
 
         # Create checkpoint
         result = subprocess.run(
-            ["empirica", "checkpoint-create",
-             "--session-id", "test-session",
-             "--phase", "CHECK",
-             "--round", "1"],
+            ["empirica", "checkpoint-create", "--session-id", "test-session", "--phase", "CHECK", "--round", "1"],
             capture_output=True,
             text=True,
-            cwd=tmp_path
+            cwd=tmp_path,
         )
 
         # Should not show "Creating checkpoint with empty vectors" warning
-        assert "empty vectors" not in result.stdout.lower(), \
-            "Checkpoint should not have empty vectors"
+        assert "empty vectors" not in result.stdout.lower(), "Checkpoint should not have empty vectors"
 
         # Should not show "Could not load vectors" warning
-        assert "Could not load vectors" not in result.stderr, \
-            "Should be able to load vectors from database"
+        assert "Could not load vectors" not in result.stderr, "Should be able to load vectors from database"
 
 
 if __name__ == "__main__":

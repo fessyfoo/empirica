@@ -34,13 +34,19 @@ API_KEY = "ctx_test_key"
 def test_identity_passes_when_roster_has_ai_id():
     body = {
         "self": {"tenant_slug": "david"},
-        "org": {"tenants": [{
-            "tenant_slug": "david",
-            "projects": [{
-                "ai_id_short": "empirica-cortex",
-                "ai_id_mesh": "empirica.david.empirica-cortex",
-            }],
-        }]},
+        "org": {
+            "tenants": [
+                {
+                    "tenant_slug": "david",
+                    "projects": [
+                        {
+                            "ai_id_short": "empirica-cortex",
+                            "ai_id_mesh": "empirica.david.empirica-cortex",
+                        }
+                    ],
+                }
+            ]
+        },
     }
     with patch(
         "empirica.cli.command_handlers._mesh_diagnose_cortex._http_get_json",
@@ -84,8 +90,7 @@ def test_identity_fails_on_http_error():
 def test_channels_passes_per_tenant_topic():
     body = {
         "channels": [
-            {"category": "orchestration_events",
-             "topic": "empirica-orchestration-events-david"},
+            {"category": "orchestration_events", "topic": "empirica-orchestration-events-david"},
         ],
     }
     with patch(
@@ -99,8 +104,7 @@ def test_channels_passes_per_tenant_topic():
 
 
 def test_channels_warns_on_bare_topic():
-    body = {"channels": [{"category": "orchestration_events",
-                          "topic": "orchestration-events"}]}
+    body = {"channels": [{"category": "orchestration_events", "topic": "orchestration-events"}]}
     with patch(
         "empirica.cli.command_handlers._mesh_diagnose_cortex._http_get_json",
         return_value=body,
@@ -112,8 +116,7 @@ def test_channels_warns_on_bare_topic():
 
 def test_channels_warns_on_per_org_topic():
     """Pre-T16/T17 per-org form (no -<tenant> suffix)."""
-    body = {"channels": [{"category": "orchestration_events",
-                          "topic": "empirica-orchestration-events"}]}
+    body = {"channels": [{"category": "orchestration_events", "topic": "empirica-orchestration-events"}]}
     with patch(
         "empirica.cli.command_handlers._mesh_diagnose_cortex._http_get_json",
         return_value=body,
@@ -140,10 +143,14 @@ def test_channels_fails_when_no_orchestration_channel():
 def test_subscription_match_passes_when_topics_align(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     (tmp_path / ".empirica").mkdir()
-    (tmp_path / ".empirica" / "listener_active_x_x-inbox.json").write_text(json.dumps({
-        "ai_id": "empirica-cortex",
-        "topic": "ntfy:empirica-orchestration-events-david?tags=empirica.david.empirica-cortex",
-    }))
+    (tmp_path / ".empirica" / "listener_active_x_x-inbox.json").write_text(
+        json.dumps(
+            {
+                "ai_id": "empirica-cortex",
+                "topic": "ntfy:empirica-orchestration-events-david?tags=empirica.david.empirica-cortex",
+            }
+        )
+    )
     r = check_listener_subscription_matches(
         "empirica-cortex",
         "empirica-orchestration-events-david?tags=anything",
@@ -156,10 +163,14 @@ def test_subscription_match_fails_on_topic_mismatch(tmp_path, monkeypatch):
     advertises a different one."""
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     (tmp_path / ".empirica").mkdir()
-    (tmp_path / ".empirica" / "listener_active_x_x-inbox.json").write_text(json.dumps({
-        "ai_id": "empirica-cortex",
-        "topic": "ntfy:orchestration-events?tags=cortex",  # retired bare topic
-    }))
+    (tmp_path / ".empirica" / "listener_active_x_x-inbox.json").write_text(
+        json.dumps(
+            {
+                "ai_id": "empirica-cortex",
+                "topic": "ntfy:orchestration-events?tags=cortex",  # retired bare topic
+            }
+        )
+    )
     r = check_listener_subscription_matches(
         "empirica-cortex",
         "empirica-orchestration-events-david",
@@ -172,7 +183,8 @@ def test_subscription_match_fails_on_topic_mismatch(tmp_path, monkeypatch):
 def test_subscription_match_warns_when_no_active_file(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     r = check_listener_subscription_matches(
-        "empirica-cortex", "empirica-orchestration-events-david",
+        "empirica-cortex",
+        "empirica-orchestration-events-david",
     )
     assert r.status == "warn"
     assert "not be armed" in r.message
@@ -193,14 +205,19 @@ def test_ntfy_acl_passes_on_200():
     ):
         r = check_ntfy_acl(
             "empirica-orchestration-events-david",
-            "https://ntfy.test", "tk_test",
+            "https://ntfy.test",
+            "tk_test",
         )
     assert r.status == "pass"
 
 
 def test_ntfy_acl_fails_on_403():
     err = urllib.error.HTTPError(
-        "https://ntfy.test/x", 403, "Forbidden", {}, None,
+        "https://ntfy.test/x",
+        403,
+        "Forbidden",
+        {},
+        None,
     )
     with patch(
         "empirica.cli.command_handlers._mesh_diagnose_cortex._http_head",
@@ -208,7 +225,8 @@ def test_ntfy_acl_fails_on_403():
     ):
         r = check_ntfy_acl(
             "empirica-orchestration-events-david",
-            "https://ntfy.test", "tk_test",
+            "https://ntfy.test",
+            "tk_test",
         )
     assert r.status == "fail"
     assert "403" in r.message
@@ -217,7 +235,11 @@ def test_ntfy_acl_fails_on_403():
 
 def test_ntfy_acl_warns_on_other_http_error():
     err = urllib.error.HTTPError(
-        "https://ntfy.test/x", 500, "Server Error", {}, None,
+        "https://ntfy.test/x",
+        500,
+        "Server Error",
+        {},
+        None,
     )
     with patch(
         "empirica.cli.command_handlers._mesh_diagnose_cortex._http_head",
@@ -250,17 +272,23 @@ def test_ntfy_acl_warns_when_no_ntfy_url():
 
 
 def test_mesh_agreement_passes_for_active_row():
-    body = {"agreements": [{
-        "source_practice": "empirica.david.empirica",
-        "target_practice": "empirica.philipp.empirica-autonomy",
-        "active": True,
-    }]}
+    body = {
+        "agreements": [
+            {
+                "source_practice": "empirica.david.empirica",
+                "target_practice": "empirica.philipp.empirica-autonomy",
+                "active": True,
+            }
+        ]
+    }
     with patch(
         "empirica.cli.command_handlers._mesh_diagnose_cortex._http_get_json",
         return_value=body,
     ):
         r = check_mesh_agreement(
-            "empirica.philipp.empirica-autonomy", CORTEX_URL, API_KEY,
+            "empirica.philipp.empirica-autonomy",
+            CORTEX_URL,
+            API_KEY,
         )
     assert r.status == "pass"
 
@@ -285,18 +313,28 @@ def test_run_cortex_checks_executes_in_order(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
     roster_body = {
         "self": {"tenant_slug": "david"},
-        "org": {"tenants": [{
-            "tenant_slug": "david",
-            "projects": [{
-                "ai_id_short": "empirica-cortex",
-                "ai_id_mesh": "empirica.david.empirica-cortex",
-            }],
-        }]},
+        "org": {
+            "tenants": [
+                {
+                    "tenant_slug": "david",
+                    "projects": [
+                        {
+                            "ai_id_short": "empirica-cortex",
+                            "ai_id_mesh": "empirica.david.empirica-cortex",
+                        }
+                    ],
+                }
+            ]
+        },
     }
-    channels_body = {"channels": [{
-        "category": "orchestration_events",
-        "topic": "empirica-orchestration-events-david",
-    }]}
+    channels_body = {
+        "channels": [
+            {
+                "category": "orchestration_events",
+                "topic": "empirica-orchestration-events-david",
+            }
+        ]
+    }
 
     def _fake_get(url, **_kw):
         if "roster" in url:
@@ -305,16 +343,22 @@ def test_run_cortex_checks_executes_in_order(tmp_path, monkeypatch):
             return channels_body
         return {}
 
-    with patch(
-        "empirica.cli.command_handlers._mesh_diagnose_cortex._http_get_json",
-        side_effect=_fake_get,
-    ), patch(
-        "empirica.cli.command_handlers._mesh_diagnose_cortex._http_head",
-        return_value=200,
+    with (
+        patch(
+            "empirica.cli.command_handlers._mesh_diagnose_cortex._http_get_json",
+            side_effect=_fake_get,
+        ),
+        patch(
+            "empirica.cli.command_handlers._mesh_diagnose_cortex._http_head",
+            return_value=200,
+        ),
     ):
         results = run_cortex_checks(
-            "empirica-cortex", cortex_url=CORTEX_URL, api_key=API_KEY,
-            ntfy_url="https://ntfy.test", ntfy_token="tk",  # noqa: S106
+            "empirica-cortex",
+            cortex_url=CORTEX_URL,
+            api_key=API_KEY,
+            ntfy_url="https://ntfy.test",
+            ntfy_token="tk",  # noqa: S106
         )
     # 4 checks without --peer (no mesh.agreement)
     assert len(results) == 4
@@ -328,6 +372,7 @@ def test_run_cortex_checks_executes_in_order(tmp_path, monkeypatch):
 
 def test_aggregate_exit_code_fail_dominates():
     from empirica.cli.command_handlers._mesh_diagnose_cortex import CheckResult
+
     results = [
         CheckResult(name="a", status="pass", message="ok"),
         CheckResult(name="b", status="warn", message="meh"),
@@ -338,6 +383,7 @@ def test_aggregate_exit_code_fail_dominates():
 
 def test_aggregate_exit_code_warn_when_no_fail():
     from empirica.cli.command_handlers._mesh_diagnose_cortex import CheckResult
+
     results = [
         CheckResult(name="a", status="pass", message="ok"),
         CheckResult(name="b", status="warn", message="meh"),
@@ -347,6 +393,7 @@ def test_aggregate_exit_code_warn_when_no_fail():
 
 def test_aggregate_exit_code_zero_on_all_pass():
     from empirica.cli.command_handlers._mesh_diagnose_cortex import CheckResult
+
     results = [
         CheckResult(name="a", status="pass", message="ok"),
         CheckResult(name="b", status="pass", message="ok"),
@@ -356,6 +403,7 @@ def test_aggregate_exit_code_zero_on_all_pass():
 
 def test_render_human_shows_glyphs_and_fixes():
     from empirica.cli.command_handlers._mesh_diagnose_cortex import CheckResult
+
     results = [
         CheckResult(name="a.b", status="pass", message="ok"),
         CheckResult(name="x.y", status="fail", message="broken", fix="restart"),
@@ -379,6 +427,7 @@ def test_render_human_shows_glyphs_and_fixes():
 
 def test_ntfy_acl_uses_basic_auth_when_no_bearer():
     from empirica.cli.command_handlers import _mesh_diagnose_cortex as mdx
+
     captured = {}
 
     def fake_head(url, *, bearer=None, user=None, password=None, timeout=4.0):
@@ -403,6 +452,7 @@ def test_ntfy_acl_uses_basic_auth_when_no_bearer():
 
 def test_ntfy_acl_prefers_bearer_over_basic_when_both_set():
     from empirica.cli.command_handlers import _mesh_diagnose_cortex as mdx
+
     captured = {}
 
     def fake_head(url, *, bearer=None, user=None, password=None, timeout=4.0):
@@ -425,24 +475,31 @@ def test_ntfy_acl_prefers_bearer_over_basic_when_both_set():
 def test_http_head_emits_basic_auth_header_when_no_bearer():
     """The actual urllib path — verify the Authorization header is built."""
     from empirica.cli.command_handlers import _mesh_diagnose_cortex as mdx
+
     captured_header = {}
 
     class _FakeResp:
         status = 200
-        def read(self, _n=None): return b""
-        def __enter__(self): return self
-        def __exit__(self, *a): return False
+
+        def read(self, _n=None):
+            return b""
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
 
     def fake_urlopen(req, timeout, context):
         captured_header["auth"] = req.get_header("Authorization")
         return _FakeResp()
 
     import urllib.request as _ur
+
     orig = _ur.urlopen
     _ur.urlopen = fake_urlopen
     try:
-        mdx._http_head("https://ntfy.test/topic/json?poll=1",
-                       user="philipp", password="pw")  # noqa: S106
+        mdx._http_head("https://ntfy.test/topic/json?poll=1", user="philipp", password="pw")  # noqa: S106
     finally:
         _ur.urlopen = orig
     # `philipp:pw` base64 = cGhpbGlwcDpwdw==
@@ -451,19 +508,27 @@ def test_http_head_emits_basic_auth_header_when_no_bearer():
 
 def test_http_head_emits_bearer_when_token_present():
     from empirica.cli.command_handlers import _mesh_diagnose_cortex as mdx
+
     captured_header = {}
 
     class _FakeResp:
         status = 200
-        def read(self, _n=None): return b""
-        def __enter__(self): return self
-        def __exit__(self, *a): return False
+
+        def read(self, _n=None):
+            return b""
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
 
     def fake_urlopen(req, timeout, context):
         captured_header["auth"] = req.get_header("Authorization")
         return _FakeResp()
 
     import urllib.request as _ur
+
     orig = _ur.urlopen
     _ur.urlopen = fake_urlopen
     try:

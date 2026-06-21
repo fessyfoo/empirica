@@ -41,6 +41,7 @@ def _get_counters_path() -> Path | None:
     """Resolve ~/.empirica/hook_counters{suffix}.json for the current instance."""
     try:
         from empirica.utils.session_resolver import InstanceResolver as R
+
         suffix = R.instance_suffix()
     except Exception:
         # Fallback: no suffix (global file) — still works for single-instance
@@ -127,12 +128,14 @@ def handle_epp_activate_command(args):
         log_entries = counters.get("epp_activations_log", [])
         if not isinstance(log_entries, list):
             log_entries = []
-        log_entries.append({
-            "timestamp": time.time(),
-            "category": category,
-            "action": action,
-            "session_id": session_id,
-        })
+        log_entries.append(
+            {
+                "timestamp": time.time(),
+                "category": category,
+                "action": action,
+                "session_id": session_id,
+            }
+        )
         if len(log_entries) > MAX_LOG_ENTRIES:
             log_entries = log_entries[-MAX_LOG_ENTRIES:]
         counters["epp_activations_log"] = log_entries

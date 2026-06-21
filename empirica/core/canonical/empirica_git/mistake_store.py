@@ -53,11 +53,7 @@ class GitMistakeStore:
         """Check if we're in a git repository"""
         try:
             result = subprocess.run(
-                ['git', 'rev-parse', '--git-dir'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                timeout=5
+                ["git", "rev-parse", "--git-dir"], cwd=self.workspace_root, capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -69,11 +65,7 @@ class GitMistakeStore:
             return False
         try:
             result = subprocess.run(
-                ['git', 'rev-parse', 'HEAD'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                timeout=5
+                ["git", "rev-parse", "HEAD"], cwd=self.workspace_root, capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -91,7 +83,7 @@ class GitMistakeStore:
         cost_estimate: str | None = None,
         root_cause_vector: str | None = None,
         goal_id: str | None = None,
-        subtask_id: str | None = None
+        subtask_id: str | None = None,
     ) -> bool:
         """
         Store mistake in git notes
@@ -122,38 +114,34 @@ class GitMistakeStore:
 
         try:
             payload = {
-                'mistake_id': mistake_id,
-                'project_id': project_id,
-                'session_id': session_id,
-                'ai_id': ai_id,
-                'created_at': datetime.now(timezone.utc).isoformat(),
-                'mistake': mistake,
-                'why_wrong': why_wrong,
-                'prevention': prevention,
-                'cost_estimate': cost_estimate,
-                'root_cause_vector': root_cause_vector,
-                'goal_id': goal_id,
-                'subtask_id': subtask_id
+                "mistake_id": mistake_id,
+                "project_id": project_id,
+                "session_id": session_id,
+                "ai_id": ai_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "mistake": mistake,
+                "why_wrong": why_wrong,
+                "prevention": prevention,
+                "cost_estimate": cost_estimate,
+                "root_cause_vector": root_cause_vector,
+                "goal_id": goal_id,
+                "subtask_id": subtask_id,
             }
 
             payload_json = json.dumps(payload, indent=2)
 
             result = subprocess.run(
-                ['git', 'rev-parse', 'HEAD'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                check=True
+                ["git", "rev-parse", "HEAD"], cwd=self.workspace_root, capture_output=True, text=True, check=True
             )
             commit_hash = result.stdout.strip()
 
-            note_ref = f'empirica/mistakes/{mistake_id}'
+            note_ref = f"empirica/mistakes/{mistake_id}"
             subprocess.run(
-                ['git', 'notes', f'--ref={note_ref}', 'add', '-f', '-m', payload_json, commit_hash],
+                ["git", "notes", f"--ref={note_ref}", "add", "-f", "-m", payload_json, commit_hash],
                 cwd=self.workspace_root,
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             )
 
             logger.info(f"✓ Stored mistake {mistake_id[:8]} in git notes")
@@ -169,14 +157,11 @@ class GitMistakeStore:
             return None
 
         try:
-            note_ref = f'empirica/mistakes/{mistake_id}'
+            note_ref = f"empirica/mistakes/{mistake_id}"
 
             # List which commit has the note (notes can be on any commit, not just HEAD)
             result = subprocess.run(
-                ['git', 'notes', f'--ref={note_ref}', 'list'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True
+                ["git", "notes", f"--ref={note_ref}", "list"], cwd=self.workspace_root, capture_output=True, text=True
             )
 
             if result.returncode != 0 or not result.stdout.strip():
@@ -190,10 +175,10 @@ class GitMistakeStore:
 
             # Load note from the commit it's actually attached to
             result = subprocess.run(
-                ['git', 'notes', f'--ref={note_ref}', 'show', commit_hash],
+                ["git", "notes", f"--ref={note_ref}", "show", commit_hash],
                 cwd=self.workspace_root,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:
@@ -210,7 +195,7 @@ class GitMistakeStore:
         project_id: str | None = None,
         session_id: str | None = None,
         ai_id: str | None = None,
-        root_cause_vector: str | None = None
+        root_cause_vector: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Discover mistakes from git notes
@@ -229,10 +214,10 @@ class GitMistakeStore:
 
         try:
             result = subprocess.run(
-                ['git', 'for-each-ref', 'refs/notes/empirica/mistakes/'],
+                ["git", "for-each-ref", "refs/notes/empirica/mistakes/"],
                 cwd=self.workspace_root,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:
@@ -240,32 +225,32 @@ class GitMistakeStore:
 
             mistakes = []
 
-            for line in result.stdout.strip().split('\n'):
+            for line in result.stdout.strip().split("\n"):
                 if not line:
                     continue
 
-                parts = line.split('\t')
+                parts = line.split("\t")
                 if len(parts) < 2:
                     continue
 
                 ref = parts[1]
-                if not ref.startswith('refs/notes/empirica/mistakes/'):
+                if not ref.startswith("refs/notes/empirica/mistakes/"):
                     continue
 
-                mistake_id = ref.split('/')[-1]
+                mistake_id = ref.split("/")[-1]
                 mistake_data = self.load_mistake(mistake_id)
 
                 if not mistake_data:
                     continue
 
                 # Apply filters
-                if project_id and mistake_data.get('project_id') != project_id:
+                if project_id and mistake_data.get("project_id") != project_id:
                     continue
-                if session_id and mistake_data.get('session_id') != session_id:
+                if session_id and mistake_data.get("session_id") != session_id:
                     continue
-                if ai_id and mistake_data.get('ai_id') != ai_id:
+                if ai_id and mistake_data.get("ai_id") != ai_id:
                     continue
-                if root_cause_vector and mistake_data.get('root_cause_vector') != root_cause_vector:
+                if root_cause_vector and mistake_data.get("root_cause_vector") != root_cause_vector:
                     continue
 
                 mistakes.append(mistake_data)
@@ -287,7 +272,7 @@ class GitMistakeStore:
         by_vector: dict[str, list[dict[str, Any]]] = {}
 
         for mistake in all_mistakes:
-            vector = mistake.get('root_cause_vector', 'UNKNOWN')
+            vector = mistake.get("root_cause_vector", "UNKNOWN")
             if vector not in by_vector:
                 by_vector[vector] = []
             by_vector[vector].append(mistake)

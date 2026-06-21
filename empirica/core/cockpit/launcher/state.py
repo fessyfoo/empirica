@@ -17,10 +17,10 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-COCKPIT_DIR = Path.home() / '.empirica' / 'cockpit'
-LAST_SESSION_START_PATH = COCKPIT_DIR / 'last_session_start'
-LAST_CLEAN_SHUTDOWN_PATH = COCKPIT_DIR / 'last_clean_shutdown'
-LOCK_PATH = COCKPIT_DIR / 'active.lock'
+COCKPIT_DIR = Path.home() / ".empirica" / "cockpit"
+LAST_SESSION_START_PATH = COCKPIT_DIR / "last_session_start"
+LAST_CLEAN_SHUTDOWN_PATH = COCKPIT_DIR / "last_clean_shutdown"
+LOCK_PATH = COCKPIT_DIR / "active.lock"
 
 
 def _ensure_dir() -> None:
@@ -30,7 +30,7 @@ def _ensure_dir() -> None:
 def _touch(path: Path) -> None:
     """Write current epoch seconds to a file (mtime + content match)."""
     _ensure_dir()
-    with path.open('w', encoding='utf-8') as fh:
+    with path.open("w", encoding="utf-8") as fh:
         fh.write(str(int(time.time())))
 
 
@@ -56,7 +56,7 @@ def write_lock(pid: int | None = None) -> Path:
     """Write the active.lock with the given PID (defaults to current)."""
     _ensure_dir()
     target_pid = pid if pid is not None else os.getpid()
-    with LOCK_PATH.open('w', encoding='utf-8') as fh:
+    with LOCK_PATH.open("w", encoding="utf-8") as fh:
         fh.write(str(target_pid))
     return LOCK_PATH
 
@@ -66,7 +66,7 @@ def read_lock_pid() -> int | None:
     if not LOCK_PATH.exists():
         return None
     try:
-        text = LOCK_PATH.read_text(encoding='utf-8').strip()
+        text = LOCK_PATH.read_text(encoding="utf-8").strip()
         return int(text)
     except (OSError, ValueError):
         return None
@@ -93,6 +93,7 @@ def _mtime(path: Path) -> float | None:
 @dataclass
 class CockpitStateSnapshot:
     """Read-only summary of cockpit state files."""
+
     last_session_start: float | None
     last_clean_shutdown: float | None
     lock_pid: int | None

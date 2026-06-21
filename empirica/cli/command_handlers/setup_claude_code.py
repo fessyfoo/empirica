@@ -41,10 +41,12 @@ def _resolve_empirica_version() -> str:
     """
     try:
         from empirica import __version__
+
         return str(__version__).strip() or "unknown"
     except Exception:
         try:
             from importlib.metadata import version
+
             return version("empirica")
         except Exception:
             return "unknown"
@@ -60,6 +62,7 @@ def _is_cortex_configured() -> bool:
     """
     try:
         from empirica.config.credentials_loader import get_credentials_loader
+
         cfg = get_credentials_loader().get_cortex_config()
         return bool(cfg.get("url") and cfg.get("api_key"))
     except Exception:
@@ -75,6 +78,7 @@ def _strip_cortex_blocks(text: str) -> str:
     Cortex-off path: tags + content dropped.
     """
     import re
+
     # DOTALL so .*? spans newlines inside the block.
     return re.sub(
         r"\{%\s*if cortex\s*%\}.*?\{%\s*endif\s*%\}\s*",
@@ -87,6 +91,7 @@ def _strip_cortex_blocks(text: str) -> str:
 def _strip_cortex_tags(text: str) -> str:
     """Cortex-on: drop just the tags, keep the content."""
     import re
+
     text = re.sub(r"\{%\s*if cortex\s*%\}\s*", "", text)
     text = re.sub(r"\s*\{%\s*endif\s*%\}", "", text)
     return text
@@ -163,11 +168,13 @@ def _find_python() -> str:
         try:
             result = subprocess.run(
                 [py, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"],
-                capture_output=True, text=True, timeout=5
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if result.returncode == 0:
                 py_ver = result.stdout.strip()
-                major, minor = map(int, py_ver.split('.'))
+                major, minor = map(int, py_ver.split("."))
                 if major >= min_major and minor >= min_minor:
                     return py
         except Exception:
@@ -205,8 +212,8 @@ def _ensure_json_file(path: Path, default: dict) -> dict:
 
 def _write_json_file(path: Path, data: dict):
     """Write JSON file atomically"""
-    temp_path = path.with_suffix('.tmp')
-    with open(temp_path, 'w') as f:
+    temp_path = path.with_suffix(".tmp")
+    with open(temp_path, "w") as f:
         json.dump(data, f, indent=2)
     temp_path.rename(path)
 
@@ -214,8 +221,8 @@ def _write_json_file(path: Path, data: dict):
 def _hook_exists(hooks_list: list, pattern: str) -> bool:
     """Check if a hook with the given pattern already exists"""
     for hook_entry in hooks_list:
-        for hook in hook_entry.get('hooks', []):
-            cmd = hook.get('command', '')
+        for hook in hook_entry.get("hooks", []):
+            cmd = hook.get("command", "")
             if pattern in cmd:
                 return True
     return False
@@ -233,19 +240,19 @@ def _register_hook(settings, event, detect_pattern, entries, label, output_forma
         output_format: 'json' suppresses print output.
         use_extend: If True, use extend() instead of append() for multi-entry hooks.
     """
-    if event not in settings['hooks']:
-        settings['hooks'][event] = []
+    if event not in settings["hooks"]:
+        settings["hooks"][event] = []
 
-    if not _hook_exists(settings['hooks'][event], detect_pattern):
+    if not _hook_exists(settings["hooks"][event], detect_pattern):
         if use_extend:
-            settings['hooks'][event].extend(entries)
+            settings["hooks"][event].extend(entries)
         else:
             for entry in entries:
-                settings['hooks'][event].append(entry)
-        if output_format != 'json':
+                settings["hooks"][event].append(entry)
+        if output_format != "json":
             print(f"   ✓ {label} configured")
     else:
-        if output_format != 'json':
+        if output_format != "json":
             print(f"   {label} already configured")
 
 
@@ -257,35 +264,33 @@ def _force_clean_hooks(settings, output_format):
     plugin path to only remove Empirica's entries.
     """
     plugin_path_patterns = [
-        f'plugins/local/{PLUGIN_NAME}/',      # Current name
-        'plugins/local/empirica-integration/', # Legacy name
-        'plugins/local/empirica/',             # Short name
+        f"plugins/local/{PLUGIN_NAME}/",  # Current name
+        "plugins/local/empirica-integration/",  # Legacy name
+        "plugins/local/empirica/",  # Short name
     ]
-    for event in list(settings.get('hooks', {}).keys()):
-        original_count = len(settings['hooks'][event])
-        settings['hooks'][event] = [
-            hook for hook in settings['hooks'][event]
-            if not any(
-                pattern in str(hook)
-                for pattern in plugin_path_patterns
-            )
+    for event in list(settings.get("hooks", {}).keys()):
+        original_count = len(settings["hooks"][event])
+        settings["hooks"][event] = [
+            hook
+            for hook in settings["hooks"][event]
+            if not any(pattern in str(hook) for pattern in plugin_path_patterns)
         ]
-        removed = original_count - len(settings['hooks'][event])
+        removed = original_count - len(settings["hooks"][event])
         if removed > 0:
             logger.debug(f"--force: removed {removed} Empirica hooks from {event}")
         # Clean up empty event lists
-        if not settings['hooks'][event]:
-            del settings['hooks'][event]
+        if not settings["hooks"][event]:
+            del settings["hooks"][event]
 
-    settings.pop('statusLine', None)
-    if output_format != 'json':
+    settings.pop("statusLine", None)
+    if output_format != "json":
         print("   --force: cleared Empirica hooks and statusLine (other plugins preserved)")
 
     # Also clean up legacy plugin name from enabledPlugins
     legacy_key = "empirica-integration@local"
-    if legacy_key in settings.get('enabledPlugins', {}):
-        del settings['enabledPlugins'][legacy_key]
-        if output_format != 'json':
+    if legacy_key in settings.get("enabledPlugins", {}):
+        del settings["enabledPlugins"][legacy_key]
+        if output_format != "json":
             print("   --force: removed legacy empirica-integration@local from enabledPlugins")
 
 
@@ -298,16 +303,13 @@ def _configure_statusline(settings, plugin_dir, python_cmd, output_format):
     # Windows backslashes and collapses the path (issue #111). Forward slashes are
     # valid on Windows too, so normalise both the interpreter + script paths.
     python_cmd = python_cmd.replace("\\", "/")
-    if 'statusLine' not in settings:
+    if "statusLine" not in settings:
         statusline_script = (plugin_dir / "scripts" / "statusline_empirica.py").as_posix()
-        settings['statusLine'] = {
-            "type": "command",
-            "command": f"{python_cmd} {statusline_script}"
-        }
-        if output_format != 'json':
+        settings["statusLine"] = {"type": "command", "command": f"{python_cmd} {statusline_script}"}
+        if output_format != "json":
             print("   ✓ StatusLine configured")
     else:
-        if output_format != 'json':
+        if output_format != "json":
             print("   StatusLine already configured")
 
 
@@ -318,90 +320,151 @@ def _register_all_hooks(settings, plugin_dir, python_cmd, output_format):
     # Normalise the interpreter path + use POSIX plugin path (valid on Windows too).
     python_cmd = python_cmd.replace("\\", "/")
     plugin_dir = plugin_dir.as_posix()
-    if 'hooks' not in settings:
-        settings['hooks'] = {}
+    if "hooks" not in settings:
+        settings["hooks"] = {}
 
     sentinel_script = f"{python_cmd} {plugin_dir}/hooks/sentinel-gate.py"
-    _register_hook(settings, 'PreToolUse', 'sentinel-gate', [
-        {"matcher": "Edit|Write", "hooks": [{"type": "command", "command": sentinel_script, "timeout": 10}]},
-        {"matcher": "Bash", "hooks": [{"type": "command", "command": sentinel_script, "timeout": 10}]},
-    ], "PreToolUse (Sentinel) hooks", output_format, use_extend=True)
+    _register_hook(
+        settings,
+        "PreToolUse",
+        "sentinel-gate",
+        [
+            {"matcher": "Edit|Write", "hooks": [{"type": "command", "command": sentinel_script, "timeout": 10}]},
+            {"matcher": "Bash", "hooks": [{"type": "command", "command": sentinel_script, "timeout": 10}]},
+        ],
+        "PreToolUse (Sentinel) hooks",
+        output_format,
+        use_extend=True,
+    )
 
     precompact_script = f"{python_cmd} {plugin_dir}/hooks/pre-compact.py"
-    _register_hook(settings, 'PreCompact', 'pre-compact.py', [
-        {"matcher": "auto|manual", "hooks": [{"type": "command", "command": precompact_script, "timeout": 30}]},
-    ], "PreCompact hook", output_format)
+    _register_hook(
+        settings,
+        "PreCompact",
+        "pre-compact.py",
+        [
+            {"matcher": "auto|manual", "hooks": [{"type": "command", "command": precompact_script, "timeout": 30}]},
+        ],
+        "PreCompact hook",
+        output_format,
+    )
 
     postcompact_script = f"{python_cmd} {plugin_dir}/hooks/post-compact.py"
     sessioninit_script = f"{python_cmd} {plugin_dir}/hooks/session-init.py"
     ewm_script = f"{python_cmd} {plugin_dir}/hooks/ewm-protocol-loader.py"
     monitor_arm_script = f"{python_cmd} {plugin_dir}/hooks/session-monitor-arm.py"
-    _register_hook(settings, 'SessionStart', 'post-compact.py', [
-        {
-            "matcher": "compact",
-            "hooks": [
-                {"type": "command", "command": postcompact_script, "timeout": 30},
-                {"type": "command", "command": ewm_script, "timeout": 10, "allowFailure": True},
-                {"type": "command", "command": monitor_arm_script, "timeout": 5, "allowFailure": True}
-            ]
-        },
-        {
-            "matcher": "startup|resume",
-            "hooks": [
-                {"type": "command", "command": sessioninit_script, "timeout": 30},
-                {"type": "command", "command": ewm_script, "timeout": 10, "allowFailure": True},
-                {"type": "command", "command": monitor_arm_script, "timeout": 5, "allowFailure": True}
-            ]
-        },
-    ], "SessionStart hooks", output_format, use_extend=True)
+    _register_hook(
+        settings,
+        "SessionStart",
+        "post-compact.py",
+        [
+            {
+                "matcher": "compact",
+                "hooks": [
+                    {"type": "command", "command": postcompact_script, "timeout": 30},
+                    {"type": "command", "command": ewm_script, "timeout": 10, "allowFailure": True},
+                    {"type": "command", "command": monitor_arm_script, "timeout": 5, "allowFailure": True},
+                ],
+            },
+            {
+                "matcher": "startup|resume",
+                "hooks": [
+                    {"type": "command", "command": sessioninit_script, "timeout": 30},
+                    {"type": "command", "command": ewm_script, "timeout": 10, "allowFailure": True},
+                    {"type": "command", "command": monitor_arm_script, "timeout": 5, "allowFailure": True},
+                ],
+            },
+        ],
+        "SessionStart hooks",
+        output_format,
+        use_extend=True,
+    )
 
     postflight_script = f"{python_cmd} {plugin_dir}/hooks/session-end-postflight.py"
     curate_script = f"{python_cmd} {plugin_dir}/hooks/curate-snapshots.py --output json"
-    _register_hook(settings, 'SessionEnd', 'session-end-postflight.py', [
-        {
-            "matcher": ".*",
-            "hooks": [
-                {"type": "command", "command": postflight_script, "timeout": 20},
-                {"type": "command", "command": curate_script, "timeout": 15, "allowFailure": True}
-            ]
-        },
-    ], "SessionEnd hooks", output_format)
+    _register_hook(
+        settings,
+        "SessionEnd",
+        "session-end-postflight.py",
+        [
+            {
+                "matcher": ".*",
+                "hooks": [
+                    {"type": "command", "command": postflight_script, "timeout": 20},
+                    {"type": "command", "command": curate_script, "timeout": 15, "allowFailure": True},
+                ],
+            },
+        ],
+        "SessionEnd hooks",
+        output_format,
+    )
 
     substart_script = f"{python_cmd} {plugin_dir}/hooks/subagent-start.py"
-    _register_hook(settings, 'SubagentStart', 'subagent-start.py', [
-        {"matcher": ".*", "hooks": [{"type": "command", "command": substart_script, "timeout": 10, "allowFailure": True}]},
-    ], "SubagentStart hook", output_format)
+    _register_hook(
+        settings,
+        "SubagentStart",
+        "subagent-start.py",
+        [
+            {
+                "matcher": ".*",
+                "hooks": [{"type": "command", "command": substart_script, "timeout": 10, "allowFailure": True}],
+            },
+        ],
+        "SubagentStart hook",
+        output_format,
+    )
 
     substop_script = f"{python_cmd} {plugin_dir}/hooks/subagent-stop.py"
-    _register_hook(settings, 'SubagentStop', 'subagent-stop.py', [
-        {"matcher": ".*", "hooks": [{"type": "command", "command": substop_script, "timeout": 15, "allowFailure": True}]},
-    ], "SubagentStop hook", output_format)
+    _register_hook(
+        settings,
+        "SubagentStop",
+        "subagent-stop.py",
+        [
+            {
+                "matcher": ".*",
+                "hooks": [{"type": "command", "command": substop_script, "timeout": 15, "allowFailure": True}],
+            },
+        ],
+        "SubagentStop hook",
+        output_format,
+    )
 
     router_script = f"{python_cmd} {plugin_dir}/hooks/tool-router.py"
-    _register_hook(settings, 'UserPromptSubmit', 'tool-router.py', [
-        {"matcher": ".*", "hooks": [{"type": "command", "command": router_script, "timeout": 3, "allowFailure": True}]},
-    ], "UserPromptSubmit hook", output_format)
+    _register_hook(
+        settings,
+        "UserPromptSubmit",
+        "tool-router.py",
+        [
+            {
+                "matcher": ".*",
+                "hooks": [{"type": "command", "command": router_script, "timeout": 3, "allowFailure": True}],
+            },
+        ],
+        "UserPromptSubmit hook",
+        output_format,
+    )
 
     # Context-shift tracker (classifies solicited vs unsolicited prompts)
     cs_script = f"{python_cmd} {plugin_dir}/hooks/context-shift-tracker.py"
-    if not _hook_exists(settings['hooks'].get('UserPromptSubmit', []), 'context-shift-tracker.py'):
-        settings['hooks'].setdefault('UserPromptSubmit', []).append({
-            "matcher": ".*",
-            "hooks": [{"type": "command", "command": cs_script, "timeout": 5, "allowFailure": True}]
-        })
-        if output_format != 'json':
+    if not _hook_exists(settings["hooks"].get("UserPromptSubmit", []), "context-shift-tracker.py"):
+        settings["hooks"].setdefault("UserPromptSubmit", []).append(
+            {"matcher": ".*", "hooks": [{"type": "command", "command": cs_script, "timeout": 5, "allowFailure": True}]}
+        )
+        if output_format != "json":
             print("   ✓ Context-shift tracker configured")
 
     # Loop install pickup — surfaces pending install requests from cockpit as
     # additionalContext on the next prompt so the running Claude can call
     # CronCreate via /loop.
     install_script = f"{python_cmd} {plugin_dir}/hooks/loop-install-pickup.py"
-    if not _hook_exists(settings['hooks'].get('UserPromptSubmit', []), 'loop-install-pickup.py'):
-        settings['hooks'].setdefault('UserPromptSubmit', []).append({
-            "matcher": ".*",
-            "hooks": [{"type": "command", "command": install_script, "timeout": 5, "allowFailure": True}]
-        })
-        if output_format != 'json':
+    if not _hook_exists(settings["hooks"].get("UserPromptSubmit", []), "loop-install-pickup.py"):
+        settings["hooks"].setdefault("UserPromptSubmit", []).append(
+            {
+                "matcher": ".*",
+                "hooks": [{"type": "command", "command": install_script, "timeout": 5, "allowFailure": True}],
+            }
+        )
+        if output_format != "json":
             print("   ✓ Loop install pickup configured")
 
     # Loop uninstall pickup — symmetric inverse. When `empirica loop pause`
@@ -410,24 +473,28 @@ def _register_all_hooks(settings, plugin_dir, python_cmd, output_format):
     # body pause-check at next fire is the backstop if Claude doesn't run
     # CronDelete in time.
     uninstall_script = f"{python_cmd} {plugin_dir}/hooks/loop-uninstall-pickup.py"
-    if not _hook_exists(settings['hooks'].get('UserPromptSubmit', []), 'loop-uninstall-pickup.py'):
-        settings['hooks'].setdefault('UserPromptSubmit', []).append({
-            "matcher": ".*",
-            "hooks": [{"type": "command", "command": uninstall_script, "timeout": 5, "allowFailure": True}]
-        })
-        if output_format != 'json':
+    if not _hook_exists(settings["hooks"].get("UserPromptSubmit", []), "loop-uninstall-pickup.py"):
+        settings["hooks"].setdefault("UserPromptSubmit", []).append(
+            {
+                "matcher": ".*",
+                "hooks": [{"type": "command", "command": uninstall_script, "timeout": 5, "allowFailure": True}],
+            }
+        )
+        if output_format != "json":
             print("   ✓ Loop uninstall pickup configured")
 
     # Listener install pickup — surfaces pending listener install requests
     # from cockpit so the running Claude can arm the listener (curl + Monitor)
     # via the /inbox-listener skill.
     listener_install_script = f"{python_cmd} {plugin_dir}/hooks/listener-install-pickup.py"
-    if not _hook_exists(settings['hooks'].get('UserPromptSubmit', []), 'listener-install-pickup.py'):
-        settings['hooks'].setdefault('UserPromptSubmit', []).append({
-            "matcher": ".*",
-            "hooks": [{"type": "command", "command": listener_install_script, "timeout": 5, "allowFailure": True}]
-        })
-        if output_format != 'json':
+    if not _hook_exists(settings["hooks"].get("UserPromptSubmit", []), "listener-install-pickup.py"):
+        settings["hooks"].setdefault("UserPromptSubmit", []).append(
+            {
+                "matcher": ".*",
+                "hooks": [{"type": "command", "command": listener_install_script, "timeout": 5, "allowFailure": True}],
+            }
+        )
+        if output_format != "json":
             print("   ✓ Listener install pickup configured")
 
     # Listener uninstall pickup — symmetric inverse. When `empirica listener
@@ -435,33 +502,77 @@ def _register_all_hooks(settings, plugin_dir, python_cmd, output_format):
     # this hook surfaces it so the owning Claude can TaskStop the Monitor and
     # kill the held curl. Body pause-check at next wake is the backstop.
     listener_uninstall_script = f"{python_cmd} {plugin_dir}/hooks/listener-uninstall-pickup.py"
-    if not _hook_exists(settings['hooks'].get('UserPromptSubmit', []), 'listener-uninstall-pickup.py'):
-        settings['hooks'].setdefault('UserPromptSubmit', []).append({
-            "matcher": ".*",
-            "hooks": [{"type": "command", "command": listener_uninstall_script, "timeout": 5, "allowFailure": True}]
-        })
-        if output_format != 'json':
+    if not _hook_exists(settings["hooks"].get("UserPromptSubmit", []), "listener-uninstall-pickup.py"):
+        settings["hooks"].setdefault("UserPromptSubmit", []).append(
+            {
+                "matcher": ".*",
+                "hooks": [
+                    {"type": "command", "command": listener_uninstall_script, "timeout": 5, "allowFailure": True}
+                ],
+            }
+        )
+        if output_format != "json":
             print("   ✓ Listener uninstall pickup configured")
 
     entity_script = f"{python_cmd} {plugin_dir}/hooks/entity-extractor.py"
-    _register_hook(settings, 'PostToolUse', 'entity-extractor.py', [
-        {"matcher": "Edit|Write", "hooks": [{"type": "command", "command": entity_script, "timeout": 5, "allowFailure": True}]},
-    ], "PostToolUse (entity extraction) hook", output_format)
+    _register_hook(
+        settings,
+        "PostToolUse",
+        "entity-extractor.py",
+        [
+            {
+                "matcher": "Edit|Write",
+                "hooks": [{"type": "command", "command": entity_script, "timeout": 5, "allowFailure": True}],
+            },
+        ],
+        "PostToolUse (entity extraction) hook",
+        output_format,
+    )
 
     task_script = f"{python_cmd} {plugin_dir}/hooks/task-completed.py"
-    _register_hook(settings, 'TaskCompleted', 'task-completed.py', [
-        {"matcher": ".*", "hooks": [{"type": "command", "command": task_script, "timeout": 10, "allowFailure": True}]},
-    ], "TaskCompleted hook", output_format)
+    _register_hook(
+        settings,
+        "TaskCompleted",
+        "task-completed.py",
+        [
+            {
+                "matcher": ".*",
+                "hooks": [{"type": "command", "command": task_script, "timeout": 10, "allowFailure": True}],
+            },
+        ],
+        "TaskCompleted hook",
+        output_format,
+    )
 
     failure_script = f"{python_cmd} {plugin_dir}/hooks/tool-failure.py"
-    _register_hook(settings, 'PostToolUseFailure', 'tool-failure.py', [
-        {"matcher": ".*", "hooks": [{"type": "command", "command": failure_script, "timeout": 5, "allowFailure": True}]},
-    ], "PostToolUseFailure hook", output_format)
+    _register_hook(
+        settings,
+        "PostToolUseFailure",
+        "tool-failure.py",
+        [
+            {
+                "matcher": ".*",
+                "hooks": [{"type": "command", "command": failure_script, "timeout": 5, "allowFailure": True}],
+            },
+        ],
+        "PostToolUseFailure hook",
+        output_format,
+    )
 
     stop_script = f"{python_cmd} {plugin_dir}/hooks/transaction-enforcer.py"
-    _register_hook(settings, 'Stop', 'transaction-enforcer.py', [
-        {"matcher": ".*", "hooks": [{"type": "command", "command": stop_script, "timeout": 5, "allowFailure": True}]},
-    ], "Stop (transaction enforcer) hook", output_format)
+    _register_hook(
+        settings,
+        "Stop",
+        "transaction-enforcer.py",
+        [
+            {
+                "matcher": ".*",
+                "hooks": [{"type": "command", "command": stop_script, "timeout": 5, "allowFailure": True}],
+            },
+        ],
+        "Stop (transaction enforcer) hook",
+        output_format,
+    )
 
 
 def _configure_settings(settings, settings_file, plugin_dir, python_cmd, force, output_format, plugin_key):
@@ -469,17 +580,17 @@ def _configure_settings(settings, settings_file, plugin_dir, python_cmd, force, 
 
     Extracted from handle_setup_claude_code_command to reduce handler complexity.
     """
-    if output_format != 'json':
+    if output_format != "json":
         print("\n⚙️  Configuring settings.json...")
 
     settings = _ensure_json_file(settings_file, {})
 
     # Ensure enabledPlugins exists and enable the plugin
-    if 'enabledPlugins' not in settings:
-        settings['enabledPlugins'] = {}
+    if "enabledPlugins" not in settings:
+        settings["enabledPlugins"] = {}
     plugin_key = f"{PLUGIN_NAME}@local"
-    settings['enabledPlugins'][plugin_key] = True
-    if output_format != 'json':
+    settings["enabledPlugins"][plugin_key] = True
+    if output_format != "json":
         print("   ✓ Plugin enabled")
 
     if force:
@@ -521,10 +632,10 @@ def _setup_directories(output_format):
             "claude_session_id": None,
             "empirica_session_id": None,
             "source": "setup-claude-code",
-            "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S+0000')
+            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+0000"),
         }
         _write_json_file(active_work_file, active_work)
-        if output_format != 'json':
+        if output_format != "json":
             print("   ✓ Created ~/.empirica/active_work.json")
 
     return home, claude_dir, plugins_dir, plugin_dir, marketplace_dir, empirica_dir
@@ -532,18 +643,18 @@ def _setup_directories(output_format):
 
 def _install_plugin_files(source_dir, plugin_dir, output_format):
     """Install plugin files: migrate old dirs, copy source, set permissions."""
-    if output_format != 'json':
+    if output_format != "json":
         print("\n📦 Installing plugin files...")
 
     # Migration: remove old empirica-integration directory if it exists (renamed to empirica in 1.7.0)
     old_plugin_dir = plugin_dir.parent / "empirica-integration"
     if old_plugin_dir.exists() and old_plugin_dir != plugin_dir:
         shutil.rmtree(old_plugin_dir)
-        if output_format != 'json':
+        if output_format != "json":
             print("   🔄 Migrated: removed old empirica-integration plugin directory")
 
     # Also clean orphaned cache (prevents duplicate hook execution)
-    old_cache_dir = Path.home() / '.claude' / 'plugins' / 'cache' / 'local' / 'empirica-integration'
+    old_cache_dir = Path.home() / ".claude" / "plugins" / "cache" / "local" / "empirica-integration"
     if old_cache_dir.exists():
         shutil.rmtree(old_cache_dir)
 
@@ -554,7 +665,7 @@ def _install_plugin_files(source_dir, plugin_dir, output_format):
 
     # Copy excluding __pycache__ and .git
     def ignore_patterns(directory, files):
-        return [f for f in files if f in ('__pycache__', '.git', '.pyc')]
+        return [f for f in files if f in ("__pycache__", ".git", ".pyc")]
 
     shutil.copytree(source_dir, plugin_dir, ignore=ignore_patterns)
 
@@ -571,7 +682,7 @@ def _install_plugin_files(source_dir, plugin_dir, output_format):
         for script_file in scripts_dir.glob("*.py"):
             script_file.chmod(0o755)
 
-    if output_format != 'json':
+    if output_format != "json":
         print(f"   ✓ Plugin installed to {plugin_dir}")
 
 
@@ -585,7 +696,7 @@ def _install_claude_md(plugin_dir, claude_dir, output_format):
     no monolithic full-prompt variant: a self-contained system prompt for a
     non-Claude harness is out of scope here (community territory).
     """
-    if output_format != 'json':
+    if output_format != "json":
         print("\n📝 Installing Empirica system prompt...")
 
     claude_md_src = plugin_dir / "templates" / "empirica-system-prompt-lean.md"
@@ -601,7 +712,7 @@ def _install_claude_md(plugin_dir, claude_dir, output_format):
         # at write-time so the prompt always reflects the installed package
         # version (closes Philipp's #100 — hardcoded version drifts every release).
         _render_versioned_template(claude_md_src, empirica_prompt_dst)
-        if output_format != 'json':
+        if output_format != "json":
             print(f"   ✓ Empirica prompt ({prompt_label}) written to ~/.claude/empirica-system-prompt.md")
 
         if claude_md_dst.exists():
@@ -609,46 +720,51 @@ def _install_claude_md(plugin_dir, claude_dir, output_format):
             if include_line not in existing_content:
                 new_content = f"{include_line}\n\n{existing_content}"
                 claude_md_dst.write_text(new_content)
-                if output_format != 'json':
+                if output_format != "json":
                     print("   ✓ Added include reference to existing ~/.claude/CLAUDE.md")
             else:
-                if output_format != 'json':
+                if output_format != "json":
                     print("   ✓ Include reference already present in ~/.claude/CLAUDE.md")
         else:
             claude_md_dst.write_text(f"{include_line}\n")
-            if output_format != 'json':
+            if output_format != "json":
                 print("   ✓ Created ~/.claude/CLAUDE.md with Empirica include")
     else:
-        if output_format != 'json':
+        if output_format != "json":
             print("   ⚠️  CLAUDE.md template not found in plugin")
 
 
 def _register_marketplace(marketplace_dir, plugins_dir, claude_dir, plugin_dir, plugin_key, output_format):
     """Register plugin in marketplace, installed_plugins, and known_marketplaces."""
-    if output_format != 'json':
+    if output_format != "json":
         print("\n📋 Registering in marketplace...")
 
     marketplace_file = marketplace_dir / "marketplace.json"
-    marketplace = _ensure_json_file(marketplace_file, {
-        "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-        "name": "local",
-        "description": "Local development plugins",
-        "owner": {"name": "Local", "email": "dev@localhost"},
-        "plugins": []
-    })
+    marketplace = _ensure_json_file(
+        marketplace_file,
+        {
+            "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+            "name": "local",
+            "description": "Local development plugins",
+            "owner": {"name": "Local", "email": "dev@localhost"},
+            "plugins": [],
+        },
+    )
 
-    plugin_names = [p.get('name') for p in marketplace.get('plugins', [])]
+    plugin_names = [p.get("name") for p in marketplace.get("plugins", [])]
     if PLUGIN_NAME not in plugin_names:
-        marketplace.setdefault('plugins', []).append({
-            "name": PLUGIN_NAME,
-            "description": "Noetic firewall + CASCADE workflow automation for Claude Code",
-            "version": PLUGIN_VERSION,
-            "author": {"name": "Empirica Project", "url": "https://github.com/Nubaeon/empirica"},
-            "source": f"./{PLUGIN_NAME}",
-            "category": "productivity"
-        })
+        marketplace.setdefault("plugins", []).append(
+            {
+                "name": PLUGIN_NAME,
+                "description": "Noetic firewall + CASCADE workflow automation for Claude Code",
+                "version": PLUGIN_VERSION,
+                "author": {"name": "Empirica Project", "url": "https://github.com/Nubaeon/empirica"},
+                "source": f"./{PLUGIN_NAME}",
+                "category": "productivity",
+            }
+        )
         _write_json_file(marketplace_file, marketplace)
-        if output_format != 'json':
+        if output_format != "json":
             print("   ✓ Added to marketplace.json")
 
     # Installed plugins registration
@@ -656,36 +772,38 @@ def _register_marketplace(marketplace_dir, plugins_dir, claude_dir, plugin_dir, 
     installed_plugins = _ensure_json_file(installed_plugins_file, {"version": 2, "plugins": {}})
 
     install_date = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
-    installed_plugins['plugins'][plugin_key] = [{
-        "scope": "user",
-        "installPath": str(plugin_dir),
-        "version": PLUGIN_VERSION,
-        "installedAt": install_date,
-        "lastUpdated": install_date,
-        "isLocal": True
-    }]
+    installed_plugins["plugins"][plugin_key] = [
+        {
+            "scope": "user",
+            "installPath": str(plugin_dir),
+            "version": PLUGIN_VERSION,
+            "installedAt": install_date,
+            "lastUpdated": install_date,
+            "isLocal": True,
+        }
+    ]
     _write_json_file(installed_plugins_file, installed_plugins)
-    if output_format != 'json':
+    if output_format != "json":
         print("   ✓ Added to installed_plugins.json")
 
     # Known marketplaces
     known_marketplaces_file = claude_dir / "plugins" / "known_marketplaces.json"
     known_marketplaces = _ensure_json_file(known_marketplaces_file, {})
 
-    if 'local' not in known_marketplaces:
-        known_marketplaces['local'] = {
+    if "local" not in known_marketplaces:
+        known_marketplaces["local"] = {
             "source": {"source": "directory", "path": str(plugins_dir)},
             "installLocation": str(plugins_dir),
-            "lastUpdated": install_date
+            "lastUpdated": install_date,
         }
         _write_json_file(known_marketplaces_file, known_marketplaces)
-        if output_format != 'json':
+        if output_format != "json":
             print("   ✓ Local marketplace registered")
 
 
 def _configure_mcp_server(claude_dir, home, force, output_format):
     """Find and configure the empirica-mcp MCP server. Returns (mcp_installed, mcp_cmd)."""
-    if output_format != 'json':
+    if output_format != "json":
         print("\n🔌 Configuring MCP server...")
 
     # Find empirica-mcp — prefer the binary matching the current Python environment
@@ -714,29 +832,27 @@ def _configure_mcp_server(claude_dir, home, force, output_format):
     mcp_file = claude_dir / "mcp.json"
     mcp_config = _ensure_json_file(mcp_file, {"mcpServers": {}})
 
-    existing = mcp_config.get('mcpServers', {}).get('empirica')
+    existing = mcp_config.get("mcpServers", {}).get("empirica")
     needs_update = (
-        not existing
-        or force
-        or existing.get('command') != mcp_cmd  # Binary path changed
+        not existing or force or existing.get("command") != mcp_cmd  # Binary path changed
     )
     if needs_update:
-        mcp_config.setdefault('mcpServers', {})['empirica'] = {
+        mcp_config.setdefault("mcpServers", {})["empirica"] = {
             "command": mcp_cmd,
             "args": [],
             "type": "stdio",
             "tools": ["*"],
-            "description": "Empirica epistemic framework - CASCADE workflow, goals, findings"
+            "description": "Empirica epistemic framework - CASCADE workflow, goals, findings",
         }
         _write_json_file(mcp_file, mcp_config)
-        if output_format != 'json':
-            if existing and existing.get('command') != mcp_cmd:
+        if output_format != "json":
+            if existing and existing.get("command") != mcp_cmd:
                 print(f"   ✓ MCP server updated: {mcp_cmd}")
                 print(f"     (was: {existing.get('command', 'unknown')})")
             else:
                 print(f"   ✓ MCP server configured: {mcp_cmd}")
     else:
-        if output_format != 'json':
+        if output_format != "json":
             print(f"   MCP server already configured: {mcp_cmd}")
 
     return True, mcp_cmd
@@ -745,28 +861,25 @@ def _configure_mcp_server(claude_dir, home, force, output_format):
 def _try_install_mcp_via_pipx(home, output_format):
     """Attempt to install empirica-mcp via pipx. Returns mcp_cmd or None."""
     if shutil.which("pipx"):
-        if output_format != 'json':
+        if output_format != "json":
             print("   Installing empirica-mcp via pipx...")
         try:
-            result = subprocess.run(
-                ["pipx", "install", "empirica-mcp"],
-                capture_output=True, text=True, timeout=120
-            )
+            result = subprocess.run(["pipx", "install", "empirica-mcp"], capture_output=True, text=True, timeout=120)
             if result.returncode == 0:
                 mcp_cmd = shutil.which("empirica-mcp")
                 if not mcp_cmd:
                     mcp_cmd = str(home / ".local" / "bin" / "empirica-mcp")
-                if output_format != 'json':
+                if output_format != "json":
                     print("   ✓ empirica-mcp installed via pipx")
                 return mcp_cmd
             else:
-                if output_format != 'json':
+                if output_format != "json":
                     print(f"   ⚠️  pipx install failed: {result.stderr[:100]}")
         except Exception as e:
-            if output_format != 'json':
+            if output_format != "json":
                 print(f"   ⚠️  pipx install failed: {e}")
     else:
-        if output_format != 'json':
+        if output_format != "json":
             print("   ⚠️  pipx not available - install empirica-mcp manually:")
             print("      pipx install empirica-mcp")
     return None
@@ -777,9 +890,7 @@ def _check_semantic_layer():
     ollama_ok = False
     embedding_ok = False
     try:
-        result = subprocess.run(
-            ["ollama", "list"], capture_output=True, text=True, timeout=5
-        )
+        result = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
             ollama_ok = True
             if "qwen3-embedding:8b" in result.stdout:
@@ -812,6 +923,7 @@ def _check_semantic_layer():
     qdrant_url = os.environ.get("EMPIRICA_QDRANT_URL", "http://localhost:6333")
     try:
         import urllib.request
+
         urllib.request.urlopen(qdrant_url, timeout=2)
         qdrant_ok = True
         print(f"✓ Qdrant: running at {qdrant_url}")
@@ -1022,6 +1134,7 @@ def _persist_tenant_metadata(
     # Self-heals: recomputes even when the three fields above were unchanged
     # (e.g. a project.yaml that has mesh_id_prefix + ai_id but no seat yet).
     from empirica.config.project_config_loader import compose_canonical_seat
+
     seat = compose_canonical_seat(
         mesh_id_prefix=existing.get("mesh_id_prefix") or "",
         ai_id=existing.get("ai_id") or "",
@@ -1062,6 +1175,7 @@ def _resolve_and_persist_tenant_metadata(
     else:
         try:
             from empirica.config.credentials_loader import get_credentials_loader
+
             loader = get_credentials_loader()
             loader.reload()
             cortex_cfg = loader.get_cortex_config()
@@ -1070,7 +1184,7 @@ def _resolve_and_persist_tenant_metadata(
         cortex_url = cortex_cfg.get("url")
         api_key = cortex_cfg.get("api_key")
         if not (cortex_url and api_key):
-            if any(overrides.values()) and output_format != 'json':
+            if any(overrides.values()) and output_format != "json":
                 # Flags partially supplied but no api_key to fill the rest.
                 metadata = overrides
             else:
@@ -1078,7 +1192,7 @@ def _resolve_and_persist_tenant_metadata(
         else:
             rest = _fetch_tenant_metadata(cortex_url, api_key)
             if rest is None:
-                if output_format != 'json':
+                if output_format != "json":
                     print(
                         "   ⚠️  Couldn't fetch tenant metadata from cortex "
                         "(use --org-id / --tenant-slug / --mesh-id-prefix to set manually)"
@@ -1088,13 +1202,10 @@ def _resolve_and_persist_tenant_metadata(
                 else:
                     return None
             else:
-                metadata = {
-                    key: overrides[key] or rest.get(key)
-                    for key in ("org_id", "tenant_slug", "mesh_id_prefix")
-                }
+                metadata = {key: overrides[key] or rest.get(key) for key in ("org_id", "tenant_slug", "mesh_id_prefix")}
 
     wrote = _persist_tenant_metadata(project_root, **metadata)
-    if output_format != 'json':
+    if output_format != "json":
         if wrote:
             print(
                 f"   ✓ tenant metadata persisted to .empirica/project.yaml "
@@ -1118,6 +1229,7 @@ def _resolve_listener_ai_id(args) -> str | None:
         return None
     try:
         import yaml
+
         data = yaml.safe_load(pyaml.read_text(encoding="utf-8")) or {}
         if isinstance(data, dict):
             return data.get("ai_id")
@@ -1135,13 +1247,13 @@ def _install_listener_service(args, output_format: str, skip: bool = False) -> d
     a blocker for the rest of setup-claude-code).
     """
     if skip:
-        if output_format != 'json':
+        if output_format != "json":
             print("   ⏭  listener service: skipped (--skip-listener-service)")
         return {"skipped": True}
 
     ai_id = _resolve_listener_ai_id(args)
     if not ai_id:
-        if output_format != 'json':
+        if output_format != "json":
             print("   ℹ️  listener service: no ai_id (run `empirica project-init` first)")
         return None
 
@@ -1151,13 +1263,13 @@ def _install_listener_service(args, output_format: str, skip: bool = False) -> d
             PersistentListenerService,
         )
     except ImportError as e:
-        if output_format != 'json':
+        if output_format != "json":
             print(f"   ⚠️  listener service: import error: {e}")
         return None
 
     service = PersistentListenerService()
     if service.backend == "unavailable":
-        if output_format != 'json':
+        if output_format != "json":
             print(
                 f"   ⏭  listener service: backend unavailable on this host "
                 f"({sys.platform}) — Linux/WSL2 needs systemd-user, "
@@ -1168,20 +1280,17 @@ def _install_listener_service(args, output_format: str, skip: bool = False) -> d
     try:
         unit_path = service.install(ai_id)
     except ListenerServiceUnavailable as e:
-        if output_format != 'json':
+        if output_format != "json":
             print(f"   ⚠️  listener service: {e}")
         return {"backend": service.backend, "error": str(e)}
     except subprocess.CalledProcessError as e:
-        if output_format != 'json':
+        if output_format != "json":
             print(f"   ⚠️  listener service install failed: {e}")
         return {"backend": service.backend, "error": f"install failed: {e}"}
 
     status = service.status(ai_id)
-    if output_format != 'json':
-        print(
-            f"   ✓ listener service installed ({service.backend}): "
-            f"{unit_path} — active: {status.active}"
-        )
+    if output_format != "json":
+        print(f"   ✓ listener service installed ({service.backend}): {unit_path} — active: {status.active}")
     return {
         "backend": service.backend,
         "ai_id": ai_id,
@@ -1206,14 +1315,17 @@ def _check_credentials_state() -> dict:
     """
     try:
         from empirica.config.credentials_loader import get_credentials_loader
+
         loader = get_credentials_loader()
         loader.reload()  # bypass cache
         cortex = loader.get_cortex_config()
         ntfy = loader.get_ntfy_config()
     except Exception as e:
         return {
-            "cortex_ok": False, "ntfy_ok": False,
-            "cortex_url": None, "ntfy_url": None,
+            "cortex_ok": False,
+            "ntfy_ok": False,
+            "cortex_url": None,
+            "ntfy_url": None,
             "issues": [f"Could not read credentials: {e}"],
         }
 
@@ -1270,7 +1382,7 @@ def _run_credentials_wizard(state: dict, output_format: str) -> dict:
 
     if state["cortex_ok"] and state["ntfy_ok"]:
         return state
-    if output_format == 'json':
+    if output_format == "json":
         return state
     if not _sys.stdin.isatty():
         return state
@@ -1285,6 +1397,7 @@ def _run_credentials_wizard(state: dict, output_format: str) -> dict:
 
     try:
         from empirica.config.credentials_loader import get_credentials_loader
+
         loader = get_credentials_loader()
     except Exception as e:
         print(f"⚠️  Could not load credentials helper: {e}")
@@ -1365,7 +1478,7 @@ def _migrate_legacy_project_identity(force, output_format):
         from empirica.core.identity_migration import run_force_migration
 
         result = run_force_migration(os.getcwd())
-        if output_format != 'json':
+        if output_format != "json":
             status = result.get("status")
             if status == "migrated":
                 print(
@@ -1376,48 +1489,49 @@ def _migrate_legacy_project_identity(force, output_format):
                 print(f"   --force: legacy project_id needs a UUID — {result['message']}")
         return result
     except Exception as e:
-        if output_format != 'json':
-            print(
-                f"   --force: project identity migration skipped "
-                f"({type(e).__name__}: {e})"
-            )
+        if output_format != "json":
+            print(f"   --force: project identity migration skipped ({type(e).__name__}: {e})")
         return {"status": "error", "message": str(e)}
 
 
 def handle_setup_claude_code_command(args):
     """Handle setup-claude-code command"""
     try:
-        output_format = getattr(args, 'output', 'human')
-        force = getattr(args, 'force', False)
-        skip_mcp = getattr(args, 'skip_mcp', False)
-        skip_claude_md = getattr(args, 'skip_claude_md', False)
-        skip_credentials = getattr(args, 'skip_credentials', False)
+        output_format = getattr(args, "output", "human")
+        force = getattr(args, "force", False)
+        skip_mcp = getattr(args, "skip_mcp", False)
+        skip_claude_md = getattr(args, "skip_claude_md", False)
+        skip_credentials = getattr(args, "skip_credentials", False)
 
         # Find bundled plugins
         source_dir = _get_plugin_source_dir()
         if not source_dir:
-            if output_format == 'json':
-                print(json.dumps({
-                    "ok": False,
-                    "error": "Could not find bundled plugin files",
-                    "hint": "Run from a valid Empirica installation or dev environment"
-                }, indent=2))
+            if output_format == "json":
+                print(
+                    json.dumps(
+                        {
+                            "ok": False,
+                            "error": "Could not find bundled plugin files",
+                            "hint": "Run from a valid Empirica installation or dev environment",
+                        },
+                        indent=2,
+                    )
+                )
             else:
                 print("❌ Error: Could not find bundled plugin files")
                 print("   Run from a valid Empirica installation or dev environment")
             return None
 
-        if output_format != 'json':
+        if output_format != "json":
             print("🧠 Setting up Claude Code integration...")
             print(f"   Source: {source_dir}\n")
 
         python_cmd = _find_python()
-        if output_format != 'json':
+        if output_format != "json":
             print(f"   Using Python: {python_cmd}")
 
         # Stage 1: Create directories
-        home, claude_dir, plugins_dir, plugin_dir, marketplace_dir, _empirica_dir = \
-            _setup_directories(output_format)
+        home, claude_dir, plugins_dir, plugin_dir, marketplace_dir, _empirica_dir = _setup_directories(output_format)
 
         # Stage 2: Install plugin files
         _install_plugin_files(source_dir, plugin_dir, output_format)
@@ -1463,9 +1577,11 @@ def handle_setup_claude_code_command(args):
         # Without this, wake events queue in cortex+ntfy until a Claude
         # session opens — pull-when-session-starts. With it, the listener
         # stays alive and pushes wake events in real time.
-        skip_listener_service = getattr(args, 'skip_listener_service', False)
+        skip_listener_service = getattr(args, "skip_listener_service", False)
         listener_service_result = _install_listener_service(
-            args, output_format, skip=skip_listener_service,
+            args,
+            output_format,
+            skip=skip_listener_service,
         )
 
         # Stage 6.8: Legacy project_id → UUID migration (--force only).
@@ -1475,7 +1591,7 @@ def handle_setup_claude_code_command(args):
         identity_migration_result = _migrate_legacy_project_identity(force, output_format)
 
         # Stage 7: Output
-        if output_format == 'json':
+        if output_format == "json":
             return {
                 "ok": True,
                 "plugin_dir": str(plugin_dir),
@@ -1498,9 +1614,9 @@ def handle_setup_claude_code_command(args):
                     "SessionEnd",
                     "SubagentStart",
                     "SubagentStop",
-                    "UserPromptSubmit"
+                    "UserPromptSubmit",
                 ],
-                "message": "Claude Code integration configured successfully"
+                "message": "Claude Code integration configured successfully",
             }
         else:
             _print_human_summary(plugin_dir, settings_file, mcp_installed, skip_claude_md, claude_dir)
@@ -1509,12 +1625,10 @@ def handle_setup_claude_code_command(args):
         return None
 
     except Exception as e:
-        if getattr(args, 'output', 'human') == 'json':
-            print(json.dumps({
-                "ok": False,
-                "error": str(e)
-            }, indent=2))
+        if getattr(args, "output", "human") == "json":
+            print(json.dumps({"ok": False, "error": str(e)}, indent=2))
         else:
             from ..cli_utils import handle_cli_error
-            handle_cli_error(e, "Setup Claude Code", getattr(args, 'verbose', False))
+
+            handle_cli_error(e, "Setup Claude Code", getattr(args, "verbose", False))
         return None

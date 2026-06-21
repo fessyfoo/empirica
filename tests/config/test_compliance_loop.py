@@ -32,40 +32,56 @@ def clean_registry():
 def _make_passing_runner(check_id: str = "test_check"):
     def runner(ctx):
         import time
+
         return CheckResult(check_id, True, {}, "passed", 1, time.time())
+
     return runner
 
 
 def _make_failing_runner(check_id: str = "test_check"):
     def runner(ctx):
         import time
+
         return CheckResult(check_id, False, {"error": "failed"}, "failed", 1, time.time())
+
     return runner
 
 
 class TestComplianceResult:
-
     def test_complete_status(self):
         r = ComplianceResult(
-            status="complete", domain="default", criticality="medium",
-            checks_run=2, checks_passed=2, checks_failed=0,
+            status="complete",
+            domain="default",
+            criticality="medium",
+            checks_run=2,
+            checks_passed=2,
+            checks_failed=0,
             check_results=[],
         )
         assert r.is_complete
 
     def test_iteration_needed(self):
         r = ComplianceResult(
-            status="iteration_needed", domain="cybersec", criticality="high",
-            checks_run=3, checks_passed=2, checks_failed=1,
-            check_results=[], next_transaction={"intent": "fix X"},
+            status="iteration_needed",
+            domain="cybersec",
+            criticality="high",
+            checks_run=3,
+            checks_passed=2,
+            checks_failed=1,
+            check_results=[],
+            next_transaction={"intent": "fix X"},
         )
         assert not r.is_complete
         assert r.next_transaction is not None
 
     def test_to_dict(self):
         r = ComplianceResult(
-            status="complete", domain="default", criticality="low",
-            checks_run=1, checks_passed=1, checks_failed=0,
+            status="complete",
+            domain="default",
+            criticality="low",
+            checks_run=1,
+            checks_passed=1,
+            checks_failed=0,
             check_results=[{"check_id": "tests", "passed": True}],
         )
         d = r.to_dict()
@@ -75,19 +91,24 @@ class TestComplianceResult:
 
 
 class TestRunComplianceChecks:
-
     def test_no_domain_returns_none(self):
         result = run_compliance_checks(
-            session_id="s1", transaction_id="t1",
-            work_type=None, domain=None, criticality=None,
+            session_id="s1",
+            transaction_id="t1",
+            work_type=None,
+            domain=None,
+            criticality=None,
         )
         assert result is None
 
     def test_remote_ops_returns_complete(self):
         """remote-ops has empty checklist — always complete."""
         result = run_compliance_checks(
-            session_id="s1", transaction_id="t1",
-            work_type="remote-ops", domain="remote-ops", criticality="low",
+            session_id="s1",
+            transaction_id="t1",
+            work_type="remote-ops",
+            domain="remote-ops",
+            criticality="low",
         )
         assert result is not None
         assert result.is_complete
@@ -96,16 +117,22 @@ class TestRunComplianceChecks:
     def test_all_checks_pass_returns_complete(self):
         """When all required checks pass, status is complete."""
         # default/low requires only tests
-        ServiceRegistry.register(CheckDeclaration(
-            check_id="tests", tool="pytest",
-            applies_to=(("code", "*"),),
-            criterion_description="tests pass",
-            runner=_make_passing_runner("tests"),
-        ))
+        ServiceRegistry.register(
+            CheckDeclaration(
+                check_id="tests",
+                tool="pytest",
+                applies_to=(("code", "*"),),
+                criterion_description="tests pass",
+                runner=_make_passing_runner("tests"),
+            )
+        )
 
         result = run_compliance_checks(
-            session_id="s1", transaction_id="t1",
-            work_type="code", domain="default", criticality="low",
+            session_id="s1",
+            transaction_id="t1",
+            work_type="code",
+            domain="default",
+            criticality="low",
             execution_tier="goal_completion",
         )
         assert result is not None
@@ -116,16 +143,22 @@ class TestRunComplianceChecks:
     def test_failed_check_returns_iteration_needed(self):
         """When a check fails, status is iteration_needed with advisory."""
         # default/low requires only tests — register it as failing
-        ServiceRegistry.register(CheckDeclaration(
-            check_id="tests", tool="pytest",
-            applies_to=(("code", "*"),),
-            criterion_description="tests pass",
-            runner=_make_failing_runner("tests"),
-        ))
+        ServiceRegistry.register(
+            CheckDeclaration(
+                check_id="tests",
+                tool="pytest",
+                applies_to=(("code", "*"),),
+                criterion_description="tests pass",
+                runner=_make_failing_runner("tests"),
+            )
+        )
 
         result = run_compliance_checks(
-            session_id="s1", transaction_id="t1",
-            work_type="code", domain="default", criticality="low",
+            session_id="s1",
+            transaction_id="t1",
+            work_type="code",
+            domain="default",
+            criticality="low",
             execution_tier="goal_completion",  # tests tier=goal_completion
         )
         assert result is not None
@@ -136,17 +169,23 @@ class TestRunComplianceChecks:
 
     def test_max_iterations_exceeded(self):
         """After max_iterations, status changes to max_iterations_exceeded."""
-        ServiceRegistry.register(CheckDeclaration(
-            check_id="tests", tool="pytest",
-            applies_to=(("code", "*"),),
-            criterion_description="tests pass",
-            runner=_make_failing_runner("tests"),
-        ))
+        ServiceRegistry.register(
+            CheckDeclaration(
+                check_id="tests",
+                tool="pytest",
+                applies_to=(("code", "*"),),
+                criterion_description="tests pass",
+                runner=_make_failing_runner("tests"),
+            )
+        )
 
         # default/low has max_iterations=3, requires only tests
         result = run_compliance_checks(
-            session_id="s1", transaction_id="t1",
-            work_type="code", domain="default", criticality="low",
+            session_id="s1",
+            transaction_id="t1",
+            work_type="code",
+            domain="default",
+            criticality="low",
             iteration_number=3,
             execution_tier="goal_completion",
         )
@@ -159,8 +198,11 @@ class TestRunComplianceChecks:
         # Use cybersec/high which requires semgrep_full, trivy_deps, gitleaks
         # — none of which are in the builtins
         result = run_compliance_checks(
-            session_id="s1", transaction_id="t1",
-            work_type="code", domain="cybersec", criticality="high",
+            session_id="s1",
+            transaction_id="t1",
+            work_type="code",
+            domain="cybersec",
+            criticality="high",
         )
         assert result is not None
         assert result.checks_failed >= 1

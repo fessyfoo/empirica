@@ -39,19 +39,15 @@ class ContextSummary:
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization"""
-        return {
-            'semantic': self.semantic,
-            'narrative': self.narrative,
-            'evidence_refs': self.evidence_refs
-        }
+        return {"semantic": self.semantic, "narrative": self.narrative, "evidence_refs": self.evidence_refs}
 
     @classmethod
-    def from_dict(cls, data: dict) -> 'ContextSummary':
+    def from_dict(cls, data: dict) -> "ContextSummary":
         """Create from dictionary"""
         return cls(
-            semantic=data.get('semantic', {}),
-            narrative=data.get('narrative', ''),
-            evidence_refs=data.get('evidence_refs', [])
+            semantic=data.get("semantic", {}),
+            narrative=data.get("narrative", ""),
+            evidence_refs=data.get("evidence_refs", []),
         )
 
     def to_prompt(self) -> str:
@@ -141,7 +137,7 @@ class EpistemicStateSnapshot:
 
         # Handle ContextSummary serialization
         if self.context_summary:
-            data['context_summary'] = self.context_summary.to_dict()
+            data["context_summary"] = self.context_summary.to_dict()
 
         return data
 
@@ -150,16 +146,16 @@ class EpistemicStateSnapshot:
         return json.dumps(self.to_dict(), indent=2)
 
     @classmethod
-    def from_dict(cls, data: dict) -> 'EpistemicStateSnapshot':
+    def from_dict(cls, data: dict) -> "EpistemicStateSnapshot":
         """Create from dictionary"""
         # Handle ContextSummary deserialization
-        if data.get('context_summary'):
-            data['context_summary'] = ContextSummary.from_dict(data['context_summary'])
+        if data.get("context_summary"):
+            data["context_summary"] = ContextSummary.from_dict(data["context_summary"])
 
         return cls(**data)
 
     @classmethod
-    def from_json(cls, json_str: str) -> 'EpistemicStateSnapshot':
+    def from_json(cls, json_str: str) -> "EpistemicStateSnapshot":
         """Import from JSON"""
         data = json.loads(json_str)
         return cls.from_dict(data)
@@ -188,7 +184,7 @@ class EpistemicStateSnapshot:
 
 **Session:** {self.session_id}
 **AI:** {self.ai_id}
-**Phase:** {self.cascade_phase or 'unknown'}
+**Phase:** {self.cascade_phase or "unknown"}
 **Timestamp:** {self.timestamp}
 
 ## Epistemic Vectors (13-dimensional state)
@@ -232,11 +228,11 @@ Use this to maintain context continuity without full conversation history.
         output = []
 
         # Group vectors by category
-        foundation = ['KNOW', 'DO', 'CONTEXT']
-        comprehension = ['CLARITY', 'COHERENCE', 'SIGNAL', 'DENSITY']
-        execution = ['STATE', 'CHANGE', 'COMPLETION', 'IMPACT']
-        gate = ['ENGAGEMENT']
-        meta = ['UNCERTAINTY']
+        foundation = ["KNOW", "DO", "CONTEXT"]
+        comprehension = ["CLARITY", "COHERENCE", "SIGNAL", "DENSITY"]
+        execution = ["STATE", "CHANGE", "COMPLETION", "IMPACT"]
+        gate = ["ENGAGEMENT"]
+        meta = ["UNCERTAINTY"]
 
         def format_group(name: str, vectors: list[str]) -> str:
             """Format a group of vectors with name, scores, and visual bars."""
@@ -304,7 +300,7 @@ Use this to maintain context continuity without full conversation history.
         empty = width - filled
         return "█" * filled + "░" * empty
 
-    def calculate_delta(self, previous: 'EpistemicStateSnapshot') -> dict[str, float]:
+    def calculate_delta(self, previous: "EpistemicStateSnapshot") -> dict[str, float]:
         """
         Calculate vector changes from previous snapshot
 
@@ -353,10 +349,7 @@ Use this to maintain context continuity without full conversation history.
         reliability = base_reliability - transfer_penalty - time_penalty - info_loss_penalty
         return max(0.0, min(1.0, reliability))
 
-    def should_refresh(self,
-                       min_reliability: float = 0.75,
-                       max_transfers: int = 5,
-                       max_age_hours: int = 24) -> bool:
+    def should_refresh(self, min_reliability: float = 0.75, max_transfers: int = 5, max_age_hours: int = 24) -> bool:
         """
         Determine if snapshot should be refreshed with full context
 
@@ -401,12 +394,14 @@ Use this to maintain context continuity without full conversation history.
         return None
 
 
-def create_snapshot(session_id: str,
-                   ai_id: str,
-                   vectors: dict[str, float],
-                   context_summary: ContextSummary | None = None,
-                   cascade_phase: str | None = None,
-                   domain_vectors: dict[str, dict[str, float]] | None = None) -> EpistemicStateSnapshot:
+def create_snapshot(
+    session_id: str,
+    ai_id: str,
+    vectors: dict[str, float],
+    context_summary: ContextSummary | None = None,
+    cascade_phase: str | None = None,
+    domain_vectors: dict[str, dict[str, float]] | None = None,
+) -> EpistemicStateSnapshot:
     """
     Convenience function to create a new epistemic snapshot
 
@@ -429,5 +424,5 @@ def create_snapshot(session_id: str,
         vectors=vectors,
         context_summary=context_summary,
         cascade_phase=cascade_phase,
-        domain_vectors=domain_vectors
+        domain_vectors=domain_vectors,
     )

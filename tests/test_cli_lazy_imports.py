@@ -31,20 +31,14 @@ _FORBIDDEN_AT_CLI_IMPORT = ("httpx", "git")
 def _modules_after(import_target: str) -> set[str]:
     """Return sys.modules keys after importing ``import_target`` in a fresh
     interpreter. Isolated so the parent test process can't contaminate it."""
-    code = (
-        f"import {import_target}\n"
-        "import sys, json\n"
-        "print(json.dumps(sorted(sys.modules)))\n"
-    )
+    code = f"import {import_target}\nimport sys, json\nprint(json.dumps(sorted(sys.modules)))\n"
     proc = subprocess.run(
         [sys.executable, "-c", code],
         capture_output=True,
         text=True,
         timeout=120,
     )
-    assert proc.returncode == 0, (
-        f"importing {import_target} failed:\n{proc.stderr}"
-    )
+    assert proc.returncode == 0, f"importing {import_target} failed:\n{proc.stderr}"
     import json
 
     return set(json.loads(proc.stdout.strip().splitlines()[-1]))
@@ -63,17 +57,14 @@ def test_cli_import_does_not_pull_gitpython():
     """GitPython is ~140ms and only needed for git-notes write paths."""
     loaded = _modules_after("empirica.cli")
     assert "git" not in loaded, (
-        "empirica.cli eagerly imported GitPython ('git') — "
-        "signed_operations must import it lazily inside its methods."
+        "empirica.cli eagerly imported GitPython ('git') — signed_operations must import it lazily inside its methods."
     )
 
 
 def test_signed_operations_import_is_light():
     """Importing the git-notes module itself must not drag in GitPython."""
     loaded = _modules_after("empirica.core.git_ops.signed_operations")
-    assert "git" not in loaded, (
-        "signed_operations eagerly imported GitPython at module top."
-    )
+    assert "git" not in loaded, "signed_operations eagerly imported GitPython at module top."
 
 
 def test_gitpython_still_usable_when_needed():

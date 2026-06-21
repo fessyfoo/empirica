@@ -34,7 +34,8 @@ class EntityCreateRequest(BaseModel):
     company_name: str | None = None
     description: str | None = None
     metadata: dict | None = Field(
-        default=None, description="Extra metadata merged into the registry row",
+        default=None,
+        description="Extra metadata merged into the registry row",
     )
 
 
@@ -49,7 +50,7 @@ async def create_entity(req: EntityCreateRequest):
         raise HTTPException(
             status_code=422,
             detail=f"entity create v1 mints contacts only (got {req.type!r}). "
-                   "Other entity types are written by their owning pipelines.",
+            "Other entity types are written by their owning pipelines.",
         )
 
     from empirica.cli.command_handlers.entity_commands import mint_contact

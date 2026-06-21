@@ -1,4 +1,5 @@
 """Database schema migrations"""
+
 import logging
 import sqlite3
 from collections.abc import Callable
@@ -67,6 +68,7 @@ def migration_008_migrate_legacy_to_reflexes(cursor: sqlite3.Cursor):
     - epistemic_assessments → (unused, just drop)
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     try:
@@ -169,6 +171,7 @@ def migration_008_migrate_legacy_to_reflexes(cursor: sqlite3.Cursor):
 def migration_009_goals_project_id(cursor: sqlite3.Cursor):
     """Add project_id to goals table and populate from sessions"""
     import logging
+
     logger = logging.getLogger(__name__)
 
     # Add column
@@ -306,6 +309,7 @@ def migration_014_lessons_and_knowledge_graph(cursor: sqlite3.Cursor):
     - COLD: YAML files (filesystem)
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     # lessons - Core lesson metadata (WARM layer)
@@ -485,6 +489,7 @@ def migration_015_sessions_instance_id(cursor: sqlite3.Cursor):
     5. None (fallback to legacy behavior)
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     add_column_if_missing(cursor, "sessions", "instance_id", "TEXT")
@@ -506,6 +511,7 @@ def migration_016_auto_captured_issues(cursor: sqlite3.Cursor):
     Fixes: GitHub Issue #21 (Issue 1: Missing Database Migration)
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     cursor.execute("""
@@ -546,6 +552,7 @@ def migration_017_project_type_and_tags(cursor: sqlite3.Cursor):
     parent_project_id: Optional hierarchy (e.g., empirica-autonomy → empirica)
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     add_column_if_missing(cursor, "projects", "project_type", "TEXT", "'product'")
@@ -568,6 +575,7 @@ def migration_018_project_relationships(cursor: sqlite3.Cursor):
     Types: depends_on, blocks, shares_domain, cross_learns, parent_of
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     cursor.execute("""
@@ -603,6 +611,7 @@ def migration_019_cross_project_finding_links(cursor: sqlite3.Cursor):
     Pattern borrowed from CRM's client_findings table.
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     cursor.execute("""
@@ -645,6 +654,7 @@ def migration_020_client_projects(cursor: sqlite3.Cursor):
     - stakeholder: Has interest but not direct ownership
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     cursor.execute("""
@@ -688,6 +698,7 @@ def migration_021_engagements_project_id(cursor: sqlite3.Cursor):
     This migration gracefully skips if the table doesn't exist.
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     # Check if engagements table exists (it's part of empirica-crm)
@@ -736,6 +747,7 @@ def migration_023_sessions_parent_session_id(cursor: sqlite3.Cursor):
     - Multi-agent coordination with clear provenance
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     add_column_if_missing(cursor, "sessions", "parent_session_id", "TEXT")
@@ -755,6 +767,7 @@ def migration_024_attention_budgets(cursor: sqlite3.Cursor):
     rollup_logs: Record scored rollup decisions (accepted/rejected findings from sub-agents).
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     cursor.execute("""
@@ -854,6 +867,7 @@ def migration_026_grounded_verification(cursor: sqlite3.Cursor):
     calibration_trajectory: POSTFLIGHT-to-POSTFLIGHT evolution tracking.
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     cursor.execute("""
@@ -969,13 +983,14 @@ def migration_027_drop_session_noetic_tables(cursor: sqlite3.Cursor):
     live in project-scoped tables with transaction_id linkage.
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     tables_to_drop = [
-        'session_findings',
-        'session_unknowns',
-        'session_dead_ends',
-        'session_mistakes',
+        "session_findings",
+        "session_unknowns",
+        "session_dead_ends",
+        "session_mistakes",
     ]
 
     for table in tables_to_drop:
@@ -1007,6 +1022,7 @@ def migration_028_investigation_branches_transaction_id(cursor: sqlite3.Cursor):
     grounded calibration.
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     add_column_if_missing(cursor, "investigation_branches", "transaction_id", "TEXT")
@@ -1027,6 +1043,7 @@ def migration_029_goals_transaction_index(cursor: sqlite3.Cursor):
     - Transaction-scoped goal completion tracking
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     cursor.execute("""
@@ -1040,14 +1057,26 @@ def migration_029_goals_transaction_index(cursor: sqlite3.Cursor):
 def migration_030_entity_agnostic_intent_layer(cursor: sqlite3.Cursor):
     """Add entity_type/entity_id to artifact tables, create assumptions and decisions tables."""
     # Add entity_type/entity_id to existing artifact tables
-    for table in ['project_findings', 'project_unknowns', 'project_dead_ends',
-                  'mistakes_made', 'epistemic_sources', 'goals']:
+    for table in [
+        "project_findings",
+        "project_unknowns",
+        "project_dead_ends",
+        "mistakes_made",
+        "epistemic_sources",
+        "goals",
+    ]:
         add_column_if_missing(cursor, table, "entity_type", "TEXT", "'project'")
         add_column_if_missing(cursor, table, "entity_id", "TEXT")
 
     # Backfill entity_id from project_id
-    for table in ['project_findings', 'project_unknowns', 'project_dead_ends',
-                  'mistakes_made', 'epistemic_sources', 'goals']:
+    for table in [
+        "project_findings",
+        "project_unknowns",
+        "project_dead_ends",
+        "mistakes_made",
+        "epistemic_sources",
+        "goals",
+    ]:
         cursor.execute(f"UPDATE {table} SET entity_id = project_id WHERE entity_id IS NULL")
 
     # assumptions and decisions tables created via SCHEMAS (CREATE IF NOT EXISTS)
@@ -1120,6 +1149,7 @@ def migration_034_subagent_sessions(cursor: sqlite3.Cursor):
     parent's row (parent_session_id IS NULL) stays in `sessions`.
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     # Step 1: ensure subagent_sessions table exists (idempotent — fresh
@@ -1192,6 +1222,7 @@ def migration_033_codebase_model(cursor: sqlite3.Cursor):
     Inspired by world-model-mcp (MIT, github.com/Nubaeon/world-model-mcp).
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     # Tables are created via codebase_model_schema.py SCHEMAS (idempotent).
@@ -1225,56 +1256,216 @@ def migration_033_codebase_model(cursor: sqlite3.Cursor):
 
 
 ALL_MIGRATIONS: list[tuple[str, str, Callable]] = [
-    ("001_cascade_workflow_columns", "Add CASCADE workflow tracking to cascades", migration_001_cascade_workflow_columns),
+    (
+        "001_cascade_workflow_columns",
+        "Add CASCADE workflow tracking to cascades",
+        migration_001_cascade_workflow_columns,
+    ),
     ("002_epistemic_delta", "Add epistemic delta JSON to cascades", migration_002_epistemic_delta),
     ("003_cascade_goal_tracking", "Add goal tracking to cascades", migration_003_cascade_goal_tracking),
     ("004_goals_status", "Add status column to goals", migration_004_goals_status),
     ("005_sessions_project_id", "Add project_id to sessions", migration_005_sessions_project_id),
     ("006_sessions_subject", "Add subject filtering to sessions", migration_006_sessions_subject),
     ("007_findings_impact", "Add impact scoring to project_findings", migration_007_findings_impact),
-    ("008_migrate_legacy_to_reflexes", "Migrate legacy epistemic tables to reflexes", migration_008_migrate_legacy_to_reflexes),
+    (
+        "008_migrate_legacy_to_reflexes",
+        "Migrate legacy epistemic tables to reflexes",
+        migration_008_migrate_legacy_to_reflexes,
+    ),
     ("009_goals_project_id", "Add project_id to goals table", migration_009_goals_project_id),
     ("010_sessions_bootstrap_level", "Add bootstrap_level to sessions", migration_010_sessions_bootstrap_level),
     ("011_mistakes_project_id", "Add project_id to mistakes_made", migration_011_mistakes_project_id),
     ("012_unknowns_impact", "Add impact scoring to project_unknowns", migration_012_unknowns_impact),
-    ("013_session_scoped_breadcrumbs", "Add session-scoped breadcrumb tables (dual-scope Phase 1)", migration_013_session_scoped_breadcrumbs),
-    ("014_lessons_and_knowledge_graph", "Add lessons and knowledge graph tables for epistemic procedural knowledge", migration_014_lessons_and_knowledge_graph),
-    ("015_sessions_instance_id", "Add instance_id to sessions for multi-instance isolation", migration_015_sessions_instance_id),
-    ("016_auto_captured_issues", "Add auto_captured_issues table for issue tracking", migration_016_auto_captured_issues),
-    ("017_project_type_and_tags", "Add project_type, project_tags, parent_project_id for workspace management", migration_017_project_type_and_tags),
-    ("018_project_relationships", "Add project_relationships table for cross-project links", migration_018_project_relationships),
-    ("019_cross_project_finding_links", "Add cross_project_finding_links for shared learnings", migration_019_cross_project_finding_links),
-    ("020_client_projects", "Add client_projects junction table for client-project relationships", migration_020_client_projects),
-    ("021_engagements_project_id", "Add project_id to engagements for direct project scoping", migration_021_engagements_project_id),
-    ("022_reflexes_project_id", "Add project_id to reflexes for project-aware PREFLIGHT tracking", migration_022_reflexes_project_id),
-    ("023_sessions_parent_session_id", "Add parent_session_id to sessions for sub-agent lineage tracking", migration_023_sessions_parent_session_id),
-    ("024_attention_budgets", "Add attention_budgets and rollup_logs tables for epistemic attention budget", migration_024_attention_budgets),
-    ("025_transaction_id", "Add transaction_id to epistemic artifact tables for first-class transaction tracking", migration_025_transaction_id),
-    ("026_grounded_verification", "Add post-test verification tables for grounded calibration", migration_026_grounded_verification),
-    ("027_drop_session_noetic_tables", "Drop deprecated session-scoped noetic tables (sessions delineate compact windows only)", migration_027_drop_session_noetic_tables),
-    ("028_investigation_branches_transaction_id", "Add transaction_id to investigation_branches for sub-agent epistemic continuity", migration_028_investigation_branches_transaction_id),
-    ("029_goals_transaction_index", "Add index on goals.transaction_id for transaction-scoped queries", migration_029_goals_transaction_index),
-    ("030_entity_agnostic_intent_layer", "Add entity_type/entity_id to artifact tables, assumptions and decisions tables (v0.6.0)", migration_030_entity_agnostic_intent_layer),
-    ("031_phase_aware_calibration", "Add phase column to grounded verification tables for noetic/praxic calibration split", migration_031_phase_aware_calibration),
-    ("032_calibration_disputes", "Add calibration_disputes table for AI pushback on measurement artifacts", migration_032_calibration_disputes),
-    ("033_codebase_model", "Add codebase model tables for temporal entity tracking (world-model-mcp absorption)", migration_033_codebase_model),
-    ("034_subagent_sessions", "Move subagent child sessions out of main sessions table to dedicated subagent_sessions table", migration_034_subagent_sessions),
-    ("035_three_vector_storage", "Add three-vector storage schema for Sentinel reframe (A3 Wave 1)", lambda cursor: migration_035_three_vector_storage(cursor)),
-    ("036_provenance_graph", "Add provenance graph columns: source_refs on findings, evidence_refs on decisions, resolution_finding_id on unknowns", lambda cursor: migration_036_provenance_graph(cursor)),
-    ("037_composable_lessons", "Evolve lessons into composable epistemic patterns with abstraction levels, sharing, EKG connections, triggers, output renderers", lambda cursor: migration_037_composable_lessons(cursor)),
-    ("038_goal_lifecycle_simplify", "Simplify goal lifecycle: convert stale/blocked to in_progress, support planned status", lambda cursor: migration_038_goal_lifecycle_simplify(cursor)),
-    ("039_artifact_visibility", "Add visibility tier (public/shared/local, default shared) to artifact tables for Phase 0 visibility primitive (PROPOSAL_VISIBILITY_TIERS.md)", lambda cursor: migration_039_artifact_visibility(cursor)),
-    ("040_epistemic_source", "Add epistemic_source field (intuition/search/mixed/NULL) to artifact tables for source-aware Sentinel calibration substrate (PROMPT_FOR_EMPIRICA_CLAUDE_source_aware_sentinel.md)", lambda cursor: migration_040_epistemic_source(cursor)),
-    ("041_artifact_edges", "Add normalized artifact_edges table + backfill from data.edges JSON (v0.5 LOCAL-ARTIFACTS daemon — fixes silent edge-drop on assumptions/decisions, enables cheap inverse queries)", lambda cursor: migration_041_artifact_edges(cursor)),
-    ("042_impact_on_dead_ends_and_mistakes", "Add impact column to project_dead_ends and mistakes_made (long-lived DBs missed migrations 007/012 for these two tables — daemon /dead-ends endpoint 500s without this)", lambda cursor: migration_042_impact_on_dead_ends_and_mistakes(cursor)),
-    ("043_goal_description", "Add description TEXT column to goals (Linear/GitHub/Jira pattern: title-shaped objective + optional rich body) — extension Claude flagged the title-vs-context-rich tension after the 1000→2000 mitigation in 1.9.6", lambda cursor: migration_043_goal_description(cursor)),
-    ("044_source_lifecycle", "Add archive lifecycle columns (archived, archive_reason, archive_target_id, lifecycle_audit_log) to epistemic_sources for SOURCES_LIFECYCLE_SPEC Phase 1 (soft-delete + supersession). Empirica-Core CLI parity per the Cortex spec; empirica is the authoritative store.", lambda cursor: migration_044_source_lifecycle(cursor)),
-    ("045_assumption_decision_description", "Add description TEXT column to assumptions + decisions (markdown-first artifacts series — mirrors goals migration 043). Extension renders as prettified markdown.", lambda cursor: migration_045_assumption_decision_description(cursor)),
-    ("046_refdocs_to_sources", "Migrate project_reference_docs rows into epistemic_sources with source_type='pointer'. Phase 1 of refdocs→sources unification (goal 3d6aeb08). Idempotent — skips rows already migrated by id. The old table stays in place this phase; reader+writer switch over to sources, CLI drop + table drop in a follow-up.", lambda cursor: migration_046_refdocs_to_sources(cursor)),
-    ("047_drop_project_reference_docs", "Drop project_reference_docs table — Phase 3 of refdocs→sources unification (goal 3d6aeb08). All data was migrated to epistemic_sources(type='pointer') by migration 046; CLI surface was dropped in Phase 2 (no writers); reader was switched in Phase 1 (no readers). Final structural cleanup. Idempotent — skips when table doesn't exist (fresh DBs that never had it).", lambda cursor: migration_047_drop_project_reference_docs(cursor)),
-    ("048_beads_table", "Add beads v0 coordination-records table (HISTORICAL — the v0 bead concept retired 2026-06-02 / empirica 1.11.2; cross-practitioner coordination state lives in cortex-resident SER now per empirica-cortex SHARED_EPISTEMIC_RECORD.md). Table kept intact for legacy-row readability; no current code path writes to it.", lambda cursor: migration_048_beads_table(cursor)),
-    ("049_source_visibility", "Add visibility tier column to epistemic_sources (substrate prereq for cross-mesh epistemic source map). Sources missed migration 039's visibility wave because source-add uses a hand-rolled INSERT rather than the breadcrumbs repo path. Default 'shared' matches the artifact-table invariant.", lambda cursor: migration_049_source_visibility(cursor)),
-    ("050_source_content_identity", "Add content-identity columns (content_hash, size_bytes, canonical_path, mime_type) to epistemic_sources — empirica slice of the unified source-identity model: reconcile matching + sync-when-small both key on content identity; canonical_path ends the source_url path/URL overload behind the title-in-url bug class.", lambda cursor: migration_050_source_content_identity(cursor)),
+    (
+        "013_session_scoped_breadcrumbs",
+        "Add session-scoped breadcrumb tables (dual-scope Phase 1)",
+        migration_013_session_scoped_breadcrumbs,
+    ),
+    (
+        "014_lessons_and_knowledge_graph",
+        "Add lessons and knowledge graph tables for epistemic procedural knowledge",
+        migration_014_lessons_and_knowledge_graph,
+    ),
+    (
+        "015_sessions_instance_id",
+        "Add instance_id to sessions for multi-instance isolation",
+        migration_015_sessions_instance_id,
+    ),
+    (
+        "016_auto_captured_issues",
+        "Add auto_captured_issues table for issue tracking",
+        migration_016_auto_captured_issues,
+    ),
+    (
+        "017_project_type_and_tags",
+        "Add project_type, project_tags, parent_project_id for workspace management",
+        migration_017_project_type_and_tags,
+    ),
+    (
+        "018_project_relationships",
+        "Add project_relationships table for cross-project links",
+        migration_018_project_relationships,
+    ),
+    (
+        "019_cross_project_finding_links",
+        "Add cross_project_finding_links for shared learnings",
+        migration_019_cross_project_finding_links,
+    ),
+    (
+        "020_client_projects",
+        "Add client_projects junction table for client-project relationships",
+        migration_020_client_projects,
+    ),
+    (
+        "021_engagements_project_id",
+        "Add project_id to engagements for direct project scoping",
+        migration_021_engagements_project_id,
+    ),
+    (
+        "022_reflexes_project_id",
+        "Add project_id to reflexes for project-aware PREFLIGHT tracking",
+        migration_022_reflexes_project_id,
+    ),
+    (
+        "023_sessions_parent_session_id",
+        "Add parent_session_id to sessions for sub-agent lineage tracking",
+        migration_023_sessions_parent_session_id,
+    ),
+    (
+        "024_attention_budgets",
+        "Add attention_budgets and rollup_logs tables for epistemic attention budget",
+        migration_024_attention_budgets,
+    ),
+    (
+        "025_transaction_id",
+        "Add transaction_id to epistemic artifact tables for first-class transaction tracking",
+        migration_025_transaction_id,
+    ),
+    (
+        "026_grounded_verification",
+        "Add post-test verification tables for grounded calibration",
+        migration_026_grounded_verification,
+    ),
+    (
+        "027_drop_session_noetic_tables",
+        "Drop deprecated session-scoped noetic tables (sessions delineate compact windows only)",
+        migration_027_drop_session_noetic_tables,
+    ),
+    (
+        "028_investigation_branches_transaction_id",
+        "Add transaction_id to investigation_branches for sub-agent epistemic continuity",
+        migration_028_investigation_branches_transaction_id,
+    ),
+    (
+        "029_goals_transaction_index",
+        "Add index on goals.transaction_id for transaction-scoped queries",
+        migration_029_goals_transaction_index,
+    ),
+    (
+        "030_entity_agnostic_intent_layer",
+        "Add entity_type/entity_id to artifact tables, assumptions and decisions tables (v0.6.0)",
+        migration_030_entity_agnostic_intent_layer,
+    ),
+    (
+        "031_phase_aware_calibration",
+        "Add phase column to grounded verification tables for noetic/praxic calibration split",
+        migration_031_phase_aware_calibration,
+    ),
+    (
+        "032_calibration_disputes",
+        "Add calibration_disputes table for AI pushback on measurement artifacts",
+        migration_032_calibration_disputes,
+    ),
+    (
+        "033_codebase_model",
+        "Add codebase model tables for temporal entity tracking (world-model-mcp absorption)",
+        migration_033_codebase_model,
+    ),
+    (
+        "034_subagent_sessions",
+        "Move subagent child sessions out of main sessions table to dedicated subagent_sessions table",
+        migration_034_subagent_sessions,
+    ),
+    (
+        "035_three_vector_storage",
+        "Add three-vector storage schema for Sentinel reframe (A3 Wave 1)",
+        lambda cursor: migration_035_three_vector_storage(cursor),
+    ),
+    (
+        "036_provenance_graph",
+        "Add provenance graph columns: source_refs on findings, evidence_refs on decisions, resolution_finding_id on unknowns",
+        lambda cursor: migration_036_provenance_graph(cursor),
+    ),
+    (
+        "037_composable_lessons",
+        "Evolve lessons into composable epistemic patterns with abstraction levels, sharing, EKG connections, triggers, output renderers",
+        lambda cursor: migration_037_composable_lessons(cursor),
+    ),
+    (
+        "038_goal_lifecycle_simplify",
+        "Simplify goal lifecycle: convert stale/blocked to in_progress, support planned status",
+        lambda cursor: migration_038_goal_lifecycle_simplify(cursor),
+    ),
+    (
+        "039_artifact_visibility",
+        "Add visibility tier (public/shared/local, default shared) to artifact tables for Phase 0 visibility primitive (PROPOSAL_VISIBILITY_TIERS.md)",
+        lambda cursor: migration_039_artifact_visibility(cursor),
+    ),
+    (
+        "040_epistemic_source",
+        "Add epistemic_source field (intuition/search/mixed/NULL) to artifact tables for source-aware Sentinel calibration substrate (PROMPT_FOR_EMPIRICA_CLAUDE_source_aware_sentinel.md)",
+        lambda cursor: migration_040_epistemic_source(cursor),
+    ),
+    (
+        "041_artifact_edges",
+        "Add normalized artifact_edges table + backfill from data.edges JSON (v0.5 LOCAL-ARTIFACTS daemon — fixes silent edge-drop on assumptions/decisions, enables cheap inverse queries)",
+        lambda cursor: migration_041_artifact_edges(cursor),
+    ),
+    (
+        "042_impact_on_dead_ends_and_mistakes",
+        "Add impact column to project_dead_ends and mistakes_made (long-lived DBs missed migrations 007/012 for these two tables — daemon /dead-ends endpoint 500s without this)",
+        lambda cursor: migration_042_impact_on_dead_ends_and_mistakes(cursor),
+    ),
+    (
+        "043_goal_description",
+        "Add description TEXT column to goals (Linear/GitHub/Jira pattern: title-shaped objective + optional rich body) — extension Claude flagged the title-vs-context-rich tension after the 1000→2000 mitigation in 1.9.6",
+        lambda cursor: migration_043_goal_description(cursor),
+    ),
+    (
+        "044_source_lifecycle",
+        "Add archive lifecycle columns (archived, archive_reason, archive_target_id, lifecycle_audit_log) to epistemic_sources for SOURCES_LIFECYCLE_SPEC Phase 1 (soft-delete + supersession). Empirica-Core CLI parity per the Cortex spec; empirica is the authoritative store.",
+        lambda cursor: migration_044_source_lifecycle(cursor),
+    ),
+    (
+        "045_assumption_decision_description",
+        "Add description TEXT column to assumptions + decisions (markdown-first artifacts series — mirrors goals migration 043). Extension renders as prettified markdown.",
+        lambda cursor: migration_045_assumption_decision_description(cursor),
+    ),
+    (
+        "046_refdocs_to_sources",
+        "Migrate project_reference_docs rows into epistemic_sources with source_type='pointer'. Phase 1 of refdocs→sources unification (goal 3d6aeb08). Idempotent — skips rows already migrated by id. The old table stays in place this phase; reader+writer switch over to sources, CLI drop + table drop in a follow-up.",
+        lambda cursor: migration_046_refdocs_to_sources(cursor),
+    ),
+    (
+        "047_drop_project_reference_docs",
+        "Drop project_reference_docs table — Phase 3 of refdocs→sources unification (goal 3d6aeb08). All data was migrated to epistemic_sources(type='pointer') by migration 046; CLI surface was dropped in Phase 2 (no writers); reader was switched in Phase 1 (no readers). Final structural cleanup. Idempotent — skips when table doesn't exist (fresh DBs that never had it).",
+        lambda cursor: migration_047_drop_project_reference_docs(cursor),
+    ),
+    (
+        "048_beads_table",
+        "Add beads v0 coordination-records table (HISTORICAL — the v0 bead concept retired 2026-06-02 / empirica 1.11.2; cross-practitioner coordination state lives in cortex-resident SER now per empirica-cortex SHARED_EPISTEMIC_RECORD.md). Table kept intact for legacy-row readability; no current code path writes to it.",
+        lambda cursor: migration_048_beads_table(cursor),
+    ),
+    (
+        "049_source_visibility",
+        "Add visibility tier column to epistemic_sources (substrate prereq for cross-mesh epistemic source map). Sources missed migration 039's visibility wave because source-add uses a hand-rolled INSERT rather than the breadcrumbs repo path. Default 'shared' matches the artifact-table invariant.",
+        lambda cursor: migration_049_source_visibility(cursor),
+    ),
+    (
+        "050_source_content_identity",
+        "Add content-identity columns (content_hash, size_bytes, canonical_path, mime_type) to epistemic_sources — empirica slice of the unified source-identity model: reconcile matching + sync-when-small both key on content identity; canonical_path ends the source_url path/URL overload behind the title-in-url bug class.",
+        lambda cursor: migration_050_source_content_identity(cursor),
+    ),
 ]
 
 
@@ -1444,23 +1635,19 @@ def migration_039_artifact_visibility(cursor: sqlite3.Cursor):
     See docs/architecture/PROPOSAL_VISIBILITY_TIERS.md.
     """
     artifact_tables = [
-        'project_findings',
-        'project_unknowns',
-        'project_dead_ends',
-        'mistakes_made',
-        'assumptions',
-        'decisions',
-        'goals',
+        "project_findings",
+        "project_unknowns",
+        "project_dead_ends",
+        "mistakes_made",
+        "assumptions",
+        "decisions",
+        "goals",
     ]
     for table in artifact_tables:
         add_column_if_missing(cursor, table, "visibility", "TEXT", "'shared'")
-        cursor.execute(
-            f"CREATE INDEX IF NOT EXISTS idx_{table}_visibility ON {table}(visibility)"
-        )
+        cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{table}_visibility ON {table}(visibility)")
 
-    logger.info(
-        f"✅ Migration 039 complete: visibility column added to {len(artifact_tables)} artifact tables"
-    )
+    logger.info(f"✅ Migration 039 complete: visibility column added to {len(artifact_tables)} artifact tables")
 
 
 def migration_040_epistemic_source(cursor: sqlite3.Cursor):
@@ -1488,22 +1675,18 @@ def migration_040_epistemic_source(cursor: sqlite3.Cursor):
     See docs/architecture/PROMPT_FOR_EMPIRICA_CLAUDE_source_aware_sentinel.md.
     """
     artifact_tables = [
-        'project_findings',
-        'project_unknowns',
-        'project_dead_ends',
-        'mistakes_made',
-        'assumptions',
-        'decisions',
+        "project_findings",
+        "project_unknowns",
+        "project_dead_ends",
+        "mistakes_made",
+        "assumptions",
+        "decisions",
     ]
     for table in artifact_tables:
         add_column_if_missing(cursor, table, "epistemic_source", "TEXT")
-        cursor.execute(
-            f"CREATE INDEX IF NOT EXISTS idx_{table}_epistemic_source ON {table}(epistemic_source)"
-        )
+        cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_{table}_epistemic_source ON {table}(epistemic_source)")
 
-    logger.info(
-        f"✅ Migration 040 complete: epistemic_source column added to {len(artifact_tables)} artifact tables"
-    )
+    logger.info(f"✅ Migration 040 complete: epistemic_source column added to {len(artifact_tables)} artifact tables")
 
 
 def migration_041_artifact_edges(cursor: sqlite3.Cursor):
@@ -1546,6 +1729,7 @@ def migration_041_artifact_edges(cursor: sqlite3.Cursor):
     # Backfill from existing data.edges JSON. Only tables that had a data column
     # before this migration — assumptions/decisions had none, so no edges to backfill.
     import json as _json
+
     backfill_tables = [
         ("project_findings", "id", "finding_data"),
         ("project_unknowns", "id", "unknown_data"),
@@ -1583,9 +1767,7 @@ def migration_041_artifact_edges(cursor: sqlite3.Cursor):
                 except sqlite3.Error:
                     continue
 
-    logger.info(
-        f"✅ Migration 041 complete: artifact_edges table created, {backfilled_total} edges backfilled"
-    )
+    logger.info(f"✅ Migration 041 complete: artifact_edges table created, {backfilled_total} edges backfilled")
 
 
 def migration_047_drop_project_reference_docs(cursor: sqlite3.Cursor):
@@ -1717,7 +1899,8 @@ def migration_046_refdocs_to_sources(cursor: sqlite3.Cursor):
         }
         discovered_at = _dt.fromtimestamp(created_ts) if created_ts else _dt.now()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO epistemic_sources (
                 id, project_id, session_id,
                 source_type, source_url, title, description,
@@ -1726,18 +1909,23 @@ def migration_046_refdocs_to_sources(cursor: sqlite3.Cursor):
                 discovered_by_ai, discovered_at,
                 source_metadata
             ) VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?)
-        """, (
-            doc_id, row_dict.get("project_id"),
-            "pointer", doc_path, title, description,
-            0.7, "noetic",
-            discovered_at, _json.dumps(source_metadata),
-        ))
+        """,
+            (
+                doc_id,
+                row_dict.get("project_id"),
+                "pointer",
+                doc_path,
+                title,
+                description,
+                0.7,
+                "noetic",
+                discovered_at,
+                _json.dumps(source_metadata),
+            ),
+        )
         migrated += 1
 
-    logger.info(
-        f"✅ Migration 046 complete: refdocs → sources "
-        f"({migrated} migrated, {skipped} already present)"
-    )
+    logger.info(f"✅ Migration 046 complete: refdocs → sources ({migrated} migrated, {skipped} already present)")
 
 
 def migration_045_assumption_decision_description(cursor: sqlite3.Cursor):
@@ -1757,9 +1945,7 @@ def migration_045_assumption_decision_description(cursor: sqlite3.Cursor):
     """
     add_column_if_missing(cursor, "assumptions", "description", "TEXT", "NULL")
     add_column_if_missing(cursor, "decisions", "description", "TEXT", "NULL")
-    logger.info(
-        "✅ Migration 045 complete: description column added to assumptions + decisions"
-    )
+    logger.info("✅ Migration 045 complete: description column added to assumptions + decisions")
 
 
 def migration_049_source_visibility(cursor: sqlite3.Cursor):
@@ -1782,16 +1968,9 @@ def migration_049_source_visibility(cursor: sqlite3.Cursor):
 
     Idempotent via add_column_if_missing.
     """
-    add_column_if_missing(
-        cursor, "epistemic_sources", "visibility", "TEXT", "'shared'"
-    )
-    cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_epistemic_sources_visibility "
-        "ON epistemic_sources(visibility)"
-    )
-    logger.info(
-        "✅ Migration 049 complete: visibility column added to epistemic_sources"
-    )
+    add_column_if_missing(cursor, "epistemic_sources", "visibility", "TEXT", "'shared'")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_epistemic_sources_visibility ON epistemic_sources(visibility)")
+    logger.info("✅ Migration 049 complete: visibility column added to epistemic_sources")
 
 
 def migration_050_source_content_identity(cursor: sqlite3.Cursor):
@@ -1822,13 +2001,8 @@ def migration_050_source_content_identity(cursor: sqlite3.Cursor):
     add_column_if_missing(cursor, "epistemic_sources", "size_bytes", "INTEGER", "NULL")
     add_column_if_missing(cursor, "epistemic_sources", "canonical_path", "TEXT", "NULL")
     add_column_if_missing(cursor, "epistemic_sources", "mime_type", "TEXT", "NULL")
-    cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_epistemic_sources_content_hash "
-        "ON epistemic_sources(content_hash)"
-    )
-    logger.info(
-        "✅ Migration 050 complete: content-identity columns added to epistemic_sources"
-    )
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_epistemic_sources_content_hash ON epistemic_sources(content_hash)")
+    logger.info("✅ Migration 050 complete: content-identity columns added to epistemic_sources")
 
 
 def migration_044_source_lifecycle(cursor: sqlite3.Cursor):
@@ -1861,9 +2035,7 @@ def migration_044_source_lifecycle(cursor: sqlite3.Cursor):
     add_column_if_missing(cursor, "epistemic_sources", "archive_target_id", "TEXT", "NULL")
     add_column_if_missing(cursor, "epistemic_sources", "archived_at", "REAL", "NULL")
     add_column_if_missing(cursor, "epistemic_sources", "lifecycle_audit_log", "TEXT", "NULL")
-    logger.info(
-        "✅ Migration 044 complete: source lifecycle columns added to epistemic_sources"
-    )
+    logger.info("✅ Migration 044 complete: source lifecycle columns added to epistemic_sources")
 
 
 def migration_043_goal_description(cursor: sqlite3.Cursor):
@@ -1883,9 +2055,7 @@ def migration_043_goal_description(cursor: sqlite3.Cursor):
     Idempotent via add_column_if_missing — safe to re-run.
     """
     add_column_if_missing(cursor, "goals", "description", "TEXT", "NULL")
-    logger.info(
-        "✅ Migration 043 complete: description column added to goals"
-    )
+    logger.info("✅ Migration 043 complete: description column added to goals")
 
 
 def migration_042_impact_on_dead_ends_and_mistakes(cursor: sqlite3.Cursor):
@@ -1905,9 +2075,7 @@ def migration_042_impact_on_dead_ends_and_mistakes(cursor: sqlite3.Cursor):
     """
     add_column_if_missing(cursor, "project_dead_ends", "impact", "REAL", "0.5")
     add_column_if_missing(cursor, "mistakes_made", "impact", "REAL", "0.5")
-    logger.info(
-        "✅ Migration 042 complete: impact column added to project_dead_ends and mistakes_made"
-    )
+    logger.info("✅ Migration 042 complete: impact column added to project_dead_ends and mistakes_made")
 
 
 def migration_048_beads_table(cursor: sqlite3.Cursor):
@@ -1969,6 +2137,4 @@ def migration_048_beads_table(cursor: sqlite3.Cursor):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_beads_coordination_state ON beads(coordination_state)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_beads_beads_issue_id ON beads(beads_issue_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_beads_transaction ON beads(transaction_id)")
-    logger.info(
-        "✅ Migration 048 complete: beads table created (coordination-records v0)"
-    )
+    logger.info("✅ Migration 048 complete: beads table created (coordination-records v0)")

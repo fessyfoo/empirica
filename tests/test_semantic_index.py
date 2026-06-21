@@ -117,9 +117,7 @@ def test_scan_project_skips_files_below_min_size(tmp_path):
 
 def test_scan_project_skips_pycache_and_build(tmp_path):
     (tmp_path / "empirica" / "core" / "__pycache__").mkdir(parents=True)
-    (tmp_path / "empirica" / "core" / "__pycache__" / "stale.cpython.pyc").write_bytes(
-        b"x" * 200
-    )
+    (tmp_path / "empirica" / "core" / "__pycache__" / "stale.cpython.pyc").write_bytes(b"x" * 200)
     (tmp_path / "build" / "lib" / "empirica" / "core").mkdir(parents=True)
     (tmp_path / "build" / "lib" / "empirica" / "core" / "shadowed.py").write_text(
         '"""Shadowed."""\n# padding ' + ("x" * 100), encoding="utf-8"
@@ -140,8 +138,7 @@ def test_newest_source_mtime_tracks_freshest_file(tmp_path):
 
     time.sleep(0.05)
     new_file = tmp_path / "docs" / "architecture" / "NEW.md"
-    new_file.write_text("# New\n\nFreshly added doc with enough text to pass minimum.\n",
-                         encoding="utf-8")
+    new_file.write_text("# New\n\nFreshly added doc with enough text to pass minimum.\n", encoding="utf-8")
 
     newer_mtime = newest_source_mtime(tmp_path)
     assert newer_mtime > older_mtime
@@ -191,6 +188,7 @@ def test_load_semantic_index_uses_fresh_cache(tmp_path):
     # Bump cache mtime to be definitively newer than sources
     future = time.time() + 100
     import os
+
     os.utime(cache_path, (future, future))
 
     with _patch_git_root(tmp_path):
@@ -207,17 +205,20 @@ def test_load_semantic_index_rescans_when_cache_stale(tmp_path):
     cache_dir = tmp_path / "docs"
     cache_path = cache_dir / "SEMANTIC_INDEX.yaml"
     cache_path.write_text(
-        yaml.dump({
-            "version": "1.0",
-            "generated_by": "stale-fixture",
-            "total_docs_indexed": 1,
-            "index": {"only-stale-entry.md": {"tags": []}},
-        }),
+        yaml.dump(
+            {
+                "version": "1.0",
+                "generated_by": "stale-fixture",
+                "total_docs_indexed": 1,
+                "index": {"only-stale-entry.md": {"tags": []}},
+            }
+        ),
         encoding="utf-8",
     )
     # Backdate cache to be older than all sources
     past = time.time() - 10000
     import os
+
     os.utime(cache_path, (past, past))
 
     with _patch_git_root(tmp_path):
@@ -252,6 +253,7 @@ def test_load_semantic_index_force_scan_bypasses_cache(tmp_path):
     )
     future = time.time() + 100
     import os
+
     os.utime(cache_path, (future, future))
 
     with _patch_git_root(tmp_path):

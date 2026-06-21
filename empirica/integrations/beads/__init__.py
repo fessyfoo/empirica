@@ -21,4 +21,4 @@ Integration pattern: Subprocess calls to bd CLI with --json flags.
 from .adapter import BeadsAdapter
 from .config import BeadsConfig
 
-__all__ = ['BeadsAdapter', 'BeadsConfig']
+__all__ = ["BeadsAdapter", "BeadsConfig"]

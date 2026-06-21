@@ -25,12 +25,7 @@ def get_git_diff_summary() -> dict[str, Any]:
     """
     try:
         # Get diff statistics
-        result = subprocess.run(
-            ["git", "diff", "--stat"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
+        result = subprocess.run(["git", "diff", "--stat"], capture_output=True, text=True, timeout=5)
 
         if result.returncode != 0:
             return {
@@ -38,28 +33,28 @@ def get_git_diff_summary() -> dict[str, Any]:
                 "line_additions": 0,
                 "line_deletions": 0,
                 "scope_estimate": "unknown",
-                "error": "git diff failed"
+                "error": "git diff failed",
             }
 
-        lines = result.stdout.strip().split('\n')
-        file_count = len([l for l in lines if l and '+' in l])
+        lines = result.stdout.strip().split("\n")
+        file_count = len([l for l in lines if l and "+" in l])
 
         # Parse additions/deletions
         total_additions = 0
         total_deletions = 0
 
         for line in lines:
-            if '+' in line or '-' in line:
+            if "+" in line or "-" in line:
                 parts = line.split()
                 for _i, part in enumerate(parts):
-                    if '+' in part:
+                    if "+" in part:
                         try:
-                            total_additions += int(part.replace('+', ''))
+                            total_additions += int(part.replace("+", ""))
                         except Exception:  # noqa: S110 — non-numeric diff stat; skip
                             pass
-                    if '-' in part:
+                    if "-" in part:
                         try:
-                            total_deletions += int(part.replace('-', ''))
+                            total_deletions += int(part.replace("-", ""))
                         except Exception:  # noqa: S110 — non-numeric diff stat; skip
                             pass
 
@@ -77,23 +72,16 @@ def get_git_diff_summary() -> dict[str, Any]:
             "line_additions": total_additions,
             "line_deletions": total_deletions,
             "scope_estimate": scope,
-            "error": None
+            "error": None,
         }
 
     except Exception as e:
         logger.warning(f"Failed to get git diff: {e}")
-        return {
-            "file_count": 0,
-            "line_additions": 0,
-            "line_deletions": 0,
-            "scope_estimate": "unknown",
-            "error": str(e)
-        }
+        return {"file_count": 0, "line_additions": 0, "line_deletions": 0, "scope_estimate": "unknown", "error": str(e)}
 
 
 def analyze_epistemic_trajectory(
-    preflight_vectors: dict[str, float],
-    postflight_vectors: dict[str, float]
+    preflight_vectors: dict[str, float], postflight_vectors: dict[str, float]
 ) -> dict[str, Any]:
     """
     Analyze if epistemic trajectory is coherent.
@@ -118,9 +106,9 @@ def analyze_epistemic_trajectory(
     for key in preflight_vectors:
         deltas[key] = postflight_vectors.get(key, 0.5) - preflight_vectors.get(key, 0.5)
 
-    know_delta = deltas.get('know', 0)
-    clarity_delta = deltas.get('clarity', 0)
-    uncertainty_delta = deltas.get('uncertainty', 0)
+    know_delta = deltas.get("know", 0)
+    clarity_delta = deltas.get("clarity", 0)
+    uncertainty_delta = deltas.get("uncertainty", 0)
 
     # Pattern detection
     if abs(know_delta) < 0.05 and abs(clarity_delta) < 0.05:
@@ -153,12 +141,7 @@ def analyze_epistemic_trajectory(
         coherent = True
         concern = None
 
-    return {
-        "coherent": coherent,
-        "pattern": pattern,
-        "deltas": deltas,
-        "concern": concern
-    }
+    return {"coherent": coherent, "pattern": pattern, "deltas": deltas, "concern": concern}
 
 
 def understand_finding(finding: dict[str, Any], my_knowledge: dict[str, float]) -> bool:
@@ -176,32 +159,29 @@ def understand_finding(finding: dict[str, Any], my_knowledge: dict[str, float]) 
         bool - can I understand this finding?
     """
     try:
-        finding.get('key', '')
-        domain = finding.get('domain', '')
+        finding.get("key", "")
+        domain = finding.get("domain", "")
 
         # If very low knowledge overall, probably can't understand
-        if my_knowledge.get('know', 0.5) < 0.3:
+        if my_knowledge.get("know", 0.5) < 0.3:
             return False
 
         # If finding is in a domain I'm weak in, might not understand
         if domain:
             domain_lower = domain.lower()
             # Very basic domain matching - this is just heuristic
-            if any(word in domain_lower for word in ['database', 'sql', 'orm']):
-                return my_knowledge.get('context', 0.5) > 0.4
+            if any(word in domain_lower for word in ["database", "sql", "orm"]):
+                return my_knowledge.get("context", 0.5) > 0.4
 
         # Default: assume I can understand if general knowledge is okay
-        return my_knowledge.get('know', 0.5) > 0.5
+        return my_knowledge.get("know", 0.5) > 0.5
 
     except Exception as e:
         logger.warning(f"Error in understand_finding: {e}")
         return True  # Optimistic default
 
 
-def calculate_understanding_ratio(
-    findings: list[dict],
-    my_knowledge: dict[str, float]
-) -> float:
+def calculate_understanding_ratio(findings: list[dict], my_knowledge: dict[str, float]) -> float:
     """
     Calculate what percentage of findings I understand.
 
@@ -219,11 +199,7 @@ def calculate_understanding_ratio(
     return understood / len(findings)
 
 
-def estimate_rehydration_boost(
-    findings: list[dict],
-    unknowns: list[dict],
-    my_know: float
-) -> float:
+def estimate_rehydration_boost(findings: list[dict], unknowns: list[dict], my_know: float) -> float:
     """
     Estimate how much my knowledge should increase from rehydration.
 
@@ -239,7 +215,7 @@ def estimate_rehydration_boost(
         float - boost to apply to PREFLIGHT know assessment
     """
     try:
-        my_knowledge = {'know': my_know, 'context': my_know * 0.9}
+        my_knowledge = {"know": my_know, "context": my_know * 0.9}
 
         understanding_ratio = calculate_understanding_ratio(findings, my_knowledge)
 

@@ -32,8 +32,7 @@ class TestSlashTable:
 
     def test_dev_commands_present_but_hidden(self):
         names = {c.name for c in SLASH_TABLE if not c.user_facing}
-        assert {"providers", "provider", "models", "statusline",
-                "finding", "decision", "unknown"}.issubset(names)
+        assert {"providers", "provider", "models", "statusline", "finding", "decision", "unknown"}.issubset(names)
 
     def test_no_duplicate_names(self):
         names = [c.name for c in SLASH_TABLE]
@@ -107,6 +106,7 @@ class TestChatAppSlashDispatch:
 
     def setup_method(self):
         from empirica.cli.tui.chat_app import ChatApp
+
         self.ChatApp = ChatApp
         self.handlers = ChatApp.SLASH_HANDLERS
         self.mock = MagicMock()

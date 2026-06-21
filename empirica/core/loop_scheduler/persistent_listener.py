@@ -79,7 +79,10 @@ def _systemctl(*args: str, check: bool = False) -> subprocess.CompletedProcess:
     """Run `systemctl --user <args>` with a 5s timeout. Defensive, never raises unless `check=True`."""
     return subprocess.run(
         ["systemctl", "--user", *args],
-        capture_output=True, text=True, timeout=5, check=check,
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=check,
     )
 
 
@@ -87,7 +90,10 @@ def _launchctl(*args: str, check: bool = False) -> subprocess.CompletedProcess:
     """Run `launchctl <args>` with a 5s timeout. Defensive, never raises unless `check=True`."""
     return subprocess.run(
         ["launchctl", *args],
-        capture_output=True, text=True, timeout=5, check=check,
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=check,
     )
 
 
@@ -101,7 +107,10 @@ def is_systemd_available() -> bool:
     try:
         r = subprocess.run(
             ["systemctl", "--user", "is-system-running"],
-            capture_output=True, text=True, timeout=2, check=False,
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
         )
         return "Failed to connect to bus" not in (r.stderr or "")
     except Exception:
@@ -341,7 +350,8 @@ class PersistentListenerService:
             return
         logger.info(
             "Purging legacy stripped-form systemd unit %s before installing canonical %s",
-            legacy_unit_file, _unit_name(ai_id),
+            legacy_unit_file,
+            _unit_name(ai_id),
         )
         _systemctl("disable", "--now", f"{legacy_unit_name}.service", check=False)
         try:
@@ -404,8 +414,11 @@ class PersistentListenerService:
         log_path = self.log_path(ai_id)
         if self.backend == "unavailable" or path is None:
             return ListenerStatus(
-                ai_id=ai_id, backend="unavailable", installed=False,
-                active=False, log_path=str(log_path),
+                ai_id=ai_id,
+                backend="unavailable",
+                installed=False,
+                active=False,
+                log_path=str(log_path),
             )
         installed = path.exists()
         active = False
@@ -429,8 +442,12 @@ class PersistentListenerService:
             # A loaded-but-plist-elsewhere service still counts as installed.
             installed = installed or active
         return ListenerStatus(
-            ai_id=ai_id, backend=self.backend, installed=installed,
-            active=active, unit_path=str(path), log_path=str(log_path),
+            ai_id=ai_id,
+            backend=self.backend,
+            installed=installed,
+            active=active,
+            unit_path=str(path),
+            log_path=str(log_path),
         )
 
     def is_running(self, ai_id: str) -> bool:

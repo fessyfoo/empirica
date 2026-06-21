@@ -7,6 +7,7 @@ signature, parameters, and module path.
 
 Uses AST parsing (no runtime imports needed) — works across projects safely.
 """
+
 from __future__ import annotations
 
 import ast
@@ -157,8 +158,7 @@ def extract_module_api(file_path: Path, root_dir: Path | None = None) -> dict:
     }
 
 
-def _build_search_text(module_path: str, module_docstring: str,
-                       functions: list, classes: list) -> str:
+def _build_search_text(module_path: str, module_docstring: str, functions: list, classes: list) -> str:
     """Build a searchable text summary from extracted module API."""
     summary_parts = [f"Module: {module_path}"]
     if module_docstring:
@@ -166,9 +166,9 @@ def _build_search_text(module_path: str, module_docstring: str,
 
     for f in functions:
         param_str = ", ".join(
-            p["name"] + (f": {p['type']}" if "type" in p else "") +
-            (f" = {p['default']}" if "default" in p else "")
-            for p in f["params"] if p["name"] != "self"
+            p["name"] + (f": {p['type']}" if "type" in p else "") + (f" = {p['default']}" if "default" in p else "")
+            for p in f["params"]
+            if p["name"] != "self"
         )
         ret_str = f" -> {f['returns']}" if f["returns"] else ""
         summary_parts.append(f"def {f['name']}({param_str}){ret_str}")
@@ -183,8 +183,7 @@ def _build_search_text(module_path: str, module_docstring: str,
         for m in c["methods"]:
             if not m["name"].startswith("_") or m["name"] in ("__init__", "__call__"):
                 param_str = ", ".join(
-                    p["name"] + (f": {p['type']}" if "type" in p else "")
-                    for p in m["params"] if p["name"] != "self"
+                    p["name"] + (f": {p['type']}" if "type" in p else "") for p in m["params"] if p["name"] != "self"
                 )
                 summary_parts.append(f"  .{m['name']}({param_str})")
 
@@ -215,8 +214,7 @@ def embed_code_api(
         coll = _eidetic_collection(project_id)
         if not client.collection_exists(coll):
             vector_size = _get_vector_size()
-            client.create_collection(coll, vectors_config=VectorParams(
-                size=vector_size, distance=Distance.COSINE))
+            client.create_collection(coll, vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE))
 
         search_text = module_info["search_text"]
         vector = _get_embedding_safe(search_text)
@@ -289,9 +287,7 @@ def search_code_api(
         results = client.query_points(
             collection_name=coll,
             query=vector,
-            query_filter=Filter(must=[
-                FieldCondition(key="type", match=MatchValue(value="code_api"))
-            ]),
+            query_filter=Filter(must=[FieldCondition(key="type", match=MatchValue(value="code_api"))]),
             limit=limit,
             with_payload=True,
         )

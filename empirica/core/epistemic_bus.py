@@ -26,13 +26,9 @@ class EpistemicEvent:
 
     Events are just data - no behavior, no routing logic
     """
+
     def __init__(
-        self,
-        event_type: str,
-        agent_id: str,
-        session_id: str,
-        data: dict[str, Any],
-        timestamp: float | None = None
+        self, event_type: str, agent_id: str, session_id: str, data: dict[str, Any], timestamp: float | None = None
     ) -> None:
         """Initialize epistemic event with type, agent, session, and data."""
         self.event_type = event_type
@@ -44,11 +40,11 @@ class EpistemicEvent:
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dict for logging/transmission"""
         return {
-            'event_type': self.event_type,
-            'agent_id': self.agent_id,
-            'session_id': self.session_id,
-            'data': self.data,
-            'timestamp': self.timestamp
+            "event_type": self.event_type,
+            "agent_id": self.agent_id,
+            "session_id": self.session_id,
+            "data": self.data,
+            "timestamp": self.timestamp,
         }
 
     def __repr__(self):
@@ -142,8 +138,7 @@ class EpistemicBus:
             except Exception as e:
                 # Log error but continue to other observers
                 logger.error(
-                    f"Observer {observer.__class__.__name__} failed on event {event.event_type}: {e}",
-                    exc_info=True
+                    f"Observer {observer.__class__.__name__} failed on event {event.event_type}: {e}", exc_info=True
                 )
 
     def get_observer_count(self) -> int:
@@ -214,8 +209,7 @@ class LoggingObserver(EpistemicObserver):
     def handle_event(self, event: EpistemicEvent) -> None:
         """Log the event"""
         logger.log(
-            self.log_level,
-            f"[EpistemicBus] {event.event_type}: agent={event.agent_id}, session={event.session_id}"
+            self.log_level, f"[EpistemicBus] {event.event_type}: agent={event.agent_id}, session={event.session_id}"
         )
 
 

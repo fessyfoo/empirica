@@ -19,44 +19,47 @@ from empirica.core.chat.narration import (
 
 
 class TestEmpiricaEventGolden:
-    @pytest.mark.parametrize("event,expected", [
-        ({"kind": "preflight", "task_context": "Fix the auth bug in middleware.py"},
-            "thinking through: Fix the auth bug in middleware.py"),
-        ({"kind": "preflight"},
-            "thinking through new transaction"),
-        ({"kind": "check", "decision": "proceed"},
-            "ready to act"),
-        ({"kind": "check", "decision": "investigate"},
-            "needs more investigation"),
-        ({"kind": "postflight", "confidence": 0.92},
-            "wrapped up (confidence 92%)"),
-        ({"kind": "postflight"},
-            "wrapped up transaction"),
-        ({"kind": "finding_log", "finding": "Auth uses JWT in middleware chain"},
-            "logged finding: Auth uses JWT in middleware chain"),
-        ({"kind": "decision_log", "choice": "Use Redis for sessions"},
-            "decided: Use Redis for sessions"),
-        ({"kind": "unknown_log", "unknown": "How does role hierarchy resolve?"},
-            "open question: How does role hierarchy resolve?"),
-        ({"kind": "mistake_log", "mistake": "Edited wrong branch"},
-            "caught a mistake: Edited wrong branch"),
-        ({"kind": "deadend_log", "approach": "Tried passport.js"},
-            "dead end: Tried passport.js"),
-        ({"kind": "assumption_log", "assumption": "Migrations run automatically"},
-            "assuming: Migrations run automatically"),
-        ({"kind": "goal_create", "objective": "Implement auth middleware"},
-            "new goal: Implement auth middleware"),
-        ({"kind": "goal_complete", "objective": "Implement auth middleware"},
-            "goal complete: Implement auth middleware"),
-        ({"kind": "skill_invoke", "skill": "epistemic-transaction"},
-            "invoking skill: epistemic-transaction"),
-        ({"kind": "agent_launch", "agent": "code-reviewer", "description": "review the auth changes"},
-            "launching code-reviewer — review the auth changes"),
-        ({"kind": "agent_launch", "subagent_type": "Explore"},
-            "launching Explore"),
-        ({"kind": "plan_transition", "from": "noetic", "to": "praxic"},
-            "plan: noetic → praxic"),
-    ])
+    @pytest.mark.parametrize(
+        "event,expected",
+        [
+            (
+                {"kind": "preflight", "task_context": "Fix the auth bug in middleware.py"},
+                "thinking through: Fix the auth bug in middleware.py",
+            ),
+            ({"kind": "preflight"}, "thinking through new transaction"),
+            ({"kind": "check", "decision": "proceed"}, "ready to act"),
+            ({"kind": "check", "decision": "investigate"}, "needs more investigation"),
+            ({"kind": "postflight", "confidence": 0.92}, "wrapped up (confidence 92%)"),
+            ({"kind": "postflight"}, "wrapped up transaction"),
+            (
+                {"kind": "finding_log", "finding": "Auth uses JWT in middleware chain"},
+                "logged finding: Auth uses JWT in middleware chain",
+            ),
+            ({"kind": "decision_log", "choice": "Use Redis for sessions"}, "decided: Use Redis for sessions"),
+            (
+                {"kind": "unknown_log", "unknown": "How does role hierarchy resolve?"},
+                "open question: How does role hierarchy resolve?",
+            ),
+            ({"kind": "mistake_log", "mistake": "Edited wrong branch"}, "caught a mistake: Edited wrong branch"),
+            ({"kind": "deadend_log", "approach": "Tried passport.js"}, "dead end: Tried passport.js"),
+            (
+                {"kind": "assumption_log", "assumption": "Migrations run automatically"},
+                "assuming: Migrations run automatically",
+            ),
+            ({"kind": "goal_create", "objective": "Implement auth middleware"}, "new goal: Implement auth middleware"),
+            (
+                {"kind": "goal_complete", "objective": "Implement auth middleware"},
+                "goal complete: Implement auth middleware",
+            ),
+            ({"kind": "skill_invoke", "skill": "epistemic-transaction"}, "invoking skill: epistemic-transaction"),
+            (
+                {"kind": "agent_launch", "agent": "code-reviewer", "description": "review the auth changes"},
+                "launching code-reviewer — review the auth changes",
+            ),
+            ({"kind": "agent_launch", "subagent_type": "Explore"}, "launching Explore"),
+            ({"kind": "plan_transition", "from": "noetic", "to": "praxic"}, "plan: noetic → praxic"),
+        ],
+    )
     def test_golden(self, event, expected):
         assert narrate_empirica_event(event) == expected
 
@@ -81,20 +84,26 @@ class TestEmpiricaEventGolden:
 
 
 class TestTranslatorEventGolden:
-    @pytest.mark.parametrize("event,expected", [
-        ({"kind": "request_started", "provider": "deepseek", "model": "deepseek-chat"},
-            "calling deepseek:deepseek-chat"),
-        ({"kind": "request_completed", "duration_ms": 1234, "text_chars": 567},
-            "response complete (1234ms, 567 chars)"),
-        ({"kind": "request_completed", "duration_ms": 89},
-            "response complete (89ms)"),
-        ({"kind": "request_completed"},
-            "response complete"),
-        ({"kind": "request_errored", "stage": "upstream", "error": "402 Insufficient Balance"},
-            "request error at upstream: 402 Insufficient Balance"),
-        ({"kind": "request_errored", "stage": "parsing"},
-            "request error at parsing"),
-    ])
+    @pytest.mark.parametrize(
+        "event,expected",
+        [
+            (
+                {"kind": "request_started", "provider": "deepseek", "model": "deepseek-chat"},
+                "calling deepseek:deepseek-chat",
+            ),
+            (
+                {"kind": "request_completed", "duration_ms": 1234, "text_chars": 567},
+                "response complete (1234ms, 567 chars)",
+            ),
+            ({"kind": "request_completed", "duration_ms": 89}, "response complete (89ms)"),
+            ({"kind": "request_completed"}, "response complete"),
+            (
+                {"kind": "request_errored", "stage": "upstream", "error": "402 Insufficient Balance"},
+                "request error at upstream: 402 Insufficient Balance",
+            ),
+            ({"kind": "request_errored", "stage": "parsing"}, "request error at parsing"),
+        ],
+    )
     def test_golden(self, event, expected):
         assert narrate_translator_event(event) == expected
 

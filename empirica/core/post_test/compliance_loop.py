@@ -144,18 +144,23 @@ def run_compliance_checks(
                 # Store in compliance_checks table if DB available
                 if db and transaction_id:
                     _store_check_result(
-                        db, transaction_id, session_id, result,
+                        db,
+                        transaction_id,
+                        session_id,
+                        result,
                         iteration_number,
                     )
             except KeyError:
                 # Check not registered — skip with warning
                 logger.warning("Check '%s' not registered, skipping", check_id)
-                check_results.append({
-                    "check_id": check_id,
-                    "passed": False,
-                    "summary": f"Check '{check_id}' not registered in ServiceRegistry",
-                    "duration_ms": 0,
-                })
+                check_results.append(
+                    {
+                        "check_id": check_id,
+                        "passed": False,
+                        "summary": f"Check '{check_id}' not registered in ServiceRegistry",
+                        "duration_ms": 0,
+                    }
+                )
                 failed_checks.append(None)
 
         checks_run = len(check_results)
@@ -197,33 +202,40 @@ def run_compliance_checks(
 
 
 def _store_check_result(
-    db, transaction_id: str, session_id: str, result, iteration_number: int,
+    db,
+    transaction_id: str,
+    session_id: str,
+    result,
+    iteration_number: int,
 ) -> None:
     """Store a check result in the compliance_checks table."""
     try:
         cursor = db.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO compliance_checks (
                 check_record_id, transaction_id, session_id,
                 check_id, tool, passed, details, summary,
                 duration_ms, ran_at, predicted_pass, predicted_at,
                 iteration_number
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            str(uuid.uuid4()),
-            transaction_id,
-            session_id,
-            result.check_id,
-            getattr(result, 'tool', 'unknown'),
-            1 if result.passed else 0,
-            None,  # details JSON — populated by real runners
-            result.summary,
-            result.duration_ms,
-            result.ran_at,
-            result.predicted_pass,
-            result.predicted_at,
-            iteration_number,
-        ))
+        """,
+            (
+                str(uuid.uuid4()),
+                transaction_id,
+                session_id,
+                result.check_id,
+                getattr(result, "tool", "unknown"),
+                1 if result.passed else 0,
+                None,  # details JSON — populated by real runners
+                result.summary,
+                result.duration_ms,
+                result.ran_at,
+                result.predicted_pass,
+                result.predicted_at,
+                iteration_number,
+            ),
+        )
         db.conn.commit()
     except Exception as e:
         logger.debug("Failed to store check result: %s", e)

@@ -75,8 +75,7 @@ def _resolve_project_dict(
                 detail={
                     "error": "project not registered with daemon",
                     "hint": (
-                        "Run `empirica projects-discover --register` or add the "
-                        "project to ~/.empirica/registry.yaml"
+                        "Run `empirica projects-discover --register` or add the project to ~/.empirica/registry.yaml"
                     ),
                 },
             )
@@ -109,6 +108,7 @@ class _ReadOnlyDB:
 
     def __init__(self, db_path: str):
         import sqlite3
+
         self.conn = sqlite3.connect(db_path)
         self.conn.row_factory = sqlite3.Row
 
@@ -120,6 +120,7 @@ class _ReadOnlyDB:
 def _open_db_for(project: dict) -> _ReadOnlyDB:
     """Open a read-only sqlite connection to the resolved project's sqlite."""
     from pathlib import Path
+
     project_path = project["project_path"]
     db_path = str(Path(project_path) / ".empirica" / "sessions" / "sessions.db")
     return _ReadOnlyDB(db_path)
@@ -140,9 +141,7 @@ def _open_db() -> _ReadOnlyDB:
 # ── Edge attachment ──────────────────────────────────────────────────
 
 
-def _attach_related_to(
-    db, rows: list[dict[str, Any]]
-) -> list[dict[str, Any]]:
+def _attach_related_to(db, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """For each row in `rows`, populate `row['related_to']` from artifact_edges.
 
     related_to[] format (per spec wire contract):
@@ -166,6 +165,7 @@ def _attach_related_to(
     # projects registered at different times. The per-table type lookups
     # below already use the same defensive pattern.
     import sqlite3 as _sqlite3
+
     try:
         cursor.execute(
             f"SELECT from_id, to_id, relation FROM artifact_edges WHERE from_id IN ({placeholders})",
@@ -205,11 +205,13 @@ def _attach_related_to(
     # Group edges by from_id
     edges_by_from: dict[str, list[dict[str, str]]] = {}
     for from_id, to_id, relation in raw_edges:
-        edges_by_from.setdefault(from_id, []).append({
-            "id": to_id,
-            "type": type_index.get(to_id, "unknown"),
-            "relation": relation,
-        })
+        edges_by_from.setdefault(from_id, []).append(
+            {
+                "id": to_id,
+                "type": type_index.get(to_id, "unknown"),
+                "relation": relation,
+            }
+        )
 
     for row in rows:
         row["related_to"] = edges_by_from.get(row["id"], [])
@@ -227,6 +229,7 @@ def _to_iso(epoch_or_iso: Any) -> str | None:
         return epoch_or_iso  # assume already ISO
     try:
         from datetime import datetime, timezone
+
         return datetime.fromtimestamp(float(epoch_or_iso), tz=timezone.utc).isoformat()
     except (ValueError, TypeError):
         return None
@@ -398,9 +401,7 @@ def _table_has_column(db, table: str, column: str) -> bool:
         return False
 
 
-def _list_assumptions(
-    db, project_id: str, confidence_min: float, limit: int
-) -> list[dict[str, Any]]:
+def _list_assumptions(db, project_id: str, confidence_min: float, limit: int) -> list[dict[str, Any]]:
     cursor = db.conn.cursor()
     has_desc = _table_has_column(db, "assumptions", "description")
     desc_col = ", description" if has_desc else ""
@@ -521,20 +522,22 @@ def _list_goals(db, project_id: str, status: str, limit: int) -> list[dict[str, 
     out: list[dict[str, Any]] = []
     for r in rows:
         gd = _parse_data_json(r[4])
-        out.append({
-            "id": r[0],
-            "type": "goal",
-            "objective": r[1],
-            "description": (r[9] if has_desc and len(r) > 9 else None),
-            "status": r[2],
-            "is_completed": bool(r[3]),
-            "tasks": gd.get("subtasks", []),
-            "session_id": r[5],
-            "transaction_id": r[6],
-            "created_at": _to_iso(r[7]),
-            "completed_at": _to_iso(r[8]),
-            "data": gd,
-        })
+        out.append(
+            {
+                "id": r[0],
+                "type": "goal",
+                "objective": r[1],
+                "description": (r[9] if has_desc and len(r) > 9 else None),
+                "status": r[2],
+                "is_completed": bool(r[3]),
+                "tasks": gd.get("subtasks", []),
+                "session_id": r[5],
+                "transaction_id": r[6],
+                "created_at": _to_iso(r[7]),
+                "completed_at": _to_iso(r[8]),
+                "data": gd,
+            }
+        )
     return out
 
 
@@ -544,8 +547,12 @@ def _list_goals(db, project_id: str, status: str, limit: int) -> list[dict[str, 
 @router.get("/findings")
 async def list_findings(
     limit: int = Query(50, ge=1, le=500),
-    project_id: str | None = Query(None, description="Registered project_id; falls back to daemon's CWD-bound project if omitted"),
-    path: str | None = Query(None, description="Filesystem path to project (power-user bypass; .empirica/project.yaml must exist)"),
+    project_id: str | None = Query(
+        None, description="Registered project_id; falls back to daemon's CWD-bound project if omitted"
+    ),
+    path: str | None = Query(
+        None, description="Filesystem path to project (power-user bypass; .empirica/project.yaml must exist)"
+    ),
 ):
     """List recent findings. Scope: `?project_id=X` (registry), `?path=Y`
     (bypass), or daemon's CWD-bound project (default)."""
@@ -731,7 +738,9 @@ async def get_source_content(
             }
 
         return _resolve_file_source(
-            source_id, row, project["project_path"],
+            source_id,
+            row,
+            project["project_path"],
         )
     finally:
         db.close()
@@ -749,8 +758,11 @@ def _fetch_source_row(db, project_id: str, source_id: str) -> dict | None:
     if not r:
         return None
     return {
-        "id": r[0], "title": r[1], "source_url": r[2],
-        "source_type": r[3], "description": r[4],
+        "id": r[0],
+        "title": r[1],
+        "source_url": r[2],
+        "source_type": r[3],
+        "description": r[4],
     }
 
 
@@ -773,7 +785,9 @@ _MAX_SOURCE_CONTENT_BYTES = 10 * 1024 * 1024
 
 
 def _resolve_file_source(
-    source_id: str, row: dict, project_path: str,
+    source_id: str,
+    row: dict,
+    project_path: str,
 ) -> dict:
     """Walk the fallback paths for a non-URL source and return content + meta.
 
@@ -801,10 +815,7 @@ def _resolve_file_source(
         except ValueError:
             raise HTTPException(
                 status_code=422,
-                detail=(
-                    f"source path {raw!r} resolves outside project root "
-                    f"{str(root)!r} — refusing to serve"
-                ),
+                detail=(f"source path {raw!r} resolves outside project root {str(root)!r} — refusing to serve"),
             ) from None
         if candidate_resolved.is_file():
             resolved = candidate_resolved
@@ -840,10 +851,7 @@ def _resolve_file_source(
             "content": None,
             "title": row["title"],
             "source_type": row["source_type"],
-            "hint": (
-                f"file exceeds {_MAX_SOURCE_CONTENT_BYTES} byte cap; "
-                "open it directly in an editor"
-            ),
+            "hint": (f"file exceeds {_MAX_SOURCE_CONTENT_BYTES} byte cap; open it directly in an editor"),
         }
 
     try:
@@ -853,6 +861,7 @@ def _resolve_file_source(
         # Binary or unknown encoding — return base64 so the viewer can
         # branch on encoding to render or download.
         import base64
+
         content = base64.b64encode(resolved.read_bytes()).decode("ascii")
         encoding = "base64"
 
@@ -926,8 +935,12 @@ def _resolve_artifact_by_id(db, artifact_id: str) -> tuple[str, str, str] | None
 
 
 def _walk_graph(  # noqa: C901 — graph walker has multiple branches but reads linearly
-    db, seed_id: str | None, session_id: str | None,
-    depth: int, max_nodes: int, type_filter: set[str] | None,
+    db,
+    seed_id: str | None,
+    session_id: str | None,
+    depth: int,
+    max_nodes: int,
+    type_filter: set[str] | None,
     project_id_for_seed: str | None = None,
 ) -> tuple[list[dict], list[dict]]:
     """BFS over artifact_edges (bidirectional). Returns (nodes, edges).
@@ -945,8 +958,7 @@ def _walk_graph(  # noqa: C901 — graph walker has multiple branches but reads 
     elif session_id:
         for _type, table, id_col in _TYPE_TABLE_MAP:
             try:
-                cursor.execute(f"SELECT {id_col} FROM {table} WHERE session_id = ? LIMIT ?",
-                               (session_id, max_nodes))
+                cursor.execute(f"SELECT {id_col} FROM {table} WHERE session_id = ? LIMIT ?", (session_id, max_nodes))
                 for row in cursor.fetchall():
                     seeds.add(row[0])
                     if len(seeds) >= max_nodes:
@@ -964,8 +976,7 @@ def _walk_graph(  # noqa: C901 — graph walker has multiple branches but reads 
             for _type, table, id_col in _TYPE_TABLE_MAP:
                 try:
                     cursor.execute(
-                        f"SELECT {id_col} FROM {table} WHERE project_id = ? "
-                        f"ORDER BY created_timestamp DESC LIMIT ?",
+                        f"SELECT {id_col} FROM {table} WHERE project_id = ? ORDER BY created_timestamp DESC LIMIT ?",
                         (project_id, max_nodes),
                     )
                     for row in cursor.fetchall():
@@ -989,9 +1000,7 @@ def _walk_graph(  # noqa: C901 — graph walker has multiple branches but reads 
     # response shape matches. Cheaper than wrapping every cursor.execute
     # in try/except inside the walk loop. Same defensive pattern used in
     # _attach_related_to.
-    cursor.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='artifact_edges'"
-    )
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='artifact_edges'")
     edges_table_exists = cursor.fetchone() is not None
 
     if edges_table_exists:
@@ -1023,10 +1032,14 @@ def _walk_graph(  # noqa: C901 — graph walker has multiple branches but reads 
 
     nodes_out: list[dict] = []
     title_col_for: dict[str, str] = {
-        "finding": "finding", "unknown": "unknown",
-        "dead_end": "approach", "mistake": "mistake",
-        "assumption": "assumption", "decision": "choice",
-        "source": "title", "goal": "objective",
+        "finding": "finding",
+        "unknown": "unknown",
+        "dead_end": "approach",
+        "mistake": "mistake",
+        "assumption": "assumption",
+        "decision": "choice",
+        "source": "title",
+        "goal": "objective",
     }
     for artifact_id in visited:
         for artifact_type, table, id_col in _TYPE_TABLE_MAP:
@@ -1106,7 +1119,12 @@ async def get_artifact_graph(
     db = _open_db_for(project)
     try:
         nodes, edges = _walk_graph(
-            db, seed_id, session_id, depth, max_nodes, type_filter,
+            db,
+            seed_id,
+            session_id,
+            depth,
+            max_nodes,
+            type_filter,
             project_id_for_seed=proj_pid,
         )
         return {"nodes": nodes, "edges": edges, "project_id": proj_pid}
@@ -1211,8 +1229,7 @@ async def resolve_artifact(artifact_id: str, body: dict):
 
         if artifact_type == "unknown":
             cursor.execute(
-                "UPDATE project_unknowns SET is_resolved = 1, resolved_by = ?, "
-                "resolved_timestamp = ? WHERE id = ?",
+                "UPDATE project_unknowns SET is_resolved = 1, resolved_by = ?, resolved_timestamp = ? WHERE id = ?",
                 (resolved_by, now, artifact_id),
             )
         elif artifact_type == "assumption":
@@ -1222,8 +1239,7 @@ async def resolve_artifact(artifact_id: str, body: dict):
             )
         elif artifact_type == "goal":
             cursor.execute(
-                "UPDATE goals SET is_completed = 1, status = 'completed', "
-                "completed_timestamp = ? WHERE id = ?",
+                "UPDATE goals SET is_completed = 1, status = 'completed', completed_timestamp = ? WHERE id = ?",
                 (now, artifact_id),
             )
         else:
@@ -1275,10 +1291,7 @@ async def patch_artifact(artifact_id: str, body: dict):
         if not updates:
             raise HTTPException(
                 status_code=422,
-                detail=(
-                    f"No whitelisted fields in body. Allowed for {artifact_type}: "
-                    f"{sorted(whitelist)}"
-                ),
+                detail=(f"No whitelisted fields in body. Allowed for {artifact_type}: {sorted(whitelist)}"),
             )
 
         set_clause = ", ".join(f"{k} = ?" for k in updates)
@@ -1311,6 +1324,7 @@ async def post_artifacts_log(body: dict):
         raise HTTPException(status_code=503, detail="Daemon not bound to a project")
 
     from empirica.cli.command_handlers.graph_commands import log_artifacts_graph
+
     result = log_artifacts_graph(
         body,
         project_id=project.get("project_id"),
@@ -1347,8 +1361,7 @@ async def post_artifacts_resolve(body: dict):
             artifact_type, _table, _id_col = resolved
             if artifact_type == "unknown":
                 cursor.execute(
-                    "UPDATE project_unknowns SET is_resolved = 1, resolved_by = ?, "
-                    "resolved_timestamp = ? WHERE id = ?",
+                    "UPDATE project_unknowns SET is_resolved = 1, resolved_by = ?, resolved_timestamp = ? WHERE id = ?",
                     (resolved_by, now, art_id),
                 )
                 results.append({"id": art_id, "type": artifact_type, "outcome": "resolved"})
@@ -1360,16 +1373,19 @@ async def post_artifacts_resolve(body: dict):
                 results.append({"id": art_id, "type": artifact_type, "outcome": "resolved"})
             elif artifact_type == "goal":
                 cursor.execute(
-                    "UPDATE goals SET is_completed = 1, status = 'completed', "
-                    "completed_timestamp = ? WHERE id = ?",
+                    "UPDATE goals SET is_completed = 1, status = 'completed', completed_timestamp = ? WHERE id = ?",
                     (now, art_id),
                 )
                 results.append({"id": art_id, "type": artifact_type, "outcome": "resolved"})
             else:
-                results.append({
-                    "id": art_id, "type": artifact_type, "outcome": "skipped",
-                    "reason": "no resolve semantics",
-                })
+                results.append(
+                    {
+                        "id": art_id,
+                        "type": artifact_type,
+                        "outcome": "skipped",
+                        "reason": "no resolve semantics",
+                    }
+                )
         db.conn.commit()
         return {
             "ok": True,
@@ -1403,6 +1419,7 @@ async def post_artifacts_delete(body: dict):
     db = _open_db()
     try:
         from empirica.cli.command_handlers.graph_commands import _delete_single_artifact
+
         cursor = db.conn.cursor()
         results: list[dict] = []
         for raw in raw_items:
@@ -1418,7 +1435,11 @@ async def post_artifacts_delete(body: dict):
                     continue
                 raw = {**raw, "type": resolved[0]}
             result = _delete_single_artifact(
-                cursor, raw, project_id=project_id, dry_run=False, project_path=project_path,
+                cursor,
+                raw,
+                project_id=project_id,
+                dry_run=False,
+                project_path=project_path,
             )
             if result is None:
                 results.append({"id": art_id, "outcome": "skipped"})

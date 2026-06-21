@@ -1,6 +1,7 @@
 """
 Goal and subtask semantic search and embedding.
 """
+
 from __future__ import annotations
 
 import json
@@ -291,7 +292,7 @@ def search_goals(
 
         return [
             {
-                "score": getattr(r, 'score', 0.0) or 0.0,
+                "score": getattr(r, "score", 0.0) or 0.0,
                 "type": (r.payload or {}).get("type"),
                 "objective": (r.payload or {}).get("objective_full") or (r.payload or {}).get("objective"),
                 "description": (r.payload or {}).get("description_full") or (r.payload or {}).get("description"),
@@ -344,6 +345,7 @@ def update_goal_status(
             return False
 
         import hashlib
+
         point_id = int(hashlib.md5(goal_id.encode()).hexdigest()[:15], 16)
 
         # Get existing point
@@ -359,6 +361,7 @@ def update_goal_status(
             payload["completion_evidence"] = completion_evidence
 
         from qdrant_client.models import PointStruct
+
         updated_point = PointStruct(id=point_id, vector=point.vector, payload=payload)
         client.upsert(collection_name=coll, points=[updated_point])
         return True
@@ -383,13 +386,15 @@ def sync_goals_to_qdrant(project_id: str) -> int:
 
     try:
         from empirica.data.session_database import SessionDatabase
+
         db = SessionDatabase()
         synced = 0
 
         cursor = db.conn.cursor()
 
         # Sync goals
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT g.id, g.objective, g.session_id, g.scope, g.estimated_complexity,
                    g.status, g.created_timestamp, s.ai_id
             FROM goals g
@@ -397,7 +402,9 @@ def sync_goals_to_qdrant(project_id: str) -> int:
             WHERE g.session_id IN (
                 SELECT session_id FROM sessions WHERE project_id = ?
             )
-        """, (project_id,))
+        """,
+            (project_id,),
+        )
 
         for row in cursor.fetchall():
             goal_id, objective, session_id, scope_json, complexity, status, ts, ai_id = row
@@ -425,7 +432,8 @@ def sync_goals_to_qdrant(project_id: str) -> int:
                 synced += 1
 
         # Sync subtasks
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT st.id, st.description, st.goal_id, g.objective, st.status,
                    st.epistemic_importance, st.completion_evidence, st.created_timestamp,
                    g.session_id
@@ -434,7 +442,9 @@ def sync_goals_to_qdrant(project_id: str) -> int:
             WHERE g.session_id IN (
                 SELECT session_id FROM sessions WHERE project_id = ?
             )
-        """, (project_id,))
+        """,
+            (project_id,),
+        )
 
         for row in cursor.fetchall():
             subtask_id, desc, goal_id, goal_obj, status, importance, evidence, ts, session_id = row
@@ -463,4 +473,3 @@ def sync_goals_to_qdrant(project_id: str) -> int:
 # =============================================================================
 # GROUNDED CALIBRATION EMBEDDING (v1.5.0)
 # =============================================================================
-

@@ -34,12 +34,20 @@ SKIP_DIRS: set[str] = {"__pycache__", "_archive", "_dev"}
 # ModuleNotFoundError for these is expected and not a bug — the corresponding
 # extras (api, vector, vision, mcp, prose) are declared in pyproject.toml.
 OPTIONAL_PACKAGES: set[str] = {
-    "flask", "flask_cors", "werkzeug", "fastapi", "uvicorn",
+    "flask",
+    "flask_cors",
+    "werkzeug",
+    "fastapi",
+    "uvicorn",
     "qdrant_client",
-    "pytesseract", "cv2", "PIL",
+    "pytesseract",
+    "cv2",
+    "PIL",
     "mcp",
-    "textstat", "proselint",
-    "numpy", "np",
+    "textstat",
+    "proselint",
+    "numpy",
+    "np",
 }
 
 
@@ -114,6 +122,7 @@ def py_files() -> list[Path]:
 # Test 1: All modules import without error
 # ---------------------------------------------------------------------------
 
+
 class TestAllModulesImport:
     """Every ``.py`` file under ``empirica/`` must be importable.
 
@@ -147,12 +156,8 @@ class TestAllModulesImport:
                     failures.append((dotted, f"{type(exc).__name__}: {exc}"))
 
         if failures:
-            report = "\n".join(
-                f"  {mod}: {err}" for mod, err in failures
-            )
-            pytest.fail(
-                f"{len(failures)} module(s) failed to import:\n{report}"
-            )
+            report = "\n".join(f"  {mod}: {err}" for mod, err in failures)
+            pytest.fail(f"{len(failures)} module(s) failed to import:\n{report}")
 
 
 # ---------------------------------------------------------------------------
@@ -160,8 +165,10 @@ class TestAllModulesImport:
 #         (the R-shadowing detector)
 # ---------------------------------------------------------------------------
 
+
 class _AliasInfo(NamedTuple):
     """Tracks an ``import ... as ALIAS`` occurrence."""
+
     alias: str
     module: str
     name: str
@@ -170,6 +177,7 @@ class _AliasInfo(NamedTuple):
 
 class _ShadowViolation(NamedTuple):
     """A detected shadowing of a module-level import alias."""
+
     file: Path
     alias: str
     module_level_line: int
@@ -298,6 +306,7 @@ class TestNoImportShadowing:
 # Test 3: No circular imports
 # ---------------------------------------------------------------------------
 
+
 class TestNoCircularImports:
     """Verify that no circular import cycles exist among ``empirica`` modules.
 
@@ -354,10 +363,5 @@ class TestNoCircularImports:
                 failures.append((pkg, f"{type(exc).__name__}: {exc}"))
 
         if failures:
-            report = "\n".join(
-                f"  {pkg}: {err}" for pkg, err in failures
-            )
-            pytest.fail(
-                f"{len(failures)} sub-package(s) have import issues "
-                f"(possible circular imports):\n{report}"
-            )
+            report = "\n".join(f"  {pkg}: {err}" for pkg, err in failures)
+            pytest.fail(f"{len(failures)} sub-package(s) have import issues (possible circular imports):\n{report}")

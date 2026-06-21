@@ -82,9 +82,7 @@ def test_save_is_atomic(tmp_path: Path):
 
 def test_upsert_inserts_new_entry():
     reg = {"version": 1, "projects": []}
-    upsert_project(
-        reg, project_id="new-id", slug="new", name="New", path="/tmp/new"
-    )
+    upsert_project(reg, project_id="new-id", slug="new", name="New", path="/tmp/new")
     assert len(reg["projects"]) == 1
     assert reg["projects"][0]["project_id"] == "new-id"
     assert "last_seen" in reg["projects"][0]
@@ -98,7 +96,11 @@ def test_upsert_updates_existing_entry():
         ],
     }
     upsert_project(
-        reg, project_id="x", slug="new", name="New", path="/tmp/new",
+        reg,
+        project_id="x",
+        slug="new",
+        name="New",
+        path="/tmp/new",
         repo_url="https://example.com/x",
     )
     assert len(reg["projects"]) == 1
@@ -110,7 +112,11 @@ def test_upsert_updates_existing_entry():
 def test_upsert_preserves_explicit_last_seen():
     reg = {"version": 1, "projects": []}
     upsert_project(
-        reg, project_id="x", slug="s", name="n", path="/p",
+        reg,
+        project_id="x",
+        slug="s",
+        name="n",
+        path="/p",
         last_seen="2026-01-01T00:00:00+00:00",
     )
     assert reg["projects"][0]["last_seen"] == "2026-01-01T00:00:00+00:00"
@@ -228,8 +234,6 @@ def test_saved_yaml_is_human_readable(tmp_path: Path):
 # ─── dual-key dedup (auto-self-heal on load) ────────────────────────────
 
 
-
-
 def _entry(*, project_id: str, slug: str, path: str, last_seen: str = "") -> dict:
     return {
         "project_id": project_id,
@@ -247,10 +251,8 @@ def test_dedupe_keeps_uuid_drops_slug_on_same_path():
     registry = {
         "version": 1,
         "projects": [
-            _entry(project_id="empirica-cortex", slug="empirica-cortex",
-                   path="/home/me/empirica-cortex"),
-            _entry(project_id=uuid_id, slug="empirica-cortex",
-                   path="/home/me/empirica-cortex"),
+            _entry(project_id="empirica-cortex", slug="empirica-cortex", path="/home/me/empirica-cortex"),
+            _entry(project_id=uuid_id, slug="empirica-cortex", path="/home/me/empirica-cortex"),
         ],
     }
     deduped, removed = _dedupe_registry(registry)
@@ -266,10 +268,8 @@ def test_dedupe_leaves_distinct_paths_alone():
     registry = {
         "version": 1,
         "projects": [
-            _entry(project_id="empirica", slug="empirica",
-                   path="/home/me/empirica_back_2_4_26"),
-            _entry(project_id="748a81a2-1234-4567-89ab-cdef01234567",
-                   slug="empirica", path="/home/me/empirica"),
+            _entry(project_id="empirica", slug="empirica", path="/home/me/empirica_back_2_4_26"),
+            _entry(project_id="748a81a2-1234-4567-89ab-cdef01234567", slug="empirica", path="/home/me/empirica"),
         ],
     }
     deduped, removed = _dedupe_registry(registry)
@@ -283,10 +283,8 @@ def test_dedupe_skips_uuid_conflict():
     registry = {
         "version": 1,
         "projects": [
-            _entry(project_id="aaaaaaaa-1111-4222-8333-444444444444",
-                   slug="proj", path="/home/me/proj"),
-            _entry(project_id="bbbbbbbb-1111-4222-8333-444444444444",
-                   slug="proj", path="/home/me/proj"),
+            _entry(project_id="aaaaaaaa-1111-4222-8333-444444444444", slug="proj", path="/home/me/proj"),
+            _entry(project_id="bbbbbbbb-1111-4222-8333-444444444444", slug="proj", path="/home/me/proj"),
         ],
     }
     deduped, removed = _dedupe_registry(registry)
@@ -300,10 +298,8 @@ def test_dedupe_all_legacy_keeps_most_recent():
     registry = {
         "version": 1,
         "projects": [
-            _entry(project_id="old-slug", slug="proj", path="/home/me/proj",
-                   last_seen="2025-01-01T00:00:00"),
-            _entry(project_id="newer-slug", slug="proj", path="/home/me/proj",
-                   last_seen="2026-06-07T00:00:00"),
+            _entry(project_id="old-slug", slug="proj", path="/home/me/proj", last_seen="2025-01-01T00:00:00"),
+            _entry(project_id="newer-slug", slug="proj", path="/home/me/proj", last_seen="2026-06-07T00:00:00"),
         ],
     }
     deduped, removed = _dedupe_registry(registry)
@@ -319,10 +315,22 @@ def test_dedupe_passes_through_pathless_entries():
     registry = {
         "version": 1,
         "projects": [
-            {"project_id": uuid_id, "slug": "ok", "name": "ok",
-             "path": "/home/me/ok", "repo_url": None, "last_seen": ""},
-            {"project_id": "no-path", "slug": "broken", "name": "broken",
-             "path": "", "repo_url": None, "last_seen": ""},
+            {
+                "project_id": uuid_id,
+                "slug": "ok",
+                "name": "ok",
+                "path": "/home/me/ok",
+                "repo_url": None,
+                "last_seen": "",
+            },
+            {
+                "project_id": "no-path",
+                "slug": "broken",
+                "name": "broken",
+                "path": "",
+                "repo_url": None,
+                "last_seen": "",
+            },
         ],
     }
     deduped, removed = _dedupe_registry(registry)
@@ -334,8 +342,14 @@ def test_dedupe_six_paths_doubled_realistic_load(tmp_path: Path):
     """End-to-end: write a registry resembling David's actual broken
     state (6 paths doubled), load_registry auto-dedupes + persists, the
     file on disk shrinks correspondingly."""
-    six = ["ecodex", "empirica-autonomy", "empirica-cortex",
-           "empirica-extension", "empirica-outreach", "empirica-workspace"]
+    six = [
+        "ecodex",
+        "empirica-autonomy",
+        "empirica-cortex",
+        "empirica-extension",
+        "empirica-outreach",
+        "empirica-workspace",
+    ]
     projects = []
     for i, name in enumerate(six):
         uuid_id = f"{i:08}-1111-4222-8333-444444444444"

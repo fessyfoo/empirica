@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 class ValidationError(Exception):
     """Custom exception for validation errors"""
+
     pass
 
 
@@ -82,13 +83,10 @@ def validate_success_criteria(success_criteria: list[SuccessCriterion]) -> None:
         # Validate threshold for metric-based criteria
         if sc.validation_method == "metric_threshold":
             if sc.threshold is None:
-                raise ValidationError(
-                    f"Success criterion {idx}: threshold required for metric_threshold validation"
-                )
+                raise ValidationError(f"Success criterion {idx}: threshold required for metric_threshold validation")
             if not (0.0 <= sc.threshold <= 1.0):
                 raise ValidationError(
-                    f"Success criterion {idx}: threshold must be between 0.0 and 1.0, "
-                    f"got {sc.threshold}"
+                    f"Success criterion {idx}: threshold must be between 0.0 and 1.0, got {sc.threshold}"
                 )
 
 
@@ -104,9 +102,7 @@ def validate_complexity(complexity: float | None) -> None:
     """
     if complexity is not None:
         if not (0.0 <= complexity <= 1.0):
-            raise ValidationError(
-                f"Complexity must be between 0.0 and 1.0, got {complexity}"
-            )
+            raise ValidationError(f"Complexity must be between 0.0 and 1.0, got {complexity}")
 
 
 def validate_scope_vector(scope: ScopeVector) -> None:
@@ -186,14 +182,10 @@ def _validate_mcp_success_criteria(success_criteria_data: Any) -> None:
             raise ValidationError(f"Success criterion {idx}: missing 'validation_method'")
 
         if sc_data["validation_method"] not in valid_methods:
-            raise ValidationError(
-                f"Success criterion {idx}: validation_method must be one of {valid_methods}"
-            )
+            raise ValidationError(f"Success criterion {idx}: validation_method must be one of {valid_methods}")
 
         if sc_data["validation_method"] == "metric_threshold" and "threshold" not in sc_data:
-            raise ValidationError(
-                f"Success criterion {idx}: 'threshold' required for metric_threshold validation"
-            )
+            raise ValidationError(f"Success criterion {idx}: 'threshold' required for metric_threshold validation")
 
 
 def _validate_mcp_scope(scope: Any) -> None:
@@ -201,7 +193,7 @@ def _validate_mcp_scope(scope: Any) -> None:
     if not isinstance(scope, dict):
         raise ValidationError(f"scope must be an object with breadth/duration/coordination, got {type(scope)}")
 
-    required_fields = ['breadth', 'duration', 'coordination']
+    required_fields = ["breadth", "duration", "coordination"]
     for field in required_fields:
         if field not in scope:
             raise ValidationError(f"scope.{field} is required")
@@ -219,9 +211,7 @@ def _validate_mcp_complexity(complexity: Any) -> None:
     try:
         complexity_float = float(complexity)
         if not (0.0 <= complexity_float <= 1.0):
-            raise ValidationError(
-                f"estimated_complexity must be between 0.0 and 1.0, got {complexity}"
-            )
+            raise ValidationError(f"estimated_complexity must be between 0.0 and 1.0, got {complexity}")
     except (TypeError, ValueError) as e:
         raise ValidationError(f"estimated_complexity must be a number, got {type(complexity)}") from e
 
@@ -283,9 +273,7 @@ def validate_mcp_subtask_input(arguments: dict[str, Any]) -> None:
     if importance:
         valid_importance = ["critical", "high", "medium", "low"]
         if importance not in valid_importance:
-            raise ValidationError(
-                f"epistemic_importance must be one of {valid_importance}, got '{importance}'"
-            )
+            raise ValidationError(f"epistemic_importance must be one of {valid_importance}, got '{importance}'")
 
     # Validate estimated_tokens if provided
     tokens = arguments.get("estimated_tokens")

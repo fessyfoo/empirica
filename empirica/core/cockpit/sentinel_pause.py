@@ -12,8 +12,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-EMPIRICA_DIR = Path.home() / '.empirica'
-GLOBAL_PAUSE_FILE = EMPIRICA_DIR / 'sentinel_paused'
+EMPIRICA_DIR = Path.home() / ".empirica"
+GLOBAL_PAUSE_FILE = EMPIRICA_DIR / "sentinel_paused"
 
 
 def _safe_instance_suffix(instance_id: str) -> str:
@@ -23,13 +23,13 @@ def _safe_instance_suffix(instance_id: str) -> str:
     instance pause files line up exactly between writer (CLI) and reader
     (hook).
     """
-    return instance_id.replace('/', '-').replace('%', '')
+    return instance_id.replace("/", "-").replace("%", "")
 
 
 def pause_file_path(instance_id: str | None) -> Path:
     """Return the pause file path for an instance, or the global file."""
     if instance_id:
-        return EMPIRICA_DIR / f'sentinel_paused_{_safe_instance_suffix(instance_id)}'
+        return EMPIRICA_DIR / f"sentinel_paused_{_safe_instance_suffix(instance_id)}"
     return GLOBAL_PAUSE_FILE
 
 
@@ -58,7 +58,7 @@ def _read_pause_file(path: Path) -> tuple[str | None, str | None]:
 
     reason: str | None = None
     try:
-        text = path.read_text(encoding='utf-8', errors='ignore').strip()
+        text = path.read_text(encoding="utf-8", errors="ignore").strip()
         if text:
             reason = text.splitlines()[0]
     except OSError:
@@ -85,7 +85,7 @@ def sentinel_status(instance_id: str | None) -> SentinelPauseStatus:
                 paused=True,
                 since=since,
                 reason=reason,
-                scope='instance',
+                scope="instance",
             )
 
     if GLOBAL_PAUSE_FILE.exists():
@@ -95,7 +95,7 @@ def sentinel_status(instance_id: str | None) -> SentinelPauseStatus:
             paused=True,
             since=since,
             reason=reason,
-            scope='global',
+            scope="global",
         )
 
     return SentinelPauseStatus(
@@ -103,7 +103,7 @@ def sentinel_status(instance_id: str | None) -> SentinelPauseStatus:
         paused=False,
         since=None,
         reason=None,
-        scope='none',
+        scope="none",
     )
 
 
@@ -114,8 +114,8 @@ def pause_sentinel(instance_id: str | None, reason: str | None = None) -> Sentin
     """
     EMPIRICA_DIR.mkdir(parents=True, exist_ok=True)
     path = pause_file_path(instance_id)
-    content = (reason or '').strip()
-    path.write_text(content, encoding='utf-8')
+    content = (reason or "").strip()
+    path.write_text(content, encoding="utf-8")
     return sentinel_status(instance_id)
 
 

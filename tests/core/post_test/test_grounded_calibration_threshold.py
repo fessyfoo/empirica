@@ -30,19 +30,30 @@ def _make_bundle_with_n_vectors(n: int) -> EvidenceBundle:
     """
     bundle = EvidenceBundle(session_id="threshold-test")
     vector_names = [
-        "know", "signal", "context", "do", "change", "state",
-        "clarity", "coherence", "density", "completion", "impact",
+        "know",
+        "signal",
+        "context",
+        "do",
+        "change",
+        "state",
+        "clarity",
+        "coherence",
+        "density",
+        "completion",
+        "impact",
         "engagement",
     ]
     for i in range(n):
-        bundle.items.append(EvidenceItem(
-            source="artifacts",
-            metric_name=f"metric_{i}",
-            value=0.7,
-            raw_value={"count": 1},
-            quality=EvidenceQuality.OBJECTIVE,
-            supports_vectors=[vector_names[i]],
-        ))
+        bundle.items.append(
+            EvidenceItem(
+                source="artifacts",
+                metric_name=f"metric_{i}",
+                value=0.7,
+                raw_value={"count": 1},
+                quality=EvidenceQuality.OBJECTIVE,
+                supports_vectors=[vector_names[i]],
+            )
+        )
     bundle.sources_available = ["artifacts"]
     bundle.coverage = n / 13.0
     return bundle
@@ -79,9 +90,7 @@ def test_remote_ops_short_circuit_skips_collection(monkeypatch):
 
     def boom(*args, **kwargs):
         called["collect_all"] = True
-        raise AssertionError(
-            "PostTestCollector.collect_all should not be called for remote-ops"
-        )
+        raise AssertionError("PostTestCollector.collect_all should not be called for remote-ops")
 
     monkeypatch.setattr(PostTestCollector, "collect_all", boom)
 
@@ -188,6 +197,5 @@ def test_wrapper_handles_non_grounded_phase_without_typeerror(monkeypatch):
     # Either is acceptable — the key property is that no TypeError was raised.
     if result is not None:
         assert result.get("holistic_calibration_score") is None, (
-            "holistic_calibration_score should be None when the only phase "
-            "ran with insufficient evidence"
+            "holistic_calibration_score should be None when the only phase ran with insufficient evidence"
         )

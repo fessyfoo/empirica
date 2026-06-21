@@ -17,41 +17,41 @@ class StructureHealthAnalyzer:
 
     # Known project patterns (static knowledge)
     PATTERNS: ClassVar[dict[str, dict[str, Any]]] = {
-        'python_package': {
-            'name': 'Python Package',
-            'expected_folders': ['src/', 'tests/', 'docs/'],
-            'expected_files': ['setup.py', 'pyproject.toml', 'README.md'],
-            'optional': ['examples/', 'scripts/', '.github/'],
-            'description': 'Standard Python package with src layout'
+        "python_package": {
+            "name": "Python Package",
+            "expected_folders": ["src/", "tests/", "docs/"],
+            "expected_files": ["setup.py", "pyproject.toml", "README.md"],
+            "optional": ["examples/", "scripts/", ".github/"],
+            "description": "Standard Python package with src layout",
         },
-        'django': {
-            'name': 'Django Application',
-            'expected_folders': ['apps/', 'templates/', 'static/', 'media/'],
-            'expected_files': ['manage.py', 'settings.py', 'urls.py'],
-            'optional': ['requirements.txt', 'Dockerfile'],
-            'description': 'Django web application'
+        "django": {
+            "name": "Django Application",
+            "expected_folders": ["apps/", "templates/", "static/", "media/"],
+            "expected_files": ["manage.py", "settings.py", "urls.py"],
+            "optional": ["requirements.txt", "Dockerfile"],
+            "description": "Django web application",
         },
-        'react': {
-            'name': 'React Application',
-            'expected_folders': ['src/', 'public/', 'components/'],
-            'expected_files': ['package.json', 'index.html', 'App.jsx'],
-            'optional': ['node_modules/', 'build/', 'dist/'],
-            'description': 'React frontend application'
+        "react": {
+            "name": "React Application",
+            "expected_folders": ["src/", "public/", "components/"],
+            "expected_files": ["package.json", "index.html", "App.jsx"],
+            "optional": ["node_modules/", "build/", "dist/"],
+            "description": "React frontend application",
         },
-        'monorepo': {
-            'name': 'Monorepo',
-            'expected_folders': ['packages/', 'apps/', 'libs/'],
-            'expected_files': ['lerna.json', 'package.json', 'workspace.yaml'],
-            'optional': ['docs/', 'tools/', 'scripts/'],
-            'description': 'Multi-package repository'
+        "monorepo": {
+            "name": "Monorepo",
+            "expected_folders": ["packages/", "apps/", "libs/"],
+            "expected_files": ["lerna.json", "package.json", "workspace.yaml"],
+            "optional": ["docs/", "tools/", "scripts/"],
+            "description": "Multi-package repository",
         },
-        'empirica_extension': {
-            'name': 'Empirica Extension',
-            'expected_folders': ['empirica/', 'tests/', 'docs/'],
-            'expected_files': ['.empirica-project/PROJECT_CONFIG.yaml', 'pyproject.toml'],
-            'optional': ['examples/', 'scripts/'],
-            'description': 'Empirica framework extension'
-        }
+        "empirica_extension": {
+            "name": "Empirica Extension",
+            "expected_folders": ["empirica/", "tests/", "docs/"],
+            "expected_files": [".empirica-project/PROJECT_CONFIG.yaml", "pyproject.toml"],
+            "optional": ["examples/", "scripts/"],
+            "description": "Empirica framework extension",
+        },
     }
 
     def __init__(self, project_root: str):
@@ -94,15 +94,15 @@ class StructureHealthAnalyzer:
         suggestions = self._generate_suggestions(detected_type, violations)
 
         return {
-            'detected_type': detected_type,
-            'detected_name': pattern['name'],
-            'confidence': round(confidence, 2),
-            'conformance': round(conformance, 2),
-            'description': pattern['description'],
-            'violations': violations,
-            'suggestions': suggestions,
-            'folders_found': len(folders),
-            'files_found': len(files)
+            "detected_type": detected_type,
+            "detected_name": pattern["name"],
+            "confidence": round(confidence, 2),
+            "conformance": round(conformance, 2),
+            "description": pattern["description"],
+            "violations": violations,
+            "suggestions": suggestions,
+            "folders_found": len(folders),
+            "files_found": len(files),
         }
 
     def _scan_folders(self) -> list[str]:
@@ -110,8 +110,8 @@ class StructureHealthAnalyzer:
         folders = []
         try:
             for item in self.project_root.iterdir():
-                if item.is_dir() and not item.name.startswith('.'):
-                    folders.append(item.name + '/')
+                if item.is_dir() and not item.name.startswith("."):
+                    folders.append(item.name + "/")
         except Exception as e:
             logger.debug(f"Error scanning folders: {e}")
         return folders
@@ -141,9 +141,9 @@ class StructureHealthAnalyzer:
         Returns:
             Score 0.0-1.0
         """
-        expected_folders = pattern['expected_folders']
-        expected_files = pattern['expected_files']
-        optional = pattern.get('optional', [])
+        expected_folders = pattern["expected_folders"]
+        expected_files = pattern["expected_files"]
+        optional = pattern.get("optional", [])
 
         # Count matches
         folder_matches = sum(1 for f in expected_folders if f in folders)
@@ -174,17 +174,17 @@ class StructureHealthAnalyzer:
         violations = []
 
         # Check for missing expected folders
-        for expected in pattern['expected_folders']:
+        for expected in pattern["expected_folders"]:
             if expected not in folders:
                 violations.append(f"Missing expected folder: {expected}")
 
         # Check for missing expected files
-        for expected in pattern['expected_files']:
+        for expected in pattern["expected_files"]:
             if expected not in files:
                 violations.append(f"Missing expected file: {expected}")
 
         # Calculate conformance (inverse of violations)
-        required_total = len(pattern['expected_folders']) + len(pattern['expected_files'])
+        required_total = len(pattern["expected_folders"]) + len(pattern["expected_files"])
         conformance = 1.0 - (len(violations) / required_total) if required_total > 0 else 1.0
 
         return max(conformance, 0.0), violations
@@ -198,11 +198,11 @@ class StructureHealthAnalyzer:
         if violations:
             suggestions.append(f"Consider adopting {pattern['name']} conventions:")
             for violation in violations[:3]:  # Top 3
-                if 'folder:' in violation:
-                    folder = violation.split('folder:')[1].strip()
+                if "folder:" in violation:
+                    folder = violation.split("folder:")[1].strip()
                     suggestions.append(f"  • Create {folder} directory")
-                elif 'file:' in violation:
-                    file = violation.split('file:')[1].strip()
+                elif "file:" in violation:
+                    file = violation.split("file:")[1].strip()
                     suggestions.append(f"  • Add {file}")
         else:
             suggestions.append(f"✅ Structure conforms well to {pattern['name']} pattern")

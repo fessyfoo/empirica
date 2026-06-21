@@ -46,6 +46,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AgentAllocation:
     """Allocation for a single parallel agent."""
+
     agent_name: str
     domain: str
     persona_id: str
@@ -71,6 +72,7 @@ class AgentAllocation:
 @dataclass
 class OrchestrationPlan:
     """Plan for parallel agent execution."""
+
     task: str
     session_id: str
     agents: list[AgentAllocation]
@@ -92,6 +94,7 @@ class OrchestrationPlan:
 @dataclass
 class RegulationDecision:
     """Decision from the regulate step."""
+
     action: str  # "stop", "continue", "spawn_more"
     reason: str
     round_number: int
@@ -117,6 +120,7 @@ class RegulationDecision:
 @dataclass
 class AggregatedSynthesis:
     """Result of aggregating all parallel agent results."""
+
     findings: list[str]
     unknowns: list[str]
     confidence_weighted_vectors: dict[str, float]
@@ -219,16 +223,18 @@ class ParallelOrchestrator:
             persona_id = self._select_persona(task, alloc.domain)
             agent_name = f"empirica:{alloc.domain}"
 
-            agents.append(AgentAllocation(
-                agent_name=agent_name,
-                domain=alloc.domain,
-                persona_id=persona_id,
-                budget=alloc.budget,
-                priority=alloc.priority,
-                expected_gain=alloc.expected_gain,
-                priors=self._get_domain_priors(persona_id),
-                task_focus=self._generate_focus(task, alloc.domain),
-            ))
+            agents.append(
+                AgentAllocation(
+                    agent_name=agent_name,
+                    domain=alloc.domain,
+                    persona_id=persona_id,
+                    budget=alloc.budget,
+                    priority=alloc.priority,
+                    expected_gain=alloc.expected_gain,
+                    priors=self._get_domain_priors(persona_id),
+                    task_focus=self._generate_focus(task, alloc.domain),
+                )
+            )
 
         plan = OrchestrationPlan(
             task=task,
@@ -264,9 +270,7 @@ class ParallelOrchestrator:
         Returns:
             RegulationDecision with action and reasoning
         """
-        novel_count = sum(
-            1 for f in rollup_result.accepted if f.novelty > 0.3
-        )
+        novel_count = sum(1 for f in rollup_result.accepted if f.novelty > 0.3)
 
         if novel_count == 0:
             self._rounds_without_novel += 1
@@ -314,10 +318,7 @@ class ParallelOrchestrator:
             rounds_without_novel=self._rounds_without_novel,
         )
 
-        logger.info(
-            f"Regulation round {round_number}: action={action}, "
-            f"reason={reason}"
-        )
+        logger.info(f"Regulation round {round_number}: action={action}, reason={reason}")
 
         return decision
 
@@ -374,13 +375,15 @@ class ParallelOrchestrator:
                 weighted_vectors[key] += float(value or 0.0) * conf
             total_weight += confidence or 0.0
 
-            agent_summaries.append({
-                "agent_name": name,
-                "domain": domain,
-                "findings_count": len(findings),
-                "unknowns_count": len(unknowns),
-                "confidence": confidence,
-            })
+            agent_summaries.append(
+                {
+                    "agent_name": name,
+                    "domain": domain,
+                    "findings_count": len(findings),
+                    "unknowns_count": len(unknowns),
+                    "confidence": confidence,
+                }
+            )
 
         # Normalize weighted vectors
         if total_weight > 0:
@@ -421,9 +424,10 @@ class ParallelOrchestrator:
         """Detect investigation domains from task description."""
         try:
             from empirica.core.sentinel.decision_logic import DecisionLogic
+
             logic = DecisionLogic()
             signals = logic.analyze_task(task)
-            return [s.domain for s in signals[:self.max_agents]]
+            return [s.domain for s in signals[: self.max_agents]]
         except Exception:
             return ["general"]
 
@@ -432,13 +436,17 @@ class ParallelOrchestrator:
         counts = {}
         try:
             from empirica.data.session_database import SessionDatabase
+
             db = SessionDatabase()
             cursor = db.conn.cursor()
             for domain in domains:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT COUNT(*) FROM project_findings
                     WHERE session_id = ? AND finding LIKE ?
-                """, (self.session_id, f"%[%{domain}%]%"))
+                """,
+                    (self.session_id, f"%[%{domain}%]%"),
+                )
                 counts[domain] = cursor.fetchone()[0]
             db.close()
         except Exception:
@@ -451,13 +459,17 @@ class ParallelOrchestrator:
         counts = {}
         try:
             from empirica.data.session_database import SessionDatabase
+
             db = SessionDatabase()
             cursor = db.conn.cursor()
             for domain in domains:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT COUNT(*) FROM project_dead_ends
                     WHERE session_id = ? AND approach LIKE ?
-                """, (self.session_id, f"%{domain}%"))
+                """,
+                    (self.session_id, f"%{domain}%"),
+                )
                 counts[domain] = cursor.fetchone()[0]
             db.close()
         except Exception:
@@ -469,6 +481,7 @@ class ParallelOrchestrator:
         """Select best persona for a domain."""
         try:
             from empirica.core.emerged_personas import sentinel_match_persona
+
             persona = sentinel_match_persona(
                 task=f"{task} (focus: {domain})",
                 min_reputation=0.3,
@@ -483,6 +496,7 @@ class ParallelOrchestrator:
         """Get epistemic priors for a persona."""
         try:
             from empirica.core.persona import PersonaManager
+
             manager = PersonaManager()
             persona = manager.load_persona(persona_id)
             return persona.epistemic_config.priors

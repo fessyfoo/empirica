@@ -36,7 +36,7 @@ from typing import Any
 
 
 def project_yaml_path(project_path: str | Path) -> Path:
-    return Path(project_path) / '.empirica' / 'project.yaml'
+    return Path(project_path) / ".empirica" / "project.yaml"
 
 
 def _load_cockpit_block(project_path: str | Path | None) -> dict[str, Any]:
@@ -53,13 +53,14 @@ def _load_cockpit_block(project_path: str | Path | None) -> dict[str, Any]:
         return {}
     try:
         import yaml
-        with open(path, encoding='utf-8') as f:
+
+        with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
     except Exception:
         return {}
     if not isinstance(data, dict):
         return {}
-    cockpit = data.get('cockpit')
+    cockpit = data.get("cockpit")
     if not isinstance(cockpit, dict):
         return {}
     return cockpit
@@ -69,27 +70,24 @@ def project_loops(project_path: str | Path | None) -> list[dict[str, Any]]:
     """Return cockpit.loops — list of loop config dicts. Skips entries
     that don't have a 'name' field (basic shape validation)."""
     cockpit = _load_cockpit_block(project_path)
-    raw = cockpit.get('loops')
+    raw = cockpit.get("loops")
     if not isinstance(raw, list):
         return []
-    return [item for item in raw if isinstance(item, dict) and item.get('name')]
+    return [item for item in raw if isinstance(item, dict) and item.get("name")]
 
 
 def project_listeners(project_path: str | Path | None) -> list[dict[str, Any]]:
     """Return cockpit.listeners — list of listener config dicts. Skips
     entries that don't have both 'name' and 'topic' fields."""
     cockpit = _load_cockpit_block(project_path)
-    raw = cockpit.get('listeners')
+    raw = cockpit.get("listeners")
     if not isinstance(raw, list):
         return []
-    return [
-        item for item in raw
-        if isinstance(item, dict) and item.get('name') and item.get('topic')
-    ]
+    return [item for item in raw if isinstance(item, dict) and item.get("name") and item.get("topic")]
 
 
 __all__ = [
-    'project_listeners',
-    'project_loops',
-    'project_yaml_path',
+    "project_listeners",
+    "project_loops",
+    "project_yaml_path",
 ]

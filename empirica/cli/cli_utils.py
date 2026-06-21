@@ -23,24 +23,21 @@ def safe_print(*args, **kwargs):
         for arg in args:
             if isinstance(arg, str):
                 # Replace common Unicode chars with ASCII
-                arg = arg.replace('━', '=').replace('─', '-')
-                arg = arg.replace('✅', '[OK]').replace('❌', '[ERR]')
-                arg = arg.replace('⚠️', '[WARN]').replace('ℹ️', '[INFO]')
-                arg = arg.replace('🔍', '[DEBUG]').replace('🎯', '[TARGET]')
-                arg = arg.replace('📁', '[FOLDER]').replace('🆔', '[ID]')
-                arg = arg.replace('🗄️', '[DB]').replace('🏗️', '[BUILD]')
-                arg = arg.replace('🛠️', '[TOOLS]').replace('🔄', '[LOAD]')
+                arg = arg.replace("━", "=").replace("─", "-")
+                arg = arg.replace("✅", "[OK]").replace("❌", "[ERR]")
+                arg = arg.replace("⚠️", "[WARN]").replace("ℹ️", "[INFO]")
+                arg = arg.replace("🔍", "[DEBUG]").replace("🎯", "[TARGET]")
+                arg = arg.replace("📁", "[FOLDER]").replace("🆔", "[ID]")
+                arg = arg.replace("🗄️", "[DB]").replace("🏗️", "[BUILD]")
+                arg = arg.replace("🛠️", "[TOOLS]").replace("🔄", "[LOAD]")
                 # Encode to ASCII, ignoring errors
-                arg = arg.encode('ascii', errors='replace').decode('ascii')
+                arg = arg.encode("ascii", errors="replace").decode("ascii")
             safe_args.append(arg)
         print(*safe_args, **kwargs)
 
 
 def run_empirica_subprocess(
-    command: Sequence[str],
-    *,
-    cwd: str | None = None,
-    timeout: float | None = None
+    command: Sequence[str], *, cwd: str | None = None, timeout: float | None = None
 ) -> subprocess.CompletedProcess:
     """
     Run an Empirica CLI subprocess with UTF-8-safe decoding.
@@ -68,13 +65,9 @@ def run_empirica_subprocess(
 
 def print_component_status(component_name: str, status: str, details: str | None = None):
     """Print standardized component status information"""
-    status_emoji = {
-        'success': '✅',
-        'warning': '⚠️',
-        'error': '❌',
-        'info': 'ℹ️',
-        'loading': '🔄'
-    }.get(status.lower(), '•')
+    status_emoji = {"success": "✅", "warning": "⚠️", "error": "❌", "info": "ℹ️", "loading": "🔄"}.get(
+        status.lower(), "•"
+    )
 
     safe_print(f"{status_emoji} {component_name}: {status}")
     if details:
@@ -125,6 +118,7 @@ def handle_cli_error(error: Exception, command: str, verbose: bool = False, sess
 
     if verbose:
         import traceback
+
         safe_print("🔍 Detailed error information:")
         safe_print(traceback.format_exc())
 
@@ -139,6 +133,7 @@ def handle_cli_error(error: Exception, command: str, verbose: bool = False, sess
             if not session_id:
                 try:
                     from empirica.data.session_database import SessionDatabase
+
                     db = SessionDatabase()
                     cursor = db.conn.cursor()
                     cursor.execute("""
@@ -151,7 +146,7 @@ def handle_cli_error(error: Exception, command: str, verbose: bool = False, sess
                     if row:
                         # Support both sqlite3.Row (dict-style) and tuple rows
                         try:
-                            session_id = row['session_id']
+                            session_id = row["session_id"]
                         except Exception:
                             session_id = row[0]
                     else:
@@ -171,7 +166,7 @@ def handle_cli_error(error: Exception, command: str, verbose: bool = False, sess
                 severity=IssueSeverity.HIGH,
                 category=IssueCategory.ERROR,
                 context={"command": command},
-                exc_info=error
+                exc_info=error,
             )
             if verbose and issue_id:
                 safe_print(f"📋 Auto-captured as issue {issue_id[:8]}... for handoff")
@@ -194,12 +189,12 @@ def parse_json_safely(json_string: str | None, default: dict | None = None) -> d
             # Common issue: unescaped backslashes in paths or strings
             # Replace single backslashes that aren't part of valid escape sequences
             # First, try to fix simple backslash issues
-            fixed_json = json_string.replace('\\', '\\\\')
+            fixed_json = json_string.replace("\\", "\\\\")
             # But be careful not to double-escape already escaped sequences
             # Restore common valid escape sequences
-            fixed_json = fixed_json.replace('\\\\n', '\\n').replace('\\\\t', '\\t').replace('\\\\r', '\\r')
-            fixed_json = fixed_json.replace('\\\\b', '\\b').replace('\\\\f', '\\f').replace('\\\\/', '/')
-            fixed_json = fixed_json.replace('\\\\\\/', '\\/')  # Handle over-correction
+            fixed_json = fixed_json.replace("\\\\n", "\\n").replace("\\\\t", "\\t").replace("\\\\r", "\\r")
+            fixed_json = fixed_json.replace("\\\\b", "\\b").replace("\\\\f", "\\f").replace("\\\\/", "/")
+            fixed_json = fixed_json.replace("\\\\\\/", "\\/")  # Handle over-correction
 
             # Try to parse again with the fixed string
             parsed = json.loads(fixed_json)
@@ -229,7 +224,7 @@ def _fix_json_escapes(json_str: str) -> str:
     escape_placeholder = "__ESCAPE_PLACEHOLDER_{}__"
 
     # Find and temporarily replace valid escape sequences
-    valid_escape_pattern = r'\\[\"\\/bfnrt]|\\u[0-9a-fA-F]{4}'
+    valid_escape_pattern = r"\\[\"\\/bfnrt]|\\u[0-9a-fA-F]{4}"
     matches = list(re.finditer(valid_escape_pattern, json_str))
 
     temp_str = json_str
@@ -240,7 +235,7 @@ def _fix_json_escapes(json_str: str) -> str:
 
     # Now fix remaining problematic backslashes
     # Replace single backslashes with double backslashes
-    temp_str = re.sub(r'(?<!\\)\\(?!["\\/bfnrtu])', r'\\\\', temp_str)
+    temp_str = re.sub(r'(?<!\\)\\(?!["\\/bfnrtu])', r"\\\\", temp_str)
 
     # Restore the valid escape sequences
     for placeholder, original in valid_escapes.items():
@@ -257,9 +252,9 @@ def format_execution_time(start_time: float, end_time: float | None = None) -> s
     duration = end_time - start_time
 
     if duration < 0.001:
-        return f"{duration*1000000:.0f}μs"
+        return f"{duration * 1000000:.0f}μs"
     elif duration < 1:
-        return f"{duration*1000:.1f}ms"
+        return f"{duration * 1000:.1f}ms"
     else:
         return f"{duration:.3f}s"
 
@@ -303,8 +298,9 @@ def print_project_context(quiet: bool = False, verbose: bool = False) -> dict[st
         git_root = None
         try:
             from empirica.utils.session_resolver import InstanceResolver as R
+
             context = R.context()
-            project_path = context.get('project_path')
+            project_path = context.get("project_path")
             if project_path:
                 git_root = Path(project_path)
         except Exception:  # noqa: S110 — best-effort context resolution; CWD fallback below
@@ -313,6 +309,7 @@ def print_project_context(quiet: bool = False, verbose: bool = False) -> dict[st
         # Fallback: CWD-based git root detection
         if not git_root:
             from empirica.config.path_resolver import get_git_root
+
             git_root = get_git_root()
 
         if not git_root:
@@ -320,7 +317,7 @@ def print_project_context(quiet: bool = False, verbose: bool = False) -> dict[st
                 safe_print("⚠️  Not in a git repository")
             return None
 
-        project_yaml = git_root / '.empirica' / 'project.yaml'
+        project_yaml = git_root / ".empirica" / "project.yaml"
         if not project_yaml.exists():
             if not quiet:
                 safe_print("⚠️  No .empirica/project.yaml - run 'empirica project-init'")
@@ -328,14 +325,15 @@ def print_project_context(quiet: bool = False, verbose: bool = False) -> dict[st
 
         # Load project config
         import yaml
+
         with open(project_yaml) as f:
             config = yaml.safe_load(f)
 
         project_info = {
-            'name': config.get('name', 'Unknown'),
-            'project_id': config.get('project_id', 'Unknown'),
-            'git_root': str(git_root),
-            'db_path': str(git_root / '.empirica' / 'sessions' / 'sessions.db')
+            "name": config.get("name", "Unknown"),
+            "project_id": config.get("project_id", "Unknown"),
+            "git_root": str(git_root),
+            "db_path": str(git_root / ".empirica" / "sessions" / "sessions.db"),
         }
 
         # Get git remote URL if verbose
@@ -343,11 +341,7 @@ def print_project_context(quiet: bool = False, verbose: bool = False) -> dict[st
         if verbose:
             try:
                 result = subprocess.run(
-                    ['git', 'remote', 'get-url', 'origin'],
-                    capture_output=True,
-                    text=True,
-                    timeout=2,
-                    cwd=str(git_root)
+                    ["git", "remote", "get-url", "origin"], capture_output=True, text=True, timeout=2, cwd=str(git_root)
                 )
                 if result.returncode == 0:
                     git_url = result.stdout.strip()
@@ -371,6 +365,7 @@ def print_project_context(quiet: bool = False, verbose: bool = False) -> dict[st
 
     except Exception as e:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.debug(f"Could not load project context: {e}")
         if not quiet:

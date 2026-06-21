@@ -64,20 +64,27 @@ def test_signing_persona(test_identity):
         name="Test Researcher",
         version="1.0.0",
         signing_identity=SigningIdentityConfig(
-            user_id="test",
-            identity_name="researcher",
-            public_key=test_identity.public_key_hex()
+            user_id="test", identity_name="researcher", public_key=test_identity.public_key_hex()
         ),
         epistemic_config=EpistemicConfig(
             priors={
-                "engagement": 0.80, "know": 0.60, "do": 0.70, "context": 0.65,
-                "clarity": 0.60, "coherence": 0.65, "signal": 0.60, "density": 0.55,
-                "state": 0.60, "change": 0.70, "completion": 0.05, "impact": 0.65,
-                "uncertainty": 0.75
+                "engagement": 0.80,
+                "know": 0.60,
+                "do": 0.70,
+                "context": 0.65,
+                "clarity": 0.60,
+                "coherence": 0.65,
+                "signal": 0.60,
+                "density": 0.55,
+                "state": 0.60,
+                "change": 0.70,
+                "completion": 0.05,
+                "impact": 0.65,
+                "uncertainty": 0.75,
             },
-            focus_domains=["research", "exploration"]
+            focus_domains=["research", "exploration"],
         ),
-        metadata=PersonaMetadata(tags=["test"])
+        metadata=PersonaMetadata(tags=["test"]),
     )
 
     return SigningPersona(profile, test_identity)
@@ -105,7 +112,7 @@ def test_epistemic_state():
         "change": 0.70,
         "completion": 0.05,
         "impact": 0.65,
-        "uncertainty": 0.75
+        "uncertainty": 0.75,
     }
 
 
@@ -115,7 +122,7 @@ def test_commit_signed_state(git_ops, test_signing_persona, test_epistemic_state
         signing_persona=test_signing_persona,
         epistemic_state=test_epistemic_state,
         phase="PREFLIGHT",
-        message="Starting research task"
+        message="Starting research task",
     )
 
     assert commit_sha is not None
@@ -134,7 +141,7 @@ def test_get_signed_state_from_commit(git_ops, test_signing_persona, test_episte
         signing_persona=test_signing_persona,
         epistemic_state=test_epistemic_state,
         phase="INVESTIGATE",
-        message="Investigating issue"
+        message="Investigating issue",
     )
 
     # Retrieve signed state
@@ -151,11 +158,12 @@ def test_get_signed_state_missing_notes(git_ops, temp_repo):
     """Test retrieving state from commit without notes returns None"""
     # Create commit without notes (use subprocess for --allow-empty)
     import subprocess
+
     subprocess.run(
-        ['git', 'commit', '--allow-empty', '-m', 'Test commit without notes'],
+        ["git", "commit", "--allow-empty", "-m", "Test commit without notes"],
         cwd=temp_repo.working_dir,
         check=True,
-        capture_output=True
+        capture_output=True,
     )
     temp_repo.head.reset(commit=temp_repo.head.commit, index=True)
     commit_sha = temp_repo.head.commit.hexsha
@@ -169,10 +177,7 @@ def test_verify_single_commit(git_ops, test_signing_persona, test_epistemic_stat
     """Test verifying a single signed commit"""
     # Create two commits (start and end for range)
     commit_sha1 = git_ops.commit_signed_state(
-        signing_persona=test_signing_persona,
-        epistemic_state=test_epistemic_state,
-        phase="PREFLIGHT",
-        message="Initial"
+        signing_persona=test_signing_persona, epistemic_state=test_epistemic_state, phase="PREFLIGHT", message="Initial"
     )
 
     # Verify cascade chain
@@ -201,10 +206,7 @@ def test_verify_cascade_chain_multiple_phases(git_ops, test_signing_persona, tes
         state["uncertainty"] = 0.75 - (i * 0.05)  # Decrease uncertainty
 
         commit_sha = git_ops.commit_signed_state(
-            signing_persona=test_signing_persona,
-            epistemic_state=state,
-            phase=phase,
-            message=f"Running {phase} phase"
+            signing_persona=test_signing_persona, epistemic_state=state, phase=phase, message=f"Running {phase} phase"
         )
 
         if start_commit is None:
@@ -236,19 +238,12 @@ def test_export_cascade_report(git_ops, test_signing_persona, test_epistemic_sta
     """Test exporting CASCADE verification report"""
     # Create commits
     commit_sha = git_ops.commit_signed_state(
-        signing_persona=test_signing_persona,
-        epistemic_state=test_epistemic_state,
-        phase="PREFLIGHT",
-        message="Test"
+        signing_persona=test_signing_persona, epistemic_state=test_epistemic_state, phase="PREFLIGHT", message="Test"
     )
 
     # Export report
     report_file = tmp_path / "report.json"
-    report = git_ops.export_cascade_report(
-        commit_sha,
-        git_ops.repo.head.commit.hexsha,
-        output_file=str(report_file)
-    )
+    report = git_ops.export_cascade_report(commit_sha, git_ops.repo.head.commit.hexsha, output_file=str(report_file))
 
     # Verify report structure
     assert "title" in report
@@ -269,16 +264,10 @@ def test_export_cascade_report(git_ops, test_signing_persona, test_epistemic_sta
 def test_export_cascade_report_without_file(git_ops, test_signing_persona, test_epistemic_state):
     """Test exporting report without writing file"""
     commit_sha = git_ops.commit_signed_state(
-        signing_persona=test_signing_persona,
-        epistemic_state=test_epistemic_state,
-        phase="PREFLIGHT",
-        message="Test"
+        signing_persona=test_signing_persona, epistemic_state=test_epistemic_state, phase="PREFLIGHT", message="Test"
     )
 
-    report = git_ops.export_cascade_report(
-        commit_sha,
-        git_ops.repo.head.commit.hexsha
-    )
+    report = git_ops.export_cascade_report(commit_sha, git_ops.repo.head.commit.hexsha)
 
     assert report is not None
     assert "summary" in report
@@ -293,7 +282,7 @@ def test_get_cascade_timeline(git_ops, test_signing_persona, test_epistemic_stat
             signing_persona=test_signing_persona,
             epistemic_state=test_epistemic_state,
             phase=phase,
-            message=f"{phase} phase"
+            message=f"{phase} phase",
         )
 
     # Get timeline
@@ -312,18 +301,14 @@ def test_get_cascade_timeline(git_ops, test_signing_persona, test_epistemic_stat
 
 def test_commit_with_additional_data(git_ops, test_signing_persona, test_epistemic_state):
     """Test committing with additional metadata"""
-    additional = {
-        "task_id": "TASK-123",
-        "model": "claude-3-sonnet",
-        "confidence": 0.87
-    }
+    additional = {"task_id": "TASK-123", "model": "claude-3-sonnet", "confidence": 0.87}
 
     commit_sha = git_ops.commit_signed_state(
         signing_persona=test_signing_persona,
         epistemic_state=test_epistemic_state,
         phase="PREFLIGHT",
         message="With metadata",
-        additional_data=additional
+        additional_data=additional,
     )
 
     # Retrieve and verify metadata
@@ -348,15 +333,10 @@ def test_multiple_personas_chain(git_ops, test_epistemic_state):
             name=f"Test {persona_name.title()}",
             version="1.0.0",
             signing_identity=SigningIdentityConfig(
-                user_id="test",
-                identity_name=persona_name,
-                public_key=identity.public_key_hex()
+                user_id="test", identity_name=persona_name, public_key=identity.public_key_hex()
             ),
-            epistemic_config=EpistemicConfig(
-                priors=test_epistemic_state.copy(),
-                focus_domains=[persona_name]
-            ),
-            metadata=PersonaMetadata(tags=["test"])
+            epistemic_config=EpistemicConfig(priors=test_epistemic_state.copy(), focus_domains=[persona_name]),
+            metadata=PersonaMetadata(tags=["test"]),
         )
 
         signing = SigningPersona(profile, identity)
@@ -364,17 +344,11 @@ def test_multiple_personas_chain(git_ops, test_epistemic_state):
 
     # Create CASCADE with different personas
     git_ops.commit_signed_state(
-        signing_persona=personas[0],
-        epistemic_state=test_epistemic_state,
-        phase="PREFLIGHT",
-        message="Research phase"
+        signing_persona=personas[0], epistemic_state=test_epistemic_state, phase="PREFLIGHT", message="Research phase"
     )
 
     git_ops.commit_signed_state(
-        signing_persona=personas[1],
-        epistemic_state=test_epistemic_state,
-        phase="CHECK",
-        message="Review phase"
+        signing_persona=personas[1], epistemic_state=test_epistemic_state, phase="CHECK", message="Review phase"
     )
 
     # Verify chain
@@ -389,10 +363,7 @@ def test_multiple_personas_chain(git_ops, test_epistemic_state):
 def test_tampered_state_verification_fails(git_ops, test_signing_persona, test_epistemic_state):
     """Test that verification fails when state is tampered"""
     commit_sha = git_ops.commit_signed_state(
-        signing_persona=test_signing_persona,
-        epistemic_state=test_epistemic_state,
-        phase="PREFLIGHT",
-        message="Test"
+        signing_persona=test_signing_persona, epistemic_state=test_epistemic_state, phase="PREFLIGHT", message="Test"
     )
 
     # Get the signed state

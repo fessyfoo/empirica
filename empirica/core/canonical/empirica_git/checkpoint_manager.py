@@ -48,11 +48,7 @@ class CheckpointManager:
         """Check if we're in a git repository"""
         try:
             result = subprocess.run(
-                ['git', 'rev-parse', '--git-dir'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                timeout=5
+                ["git", "rev-parse", "--git-dir"], cwd=self.workspace_root, capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -64,11 +60,7 @@ class CheckpointManager:
             return False
         try:
             result = subprocess.run(
-                ['git', 'rev-parse', 'HEAD'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                timeout=5
+                ["git", "rev-parse", "HEAD"], cwd=self.workspace_root, capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -111,7 +103,7 @@ class CheckpointManager:
         vectors: dict[str, float],
         round_num: int = 1,
         metadata: dict[str, Any] | None = None,
-        no_git_flag: bool = False
+        no_git_flag: bool = False,
     ) -> str | None:
         """
         Automatically create checkpoint if conditions met
@@ -138,7 +130,7 @@ class CheckpointManager:
                 phase=phase,
                 vectors=vectors,
                 round_num=round_num,
-                metadata=metadata or {}
+                metadata=metadata or {},
             )
 
             logger.info(f"✓ Created git checkpoint: {checkpoint_hash[:8]} (phase={phase}, ai={ai_id})")
@@ -156,7 +148,7 @@ class CheckpointManager:
         phase: str,
         vectors: dict[str, float],
         round_num: int,
-        metadata: dict[str, Any]
+        metadata: dict[str, Any],
     ) -> str:
         """
         Create compressed checkpoint in git notes
@@ -180,44 +172,37 @@ class CheckpointManager:
         }
         """
         checkpoint_data = {
-            'session_id': session_id,
-            'ai_id': ai_id,
-            'phase': phase,
-            'round': round_num,
-            'timestamp': datetime.now(UTC).isoformat(),
-            'vectors': vectors,
-            'metadata': metadata
+            "session_id": session_id,
+            "ai_id": ai_id,
+            "phase": phase,
+            "round": round_num,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "vectors": vectors,
+            "metadata": metadata,
         }
 
         # Serialize to compact JSON
-        checkpoint_json = json.dumps(checkpoint_data, separators=(',', ':'))
+        checkpoint_json = json.dumps(checkpoint_data, separators=(",", ":"))
 
         # Get current commit hash
         result = subprocess.run(
-            ['git', 'rev-parse', 'HEAD'],
-            cwd=self.workspace_root,
-            capture_output=True,
-            text=True,
-            check=True
+            ["git", "rev-parse", "HEAD"], cwd=self.workspace_root, capture_output=True, text=True, check=True
         )
         commit_hash = result.stdout.strip()
 
         # Add git note (refs/notes/empirica/checkpoints)
         subprocess.run(
-            ['git', 'notes', '--ref=empirica/checkpoints', 'add', '-f', '-m', checkpoint_json, commit_hash],
+            ["git", "notes", "--ref=empirica/checkpoints", "add", "-f", "-m", checkpoint_json, commit_hash],
             cwd=self.workspace_root,
             capture_output=True,
             text=True,
-            check=True
+            check=True,
         )
 
         return commit_hash
 
     def load_checkpoint(
-        self,
-        session_id: str | None = None,
-        ai_id: str | None = None,
-        commit_hash: str | None = None
+        self, session_id: str | None = None, ai_id: str | None = None, commit_hash: str | None = None
     ) -> dict[str, Any] | None:
         """
         Load checkpoint from git notes
@@ -248,10 +233,10 @@ class CheckpointManager:
     def _load_checkpoint_by_hash(self, commit_hash: str) -> dict[str, Any] | None:
         """Load checkpoint from specific commit"""
         result = subprocess.run(
-            ['git', 'notes', '--ref=empirica/checkpoints', 'show', commit_hash],
+            ["git", "notes", "--ref=empirica/checkpoints", "show", commit_hash],
             cwd=self.workspace_root,
             capture_output=True,
-            text=True
+            text=True,
         )
 
         if result.returncode != 0:
@@ -260,10 +245,7 @@ class CheckpointManager:
         return json.loads(result.stdout)
 
     def load_recent_checkpoints(
-        self,
-        session_id: str | None = None,
-        ai_id: str | None = None,
-        count: int = 5
+        self, session_id: str | None = None, ai_id: str | None = None, count: int = 5
     ) -> list[dict[str, Any]]:
         """
         Load recent checkpoints matching filters
@@ -282,17 +264,17 @@ class CheckpointManager:
         try:
             # Get all checkpoints
             result = subprocess.run(
-                ['git', 'log', '--all', '--pretty=format:%H'],
+                ["git", "log", "--all", "--pretty=format:%H"],
                 cwd=self.workspace_root,
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
             )
 
             if result.returncode != 0:
                 return []
 
-            commit_hashes = result.stdout.strip().split('\n')
+            commit_hashes = result.stdout.strip().split("\n")
             checkpoints = []
 
             # Search for matching checkpoints
@@ -305,9 +287,9 @@ class CheckpointManager:
                     continue
 
                 # Apply filters
-                if session_id and checkpoint.get('session_id') != session_id:
+                if session_id and checkpoint.get("session_id") != session_id:
                     continue
-                if ai_id and checkpoint.get('ai_id') != ai_id:
+                if ai_id and checkpoint.get("ai_id") != ai_id:
                     continue
 
                 checkpoints.append(checkpoint)
@@ -317,24 +299,17 @@ class CheckpointManager:
             logger.warning(f"Failed to load recent checkpoints: {e}")
             return []
 
-    def _find_latest_checkpoint(
-        self,
-        session_id: str | None = None,
-        ai_id: str | None = None
-    ) -> dict[str, Any] | None:
+    def _find_latest_checkpoint(self, session_id: str | None = None, ai_id: str | None = None) -> dict[str, Any] | None:
         """Find latest checkpoint matching filters"""
         # Get all checkpoints
         result = subprocess.run(
-            ['git', 'log', '--all', '--pretty=format:%H'],
-            cwd=self.workspace_root,
-            capture_output=True,
-            text=True
+            ["git", "log", "--all", "--pretty=format:%H"], cwd=self.workspace_root, capture_output=True, text=True
         )
 
         if result.returncode != 0:
             return None
 
-        commit_hashes = result.stdout.strip().split('\n')
+        commit_hashes = result.stdout.strip().split("\n")
 
         # Search for matching checkpoint
         for commit_hash in commit_hashes:
@@ -343,9 +318,9 @@ class CheckpointManager:
                 continue
 
             # Apply filters
-            if session_id and checkpoint.get('session_id') != session_id:
+            if session_id and checkpoint.get("session_id") != session_id:
                 continue
-            if ai_id and checkpoint.get('ai_id') != ai_id:
+            if ai_id and checkpoint.get("ai_id") != ai_id:
                 continue
 
             return checkpoint
@@ -360,7 +335,7 @@ def auto_checkpoint(
     vectors: dict[str, float],
     round_num: int = 1,
     metadata: dict[str, Any] | None = None,
-    no_git_flag: bool = False
+    no_git_flag: bool = False,
 ) -> str | None:
     """
     Convenience function for automatic checkpoint creation
@@ -384,5 +359,5 @@ def auto_checkpoint(
         vectors=vectors,
         round_num=round_num,
         metadata=metadata,
-        no_git_flag=no_git_flag
+        no_git_flag=no_git_flag,
     )

@@ -17,7 +17,6 @@ from empirica.cli.command_handlers.workflow_commands import _build_retrospective
 pytestmark = pytest.mark.integration
 
 
-
 class TestRetrospectiveArtifactCounts:
     """The building block — _build_retrospective should return artifact_counts."""
 
@@ -68,54 +67,82 @@ class TestCalibrationNudgeLogic:
 
     def test_zero_artifacts_fires_nudge(self):
         counts = {
-            "findings": 0, "unknowns": 0, "dead_ends": 0,
-            "mistakes": 0, "assumptions": 0, "decisions": 0,
+            "findings": 0,
+            "unknowns": 0,
+            "dead_ends": 0,
+            "mistakes": 0,
+            "assumptions": 0,
+            "decisions": 0,
         }
         assert self._compute_nudge(counts) == "zero_artifacts_nudge"
 
     def test_single_finding_fires_narrow_nudge(self):
         counts = {
-            "findings": 1, "unknowns": 0, "dead_ends": 0,
-            "mistakes": 0, "assumptions": 0, "decisions": 0,
+            "findings": 1,
+            "unknowns": 0,
+            "dead_ends": 0,
+            "mistakes": 0,
+            "assumptions": 0,
+            "decisions": 0,
         }
         assert self._compute_nudge(counts) == "narrow_breadth_nudge"
 
     def test_two_findings_fires_narrow_nudge(self):
         counts = {
-            "findings": 2, "unknowns": 0, "dead_ends": 0,
-            "mistakes": 0, "assumptions": 0, "decisions": 0,
+            "findings": 2,
+            "unknowns": 0,
+            "dead_ends": 0,
+            "mistakes": 0,
+            "assumptions": 0,
+            "decisions": 0,
         }
         assert self._compute_nudge(counts) == "narrow_breadth_nudge"
 
     def test_three_findings_no_nudge(self):
         """3 artifacts even if all same type — no longer narrow."""
         counts = {
-            "findings": 3, "unknowns": 0, "dead_ends": 0,
-            "mistakes": 0, "assumptions": 0, "decisions": 0,
+            "findings": 3,
+            "unknowns": 0,
+            "dead_ends": 0,
+            "mistakes": 0,
+            "assumptions": 0,
+            "decisions": 0,
         }
         assert self._compute_nudge(counts) is None
 
     def test_two_types_no_nudge(self):
         """Diversity matters — 2 finding + 1 decision = breadth."""
         counts = {
-            "findings": 2, "unknowns": 0, "dead_ends": 0,
-            "mistakes": 0, "assumptions": 0, "decisions": 1,
+            "findings": 2,
+            "unknowns": 0,
+            "dead_ends": 0,
+            "mistakes": 0,
+            "assumptions": 0,
+            "decisions": 1,
         }
         assert self._compute_nudge(counts) is None
 
     def test_full_breadth_no_nudge(self):
         """All 6 types used — clearly not a nudge case."""
         counts = {
-            "findings": 5, "unknowns": 3, "dead_ends": 2,
-            "mistakes": 1, "assumptions": 4, "decisions": 2,
+            "findings": 5,
+            "unknowns": 3,
+            "dead_ends": 2,
+            "mistakes": 1,
+            "assumptions": 4,
+            "decisions": 2,
         }
         assert self._compute_nudge(counts) is None
 
     def test_one_type_large_count_no_nudge(self):
         """10 findings alone is narrow but not sparse — no nudge."""
         counts = {
-            "findings": 10, "unknowns": 0, "dead_ends": 0,
-            "mistakes": 0, "assumptions": 0, "decisions": 0,
+            "findings": 10,
+            "unknowns": 0,
+            "dead_ends": 0,
+            "mistakes": 0,
+            "assumptions": 0,
+            "decisions": 0,
         }
         # Only narrow if total < 3
         assert self._compute_nudge(counts) is None
@@ -131,7 +158,7 @@ class TestCalibrationNudgeMessages:
             "zero artifacts means grounded verification has nothing to check "
             "your self-assessment against, which inflates perceived competence "
             "and leaves calibration gaps uncorrected. Log at least one finding "
-            "before POSTFLIGHT: empirica finding-log --finding \"...\" --impact 0.5"
+            'before POSTFLIGHT: empirica finding-log --finding "..." --impact 0.5'
         )
         assert "calibration" in message.lower()
         assert "grounded verification" in message.lower()
@@ -164,6 +191,7 @@ class TestDeferredProposalsNudgeSql:
     @pytest.fixture
     def seeded_db(self):
         import sqlite3
+
         conn = sqlite3.connect(":memory:")
         cur = conn.cursor()
         cur.execute("""
@@ -183,32 +211,27 @@ class TestDeferredProposalsNudgeSql:
         cur.execute("INSERT INTO sessions VALUES ('S3', 'P2')")
         # Two open proposal-derived goals in P1 — match the convention
         # prefix "Process proposal prop_<id>:" (should surface)
-        cur.execute("INSERT INTO goals VALUES "
-                    "('G1','S1','Process proposal prop_aaa: fix bootstrap', '', 0, 100)")
-        cur.execute("INSERT INTO goals VALUES "
-                    "('G2','S2','Process proposal prop_bbb: deprecate refdocs', '', 0, 200)")
+        cur.execute("INSERT INTO goals VALUES ('G1','S1','Process proposal prop_aaa: fix bootstrap', '', 0, 100)")
+        cur.execute("INSERT INTO goals VALUES ('G2','S2','Process proposal prop_bbb: deprecate refdocs', '', 0, 200)")
         # Open goal in P1 NOT proposal-derived (should not surface)
-        cur.execute("INSERT INTO goals VALUES "
-                    "('G3','S1','Regular goal — refactor cockpit', '', 0, 150)")
+        cur.execute("INSERT INTO goals VALUES ('G3','S1','Regular goal — refactor cockpit', '', 0, 150)")
         # Completed proposal goal in P1 (should not surface)
-        cur.execute("INSERT INTO goals VALUES "
-                    "('G4','S1','Process proposal prop_ccc: done', '', 1, 50)")
+        cur.execute("INSERT INTO goals VALUES ('G4','S1','Process proposal prop_ccc: done', '', 1, 50)")
         # Open proposal goal in OTHER project P2 (should not surface — scoped)
-        cur.execute("INSERT INTO goals VALUES "
-                    "('G5','S3','Process proposal prop_ddd: other project', '', 0, 300)")
+        cur.execute("INSERT INTO goals VALUES ('G5','S3','Process proposal prop_ddd: other project', '', 0, 300)")
         # Planning goal that MENTIONS a prop_ id in description but isn't a
         # defer goal — must NOT surface (convention-prefix-only filter).
         # Pre-2026-05-17 the query also matched description, which over-fired
         # on planning goals that referenced proposals or PROPOSAL_*.md files.
-        cur.execute("INSERT INTO goals VALUES "
-                    "('G6','S1','Generic planning goal', 'See prop_eee for context', 0, 400)")
+        cur.execute("INSERT INTO goals VALUES ('G6','S1','Generic planning goal', 'See prop_eee for context', 0, 400)")
         conn.commit()
         return conn
 
     def _query(self, conn, session_id):
         """Mirrors the SQL pattern in _build_retrospective."""
         cur = conn.cursor()
-        cur.execute("""
+        cur.execute(
+            """
             SELECT g.id, g.objective FROM goals g
             JOIN sessions s ON g.session_id = s.session_id
             WHERE g.is_completed = 0
@@ -217,7 +240,9 @@ class TestDeferredProposalsNudgeSql:
               )
               AND g.objective LIKE 'Process proposal prop_%'
             ORDER BY g.created_timestamp DESC
-        """, (session_id,))
+        """,
+            (session_id,),
+        )
         return cur.fetchall()
 
     def test_open_proposal_goals_in_same_project_surface(self, seeded_db):

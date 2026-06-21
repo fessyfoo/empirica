@@ -40,7 +40,7 @@ def create_eep1_payload(
     cascade_trace_hash: str | None = None,
     metadata_sources: list[str] | None = None,
     model_id: str | None = None,
-    session_id: str | None = None
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Create EEP-1 signature payload
@@ -58,21 +58,21 @@ def create_eep1_payload(
         Dict: EEP-1 payload (unsigned)
     """
     # Hash content
-    content_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
+    content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
 
     # Build payload
     payload = {
-        'content_hash': content_hash,
-        'creator_id': ai_id,  # Will be replaced with public key when signing
-        'timestamp': datetime.now(timezone.utc).isoformat(),
-        'epistemic_state_final': epistemic_state,
-        'cascade_trace_hash': cascade_trace_hash or '',
-        'metadata_sources': metadata_sources or [],
-        'model_id': model_id or 'unknown'
+        "content_hash": content_hash,
+        "creator_id": ai_id,  # Will be replaced with public key when signing
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "epistemic_state_final": epistemic_state,
+        "cascade_trace_hash": cascade_trace_hash or "",
+        "metadata_sources": metadata_sources or [],
+        "model_id": model_id or "unknown",
     }
 
     if session_id:
-        payload['session_id'] = session_id
+        payload["session_id"] = session_id
 
     return payload
 
@@ -92,7 +92,7 @@ def canonicalize_payload(payload: dict[str, Any]) -> str:
     Returns:
         str: Canonicalized JSON string
     """
-    return json.dumps(payload, sort_keys=True, separators=(',', ':'))
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
 def sign_assessment(
@@ -102,7 +102,7 @@ def sign_assessment(
     cascade_trace_hash: str | None = None,
     metadata_sources: list[str] | None = None,
     model_id: str | None = None,
-    session_id: str | None = None
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Sign assessment with EEP-1 signature
@@ -136,10 +136,7 @@ def sign_assessment(
         # - signed_at: timestamp
     """
     if identity.private_key is None:
-        raise RuntimeError(
-            f"No private key loaded for {identity.ai_id}. "
-            "Call identity.load_keypair() first."
-        )
+        raise RuntimeError(f"No private key loaded for {identity.ai_id}. Call identity.load_keypair() first.")
 
     # Create payload
     payload = create_eep1_payload(
@@ -149,39 +146,35 @@ def sign_assessment(
         cascade_trace_hash=cascade_trace_hash,
         metadata_sources=metadata_sources,
         model_id=model_id,
-        session_id=session_id
+        session_id=session_id,
     )
 
     # Replace ai_id with public key
-    payload['creator_id'] = identity.public_key_hex()
+    payload["creator_id"] = identity.public_key_hex()
 
     # Canonicalize payload
     canonical_payload = canonicalize_payload(payload)
 
     # Sign canonical payload
-    signature = identity.sign(canonical_payload.encode('utf-8'))
+    signature = identity.sign(canonical_payload.encode("utf-8"))
 
     # Build signed package
     signed_package = {
-        'payload': payload,
-        'signature': signature.hex(),
-        'signed_at': datetime.now(timezone.utc).isoformat(),
-        'ai_id': identity.ai_id,  # For convenience (not part of signed data)
-        'eep_version': '1.0'
+        "payload": payload,
+        "signature": signature.hex(),
+        "signed_at": datetime.now(timezone.utc).isoformat(),
+        "ai_id": identity.ai_id,  # For convenience (not part of signed data)
+        "eep_version": "1.0",
     }
 
     logger.info(
-        f"✓ Signed assessment with EEP-1 "
-        f"(ai_id={identity.ai_id}, content_hash={payload['content_hash'][:8]}...)"
+        f"✓ Signed assessment with EEP-1 (ai_id={identity.ai_id}, content_hash={payload['content_hash'][:8]}...)"
     )
 
     return signed_package
 
 
-def verify_signature(
-    signed_package: dict[str, Any],
-    public_key_hex: str | None = None
-) -> bool:
+def verify_signature(signed_package: dict[str, Any], public_key_hex: str | None = None) -> bool:
     """
     Verify EEP-1 signature
 
@@ -202,12 +195,12 @@ def verify_signature(
             print("✗ Signature invalid - assessment may be tampered")
     """
     try:
-        payload = signed_package['payload']
-        signature_hex = signed_package['signature']
+        payload = signed_package["payload"]
+        signature_hex = signed_package["signature"]
 
         # Get public key
         if public_key_hex is None:
-            public_key_hex = payload['creator_id']
+            public_key_hex = payload["creator_id"]
 
         # Canonicalize payload
         canonical_payload = canonicalize_payload(payload)
@@ -217,9 +210,7 @@ def verify_signature(
         public_key_bytes = bytes.fromhex(public_key_hex)
 
         is_valid = AIIdentity.verify(
-            signature=signature_bytes,
-            message=canonical_payload.encode('utf-8'),
-            public_key_bytes=public_key_bytes
+            signature=signature_bytes, message=canonical_payload.encode("utf-8"), public_key_bytes=public_key_bytes
         )
 
         if is_valid:
@@ -235,9 +226,7 @@ def verify_signature(
 
 
 def verify_eep1_payload(
-    signed_package: dict[str, Any],
-    content: str | None = None,
-    cascade_trace_hash: str | None = None
+    signed_package: dict[str, Any], content: str | None = None, cascade_trace_hash: str | None = None
 ) -> dict[str, Any]:
     """
     Comprehensive EEP-1 payload verification
@@ -276,20 +265,19 @@ def verify_eep1_payload(
     if not signature_valid:
         errors.append("Signature verification failed")
 
-    payload = signed_package.get('payload', {})
+    payload = signed_package.get("payload", {})
 
     # 2. Verify content hash (if content provided)
     if content is not None:
-        content_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
-        if content_hash != payload.get('content_hash'):
+        content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        if content_hash != payload.get("content_hash"):
             errors.append(
-                f"Content hash mismatch: expected {payload.get('content_hash')[:8]}..., "
-                f"got {content_hash[:8]}..."
+                f"Content hash mismatch: expected {payload.get('content_hash')[:8]}..., got {content_hash[:8]}..."
             )
 
     # 3. Verify cascade trace hash (if provided)
     if cascade_trace_hash is not None:
-        if cascade_trace_hash != payload.get('cascade_trace_hash'):
+        if cascade_trace_hash != payload.get("cascade_trace_hash"):
             errors.append(
                 f"Cascade trace hash mismatch: expected {payload.get('cascade_trace_hash')[:8]}..., "
                 f"got {cascade_trace_hash[:8]}..."
@@ -297,7 +285,7 @@ def verify_eep1_payload(
 
     # 4. Verify timestamp
     try:
-        timestamp = datetime.fromisoformat(payload.get('timestamp', ''))
+        timestamp = datetime.fromisoformat(payload.get("timestamp", ""))
         now = datetime.now(timezone.utc)
 
         # Check not in future
@@ -313,28 +301,28 @@ def verify_eep1_payload(
         errors.append(f"Invalid timestamp: {e}")
 
     # 5. Verify epistemic state structure
-    epistemic_state = payload.get('epistemic_state_final', {})
-    required_vectors = ['engagement', 'know', 'do', 'uncertainty']
+    epistemic_state = payload.get("epistemic_state_final", {})
+    required_vectors = ["engagement", "know", "do", "uncertainty"]
     missing_vectors = [v for v in required_vectors if v not in epistemic_state]
     if missing_vectors:
         warnings.append(f"Missing epistemic vectors: {missing_vectors}")
 
     # Build result
     result = {
-        'valid': len(errors) == 0,
-        'signature_valid': signature_valid,
-        'errors': errors,
-        'warnings': warnings,
-        'payload': payload,
-        'creator_id': payload.get('creator_id', '')[:16] + '...',
-        'timestamp': payload.get('timestamp'),
-        'epistemic_state': epistemic_state
+        "valid": len(errors) == 0,
+        "signature_valid": signature_valid,
+        "errors": errors,
+        "warnings": warnings,
+        "payload": payload,
+        "creator_id": payload.get("creator_id", "")[:16] + "...",
+        "timestamp": payload.get("timestamp"),
+        "epistemic_state": epistemic_state,
     }
 
-    if result['valid']:
-        result['message'] = "EEP-1 payload verified successfully"
+    if result["valid"]:
+        result["message"] = "EEP-1 payload verified successfully"
     else:
-        result['message'] = f"EEP-1 verification failed: {'; '.join(errors)}"
+        result["message"] = f"EEP-1 verification failed: {'; '.join(errors)}"
 
     return result
 
@@ -349,4 +337,4 @@ def compute_cascade_trace_hash(git_log: str) -> str:
     Returns:
         str: SHA-256 hash of git log
     """
-    return hashlib.sha256(git_log.encode('utf-8')).hexdigest()
+    return hashlib.sha256(git_log.encode("utf-8")).hexdigest()

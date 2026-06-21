@@ -76,8 +76,7 @@ def test_matches_basename_in_finding(project_db: Path):
     fid = str(uuid.uuid4())
     conn = sqlite3.connect(project_db / ".empirica" / "sessions" / "sessions.db")
     conn.execute(
-        "INSERT INTO project_findings (id, project_id, finding, created_timestamp) "
-        "VALUES (?, ?, ?, ?)",
+        "INSERT INTO project_findings (id, project_id, finding, created_timestamp) VALUES (?, ?, ?, ?)",
         (fid, "p1", "Stale comment in auth.py at line 42", time.time()),
     )
     conn.commit()
@@ -94,8 +93,7 @@ def test_matches_relative_path_in_decision(project_db: Path):
     did = str(uuid.uuid4())
     conn = sqlite3.connect(project_db / ".empirica" / "sessions" / "sessions.db")
     conn.execute(
-        "INSERT INTO decisions (id, project_id, choice, rationale, created_timestamp) "
-        "VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO decisions (id, project_id, choice, rationale, created_timestamp) VALUES (?, ?, ?, ?, ?)",
         (did, "p1", "Use bcrypt", "src/auth/auth.py used MD5", time.time()),
     )
     conn.commit()
@@ -131,12 +129,30 @@ def test_matches_secondary_text_column(project_db: Path):
 def test_returns_hits_across_all_six_tables(project_db: Path):
     now = time.time()
     inserts = [
-        ("project_findings", "INSERT INTO project_findings (id, project_id, finding, created_timestamp) VALUES (?, 'p1', 'finding about auth.py', ?)"),
-        ("project_unknowns", "INSERT INTO project_unknowns (id, project_id, unknown, created_timestamp) VALUES (?, 'p1', 'unknown about auth.py', ?)"),
-        ("project_dead_ends", "INSERT INTO project_dead_ends (id, project_id, approach, why_failed, created_timestamp) VALUES (?, 'p1', 'approach in auth.py', 'reason', ?)"),
-        ("mistakes_made", "INSERT INTO mistakes_made (id, project_id, mistake, why_wrong, created_timestamp) VALUES (?, 'p1', 'mistake in auth.py', 'reason', ?)"),
-        ("assumptions", "INSERT INTO assumptions (id, project_id, assumption, created_timestamp) VALUES (?, 'p1', 'assumption about auth.py', ?)"),
-        ("decisions", "INSERT INTO decisions (id, project_id, choice, rationale, created_timestamp) VALUES (?, 'p1', 'choice for auth.py', 'rationale', ?)"),
+        (
+            "project_findings",
+            "INSERT INTO project_findings (id, project_id, finding, created_timestamp) VALUES (?, 'p1', 'finding about auth.py', ?)",
+        ),
+        (
+            "project_unknowns",
+            "INSERT INTO project_unknowns (id, project_id, unknown, created_timestamp) VALUES (?, 'p1', 'unknown about auth.py', ?)",
+        ),
+        (
+            "project_dead_ends",
+            "INSERT INTO project_dead_ends (id, project_id, approach, why_failed, created_timestamp) VALUES (?, 'p1', 'approach in auth.py', 'reason', ?)",
+        ),
+        (
+            "mistakes_made",
+            "INSERT INTO mistakes_made (id, project_id, mistake, why_wrong, created_timestamp) VALUES (?, 'p1', 'mistake in auth.py', 'reason', ?)",
+        ),
+        (
+            "assumptions",
+            "INSERT INTO assumptions (id, project_id, assumption, created_timestamp) VALUES (?, 'p1', 'assumption about auth.py', ?)",
+        ),
+        (
+            "decisions",
+            "INSERT INTO decisions (id, project_id, choice, rationale, created_timestamp) VALUES (?, 'p1', 'choice for auth.py', 'rationale', ?)",
+        ),
     ]
     conn = sqlite3.connect(project_db / ".empirica" / "sessions" / "sessions.db")
     for _, sql in inserts:

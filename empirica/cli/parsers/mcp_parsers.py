@@ -14,16 +14,18 @@ def add_mcp_parsers(subparsers):
     # mcp-list-tools — read the TOOL_REGISTRY from the installed
     # empirica-mcp package and render it (dynamic, not hardcoded).
     mcp_list_tools = subparsers.add_parser(
-        'mcp-list-tools',
-        help='List MCP tools registered in the installed empirica-mcp package',
+        "mcp-list-tools",
+        help="List MCP tools registered in the installed empirica-mcp package",
         description=(
-            'Reads the TOOL_REGISTRY from the empirica-mcp package and '
-            'renders one row per registered tool, grouped by prefix. '
+            "Reads the TOOL_REGISTRY from the empirica-mcp package and "
+            "renders one row per registered tool, grouped by prefix. "
             'Useful for debugging "is this tool registered? what CLI '
             'does it route to?" without launching a full MCP session.'
         ),
     )
     mcp_list_tools.add_argument(
-        '--verbose', '-v', action='store_true',
-        help='Show tip for inspecting per-tool param schemas',
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Show tip for inspecting per-tool param schemas",
     )

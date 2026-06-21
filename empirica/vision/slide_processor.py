@@ -17,6 +17,7 @@ try:
     import numpy as np
     import pytesseract  # pyright: ignore[reportMissingImports]
     from PIL import Image  # pyright: ignore[reportMissingImports]
+
     HAS_VISION = True
 except ImportError:
     HAS_VISION = False
@@ -25,6 +26,7 @@ except ImportError:
 @dataclass
 class SlideEpistemicAssessment:
     """Epistemic quality assessment of a slide"""
+
     slide_path: str
     slide_number: int
 
@@ -37,9 +39,9 @@ class SlideEpistemicAssessment:
 
     # Epistemic vectors (0.0-1.0)
     clarity: float  # How clear is the visual presentation?
-    signal: float   # Signal-to-noise ratio of information
+    signal: float  # Signal-to-noise ratio of information
     density: float  # Information density (inverted - high = harder to parse)
-    impact: float   # How much does this increase understanding?
+    impact: float  # How much does this increase understanding?
 
     # Context quality
     context_value: float  # Overall value for project context (0.0-1.0)
@@ -63,8 +65,7 @@ class SlideProcessor:
         """Initialize slide processor with output directory."""
         if not HAS_VISION:
             raise ImportError(
-                "Vision dependencies not installed. "
-                "Run: pip install pytesseract pillow opencv-contrib-python"
+                "Vision dependencies not installed. Run: pip install pytesseract pillow opencv-contrib-python"
             )
 
         self.output_dir = output_dir or Path(".empirica/slides")
@@ -97,9 +98,7 @@ class SlideProcessor:
         summary = self._generate_summary(text_content, key_concepts, slide_number)
 
         # Calculate overall context value
-        context_value = self._calculate_context_value(
-            clarity, signal, density, impact, word_count
-        )
+        context_value = self._calculate_context_value(clarity, signal, density, impact, word_count)
 
         return SlideEpistemicAssessment(
             slide_path=str(slide_path),
@@ -135,17 +134,27 @@ class SlideProcessor:
     def _detect_code(self, text: str) -> bool:
         """Detect if slide contains code snippets"""
         code_indicators = [
-            'def ', 'class ', 'import ', 'function',
-            '{', '}', '()', '=>', 'return',
-            'const ', 'let ', 'var ', 'async'
+            "def ",
+            "class ",
+            "import ",
+            "function",
+            "{",
+            "}",
+            "()",
+            "=>",
+            "return",
+            "const ",
+            "let ",
+            "var ",
+            "async",
         ]
         return any(indicator in text for indicator in code_indicators)
 
     def _detect_table(self, img_cv: np.ndarray, text: str) -> bool:
         """Detect if slide contains tables"""
         # Check for aligned text patterns (simple heuristic)
-        lines = text.split('\n')
-        aligned_lines = sum(1 for line in lines if line.count('|') >= 2)
+        lines = text.split("\n")
+        aligned_lines = sum(1 for line in lines if line.count("|") >= 2)
 
         # Or detect horizontal/vertical lines in image
         gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
@@ -182,9 +191,18 @@ class SlideProcessor:
 
         # Keywords indicating high-signal content
         high_signal_terms = [
-            'architecture', 'framework', 'epistemic', 'cascade',
-            'workflow', 'system', 'component', 'assessment',
-            'uncertainty', 'calibration', 'mirror', 'principle'
+            "architecture",
+            "framework",
+            "epistemic",
+            "cascade",
+            "workflow",
+            "system",
+            "component",
+            "assessment",
+            "uncertainty",
+            "calibration",
+            "mirror",
+            "principle",
         ]
 
         signal_words = sum(1 for term in high_signal_terms if term.lower() in text.lower())
@@ -195,8 +213,7 @@ class SlideProcessor:
 
         return min(signal_ratio + diagram_bonus, 1.0)
 
-    def _assess_density(self, word_count: int, img_size: tuple[int, int],
-                       has_diagram: bool) -> float:
+    def _assess_density(self, word_count: int, img_size: tuple[int, int], has_diagram: bool) -> float:
         """Assess information density (0.0-1.0, higher = harder to parse)"""
         img_area = img_size[0] * img_size[1]
 
@@ -213,8 +230,15 @@ class SlideProcessor:
         """Assess potential impact on understanding (0.0-1.0)"""
         # High-impact indicators
         impact_terms = [
-            'key', 'critical', 'core', 'essential', 'fundamental',
-            'important', 'principle', 'foundation', 'goal'
+            "key",
+            "critical",
+            "core",
+            "essential",
+            "fundamental",
+            "important",
+            "principle",
+            "foundation",
+            "goal",
         ]
 
         impact_score = sum(1 for term in impact_terms if term.lower() in text.lower()) / 10
@@ -231,19 +255,14 @@ class SlideProcessor:
         """Extract key concepts from text (simple heuristic)"""
         # Capitalize words likely to be concepts
         words = text.split()
-        concepts = [
-            word.strip('.,;:()[]{}')
-            for word in words
-            if word and word[0].isupper() and len(word) > 3
-        ]
+        concepts = [word.strip(".,;:()[]{}") for word in words if word and word[0].isupper() and len(word) > 3]
 
         # Deduplicate and return top 10
         return list(dict.fromkeys(concepts))[:10]
 
-    def _generate_summary(self, text: str, concepts: list[str],
-                         slide_number: int) -> str:
+    def _generate_summary(self, text: str, concepts: list[str], slide_number: int) -> str:
         """Generate summary (simple extraction)"""
-        sentences = text.split('.')
+        sentences = text.split(".")
         if not sentences:
             return f"Slide {slide_number}: Visual content"
 
@@ -251,23 +270,18 @@ class SlideProcessor:
         summary_sentences = [s.strip() for s in sentences if len(s.strip()) > 20][:3]
 
         if summary_sentences:
-            return f"Slide {slide_number}: " + '. '.join(summary_sentences) + '.'
+            return f"Slide {slide_number}: " + ". ".join(summary_sentences) + "."
         else:
             return f"Slide {slide_number}: Covers {', '.join(concepts[:3])}."
 
-    def _calculate_context_value(self, clarity: float, signal: float,
-                                 density: float, impact: float,
-                                 word_count: int) -> float:
+    def _calculate_context_value(
+        self, clarity: float, signal: float, density: float, impact: float, word_count: int
+    ) -> float:
         """Calculate overall context value for project-bootstrap"""
         # High clarity, high signal, low density, high impact = high value
         # Invert density (high density = harder to parse)
 
-        value = (
-            clarity * 0.25 +
-            signal * 0.35 +
-            (1.0 - density) * 0.15 +
-            impact * 0.25
-        )
+        value = clarity * 0.25 + signal * 0.35 + (1.0 - density) * 0.15 + impact * 0.25
 
         # Penalize empty slides
         if word_count < 10:
@@ -277,7 +291,7 @@ class SlideProcessor:
 
     def process_slide_deck(self, slide_pattern: str) -> list[SlideEpistemicAssessment]:
         """Process entire slide deck and generate report"""
-        slide_files = sorted(Path('.').glob(slide_pattern))
+        slide_files = sorted(Path(".").glob(slide_pattern))
 
         if not slide_files:
             raise FileNotFoundError(f"No slides found matching: {slide_pattern}")
@@ -293,8 +307,7 @@ class SlideProcessor:
 
         return assessments
 
-    def _save_report(self, assessments: list[SlideEpistemicAssessment],
-                    pattern: str):
+    def _save_report(self, assessments: list[SlideEpistemicAssessment], pattern: str):
         """Save epistemic assessment report"""
         report_path = self.output_dir / f"assessment_{pattern.replace('*', 'all')}.json"
 
@@ -307,7 +320,7 @@ class SlideProcessor:
             "slides": [a.to_dict() for a in assessments],
         }
 
-        with open(report_path, 'w') as f:
+        with open(report_path, "w") as f:
             json.dump(report, f, indent=2)
 
         print(f"\n✓ Report saved to {report_path}")
@@ -316,10 +329,9 @@ class SlideProcessor:
         summary_path = self.output_dir / f"summary_{pattern.replace('*', 'all')}.md"
         self._save_summary(assessments, summary_path)
 
-    def _save_summary(self, assessments: list[SlideEpistemicAssessment],
-                     output_path: Path):
+    def _save_summary(self, assessments: list[SlideEpistemicAssessment], output_path: Path):
         """Save human-readable summary"""
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             f.write("# Slide Deck Epistemic Assessment\n\n")
 
             # Overall stats
@@ -355,8 +367,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="Process slides with epistemic assessment")
     parser.add_argument("pattern", help="Slide file pattern (e.g., 'ledger-*.png')")
-    parser.add_argument("--output-dir", default=".empirica/slides",
-                       help="Output directory for reports")
+    parser.add_argument("--output-dir", default=".empirica/slides", help="Output directory for reports")
 
     args = parser.parse_args()
 

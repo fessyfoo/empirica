@@ -25,8 +25,7 @@ from empirica.api.daemon_project import (
 )
 
 
-def _make_project(root: Path, name: str, *, project_id: str | None = None,
-                  display_name: str | None = None) -> Path:
+def _make_project(root: Path, name: str, *, project_id: str | None = None, display_name: str | None = None) -> Path:
     """Make a directory with .empirica/project.yaml inside `root`."""
     proj = root / name
     proj.mkdir(parents=True)
@@ -257,9 +256,12 @@ def test_read_git_remote_returns_none_for_non_git_dir(tmp_path):
 
 def test_read_git_remote_normalizes_ssh_form(tmp_path, monkeypatch):
     """git@host:owner/repo.git → https://host/owner/repo."""
+
     def _fake_run(*args, **kwargs):
         from types import SimpleNamespace
+
         return SimpleNamespace(returncode=0, stdout="git@github.com:Nubaeon/empirica.git\n")
+
     monkeypatch.setattr("subprocess.run", _fake_run)
     assert _read_git_remote(tmp_path) == "https://github.com/Nubaeon/empirica"
 
@@ -267,7 +269,9 @@ def test_read_git_remote_normalizes_ssh_form(tmp_path, monkeypatch):
 def test_read_git_remote_strips_dot_git_from_https(tmp_path, monkeypatch):
     def _fake_run(*args, **kwargs):
         from types import SimpleNamespace
+
         return SimpleNamespace(returncode=0, stdout="https://github.com/Nubaeon/empirica.git\n")
+
     monkeypatch.setattr("subprocess.run", _fake_run)
     assert _read_git_remote(tmp_path) == "https://github.com/Nubaeon/empirica"
 
@@ -288,11 +292,11 @@ def test_get_cached_daemon_project_caches_result(tmp_path, monkeypatch):
 
     # Reset cache
     import empirica.api.daemon_project as dp
+
     dp._cached = False
     dp._cached_project = None
 
-    with patch("empirica.utils.session_resolver.InstanceResolver.project_path",
-               side_effect=_counting_canonical):
+    with patch("empirica.utils.session_resolver.InstanceResolver.project_path", side_effect=_counting_canonical):
         monkeypatch.chdir(proj)
         first = get_cached_daemon_project()
         second = get_cached_daemon_project()
@@ -310,11 +314,11 @@ def test_get_cached_daemon_project_refresh_forces_re_resolve(tmp_path, monkeypat
         return str(proj)
 
     import empirica.api.daemon_project as dp
+
     dp._cached = False
     dp._cached_project = None
 
-    with patch("empirica.utils.session_resolver.InstanceResolver.project_path",
-               side_effect=_counting_canonical):
+    with patch("empirica.utils.session_resolver.InstanceResolver.project_path", side_effect=_counting_canonical):
         monkeypatch.chdir(proj)
         get_cached_daemon_project()
         get_cached_daemon_project(refresh=True)
@@ -347,13 +351,15 @@ def test_resolve_for_request_returns_uuid_project_id_for_uuid_yaml(tmp_path):
     proj = _make_project(tmp_path, "empirica-cortex", project_id=uuid)
 
     fake_registry = {
-        "projects": [{
-            "project_id": "empirica-cortex",  # registry uses slug
-            "slug": "empirica-cortex",
-            "name": "empirica-cortex",
-            "path": str(proj),
-            "repo_url": "https://github.com/Nubaeon/empirica-cortex",
-        }],
+        "projects": [
+            {
+                "project_id": "empirica-cortex",  # registry uses slug
+                "slug": "empirica-cortex",
+                "name": "empirica-cortex",
+                "path": str(proj),
+                "repo_url": "https://github.com/Nubaeon/empirica-cortex",
+            }
+        ],
     }
 
     with patch("empirica.api.registry.load_registry", return_value=fake_registry):
@@ -379,22 +385,24 @@ def test_resolve_for_request_preserves_registry_metadata_overrides(tmp_path):
     proj = _make_project(tmp_path, "ext-folder", project_id=uuid)
 
     fake_registry = {
-        "projects": [{
-            "project_id": "empirica-extension",
-            "slug": "empirica-extension",
-            "name": "Empirica Extension",  # human-friendly name
-            "path": str(proj),
-            "repo_url": "https://github.com/Nubaeon/empirica-extension",
-        }],
+        "projects": [
+            {
+                "project_id": "empirica-extension",
+                "slug": "empirica-extension",
+                "name": "Empirica Extension",  # human-friendly name
+                "path": str(proj),
+                "repo_url": "https://github.com/Nubaeon/empirica-extension",
+            }
+        ],
     }
 
     with patch("empirica.api.registry.load_registry", return_value=fake_registry):
         result = resolve_for_request(project_id="empirica-extension")
 
     assert result is not None
-    assert result["project_id"] == uuid                          # UUID for DB
-    assert result["project_slug"] == "empirica-extension"        # registry override
-    assert result["project_name"] == "Empirica Extension"        # registry override
+    assert result["project_id"] == uuid  # UUID for DB
+    assert result["project_slug"] == "empirica-extension"  # registry override
+    assert result["project_name"] == "Empirica Extension"  # registry override
     assert result["repo_url"] == "https://github.com/Nubaeon/empirica-extension"
 
 
@@ -409,13 +417,15 @@ def test_resolve_for_request_slug_yaml_still_resolves(tmp_path):
     proj = _make_project(tmp_path, "empirica", project_id="empirica")
 
     fake_registry = {
-        "projects": [{
-            "project_id": "empirica",
-            "slug": "empirica",
-            "name": "empirica",
-            "path": str(proj),
-            "repo_url": None,
-        }],
+        "projects": [
+            {
+                "project_id": "empirica",
+                "slug": "empirica",
+                "name": "empirica",
+                "path": str(proj),
+                "repo_url": None,
+            }
+        ],
     }
 
     with patch("empirica.api.registry.load_registry", return_value=fake_registry):
@@ -448,12 +458,14 @@ def test_resolve_for_request_returns_none_for_stale_registry_path(tmp_path):
     stale_path.mkdir()  # no .empirica/ subdir
 
     fake_registry = {
-        "projects": [{
-            "project_id": "stale",
-            "slug": "stale",
-            "name": "stale",
-            "path": str(stale_path),
-        }],
+        "projects": [
+            {
+                "project_id": "stale",
+                "slug": "stale",
+                "name": "stale",
+                "path": str(stale_path),
+            }
+        ],
     }
 
     with patch("empirica.api.registry.load_registry", return_value=fake_registry):

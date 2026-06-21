@@ -21,17 +21,21 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-EMPIRICA_DIR = Path.home() / '.empirica'
-VALID_NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$')
-VALID_KIND = ('cron', 'interval', 'monitor')
-VALID_STATUS = ('ok', 'fail')
-VALID_BACKOFF = ('none', 'exponential')
+EMPIRICA_DIR = Path.home() / ".empirica"
+VALID_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
+VALID_KIND = ("cron", "interval", "monitor")
+VALID_STATUS = ("ok", "fail")
+VALID_BACKOFF = ("none", "exponential")
 # 'paused' added per PROPOSAL_LOOP_SELF_SCHEDULING — when the body
 # short-circuits on the pause check it heartbeats with result=paused
 # so the streak math doesn't treat the pause-skip as an empty fire.
-VALID_RESULT = ('found', 'empty', 'fail', 'paused')
+VALID_RESULT = ("found", "empty", "fail", "paused")
 VALID_SCHEDULER_KIND = (
-    'cron-create', 'systemd-user', 'system-cron', 'at-queue', 'unknown',
+    "cron-create",
+    "systemd-user",
+    "system-cron",
+    "at-queue",
+    "unknown",
 )
 
 # Default backoff envelope when caller passes --backoff exponential without
@@ -39,7 +43,7 @@ VALID_SCHEDULER_KIND = (
 DEFAULT_BASE_INTERVAL_S = 15 * 60
 DEFAULT_MAX_INTERVAL_S = 4 * 60 * 60
 
-_DURATION_RE = re.compile(r'^(\d+(?:\.\d+)?)\s*([smhd])$', re.IGNORECASE)
+_DURATION_RE = re.compile(r"^(\d+(?:\.\d+)?)\s*([smhd])$", re.IGNORECASE)
 
 
 def parse_duration(text: str | None) -> int | None:
@@ -55,7 +59,7 @@ def parse_duration(text: str | None) -> int | None:
     if m:
         value = float(m.group(1))
         unit = m.group(2)
-        return int(value * {'s': 1, 'm': 60, 'h': 3600, 'd': 86400}[unit])
+        return int(value * {"s": 1, "m": 60, "h": 3600, "d": 86400}[unit])
     try:
         return int(float(s) * 60)  # bare number → minutes
     except ValueError:
@@ -65,25 +69,25 @@ def parse_duration(text: str | None) -> int | None:
 def format_duration(seconds: int | None) -> str:
     """Reverse of parse_duration — pick the largest unit that's whole-ish."""
     if seconds is None:
-        return ''
+        return ""
     if seconds <= 0:
-        return '0s'
-    for unit_s, unit in ((86400, 'd'), (3600, 'h'), (60, 'm')):
+        return "0s"
+    for unit_s, unit in ((86400, "d"), (3600, "h"), (60, "m")):
         if seconds % unit_s == 0:
-            return f'{seconds // unit_s}{unit}'
-    return f'{seconds}s'
+            return f"{seconds // unit_s}{unit}"
+    return f"{seconds}s"
 
 
 def _safe_suffix(text: str) -> str:
-    return text.replace('/', '-').replace('%', '')
+    return text.replace("/", "-").replace("%", "")
 
 
 def registry_path(instance_id: str) -> Path:
-    return EMPIRICA_DIR / f'loops_{_safe_suffix(instance_id)}.json'
+    return EMPIRICA_DIR / f"loops_{_safe_suffix(instance_id)}.json"
 
 
 def loop_pause_path(instance_id: str, name: str) -> Path:
-    return EMPIRICA_DIR / f'loop_paused_{_safe_suffix(instance_id)}_{_safe_suffix(name)}'
+    return EMPIRICA_DIR / f"loop_paused_{_safe_suffix(instance_id)}_{_safe_suffix(name)}"
 
 
 def _now_iso() -> str:
@@ -92,9 +96,7 @@ def _now_iso() -> str:
 
 def _validate_name(name: str) -> None:
     if not VALID_NAME.match(name):
-        raise ValueError(
-            f"Invalid loop name '{name}' — must match {VALID_NAME.pattern}"
-        )
+        raise ValueError(f"Invalid loop name '{name}' — must match {VALID_NAME.pattern}")
 
 
 def _validate_kind(kind: str) -> None:
@@ -111,7 +113,7 @@ def set_loop_paused(instance_id: str, name: str, paused: bool) -> bool:
     EMPIRICA_DIR.mkdir(parents=True, exist_ok=True)
     path = loop_pause_path(instance_id, name)
     if paused:
-        path.write_text('', encoding='utf-8')
+        path.write_text("", encoding="utf-8")
     else:
         try:
             path.unlink()
@@ -132,7 +134,8 @@ class BackoffState:
     body is allowed to do work. Empty fires advance it; found/fail fires
     snap it back to base.
     """
-    policy: str = 'none'  # 'none' | 'exponential'
+
+    policy: str = "none"  # 'none' | 'exponential'
     base_interval_seconds: int | None = None
     max_interval_seconds: int | None = None
     empty_streak: int = 0
@@ -140,18 +143,18 @@ class BackoffState:
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {
-            'policy': self.policy,
-            'base_interval_seconds': self.base_interval_seconds,
-            'max_interval_seconds': self.max_interval_seconds,
-            'empty_streak': self.empty_streak,
-            'next_fire_threshold': self.next_fire_threshold,
+            "policy": self.policy,
+            "base_interval_seconds": self.base_interval_seconds,
+            "max_interval_seconds": self.max_interval_seconds,
+            "empty_streak": self.empty_streak,
+            "next_fire_threshold": self.next_fire_threshold,
         }
         # Surface human-readable duration strings for renderers/JSON consumers.
         if self.base_interval_seconds:
-            d['base_interval'] = format_duration(self.base_interval_seconds)
+            d["base_interval"] = format_duration(self.base_interval_seconds)
         if self.max_interval_seconds:
-            d['max_interval'] = format_duration(self.max_interval_seconds)
-        d['current_interval'] = format_duration(self.current_interval_seconds())
+            d["max_interval"] = format_duration(self.max_interval_seconds)
+        d["current_interval"] = format_duration(self.current_interval_seconds())
         return d
 
     @classmethod
@@ -159,26 +162,26 @@ class BackoffState:
         if not data:
             return cls()
         return cls(
-            policy=data.get('policy', 'none') or 'none',
-            base_interval_seconds=_safe_int(data.get('base_interval_seconds')),
-            max_interval_seconds=_safe_int(data.get('max_interval_seconds')),
-            empty_streak=int(data.get('empty_streak', 0) or 0),
-            next_fire_threshold=data.get('next_fire_threshold'),
+            policy=data.get("policy", "none") or "none",
+            base_interval_seconds=_safe_int(data.get("base_interval_seconds")),
+            max_interval_seconds=_safe_int(data.get("max_interval_seconds")),
+            empty_streak=int(data.get("empty_streak", 0) or 0),
+            next_fire_threshold=data.get("next_fire_threshold"),
         )
 
     def current_interval_seconds(self) -> int | None:
         """Compute base × 2^streak, capped at max. None when policy=none."""
-        if self.policy != 'exponential' or not self.base_interval_seconds:
+        if self.policy != "exponential" or not self.base_interval_seconds:
             return None
         # Avoid 2**100 — clamp the exponent at 16 (covers any sane envelope).
         exp = min(self.empty_streak, 16)
-        candidate = self.base_interval_seconds * (2 ** exp)
+        candidate = self.base_interval_seconds * (2**exp)
         if self.max_interval_seconds:
             candidate = min(candidate, self.max_interval_seconds)
         return candidate
 
     def is_at_base(self) -> bool:
-        if self.policy != 'exponential':
+        if self.policy != "exponential":
             return True
         return self.empty_streak == 0
 
@@ -195,15 +198,15 @@ def _safe_int(value: Any) -> int | None:
 def _humanize_seconds(seconds: int) -> str:
     """Compact duration string for human-readable reasons."""
     if seconds < 60:
-        return f'{seconds}s'
+        return f"{seconds}s"
     if seconds < 3600:
-        return f'{seconds // 60}m'
+        return f"{seconds // 60}m"
     if seconds < 86400:
         rem = seconds % 3600
         if rem == 0:
-            return f'{seconds // 3600}h'
-        return f'{seconds // 3600}h{rem // 60}m'
-    return f'{seconds // 86400}d'
+            return f"{seconds // 3600}h"
+        return f"{seconds // 3600}h{rem // 60}m"
+    return f"{seconds // 86400}d"
 
 
 def cron_pin_one_shot(when: datetime) -> str:
@@ -214,7 +217,7 @@ def cron_pin_one_shot(when: datetime) -> str:
     matching is irrelevant. Caller is expected to pass `recurring=false`
     when handing this to a CronCreate-style scheduler.
     """
-    return f'{when.minute} {when.hour} {when.day} {when.month} *'
+    return f"{when.minute} {when.hour} {when.day} {when.month} *"
 
 
 @dataclass
@@ -225,6 +228,7 @@ class SchedulePlan:
     directly to CronCreate / `at`. `interval_seconds` is canonical for
     callers that have their own scheduler API.
     """
+
     fire_at: datetime
     interval_seconds: int
     current_streak: int
@@ -236,11 +240,11 @@ class SchedulePlan:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            'next_fire_at': self.fire_at.isoformat(),
-            'interval_seconds': self.interval_seconds,
-            'current_streak': self.current_streak,
-            'reason': self.reason,
-            'cron_one_shot': self.cron_one_shot,
+            "next_fire_at": self.fire_at.isoformat(),
+            "interval_seconds": self.interval_seconds,
+            "current_streak": self.current_streak,
+            "reason": self.reason,
+            "cron_one_shot": self.cron_one_shot,
         }
 
 
@@ -260,15 +264,16 @@ class SchedulingState:
       - next_scheduled_job_id: known after the body installs the next fire
       - next_fire_at: known after schedule-next computes it
     """
+
     scheduler_kind: str | None = None
     next_scheduled_job_id: str | None = None
     next_fire_at: str | None = None  # ISO-8601 UTC
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            'scheduler_kind': self.scheduler_kind,
-            'next_scheduled_job_id': self.next_scheduled_job_id,
-            'next_fire_at': self.next_fire_at,
+            "scheduler_kind": self.scheduler_kind,
+            "next_scheduled_job_id": self.next_scheduled_job_id,
+            "next_fire_at": self.next_fire_at,
         }
 
     @classmethod
@@ -276,9 +281,9 @@ class SchedulingState:
         if not data:
             return cls()
         return cls(
-            scheduler_kind=data.get('scheduler_kind'),
-            next_scheduled_job_id=data.get('next_scheduled_job_id'),
-            next_fire_at=data.get('next_fire_at'),
+            scheduler_kind=data.get("scheduler_kind"),
+            next_scheduled_job_id=data.get("next_scheduled_job_id"),
+            next_fire_at=data.get("next_fire_at"),
         )
 
 
@@ -288,7 +293,7 @@ class LoopEntry:
     kind: str  # 'cron' | 'interval' | 'monitor'
     cron: str | None = None
     interval: str | None = None  # e.g. "5m"
-    description: str = ''
+    description: str = ""
     registered_at: str = field(default_factory=_now_iso)
     last_run: str | None = None
     last_status: str | None = None  # 'ok' | 'fail'
@@ -299,34 +304,34 @@ class LoopEntry:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            'kind': self.kind,
-            'cron': self.cron,
-            'interval': self.interval,
-            'description': self.description,
-            'registered_at': self.registered_at,
-            'last_run': self.last_run,
-            'last_status': self.last_status,
-            'last_message': self.last_message,
-            'last_result': self.last_result,
-            'backoff': self.backoff.to_dict(),
-            'scheduling': self.scheduling.to_dict(),
+            "kind": self.kind,
+            "cron": self.cron,
+            "interval": self.interval,
+            "description": self.description,
+            "registered_at": self.registered_at,
+            "last_run": self.last_run,
+            "last_status": self.last_status,
+            "last_message": self.last_message,
+            "last_result": self.last_result,
+            "backoff": self.backoff.to_dict(),
+            "scheduling": self.scheduling.to_dict(),
         }
 
     @classmethod
     def from_dict(cls, name: str, data: dict[str, Any]) -> LoopEntry:
         return cls(
             name=name,
-            kind=data.get('kind', 'monitor'),
-            cron=data.get('cron'),
-            interval=data.get('interval'),
-            description=data.get('description', ''),
-            registered_at=data.get('registered_at', _now_iso()),
-            last_run=data.get('last_run'),
-            last_status=data.get('last_status'),
-            last_message=data.get('last_message'),
-            last_result=data.get('last_result'),
-            backoff=BackoffState.from_dict(data.get('backoff')),
-            scheduling=SchedulingState.from_dict(data.get('scheduling')),
+            kind=data.get("kind", "monitor"),
+            cron=data.get("cron"),
+            interval=data.get("interval"),
+            description=data.get("description", ""),
+            registered_at=data.get("registered_at", _now_iso()),
+            last_run=data.get("last_run"),
+            last_status=data.get("last_status"),
+            last_message=data.get("last_message"),
+            last_result=data.get("last_result"),
+            backoff=BackoffState.from_dict(data.get("backoff")),
+            scheduling=SchedulingState.from_dict(data.get("scheduling")),
         )
 
 
@@ -349,32 +354,30 @@ class LoopRegistry:
     def _read(self) -> dict[str, Any]:
         if not self.path.exists():
             return {
-                'instance_id': self.instance_id,
-                'instance_label': self._label,
-                'loops': {},
+                "instance_id": self.instance_id,
+                "instance_label": self._label,
+                "loops": {},
             }
         try:
-            with open(self.path, encoding='utf-8') as f:
+            with open(self.path, encoding="utf-8") as f:
                 data = json.load(f)
-            data.setdefault('instance_id', self.instance_id)
-            data.setdefault('instance_label', self._label)
-            data.setdefault('loops', {})
+            data.setdefault("instance_id", self.instance_id)
+            data.setdefault("instance_label", self._label)
+            data.setdefault("loops", {})
             return data
         except (OSError, json.JSONDecodeError):
             return {
-                'instance_id': self.instance_id,
-                'instance_label': self._label,
-                'loops': {},
+                "instance_id": self.instance_id,
+                "instance_label": self._label,
+                "loops": {},
             }
 
     def _write(self, data: dict[str, Any]) -> None:
         EMPIRICA_DIR.mkdir(parents=True, exist_ok=True)
         # Atomic write: tempfile in same dir, fsync, rename
-        fd, tmp_path = tempfile.mkstemp(
-            prefix=self.path.name + '.', suffix='.tmp', dir=str(EMPIRICA_DIR)
-        )
+        fd, tmp_path = tempfile.mkstemp(prefix=self.path.name + ".", suffix=".tmp", dir=str(EMPIRICA_DIR))
         try:
-            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, sort_keys=True)
                 f.flush()
                 os.fsync(f.fileno())
@@ -388,11 +391,11 @@ class LoopRegistry:
 
     def list_loops(self) -> list[LoopEntry]:
         data = self._read()
-        return [LoopEntry.from_dict(name, entry) for name, entry in data['loops'].items()]
+        return [LoopEntry.from_dict(name, entry) for name, entry in data["loops"].items()]
 
     def get(self, name: str) -> LoopEntry | None:
         data = self._read()
-        entry = data['loops'].get(name)
+        entry = data["loops"].get(name)
         if entry is None:
             return None
         return LoopEntry.from_dict(name, entry)
@@ -403,7 +406,7 @@ class LoopRegistry:
         kind: str,
         cron: str | None = None,
         interval: str | None = None,
-        description: str = '',
+        description: str = "",
         backoff_policy: str | None = None,
         base_interval: str | None = None,
         max_interval: str | None = None,
@@ -424,12 +427,10 @@ class LoopRegistry:
         _validate_name(name)
         _validate_kind(kind)
         if backoff_policy is not None and backoff_policy not in VALID_BACKOFF:
-            raise ValueError(
-                f"Invalid backoff '{backoff_policy}' — must be one of {VALID_BACKOFF}"
-            )
+            raise ValueError(f"Invalid backoff '{backoff_policy}' — must be one of {VALID_BACKOFF}")
 
         data = self._read()
-        existing = data['loops'].get(name)
+        existing = data["loops"].get(name)
 
         if existing:
             entry = LoopEntry.from_dict(name, existing)
@@ -449,13 +450,11 @@ class LoopRegistry:
         # Backoff envelope: only mutate if caller specified a policy.
         if backoff_policy is not None:
             entry.backoff.policy = backoff_policy
-            if backoff_policy == 'exponential':
+            if backoff_policy == "exponential":
                 base_s = parse_duration(base_interval) or DEFAULT_BASE_INTERVAL_S
                 max_s = parse_duration(max_interval) or DEFAULT_MAX_INTERVAL_S
                 if max_s < base_s:
-                    raise ValueError(
-                        f'max_interval ({max_s}s) must be >= base_interval ({base_s}s)'
-                    )
+                    raise ValueError(f"max_interval ({max_s}s) must be >= base_interval ({base_s}s)")
                 entry.backoff.base_interval_seconds = base_s
                 entry.backoff.max_interval_seconds = max_s
             else:
@@ -465,9 +464,9 @@ class LoopRegistry:
                 entry.backoff.empty_streak = 0
                 entry.backoff.next_fire_threshold = None
 
-        data['loops'][name] = entry.to_dict()
+        data["loops"][name] = entry.to_dict()
         if self._label:
-            data['instance_label'] = self._label
+            data["instance_label"] = self._label
         self._write(data)
         return entry
 
@@ -481,9 +480,9 @@ class LoopRegistry:
         """
         _validate_name(name)
         data = self._read()
-        if name not in data['loops']:
+        if name not in data["loops"]:
             return False
-        del data['loops'][name]
+        del data["loops"][name]
         self._write(data)
         set_loop_paused(self.instance_id, name, False)
         # Lazy import — install/uninstall request modules import from us.
@@ -491,6 +490,7 @@ class LoopRegistry:
             loop_install_request,
             loop_uninstall_request,
         )
+
         for path in (
             loop_install_request.pending_path(self.instance_id, name),
             loop_uninstall_request.pending_path(self.instance_id, name),
@@ -504,16 +504,16 @@ class LoopRegistry:
     def set_interval(self, name: str, interval: str) -> LoopEntry:
         _validate_name(name)
         data = self._read()
-        if name not in data['loops']:
+        if name not in data["loops"]:
             raise KeyError(f"Loop '{name}' not registered")
-        data['loops'][name]['interval'] = interval
+        data["loops"][name]["interval"] = interval
         self._write(data)
-        return LoopEntry.from_dict(name, data['loops'][name])
+        return LoopEntry.from_dict(name, data["loops"][name])
 
     def heartbeat(
         self,
         name: str,
-        status: str = 'ok',
+        status: str = "ok",
         message: str | None = None,
         result: str | None = None,
         next_scheduled_job_id: str | None = None,
@@ -546,20 +546,17 @@ class LoopRegistry:
         if result is not None and result not in VALID_RESULT:
             raise ValueError(f"Invalid result '{result}' — must be one of {VALID_RESULT}")
         if scheduler_kind is not None and scheduler_kind not in VALID_SCHEDULER_KIND:
-            raise ValueError(
-                f"Invalid scheduler_kind '{scheduler_kind}' — must be one of "
-                f"{VALID_SCHEDULER_KIND}"
-            )
+            raise ValueError(f"Invalid scheduler_kind '{scheduler_kind}' — must be one of {VALID_SCHEDULER_KIND}")
 
         if result is None:
-            result = 'fail' if status == 'fail' else 'empty'
+            result = "fail" if status == "fail" else "empty"
 
         data = self._read()
-        if name not in data['loops']:
-            self.register(name=name, kind='monitor', description='auto-registered via heartbeat')
+        if name not in data["loops"]:
+            self.register(name=name, kind="monitor", description="auto-registered via heartbeat")
             data = self._read()
 
-        entry = LoopEntry.from_dict(name, data['loops'][name])
+        entry = LoopEntry.from_dict(name, data["loops"][name])
         now = datetime.now(tz=timezone.utc)
         entry.last_run = now.isoformat()
         entry.last_status = status
@@ -569,20 +566,14 @@ class LoopRegistry:
         # Backoff math (no-op when policy=none, and when result=='paused':
         # pause is a no-state transition — backoff freezes mid-stretch and
         # resumes at the same streak when the body fires again).
-        if (
-            entry.backoff.policy == 'exponential'
-            and entry.backoff.base_interval_seconds
-            and result != 'paused'
-        ):
-            if result == 'empty':
+        if entry.backoff.policy == "exponential" and entry.backoff.base_interval_seconds and result != "paused":
+            if result == "empty":
                 entry.backoff.empty_streak += 1
             else:  # 'found' or 'fail' → reset
                 entry.backoff.empty_streak = 0
             interval_s = entry.backoff.current_interval_seconds() or entry.backoff.base_interval_seconds
             threshold = now.timestamp() + interval_s
-            entry.backoff.next_fire_threshold = (
-                datetime.fromtimestamp(threshold, tz=timezone.utc).isoformat()
-            )
+            entry.backoff.next_fire_threshold = datetime.fromtimestamp(threshold, tz=timezone.utc).isoformat()
 
         # Scheduling bookkeeping — only mutate when the caller provided
         # values; otherwise preserve whatever was already there.
@@ -590,11 +581,9 @@ class LoopRegistry:
             entry.scheduling.scheduler_kind = scheduler_kind
         if next_scheduled_job_id is not None:
             # Empty string means "clear" (e.g. when pause cancels the next fire).
-            entry.scheduling.next_scheduled_job_id = (
-                next_scheduled_job_id or None
-            )
+            entry.scheduling.next_scheduled_job_id = next_scheduled_job_id or None
 
-        data['loops'][name] = entry.to_dict()
+        data["loops"][name] = entry.to_dict()
         self._write(data)
         return entry
 
@@ -613,21 +602,21 @@ class LoopRegistry:
         """
         entry = self.get(name)
         if entry is None:
-            return True, 'no loop'
-        if entry.backoff.policy != 'exponential':
-            return True, 'no policy'
+            return True, "no loop"
+        if entry.backoff.policy != "exponential":
+            return True, "no policy"
         threshold_iso = entry.backoff.next_fire_threshold
         if not threshold_iso:
-            return True, 'no threshold'
+            return True, "no threshold"
         try:
-            threshold = datetime.fromisoformat(threshold_iso.replace('Z', '+00:00'))
+            threshold = datetime.fromisoformat(threshold_iso.replace("Z", "+00:00"))
             if threshold.tzinfo is None:
                 threshold = threshold.replace(tzinfo=timezone.utc)
         except (ValueError, TypeError):
-            return True, 'invalid threshold'
+            return True, "invalid threshold"
         if datetime.now(tz=timezone.utc) >= threshold:
-            return True, 'past threshold'
-        return False, 'before threshold'
+            return True, "past threshold"
+        return False, "before threshold"
 
     def poke(self, name: str) -> LoopEntry | None:
         """Manual escape hatch — zero the streak and clear the threshold.
@@ -638,12 +627,12 @@ class LoopRegistry:
         """
         _validate_name(name)
         data = self._read()
-        if name not in data['loops']:
+        if name not in data["loops"]:
             return None
-        entry = LoopEntry.from_dict(name, data['loops'][name])
+        entry = LoopEntry.from_dict(name, data["loops"][name])
         entry.backoff.empty_streak = 0
         entry.backoff.next_fire_threshold = None
-        data['loops'][name] = entry.to_dict()
+        data["loops"][name] = entry.to_dict()
         self._write(data)
         return entry
 
@@ -664,31 +653,27 @@ class LoopRegistry:
         """
         _validate_name(name)
         data = self._read()
-        if name not in data['loops']:
+        if name not in data["loops"]:
             return None
 
-        entry = LoopEntry.from_dict(name, data['loops'][name])
+        entry = LoopEntry.from_dict(name, data["loops"][name])
         now = datetime.now(tz=timezone.utc)
 
-        base_s = (
-            entry.backoff.base_interval_seconds
-            or parse_duration(entry.interval)
-            or DEFAULT_BASE_INTERVAL_S
-        )
-        if entry.backoff.policy == 'exponential':
+        base_s = entry.backoff.base_interval_seconds or parse_duration(entry.interval) or DEFAULT_BASE_INTERVAL_S
+        if entry.backoff.policy == "exponential":
             interval_s = entry.backoff.current_interval_seconds() or base_s
             streak = entry.backoff.empty_streak
             if streak == 0:
-                reason = f'streak 0 (snap-back), interval {_humanize_seconds(interval_s)}'
+                reason = f"streak 0 (snap-back), interval {_humanize_seconds(interval_s)}"
             else:
                 reason = (
-                    f'empty-streak-{streak}, '
-                    f'base {_humanize_seconds(base_s)} * 2^{streak} = '
-                    f'{_humanize_seconds(interval_s)}'
+                    f"empty-streak-{streak}, "
+                    f"base {_humanize_seconds(base_s)} * 2^{streak} = "
+                    f"{_humanize_seconds(interval_s)}"
                 )
         else:
             interval_s = base_s
-            reason = f'no backoff, interval {_humanize_seconds(interval_s)}'
+            reason = f"no backoff, interval {_humanize_seconds(interval_s)}"
 
         fire_at = now + timedelta(seconds=interval_s)
         plan = SchedulePlan(
@@ -701,7 +686,7 @@ class LoopRegistry:
         # Stamp on registry — body still owns the install, but the
         # registry's view of "what we plan to fire next" needs to match.
         entry.scheduling.next_fire_at = fire_at.isoformat()
-        data['loops'][name] = entry.to_dict()
+        data["loops"][name] = entry.to_dict()
         self._write(data)
         return plan
 

@@ -173,9 +173,16 @@ def _insert_finding(db_path: Path, project_id: str, finding: str, **kwargs) -> s
     conn.execute(
         "INSERT INTO project_findings (id, project_id, session_id, finding, finding_data, "
         "impact, epistemic_source, created_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (art_id, project_id, kwargs.get("session_id", "sess-1"), finding,
-         kwargs.get("data", "{}"), kwargs.get("impact", 0.5),
-         kwargs.get("epistemic_source"), time.time()),
+        (
+            art_id,
+            project_id,
+            kwargs.get("session_id", "sess-1"),
+            finding,
+            kwargs.get("data", "{}"),
+            kwargs.get("impact", 0.5),
+            kwargs.get("epistemic_source"),
+            time.time(),
+        ),
     )
     conn.commit()
     conn.close()
@@ -208,6 +215,7 @@ def _insert_edge(db_path: Path, from_id: str, to_id: str, relation: str):
 @pytest.fixture
 def reset_daemon_cache():
     import empirica.api.daemon_project as dp
+
     dp._cached = False
     dp._cached_project = None
     yield
@@ -239,9 +247,16 @@ def test_all_per_type_endpoints_503_consistently(tmp_path, monkeypatch, reset_da
         monkeypatch.chdir(bare)
         monkeypatch.setenv("PWD", str(bare))
         client = TestClient(create_serve_app())
-        for path in ["/api/v1/goals", "/api/v1/findings", "/api/v1/decisions",
-                     "/api/v1/unknowns", "/api/v1/dead-ends", "/api/v1/mistakes",
-                     "/api/v1/assumptions", "/api/v1/sources"]:
+        for path in [
+            "/api/v1/goals",
+            "/api/v1/findings",
+            "/api/v1/decisions",
+            "/api/v1/unknowns",
+            "/api/v1/dead-ends",
+            "/api/v1/mistakes",
+            "/api/v1/assumptions",
+            "/api/v1/sources",
+        ]:
             response = client.get(path)
             assert response.status_code == 503, f"{path} should 503 when no project"
 
@@ -524,7 +539,10 @@ def test_goals_status_filter(tmp_path, monkeypatch, reset_daemon_cache):
         planned = client.get("/api/v1/goals?status=planned").json()["goals"]
         all_g = client.get("/api/v1/goals?status=all").json()["goals"]
 
-    assert {g["objective"] for g in active} == {"active goal", "future goal"}  # in_progress + planned both have is_completed=0
+    assert {g["objective"] for g in active} == {
+        "active goal",
+        "future goal",
+    }  # in_progress + planned both have is_completed=0
     assert {g["objective"] for g in completed} == {"done goal"}
     assert {g["objective"] for g in planned} == {"future goal"}
     assert len(all_g) == 3
@@ -546,8 +564,7 @@ def test_goals_carry_tasks_inline(tmp_path, monkeypatch, reset_daemon_cache):
     conn.execute(
         "INSERT INTO goals (id, project_id, objective, status, is_completed, goal_data, created_timestamp) "
         "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (str(uuid.uuid4()), pid, "goal with tasks", "in_progress", 0,
-         json.dumps(goal_data), time.time()),
+        (str(uuid.uuid4()), pid, "goal with tasks", "in_progress", 0, json.dumps(goal_data), time.time()),
     )
     conn.commit()
     conn.close()
@@ -726,8 +743,7 @@ def test_decisions_endpoint_ships_description_when_present(tmp_path, monkeypatch
         "INSERT INTO decisions (id, project_id, choice, rationale, description, "
         "confidence_at_decision, reversibility, created_timestamp) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (str(uuid.uuid4()), pid, "Use SQLite", "short rationale", body,
-         0.8, "exploratory", time.time()),
+        (str(uuid.uuid4()), pid, "Use SQLite", "short rationale", body, 0.8, "exploratory", time.time()),
     )
     conn.commit()
     conn.close()

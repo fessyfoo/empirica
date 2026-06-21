@@ -49,11 +49,7 @@ class GitMessageStore:
         """Check if we're in a git repository"""
         try:
             result = subprocess.run(
-                ['git', 'rev-parse', '--git-dir'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                timeout=5
+                ["git", "rev-parse", "--git-dir"], cwd=self.workspace_root, capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -65,11 +61,7 @@ class GitMessageStore:
             return False
         try:
             result = subprocess.run(
-                ['git', 'rev-parse', 'HEAD'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                timeout=5
+                ["git", "rev-parse", "HEAD"], cwd=self.workspace_root, capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -79,11 +71,7 @@ class GitMessageStore:
         """Get current HEAD commit hash"""
         try:
             result = subprocess.run(
-                ['git', 'rev-parse', 'HEAD'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                check=True
+                ["git", "rev-parse", "HEAD"], cwd=self.workspace_root, capture_output=True, text=True, check=True
             )
             return result.stdout.strip()
         except Exception:
@@ -91,11 +79,11 @@ class GitMessageStore:
 
     def _is_expired(self, message: dict) -> bool:
         """Check if a message has expired based on TTL"""
-        ttl = message.get('ttl', 86400)
+        ttl = message.get("ttl", 86400)
         if ttl == 0:
             return False  # No expiry
         try:
-            created = datetime.fromisoformat(message['timestamp'])
+            created = datetime.fromisoformat(message["timestamp"])
             return datetime.now(timezone.utc) > created + timedelta(seconds=ttl)
         except (KeyError, ValueError):
             return False
@@ -129,28 +117,28 @@ class GitMessageStore:
             message_id = str(uuid.uuid4())
 
             payload = {
-                'message_id': message_id,
-                'channel': channel,
-                'from': {
-                    'ai_id': from_ai_id,
-                    'machine': self._machine_id,
-                    'session_id': from_session_id,
+                "message_id": message_id,
+                "channel": channel,
+                "from": {
+                    "ai_id": from_ai_id,
+                    "machine": self._machine_id,
+                    "session_id": from_session_id,
                 },
-                'to': {
-                    'ai_id': to_ai_id,
-                    'machine': to_machine,
+                "to": {
+                    "ai_id": to_ai_id,
+                    "machine": to_machine,
                 },
-                'timestamp': datetime.now(timezone.utc).isoformat(),
-                'type': message_type,
-                'subject': subject,
-                'body': body,
-                'reply_to': reply_to,
-                'thread_id': thread_id or message_id,
-                'ttl': ttl,
-                'priority': priority,
-                'status': 'unread',
-                'read_by': [],
-                'metadata': metadata or {},
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "type": message_type,
+                "subject": subject,
+                "body": body,
+                "reply_to": reply_to,
+                "thread_id": thread_id or message_id,
+                "ttl": ttl,
+                "priority": priority,
+                "status": "unread",
+                "read_by": [],
+                "metadata": metadata or {},
             }
 
             payload_json = json.dumps(payload, indent=2)
@@ -159,13 +147,13 @@ class GitMessageStore:
             if not commit_hash:
                 return None
 
-            note_ref = f'empirica/messages/{channel}/{message_id}'
+            note_ref = f"empirica/messages/{channel}/{message_id}"
             subprocess.run(
-                ['git', 'notes', f'--ref={note_ref}', 'add', '-f', '-m', payload_json, commit_hash],
+                ["git", "notes", f"--ref={note_ref}", "add", "-f", "-m", payload_json, commit_hash],
                 cwd=self.workspace_root,
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             )
 
             logger.info(f"Sent message {message_id[:8]} on #{channel} to {to_ai_id}")
@@ -181,14 +169,11 @@ class GitMessageStore:
             return None
 
         try:
-            note_ref = f'empirica/messages/{channel}/{message_id}'
+            note_ref = f"empirica/messages/{channel}/{message_id}"
 
             # List which commit has the note
             result = subprocess.run(
-                ['git', 'notes', f'--ref={note_ref}', 'list'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True
+                ["git", "notes", f"--ref={note_ref}", "list"], cwd=self.workspace_root, capture_output=True, text=True
             )
 
             if result.returncode != 0 or not result.stdout.strip():
@@ -200,10 +185,10 @@ class GitMessageStore:
             commit_hash = parts[1]
 
             result = subprocess.run(
-                ['git', 'notes', f'--ref={note_ref}', 'show', commit_hash],
+                ["git", "notes", f"--ref={note_ref}", "show", commit_hash],
                 cwd=self.workspace_root,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:
@@ -235,13 +220,13 @@ class GitMessageStore:
 
         try:
             # Scope the search by channel if specified
-            search_prefix = f'refs/notes/empirica/messages/{channel}/' if channel else 'refs/notes/empirica/messages/'
+            search_prefix = f"refs/notes/empirica/messages/{channel}/" if channel else "refs/notes/empirica/messages/"
 
             result = subprocess.run(
-                ['git', 'for-each-ref', search_prefix, '--format=%(refname)'],
+                ["git", "for-each-ref", search_prefix, "--format=%(refname)"],
                 cwd=self.workspace_root,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:
@@ -249,11 +234,11 @@ class GitMessageStore:
 
             messages = []
 
-            for line in result.stdout.strip().split('\n'):
+            for line in result.stdout.strip().split("\n"):
                 if not line:
                     continue
 
-                ref_parts = line.strip().split('/')
+                ref_parts = line.strip().split("/")
                 if len(ref_parts) < 6:
                     continue
 
@@ -273,7 +258,7 @@ class GitMessageStore:
                     break
 
             # Sort by timestamp (newest first)
-            messages.sort(key=lambda m: m.get('timestamp', ''), reverse=True)
+            messages.sort(key=lambda m: m.get("timestamp", ""), reverse=True)
             return messages
 
         except Exception as e:
@@ -281,26 +266,30 @@ class GitMessageStore:
             return []
 
     def _matches_inbox_filters(
-        self, msg: dict, ai_id: str, machine: str | None,
-        status: str, include_expired: bool,
+        self,
+        msg: dict,
+        ai_id: str,
+        machine: str | None,
+        status: str,
+        include_expired: bool,
     ) -> bool:
         """Check if a message passes all inbox filters."""
-        to_info = msg.get('to', {})
-        if to_info.get('ai_id') != '*' and to_info.get('ai_id') != ai_id:
+        to_info = msg.get("to", {})
+        if to_info.get("ai_id") != "*" and to_info.get("ai_id") != ai_id:
             return False
 
-        if machine and to_info.get('machine') and to_info['machine'] != machine:
+        if machine and to_info.get("machine") and to_info["machine"] != machine:
             return False
 
         if not include_expired and self._is_expired(msg):
             return False
 
-        if status == 'unread':
-            read_ids = [r.get('ai_id') for r in msg.get('read_by', [])]
+        if status == "unread":
+            read_ids = [r.get("ai_id") for r in msg.get("read_by", [])]
             if ai_id in read_ids:
                 return False
-        elif status == 'read':
-            read_ids = [r.get('ai_id') for r in msg.get('read_by', [])]
+        elif status == "read":
+            read_ids = [r.get("ai_id") for r in msg.get("read_by", [])]
             if ai_id not in read_ids:
                 return False
 
@@ -320,37 +309,36 @@ class GitMessageStore:
 
         try:
             # Add to read_by if not already present
-            read_by = msg.get('read_by', [])
-            read_ids = [r.get('ai_id') for r in read_by]
+            read_by = msg.get("read_by", [])
+            read_ids = [r.get("ai_id") for r in read_by]
             if ai_id not in read_ids:
-                read_by.append({
-                    'ai_id': ai_id,
-                    'machine': machine or self._machine_id,
-                    'read_at': datetime.now(timezone.utc).isoformat(),
-                })
-                msg['read_by'] = read_by
-                msg['status'] = 'read'
+                read_by.append(
+                    {
+                        "ai_id": ai_id,
+                        "machine": machine or self._machine_id,
+                        "read_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
+                msg["read_by"] = read_by
+                msg["status"] = "read"
 
             # Re-store with force flag
             payload_json = json.dumps(msg, indent=2)
-            note_ref = f'empirica/messages/{channel}/{message_id}'
+            note_ref = f"empirica/messages/{channel}/{message_id}"
 
             # Find the commit it's attached to
             result = subprocess.run(
-                ['git', 'notes', f'--ref={note_ref}', 'list'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True
+                ["git", "notes", f"--ref={note_ref}", "list"], cwd=self.workspace_root, capture_output=True, text=True
             )
             parts = result.stdout.strip().split()
-            commit_hash = parts[1] if len(parts) >= 2 else (self._get_head_commit() or 'HEAD')
+            commit_hash = parts[1] if len(parts) >= 2 else (self._get_head_commit() or "HEAD")
 
             subprocess.run(
-                ['git', 'notes', f'--ref={note_ref}', 'add', '-f', '-m', payload_json, commit_hash],
+                ["git", "notes", f"--ref={note_ref}", "add", "-f", "-m", payload_json, commit_hash],
                 cwd=self.workspace_root,
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             )
 
             return True
@@ -379,15 +367,15 @@ class GitMessageStore:
         # Reverse from/to, inherit thread_id
         return self.send_message(
             from_ai_id=from_ai_id,
-            to_ai_id=original['from']['ai_id'],
+            to_ai_id=original["from"]["ai_id"],
             channel=original_channel,
             subject=f"Re: {original.get('subject', '')}",
             body=body,
             message_type=message_type,
-            to_machine=original['from'].get('machine'),
+            to_machine=original["from"].get("machine"),
             from_session_id=from_session_id,
             reply_to=original_message_id,
-            thread_id=original.get('thread_id', original_message_id),
+            thread_id=original.get("thread_id", original_message_id),
             ttl=ttl,
             metadata=metadata,
         )
@@ -402,13 +390,13 @@ class GitMessageStore:
             return []
 
         try:
-            search_prefix = f'refs/notes/empirica/messages/{channel}/' if channel else 'refs/notes/empirica/messages/'
+            search_prefix = f"refs/notes/empirica/messages/{channel}/" if channel else "refs/notes/empirica/messages/"
 
             result = subprocess.run(
-                ['git', 'for-each-ref', search_prefix, '--format=%(refname)'],
+                ["git", "for-each-ref", search_prefix, "--format=%(refname)"],
                 cwd=self.workspace_root,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:
@@ -416,11 +404,11 @@ class GitMessageStore:
 
             messages = []
 
-            for line in result.stdout.strip().split('\n'):
+            for line in result.stdout.strip().split("\n"):
                 if not line:
                     continue
 
-                ref_parts = line.strip().split('/')
+                ref_parts = line.strip().split("/")
                 if len(ref_parts) < 6:
                     continue
 
@@ -428,10 +416,10 @@ class GitMessageStore:
                 msg_id = ref_parts[5]
                 msg = self.load_message(msg_channel, msg_id)
 
-                if msg and msg.get('thread_id') == thread_id:
+                if msg and msg.get("thread_id") == thread_id:
                     messages.append(msg)
 
-            messages.sort(key=lambda m: m.get('timestamp', ''))
+            messages.sort(key=lambda m: m.get("timestamp", ""))
             return messages
 
         except Exception as e:
@@ -445,20 +433,20 @@ class GitMessageStore:
 
         try:
             result = subprocess.run(
-                ['git', 'for-each-ref', 'refs/notes/empirica/messages/', '--format=%(refname)'],
+                ["git", "for-each-ref", "refs/notes/empirica/messages/", "--format=%(refname)"],
                 cwd=self.workspace_root,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:
                 return []
 
             channels = set()
-            for line in result.stdout.strip().split('\n'):
+            for line in result.stdout.strip().split("\n"):
                 if not line:
                     continue
-                ref_parts = line.strip().split('/')
+                ref_parts = line.strip().split("/")
                 if len(ref_parts) >= 5:
                     channels.add(ref_parts[4])
 
@@ -472,7 +460,7 @@ class GitMessageStore:
         channels = self.discover_channels()
         counts = {}
         for ch in channels:
-            msgs = self.get_inbox(ai_id, machine=machine, channel=ch, status='unread')
+            msgs = self.get_inbox(ai_id, machine=machine, channel=ch, status="unread")
             if msgs:
                 counts[ch] = len(msgs)
         return counts
@@ -488,10 +476,10 @@ class GitMessageStore:
 
         try:
             result = subprocess.run(
-                ['git', 'for-each-ref', 'refs/notes/empirica/messages/', '--format=%(refname)'],
+                ["git", "for-each-ref", "refs/notes/empirica/messages/", "--format=%(refname)"],
                 cwd=self.workspace_root,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:
@@ -499,11 +487,11 @@ class GitMessageStore:
 
             removed = []
 
-            for line in result.stdout.strip().split('\n'):
+            for line in result.stdout.strip().split("\n"):
                 if not line:
                     continue
 
-                ref_parts = line.strip().split('/')
+                ref_parts = line.strip().split("/")
                 if len(ref_parts) < 6:
                     continue
 
@@ -515,12 +503,12 @@ class GitMessageStore:
                     removed.append(msg)
                     if not dry_run:
                         # Remove the git note ref
-                        full_ref = f'refs/notes/empirica/messages/{msg_channel}/{msg_id}'
+                        full_ref = f"refs/notes/empirica/messages/{msg_channel}/{msg_id}"
                         subprocess.run(
-                            ['git', 'update-ref', '-d', full_ref],
+                            ["git", "update-ref", "-d", full_ref],
                             cwd=self.workspace_root,
                             capture_output=True,
-                            text=True
+                            text=True,
                         )
                         logger.info(f"Removed expired message {msg_id[:8]} from #{msg_channel}")
 
@@ -567,16 +555,13 @@ class GitMessageStore:
             ai_id=ai_id,
             machine=machine,
             channel=channel,
-            status='all',
+            status="all",
             include_expired=include_expired,
             limit=limit * 2,  # Over-fetch since we filter after
         )
 
         # Filter by creation timestamp
-        filtered = [
-            m for m in all_msgs
-            if m.get('timestamp', '') > since_iso
-        ]
+        filtered = [m for m in all_msgs if m.get("timestamp", "") > since_iso]
 
         return filtered[:limit]
 
@@ -620,7 +605,7 @@ class GitMessageStore:
         def _should_stop() -> bool:
             if stop_event is None:
                 return False
-            is_set = getattr(stop_event, 'is_set', None)
+            is_set = getattr(stop_event, "is_set", None)
             return bool(is_set() if callable(is_set) else False)
 
         while not _should_stop():
@@ -639,8 +624,8 @@ class GitMessageStore:
                         continue
                     if mark_read:
                         self.mark_read(
-                            channel=msg.get('channel', ''),
-                            message_id=msg.get('message_id', ''),
+                            channel=msg.get("channel", ""),
+                            message_id=msg.get("message_id", ""),
                             ai_id=ai_id,
                             machine=machine,
                         )

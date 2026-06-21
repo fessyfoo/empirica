@@ -23,6 +23,7 @@ def _get_registry(args) -> DomainRegistry:
     if project_path is None:
         try:
             from empirica.utils.session_resolver import InstanceResolver
+
             project_path = InstanceResolver.project_path()
         except Exception:
             pass
@@ -41,12 +42,14 @@ def handle_domain_list_command(args):
         result: dict[str, Any] = {"ok": True, "domains": []}
         for name in domains:
             entry = reg.get_domain_entry(name)
-            result["domains"].append({
-                "name": name,
-                "description": entry.description if entry else "",
-                "criticalities": reg.list_criticalities(name),
-                "source": entry.source if entry else "unknown",
-            })
+            result["domains"].append(
+                {
+                    "name": name,
+                    "description": entry.description if entry else "",
+                    "criticalities": reg.list_criticalities(name),
+                    "source": entry.source if entry else "unknown",
+                }
+            )
         print(json.dumps(result, indent=2))
     else:
         print(f"Loaded domains ({len(domains)}):\n")
@@ -142,18 +145,23 @@ def handle_domain_resolve_command(args):
     output = getattr(args, "output", "text")
 
     if output == "json":
-        print(json.dumps({
-            "ok": True,
-            "key": {"work_type": key.work_type, "domain": key.domain, "criticality": key.criticality},
-            "checklist": {
-                "required_checks": list(cl.required),
-                "optional_checks": list(cl.optional),
-                "has_checks": cl.has_checks,
-                "thresholds": cl.thresholds,
-                "max_iterations": cl.max_iterations,
-                "hints_to_ai": list(cl.hints_to_ai),
-            },
-        }, indent=2))
+        print(
+            json.dumps(
+                {
+                    "ok": True,
+                    "key": {"work_type": key.work_type, "domain": key.domain, "criticality": key.criticality},
+                    "checklist": {
+                        "required_checks": list(cl.required),
+                        "optional_checks": list(cl.optional),
+                        "has_checks": cl.has_checks,
+                        "thresholds": cl.thresholds,
+                        "max_iterations": cl.max_iterations,
+                        "hints_to_ai": list(cl.hints_to_ai),
+                    },
+                },
+                indent=2,
+            )
+        )
     else:
         print(f"Resolve: ({key.work_type}, {key.domain}, {key.criticality})")
         print()
@@ -187,11 +195,16 @@ def handle_domain_validate_command(args):
             errors.append(f"{name}: no criticality levels defined")
 
     if output == "json":
-        print(json.dumps({
-            "ok": len(errors) == 0,
-            "domains_validated": len(domains),
-            "errors": errors,
-        }, indent=2))
+        print(
+            json.dumps(
+                {
+                    "ok": len(errors) == 0,
+                    "domains_validated": len(domains),
+                    "errors": errors,
+                },
+                indent=2,
+            )
+        )
     else:
         if errors:
             print(f"❌ Validation found {len(errors)} error(s):")

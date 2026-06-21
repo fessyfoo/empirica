@@ -30,23 +30,25 @@ logger = logging.getLogger(__name__)
 
 class SentinelDecision(Enum):
     """Sentinel routing decisions"""
-    PROCEED = "proceed"           # AI can continue
-    INVESTIGATE = "investigate"   # Requires deeper investigation
-    BRANCH = "branch"            # Fork into parallel investigation paths
-    REVISE = "revise"            # Revise current approach
-    HALT = "halt"                # Stop and reassess
-    HANDOFF = "handoff"          # Route to different AI
-    ESCALATE = "escalate"        # Human review needed
-    BLOCK = "block"              # Stop immediately
+
+    PROCEED = "proceed"  # AI can continue
+    INVESTIGATE = "investigate"  # Requires deeper investigation
+    BRANCH = "branch"  # Fork into parallel investigation paths
+    REVISE = "revise"  # Revise current approach
+    HALT = "halt"  # Stop and reassess
+    HANDOFF = "handoff"  # Route to different AI
+    ESCALATE = "escalate"  # Human review needed
+    BLOCK = "block"  # Stop immediately
 
 
 class TurtleStatus(Enum):
     """Sentinel's own grounding status (the observer's stability)"""
-    CRYSTALLINE = "crystalline"   # 🌕 Fully grounded, safe to observe
-    SOLID = "solid"               # 🌔 Well grounded, proceed
-    EMERGENT = "emergent"         # 🌓 Forming, proceed with caution
-    FORMING = "forming"           # 🌒 Unstable, consider halting
-    DARK = "dark"                 # 🌑 Ungrounded, halt
+
+    CRYSTALLINE = "crystalline"  # 🌕 Fully grounded, safe to observe
+    SOLID = "solid"  # 🌔 Well grounded, proceed
+    EMERGENT = "emergent"  # 🌓 Forming, proceed with caution
+    FORMING = "forming"  # 🌒 Unstable, consider halting
+    DARK = "dark"  # 🌑 Ungrounded, halt
 
 
 @dataclass
@@ -65,12 +67,13 @@ class SentinelState:
         last_decision: Most recent decision made
         confidence: Sentinel's confidence in its own judgments
     """
-    evaluator_health: float = 1.0       # 0-1: % of evaluators healthy
-    decision_consistency: float = 1.0   # 0-1: agreement between evaluators
-    response_latency: float = 0.0       # seconds (lower is better)
-    evaluation_count: int = 0           # evaluations this session
+
+    evaluator_health: float = 1.0  # 0-1: % of evaluators healthy
+    decision_consistency: float = 1.0  # 0-1: agreement between evaluators
+    response_latency: float = 0.0  # seconds (lower is better)
+    evaluation_count: int = 0  # evaluations this session
     last_decision: SentinelDecision | None = None
-    confidence: float = 0.8             # Sentinel's self-confidence
+    confidence: float = 0.8  # Sentinel's self-confidence
     last_turtle_check: float | None = None  # timestamp of last turtle check
 
     def get_grounding_score(self) -> float:
@@ -83,11 +86,11 @@ class SentinelState:
 
         # Weighted average
         return (
-            self.evaluator_health * 0.3 +
-            self.decision_consistency * 0.3 +
-            latency_score * 0.2 +
-            self.confidence * 0.15 +
-            experience_score * 0.05
+            self.evaluator_health * 0.3
+            + self.decision_consistency * 0.3
+            + latency_score * 0.2
+            + self.confidence * 0.15
+            + experience_score * 0.05
         )
 
     def get_turtle_status(self) -> tuple[TurtleStatus, str]:
@@ -179,6 +182,7 @@ class SentinelHooks:
             enabled: True to allow looping, False to suppress
         """
         import os
+
         # Check env var first (allows runtime override)
         env_val = os.getenv("EMPIRICA_SENTINEL_LOOPING", "").lower()
         if env_val in ("true", "1", "yes"):
@@ -194,6 +198,7 @@ class SentinelHooks:
     def is_looping_enabled(cls) -> bool:
         """Check if epistemic looping is enabled."""
         import os
+
         # Check env var for dynamic override
         env_val = os.getenv("EMPIRICA_SENTINEL_LOOPING", "").lower()
         if env_val in ("true", "1", "yes"):
@@ -233,58 +238,66 @@ class SentinelHooks:
 
         # Layer 0: Evaluator Health (are all evaluators functioning?)
         layer0_score = state.evaluator_health
-        layers.append({
-            'layer': 0,
-            'name': 'EVALUATOR HEALTH',
-            'score': layer0_score,
-            'detail': f"{len(cls._evaluators)} evaluators, {layer0_score*100:.0f}% healthy"
-        })
+        layers.append(
+            {
+                "layer": 0,
+                "name": "EVALUATOR HEALTH",
+                "score": layer0_score,
+                "detail": f"{len(cls._evaluators)} evaluators, {layer0_score * 100:.0f}% healthy",
+            }
+        )
 
         # Layer 1: Decision Consistency (do evaluators agree?)
         layer1_score = state.decision_consistency
-        layers.append({
-            'layer': 1,
-            'name': 'DECISION CONSISTENCY',
-            'score': layer1_score,
-            'detail': f"{layer1_score*100:.0f}% agreement between evaluators"
-        })
+        layers.append(
+            {
+                "layer": 1,
+                "name": "DECISION CONSISTENCY",
+                "score": layer1_score,
+                "detail": f"{layer1_score * 100:.0f}% agreement between evaluators",
+            }
+        )
 
         # Layer 2: Response Performance (is Sentinel fast enough?)
         latency_score = max(0, 1.0 - (state.response_latency / 2.0))
-        layers.append({
-            'layer': 2,
-            'name': 'RESPONSE PERFORMANCE',
-            'score': latency_score,
-            'detail': f"Latency: {state.response_latency*1000:.0f}ms"
-        })
+        layers.append(
+            {
+                "layer": 2,
+                "name": "RESPONSE PERFORMANCE",
+                "score": latency_score,
+                "detail": f"Latency: {state.response_latency * 1000:.0f}ms",
+            }
+        )
 
         # Layer 3: Sentinel Confidence (self-trust)
         layer3_score = state.confidence
-        layers.append({
-            'layer': 3,
-            'name': 'SENTINEL CONFIDENCE',
-            'score': layer3_score,
-            'detail': f"Self-confidence: {layer3_score:.2f}, Evaluations: {state.evaluation_count}"
-        })
+        layers.append(
+            {
+                "layer": 3,
+                "name": "SENTINEL CONFIDENCE",
+                "score": layer3_score,
+                "detail": f"Self-confidence: {layer3_score:.2f}, Evaluations: {state.evaluation_count}",
+            }
+        )
 
         # Add moon phase to each layer
         for layer in layers:
-            score = layer['score']
+            score = layer["score"]
             if score >= 0.85:
-                layer['moon'] = "🌕"
-                layer['status'] = "CRYSTALLINE"
+                layer["moon"] = "🌕"
+                layer["status"] = "CRYSTALLINE"
             elif score >= 0.70:
-                layer['moon'] = "🌔"
-                layer['status'] = "SOLID"
+                layer["moon"] = "🌔"
+                layer["status"] = "SOLID"
             elif score >= 0.50:
-                layer['moon'] = "🌓"
-                layer['status'] = "EMERGENT"
+                layer["moon"] = "🌓"
+                layer["status"] = "EMERGENT"
             elif score >= 0.30:
-                layer['moon'] = "🌒"
-                layer['status'] = "FORMING"
+                layer["moon"] = "🌒"
+                layer["status"] = "FORMING"
             else:
-                layer['moon'] = "🌑"
-                layer['status'] = "DARK"
+                layer["moon"] = "🌑"
+                layer["status"] = "DARK"
 
         # Overall status
         status, moon = state.get_turtle_status()
@@ -300,14 +313,14 @@ class SentinelHooks:
             recommendation = "HALT - Observer is unstable, cannot reliably evaluate AI"
 
         return {
-            'safe_to_evaluate': safe,
-            'status': status.value,
-            'moon': moon,
-            'grounding_score': grounding_score,
-            'layers': layers,
-            'recommendation': recommendation,
-            'evaluation_count': state.evaluation_count,
-            'timestamp': state.last_turtle_check
+            "safe_to_evaluate": safe,
+            "status": status.value,
+            "moon": moon,
+            "grounding_score": grounding_score,
+            "layers": layers,
+            "recommendation": recommendation,
+            "evaluation_count": state.evaluation_count,
+            "timestamp": state.last_turtle_check,
         }
 
     @classmethod
@@ -337,7 +350,7 @@ class SentinelHooks:
     def evaluate_checkpoint(
         cls,
         checkpoint_data: dict[str, Any],
-        turtle: bool | None = None  # None = use class default, True/False = override
+        turtle: bool | None = None,  # None = use class default, True/False = override
     ) -> SentinelDecision | None:
         """
         Evaluate checkpoint with Sentinel
@@ -356,7 +369,7 @@ class SentinelHooks:
         run_turtle = turtle if turtle is not None else cls._turtle_mode
         if run_turtle:
             turtle_result = cls.turtle_check()
-            if not turtle_result['safe_to_evaluate']:
+            if not turtle_result["safe_to_evaluate"]:
                 logger.warning(
                     f"🐢 Sentinel HALT: Observer is ungrounded ({turtle_result['moon']} {turtle_result['status']}). "
                     f"Cannot reliably evaluate AI checkpoint."
@@ -396,6 +409,7 @@ class SentinelHooks:
             # Calculate decision consistency (how many agree on same decision)
             if decisions:
                 from collections import Counter
+
                 decision_counts = Counter(decisions)
                 most_common_count = decision_counts.most_common(1)[0][1]
                 cls._state.decision_consistency = most_common_count / len(decisions)
@@ -406,16 +420,14 @@ class SentinelHooks:
                 SentinelDecision.ESCALATE,
                 SentinelDecision.HANDOFF,
                 SentinelDecision.INVESTIGATE,
-                SentinelDecision.PROCEED
+                SentinelDecision.PROCEED,
             ]
 
             for decision_type in priority:
                 if decision_type in decisions:
                     # LOOPING CONTROL: If looping is disabled, convert INVESTIGATE to PROCEED
                     if decision_type == SentinelDecision.INVESTIGATE and not cls.is_looping_enabled():
-                        logger.info(
-                            "🔄 Sentinel: INVESTIGATE suppressed (looping disabled) → PROCEED"
-                        )
+                        logger.info("🔄 Sentinel: INVESTIGATE suppressed (looping disabled) → PROCEED")
                         cls._state.last_decision = SentinelDecision.PROCEED
                         return SentinelDecision.PROCEED
 
@@ -433,11 +445,7 @@ class SentinelHooks:
 
     @classmethod
     def post_checkpoint_hook(
-        cls,
-        session_id: str,
-        ai_id: str,
-        phase: str,
-        checkpoint_data: dict[str, Any]
+        cls, session_id: str, ai_id: str, phase: str, checkpoint_data: dict[str, Any]
     ) -> SentinelDecision | None:
         """
         Hook called automatically after checkpoint creation
@@ -464,18 +472,9 @@ class SentinelHooks:
         return decision
 
     @classmethod
-    def _log_decision(
-        cls,
-        session_id: str,
-        ai_id: str,
-        phase: str,
-        decision: SentinelDecision
-    ) -> None:
+    def _log_decision(cls, session_id: str, ai_id: str, phase: str, decision: SentinelDecision) -> None:
         """Log Sentinel decision (could store in database)"""
-        logger.info(
-            f"🛡️ Sentinel Decision: {decision.value} "
-            f"(session={session_id[:8]}, ai={ai_id}, phase={phase})"
-        )
+        logger.info(f"🛡️ Sentinel Decision: {decision.value} (session={session_id[:8]}, ai={ai_id}, phase={phase})")
 
 
 def _load_readiness_thresholds() -> dict[str, float]:
@@ -494,38 +493,39 @@ def _load_readiness_thresholds() -> dict[str, float]:
 
     # Defaults
     thresholds = {
-        'min_know': 0.70,
-        'max_uncertainty': 0.35,
+        "min_know": 0.70,
+        "max_uncertainty": 0.35,
     }
 
     # Priority 2: Load from MCO config via ThresholdLoader
     try:
         from empirica.config.threshold_loader import get_threshold_config
+
         config = get_threshold_config()
 
         # Get from cascade section of current profile
-        know_threshold = config.get('cascade.ready_know_threshold')
+        know_threshold = config.get("cascade.ready_know_threshold")
         if know_threshold is not None:
-            thresholds['min_know'] = float(know_threshold)
+            thresholds["min_know"] = float(know_threshold)
 
-        unc_threshold = config.get('cascade.ready_uncertainty_threshold')
+        unc_threshold = config.get("cascade.ready_uncertainty_threshold")
         if unc_threshold is not None:
-            thresholds['max_uncertainty'] = float(unc_threshold)
+            thresholds["max_uncertainty"] = float(unc_threshold)
 
     except Exception:
         pass  # Fall back to defaults
 
     # Priority 1: Environment variables override
-    env_know = os.getenv('EMPIRICA_KNOW_THRESHOLD')
+    env_know = os.getenv("EMPIRICA_KNOW_THRESHOLD")
     if env_know:
         try:
-            thresholds['min_know'] = float(env_know)
+            thresholds["min_know"] = float(env_know)
         except ValueError:
             pass
-    env_unc = os.getenv('EMPIRICA_UNCERTAINTY_THRESHOLD')
+    env_unc = os.getenv("EMPIRICA_UNCERTAINTY_THRESHOLD")
     if env_unc:
         try:
-            thresholds['max_uncertainty'] = float(env_unc)
+            thresholds["max_uncertainty"] = float(env_unc)
         except ValueError:
             pass
 
@@ -556,12 +556,12 @@ def default_epistemic_evaluator(checkpoint_data: dict[str, Any]) -> SentinelDeci
     - KNOW >= threshold and UNCERTAINTY <= threshold → PROCEED (readiness gate passed)
     - Otherwise → INVESTIGATE (gate not passed)
     """
-    vectors = checkpoint_data.get('vectors', {})
+    vectors = checkpoint_data.get("vectors", {})
 
     # Use RAW vectors - no bias corrections applied by system
-    uncertainty = vectors.get('uncertainty', 0.5)
-    vectors.get('know', 0.5)
-    engagement = vectors.get('engagement', 0.7)
+    uncertainty = vectors.get("uncertainty", 0.5)
+    vectors.get("know", 0.5)
+    engagement = vectors.get("engagement", 0.7)
 
     # Load thresholds: dynamic (Brier-inflated) first, MCO/static fallback
     _, max_uncertainty = _load_evaluator_thresholds()
@@ -603,11 +603,11 @@ def _load_evaluator_thresholds() -> tuple:
     import os
 
     # Check env var overrides first — these always win
-    env_know = os.getenv('EMPIRICA_KNOW_THRESHOLD')
-    env_unc = os.getenv('EMPIRICA_UNCERTAINTY_THRESHOLD')
+    env_know = os.getenv("EMPIRICA_KNOW_THRESHOLD")
+    env_unc = os.getenv("EMPIRICA_UNCERTAINTY_THRESHOLD")
     if env_know or env_unc:
         thresholds = _load_readiness_thresholds()
-        return thresholds['min_know'], thresholds['max_uncertainty']
+        return thresholds["min_know"], thresholds["max_uncertainty"]
 
     # Try Brier-inflated dynamic thresholds (same as CHECK uses)
     try:
@@ -635,7 +635,7 @@ def _load_evaluator_thresholds() -> tuple:
 
     # Fallback: MCO config / static defaults
     thresholds = _load_readiness_thresholds()
-    return thresholds['min_know'], thresholds['max_uncertainty']
+    return thresholds["min_know"], thresholds["max_uncertainty"]
 
 
 # Alias for backwards compatibility

@@ -22,9 +22,7 @@ def _reflexes_db() -> sqlite3.Connection:
     # NO `meta` column — so a query against `meta` raises OperationalError and
     # the test fails, exactly as the bug would.
     conn = sqlite3.connect(":memory:")
-    conn.execute(
-        "CREATE TABLE reflexes (session_id TEXT, phase TEXT, timestamp REAL, reflex_data TEXT)"
-    )
+    conn.execute("CREATE TABLE reflexes (session_id TEXT, phase TEXT, timestamp REAL, reflex_data TEXT)")
     return conn
 
 
@@ -32,8 +30,12 @@ def test_feedback_extracted_from_reflex_data_column():
     conn = _reflexes_db()
     retro = {
         "artifact_counts": {
-            "findings": 1, "decisions": 1, "unknowns": 0,
-            "dead_ends": 0, "mistakes": 0, "assumptions": 0,
+            "findings": 1,
+            "decisions": 1,
+            "unknowns": 0,
+            "dead_ends": 0,
+            "mistakes": 0,
+            "assumptions": 0,
         },
         "sources_discipline_note": "2 artifacts logged with 0 source_refs.",
     }

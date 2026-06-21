@@ -69,6 +69,7 @@ def _format_yaml(data: dict[str, Any]) -> str:
     so we don't have to escape every character.
     """
     import json
+
     lines: list[str] = []
     for k, v in data.items():
         if k == "recent_turns":
@@ -92,6 +93,7 @@ def _format_yaml(data: dict[str, Any]) -> str:
 def _parse_yaml(content: str) -> dict[str, Any]:
     """Minimal YAML parser — inverse of _format_yaml."""
     import json
+
     out: dict[str, Any] = {}
     lines = content.splitlines()
     i = 0
@@ -192,7 +194,5 @@ def format_recovery_message(bc: Breadcrumb) -> str:
             if len(text) > 80:
                 text = text[:77] + "…"
             lines.append(f"  · {kind}: {text}")
-        lines.append(
-            f"(full jsonl at ~/.empirica/chat_sessions/{bc.session_id}.jsonl)"
-        )
+        lines.append(f"(full jsonl at ~/.empirica/chat_sessions/{bc.session_id}.jsonl)")
     return "\n".join(lines)

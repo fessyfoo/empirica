@@ -30,12 +30,7 @@ def git_repo():
     original_cwd = os.getcwd()
     with tempfile.TemporaryDirectory() as tmpdir:
         os.chdir(tmpdir)
-        subprocess.run(
-            ["git", "init"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=False
-        )
+        subprocess.run(["git", "init"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
         yield tmpdir
         os.chdir(original_cwd)  # Restore original directory
 
@@ -43,9 +38,9 @@ def git_repo():
 def test_session_db_git_checkpoint_methods_exist(temp_db):
     """Verify checkpoint methods are available"""
 
-    assert hasattr(temp_db, 'get_git_checkpoint'), "get_git_checkpoint method missing"
-    assert hasattr(temp_db, 'list_git_checkpoints'), "list_git_checkpoints method missing"
-    assert hasattr(temp_db, 'get_checkpoint_diff'), "get_checkpoint_diff method missing"
+    assert hasattr(temp_db, "get_git_checkpoint"), "get_git_checkpoint method missing"
+    assert hasattr(temp_db, "list_git_checkpoints"), "list_git_checkpoints method missing"
+    assert hasattr(temp_db, "get_checkpoint_diff"), "get_checkpoint_diff method missing"
 
     print("✅ All SessionDatabase checkpoint methods exist")
 
@@ -79,34 +74,28 @@ def test_session_db_checkpoint_integration(temp_db, git_repo):
     """Test checkpoint storage and retrieval (integration test)"""
 
     # Create a test session
-    session_id = temp_db.create_session(
-        ai_id="test-ai",
-        bootstrap_level=2,
-        components_loaded=10
-    )
+    session_id = temp_db.create_session(ai_id="test-ai", bootstrap_level=2, components_loaded=10)
 
     # Create a cascade
     cascade_id = temp_db.create_cascade(
-        session_id=session_id,
-        task="Test checkpoint integration",
-        context={"test": True}
+        session_id=session_id, task="Test checkpoint integration", context={"test": True}
     )
 
     # Log a preflight assessment (creates epistemic assessment)
     test_vectors = {
-        'engagement': 0.75,
-        'know': 0.65,
-        'do': 0.70,
-        'context': 0.60,
-        'clarity': 0.70,
-        'coherence': 0.75,
-        'signal': 0.65,
-        'density': 0.60,
-        'state': 0.50,
-        'change': 0.45,
-        'completion': 0.40,
-        'impact': 0.55,
-        'uncertainty': 0.35
+        "engagement": 0.75,
+        "know": 0.65,
+        "do": 0.70,
+        "context": 0.60,
+        "clarity": 0.70,
+        "coherence": 0.75,
+        "signal": 0.65,
+        "density": 0.60,
+        "state": 0.50,
+        "change": 0.45,
+        "completion": 0.40,
+        "impact": 0.55,
+        "uncertainty": 0.35,
     }
 
     temp_db.log_preflight_assessment(
@@ -114,7 +103,7 @@ def test_session_db_checkpoint_integration(temp_db, git_repo):
         cascade_id=cascade_id,
         prompt_summary="Test task",
         vectors=test_vectors,
-        uncertainty_notes="Test reasoning"
+        uncertainty_notes="Test reasoning",
     )
 
     # Try to get checkpoint (will use SQLite fallback if git not available)
@@ -122,8 +111,8 @@ def test_session_db_checkpoint_integration(temp_db, git_repo):
 
     # Should either get a checkpoint or None
     if checkpoint:
-        assert 'vectors' in checkpoint
-        assert 'phase' in checkpoint
+        assert "vectors" in checkpoint
+        assert "phase" in checkpoint
         print(f"✅ Checkpoint retrieved: {checkpoint['phase']}")
     else:
         print("✅ No checkpoint found (expected for new session)")
@@ -131,8 +120,8 @@ def test_session_db_checkpoint_integration(temp_db, git_repo):
     # Get latest vectors
     latest = temp_db.get_latest_vectors(session_id)
     assert latest is not None
-    assert 'vectors' in latest
-    assert 'engagement' in latest['vectors']
+    assert "vectors" in latest
+    assert "engagement" in latest["vectors"]
 
     print("✅ SessionDatabase integration test passed")
 
@@ -144,22 +133,39 @@ def test_session_db_fallback_to_sqlite(temp_db):
     session_id = temp_db.create_session("test-ai", 2, 10)
     cascade_id = temp_db.create_cascade(session_id, "Test", {})
 
-    test_vectors = dict.fromkeys(['engagement', 'know', 'do', 'context', 'clarity', 'coherence', 'signal', 'density', 'state', 'change', 'completion', 'impact', 'uncertainty'], 0.5)
+    test_vectors = dict.fromkeys(
+        [
+            "engagement",
+            "know",
+            "do",
+            "context",
+            "clarity",
+            "coherence",
+            "signal",
+            "density",
+            "state",
+            "change",
+            "completion",
+            "impact",
+            "uncertainty",
+        ],
+        0.5,
+    )
 
     temp_db.log_preflight_assessment(
         session_id=session_id,
         cascade_id=cascade_id,
         prompt_summary="Test",
         vectors=test_vectors,
-        uncertainty_notes="Test"
+        uncertainty_notes="Test",
     )
 
     # Get checkpoint via fallback
     checkpoint = temp_db._get_checkpoint_from_reflexes(session_id)
 
     if checkpoint:
-        assert checkpoint['source'] == 'sqlite_fallback'
-        assert 'vectors' in checkpoint
+        assert checkpoint["source"] == "sqlite_fallback"
+        assert "vectors" in checkpoint
         print("✅ SQLite fallback works")
     else:
         # May be None if no assessment logged yet
@@ -171,6 +177,7 @@ if __name__ == "__main__":
 
     # Create temp db for tests
     import tempfile
+
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = Path(tmpdir) / "test.db"
         db = SessionDatabase(db_path=str(db_path))

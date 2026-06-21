@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TrajectoryPoint:
     """A single point in the calibration trajectory."""
+
     point_id: str
     session_id: str
     ai_id: str
@@ -37,6 +38,7 @@ class TrajectoryPoint:
 @dataclass
 class CalibrationTrend:
     """Detected trend for a vector's calibration gap."""
+
     vector_name: str
     direction: str  # "closing", "widening", "stable"
     slope: float  # Negative = closing, positive = widening
@@ -100,17 +102,28 @@ class TrajectoryTracker:
             gap = assessment.calibration_gaps.get(vector_name)
 
             point_id = str(uuid.uuid4())
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO calibration_trajectory (
                     point_id, session_id, ai_id, vector_name,
                     self_assessed, grounded, gap,
                     domain, goal_id, timestamp, phase
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                point_id, session_id, ai_id, vector_name,
-                self_val, grounded_val, gap,
-                domain, goal_id, timestamp, phase,
-            ))
+            """,
+                (
+                    point_id,
+                    session_id,
+                    ai_id,
+                    vector_name,
+                    self_val,
+                    grounded_val,
+                    gap,
+                    domain,
+                    goal_id,
+                    timestamp,
+                    phase,
+                ),
+            )
             recorded += 1
 
         self.conn.commit()
@@ -127,7 +140,8 @@ class TrajectoryTracker:
         cursor = self.conn.cursor()
 
         if phase:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT point_id, session_id, ai_id, vector_name,
                        self_assessed, grounded, gap,
                        domain, goal_id, timestamp
@@ -135,9 +149,12 @@ class TrajectoryTracker:
                 WHERE ai_id = ? AND vector_name = ? AND phase = ?
                 ORDER BY timestamp DESC
                 LIMIT ?
-            """, (ai_id, vector_name, phase, lookback))
+            """,
+                (ai_id, vector_name, phase, lookback),
+            )
         else:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT point_id, session_id, ai_id, vector_name,
                        self_assessed, grounded, gap,
                        domain, goal_id, timestamp
@@ -145,22 +162,26 @@ class TrajectoryTracker:
                 WHERE ai_id = ? AND vector_name = ?
                 ORDER BY timestamp DESC
                 LIMIT ?
-            """, (ai_id, vector_name, lookback))
+            """,
+                (ai_id, vector_name, lookback),
+            )
 
         points = []
         for row in cursor.fetchall():
-            points.append(TrajectoryPoint(
-                point_id=row[0],
-                session_id=row[1],
-                ai_id=row[2],
-                vector_name=row[3],
-                self_assessed=row[4],
-                grounded=row[5],
-                gap=row[6],
-                domain=row[7],
-                goal_id=row[8],
-                timestamp=row[9],
-            ))
+            points.append(
+                TrajectoryPoint(
+                    point_id=row[0],
+                    session_id=row[1],
+                    ai_id=row[2],
+                    vector_name=row[3],
+                    self_assessed=row[4],
+                    grounded=row[5],
+                    gap=row[6],
+                    domain=row[7],
+                    goal_id=row[8],
+                    timestamp=row[9],
+                )
+            )
 
         # Return in chronological order
         points.reverse()
@@ -186,17 +207,23 @@ class TrajectoryTracker:
 
         # Get all vectors with trajectory data
         if phase:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT DISTINCT vector_name
                 FROM calibration_trajectory
                 WHERE ai_id = ? AND phase = ?
-            """, (ai_id, phase))
+            """,
+                (ai_id, phase),
+            )
         else:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT DISTINCT vector_name
                 FROM calibration_trajectory
                 WHERE ai_id = ?
-            """, (ai_id,))
+            """,
+                (ai_id,),
+            )
         vectors = [row[0] for row in cursor.fetchall()]
 
         trends = {}
@@ -217,10 +244,7 @@ class TrajectoryTracker:
             x_mean = sum(x_vals) / n
             y_mean = sum(abs_gaps) / n
 
-            numerator = sum(
-                (x - x_mean) * (y - y_mean)
-                for x, y in zip(x_vals, abs_gaps)
-            )
+            numerator = sum((x - x_mean) * (y - y_mean) for x, y in zip(x_vals, abs_gaps))
             denominator = sum((x - x_mean) ** 2 for x in x_vals)
 
             if denominator == 0:
@@ -257,9 +281,9 @@ class TrajectoryTracker:
 
         if not trends:
             return {
-                'status': 'insufficient_data',
-                'message': 'Need at least 3 POSTFLIGHT sessions with grounded evidence',
-                'vectors': {},
+                "status": "insufficient_data",
+                "message": "Need at least 3 POSTFLIGHT sessions with grounded evidence",
+                "vectors": {},
             }
 
         closing = [v for v, t in trends.items() if t.direction == "closing"]
@@ -277,22 +301,22 @@ class TrajectoryTracker:
         total_points = sum(t.points_analyzed for t in trends.values())
 
         return {
-            'status': 'active',
-            'overall_direction': overall,
-            'sessions_analyzed': total_points // max(len(trends), 1),
-            'vectors': {
+            "status": "active",
+            "overall_direction": overall,
+            "sessions_analyzed": total_points // max(len(trends), 1),
+            "vectors": {
                 name: {
-                    'direction': t.direction,
-                    'slope': t.slope,
-                    'recent_gap': t.recent_gap,
-                    'mean_gap': t.mean_gap,
-                    'points': t.points_analyzed,
+                    "direction": t.direction,
+                    "slope": t.slope,
+                    "recent_gap": t.recent_gap,
+                    "mean_gap": t.mean_gap,
+                    "points": t.points_analyzed,
                 }
                 for name, t in trends.items()
             },
-            'summary': {
-                'closing': closing,
-                'widening': widening,
-                'stable': stable,
+            "summary": {
+                "closing": closing,
+                "widening": widening,
+                "stable": stable,
             },
         }

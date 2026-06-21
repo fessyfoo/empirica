@@ -13,6 +13,7 @@ from typing import Any
 
 try:
     import psutil
+
     HAS_PSUTIL = True
 except ImportError:
     HAS_PSUTIL = False
@@ -21,6 +22,7 @@ except ImportError:
 @dataclass
 class BenchmarkResult:
     """Result of a benchmark run."""
+
     overall_score: float
     metrics: dict[str, float]
     component_performance: dict[str, float]
@@ -45,7 +47,7 @@ class EmpiricalPerformanceAnalyzer:
         benchmark_type: str = "comprehensive",
         iterations: int = 10,
         include_memory: bool = True,
-        verbose: bool = False
+        verbose: bool = False,
     ) -> dict[str, Any]:
         """
         Run performance benchmark.
@@ -92,16 +94,11 @@ class EmpiricalPerformanceAnalyzer:
                 "Full performance analysis not yet implemented",
                 "Baseline metrics shown - actual profiling coming soon",
             ],
-            "detailed_breakdown": {} if not verbose else {
-                "note": "Detailed breakdown requires full implementation"
-            },
+            "detailed_breakdown": {} if not verbose else {"note": "Detailed breakdown requires full implementation"},
         }
 
     def analyze_performance(
-        self,
-        target: str = "system",
-        context: dict | None = None,
-        detailed: bool = False
+        self, target: str = "system", context: dict | None = None, detailed: bool = False
     ) -> dict[str, Any]:
         """
         Analyze performance of a target component.
@@ -136,9 +133,9 @@ class EmpiricalPerformanceAnalyzer:
                     "effort": "planned",
                 }
             ],
-            "detailed_metrics": {} if not detailed else {
-                "note": {"status": "Detailed metrics require full implementation"}
-            },
+            "detailed_metrics": {}
+            if not detailed
+            else {"note": {"status": "Detailed metrics require full implementation"}},
             "historical_comparison": {
                 "trend": "stable",
                 "change_percentage": 0.0,

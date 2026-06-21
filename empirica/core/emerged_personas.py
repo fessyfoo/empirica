@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class EmergedPersona:
     """A persona derived from successful investigation patterns."""
+
     persona_id: str
     name: str
     source_session_id: str
@@ -71,14 +72,12 @@ class EmergedPersona:
     def to_yaml(self) -> str:
         """Export as YAML for storage."""
         import yaml
+
         return yaml.dump(self.to_dict(), default_flow_style=False, sort_keys=False)
 
 
 def extract_persona_from_loop_tracker(
-    session_id: str,
-    loop_tracker: EpistemicLoopTracker,
-    task_description: str = "",
-    branch_id: str | None = None
+    session_id: str, loop_tracker: EpistemicLoopTracker, task_description: str = "", branch_id: str | None = None
 ) -> EmergedPersona | None:
     """
     Extract an emerged persona from a successful loop tracker.
@@ -116,9 +115,7 @@ def extract_persona_from_loop_tracker(
     # Calculate total findings and unknowns resolved
     total_findings = sum(loop.findings_count or 0 for loop in loop_tracker.loop_history)
     total_unknowns_resolved = sum(
-        max(0, loop.unknowns_count or 0)
-        for loop in loop_tracker.loop_history
-        if loop.unknowns_count is not None
+        max(0, loop.unknowns_count or 0) for loop in loop_tracker.loop_history if loop.unknowns_count is not None
     )
 
     # Extract domains from task description
@@ -145,7 +142,7 @@ def extract_persona_from_loop_tracker(
         task_keywords=task_keywords,
         findings_count=total_findings,
         unknowns_resolved=max(0, total_unknowns_resolved),
-        reputation_score=0.5 + (0.1 * min(total_findings, 5))  # Initial boost from findings
+        reputation_score=0.5 + (0.1 * min(total_findings, 5)),  # Initial boost from findings
     )
 
     return persona
@@ -177,15 +174,65 @@ def _extract_keywords(task: str) -> list[str]:
 
     # Remove common words
     stop_words = {
-        'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
-        'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been',
-        'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
-        'could', 'should', 'may', 'might', 'must', 'shall', 'can', 'this',
-        'that', 'these', 'those', 'it', 'its', 'i', 'we', 'you', 'he', 'she',
-        'they', 'what', 'which', 'who', 'when', 'where', 'why', 'how'
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "with",
+        "by",
+        "from",
+        "as",
+        "is",
+        "was",
+        "are",
+        "were",
+        "been",
+        "be",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "must",
+        "shall",
+        "can",
+        "this",
+        "that",
+        "these",
+        "those",
+        "it",
+        "its",
+        "i",
+        "we",
+        "you",
+        "he",
+        "she",
+        "they",
+        "what",
+        "which",
+        "who",
+        "when",
+        "where",
+        "why",
+        "how",
     }
 
-    words = re.findall(r'\b[a-z]{3,}\b', task.lower())
+    words = re.findall(r"\b[a-z]{3,}\b", task.lower())
     keywords = [w for w in words if w not in stop_words]
 
     # Return unique keywords, limited to 10
@@ -222,7 +269,7 @@ class EmergedPersonaStore:
         filename = f"emerged_{persona.persona_id}.yaml"
         filepath = self.base_path / filename
 
-        with open(filepath, 'w') as f:
+        with open(filepath, "w") as f:
             f.write(persona.to_yaml())
 
         logger.info(f"Saved emerged persona: {filepath}")
@@ -241,6 +288,7 @@ class EmergedPersonaStore:
         """Load persona from file."""
         try:
             import yaml
+
             with open(filepath) as f:
                 data = yaml.safe_load(f)
             return EmergedPersona.from_dict(data)
@@ -306,7 +354,7 @@ def extract_and_store_persona(
     loop_tracker: EpistemicLoopTracker,
     task_description: str = "",
     branch_id: str | None = None,
-    store_path: str | None = None
+    store_path: str | None = None,
 ) -> str | None:
     """
     Convenience function to extract and store a persona in one call.
@@ -314,10 +362,7 @@ def extract_and_store_persona(
     Returns persona_id if successful, None otherwise.
     """
     persona = extract_persona_from_loop_tracker(
-        session_id=session_id,
-        loop_tracker=loop_tracker,
-        task_description=task_description,
-        branch_id=branch_id
+        session_id=session_id, loop_tracker=loop_tracker, task_description=task_description, branch_id=branch_id
     )
 
     if not persona:
@@ -334,7 +379,7 @@ def sentinel_match_persona(
     task: str,
     grounding_vectors: dict[str, float] | None = None,
     min_reputation: float = 0.5,
-    store_path: str | None = None
+    store_path: str | None = None,
 ) -> EmergedPersona | None:
     """
     Sentinel-level persona matching: finds best persona for task + grounding.
@@ -398,7 +443,7 @@ def match_or_decompose(
     session_id: str,
     grounding_vectors: dict[str, float] | None = None,
     min_reputation: float = 0.3,
-    store_path: str | None = None
+    store_path: str | None = None,
 ) -> dict[str, Any]:
     """
     Attempt to match a persona for a task. If no match, trigger decomposition.
@@ -422,32 +467,25 @@ def match_or_decompose(
         - {"matched": False, "decompose": True, "task": str, "reason": str}
     """
     persona = sentinel_match_persona(
-        task=task,
-        grounding_vectors=grounding_vectors,
-        min_reputation=min_reputation,
-        store_path=store_path
+        task=task, grounding_vectors=grounding_vectors, min_reputation=min_reputation, store_path=store_path
     )
 
     if persona:
         # Convert persona_id to agent name format
         agent_name = persona.persona_id.replace("_", "-")
-        logger.info(
-            f"Persona matched: {persona.name} (rep={persona.reputation_score:.2f}) "
-            f"for task: {task[:50]}"
-        )
+        logger.info(f"Persona matched: {persona.name} (rep={persona.reputation_score:.2f}) for task: {task[:50]}")
         return {
             "matched": True,
             "persona": persona.to_dict(),
             "agent_name": agent_name,
             "persona_id": persona.persona_id,
             "reputation": persona.reputation_score,
-            "domains": persona.task_domains
+            "domains": persona.task_domains,
         }
 
     # No match — signal decomposition needed
     logger.info(
-        f"No persona match for task: {task[:50]}. "
-        f"Decomposition recommended (parallel branch → emerged persona)."
+        f"No persona match for task: {task[:50]}. Decomposition recommended (parallel branch → emerged persona)."
     )
     return {
         "matched": False,
@@ -455,14 +493,13 @@ def match_or_decompose(
         "task": task,
         "session_id": session_id,
         "reason": "No existing persona matches this task's domain profile. "
-                  "A parallel investigation branch should explore this task, "
-                  "and the resulting epistemic pattern will be extracted as "
-                  "a new emerged persona for future use.",
-        "suggested_action": "empirica investigate --session-id {session_id} "
-                          "--investigation-goal \"{task}\" --turtle",
+        "A parallel investigation branch should explore this task, "
+        "and the resulting epistemic pattern will be extracted as "
+        "a new emerged persona for future use.",
+        "suggested_action": 'empirica investigate --session-id {session_id} --investigation-goal "{task}" --turtle',
         "post_action": "After investigation completes, run: "
-                      "python generate_agents.py --force "
-                      "to regenerate agent definitions from new personas."
+        "python generate_agents.py --force "
+        "to regenerate agent definitions from new personas.",
     }
 
 
@@ -476,8 +513,21 @@ def convert_emerged_to_persona_json(emerged: EmergedPersona) -> dict[str, Any]:
     """
     # Map emerged persona vectors to epistemic config priors
     priors = {}
-    for key in ["engagement", "know", "do", "context", "clarity", "coherence",
-                "signal", "density", "state", "change", "completion", "impact", "uncertainty"]:
+    for key in [
+        "engagement",
+        "know",
+        "do",
+        "context",
+        "clarity",
+        "coherence",
+        "signal",
+        "density",
+        "state",
+        "change",
+        "completion",
+        "impact",
+        "uncertainty",
+    ]:
         if key in emerged.final_vectors:
             priors[key] = emerged.final_vectors[key]
         elif key in emerged.initial_vectors:
@@ -490,7 +540,7 @@ def convert_emerged_to_persona_json(emerged: EmergedPersona) -> dict[str, Any]:
         "uncertainty_trigger": min(emerged.convergence_threshold * 10, 0.4),
         "confidence_to_proceed": max(0.7, emerged.reputation_score),
         "signal_quality_min": 0.6,
-        "engagement_gate": 0.6
+        "engagement_gate": 0.6,
     }
 
     # Determine capabilities from reputation and scope
@@ -505,18 +555,13 @@ def convert_emerged_to_persona_json(emerged: EmergedPersona) -> dict[str, Any]:
             "user_id": "emerged",
             "identity_name": emerged.persona_id,
             "public_key": "",
-            "reputation_score": emerged.reputation_score
+            "reputation_score": emerged.reputation_score,
         },
         "epistemic_config": {
             "priors": priors,
             "thresholds": thresholds,
-            "weights": {
-                "foundation": 0.30,
-                "comprehension": 0.30,
-                "execution": 0.25,
-                "engagement": 0.15
-            },
-            "focus_domains": emerged.task_domains
+            "weights": {"foundation": 0.30, "comprehension": 0.30, "execution": 0.25, "engagement": 0.15},
+            "focus_domains": emerged.task_domains,
         },
         "capabilities": {
             "can_spawn_subpersonas": False,
@@ -525,14 +570,14 @@ def convert_emerged_to_persona_json(emerged: EmergedPersona) -> dict[str, Any]:
             "can_read_files": True,
             "requires_human_approval": False,
             "max_investigation_depth": max(emerged.loops_to_converge, 3),
-            "restricted_operations": []
+            "restricted_operations": [],
         },
         "sentinel_config": {
             "reporting_frequency": "per_phase",
             "escalation_triggers": [],
             "timeout_minutes": 30,
             "max_cost_usd": 5.0,
-            "requires_sentinel_approval_before_act": False
+            "requires_sentinel_approval_before_act": False,
         },
         "metadata": {
             "created_by": "emerged",
@@ -542,15 +587,13 @@ def convert_emerged_to_persona_json(emerged: EmergedPersona) -> dict[str, Any]:
             "tags": emerged.task_keywords[:5],
             "parent_persona": None,
             "derived_from": emerged.source_branch_id,
-            "verified_sessions": emerged.uses_count
-        }
+            "verified_sessions": emerged.uses_count,
+        },
     }
 
 
 def promote_emerged_to_personas_dir(
-    persona_id: str,
-    personas_dir: str | None = None,
-    store_path: str | None = None
+    persona_id: str, personas_dir: str | None = None, store_path: str | None = None
 ) -> str | None:
     """
     Promote an emerged persona to the standard personas directory,

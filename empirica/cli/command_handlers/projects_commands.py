@@ -31,11 +31,28 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MANIFEST_PATH = Path.home() / ".empirica" / "discovered_projects.yaml"
 
-SKIP_DIR_NAMES = frozenset({
-    "node_modules", ".git", ".venv", "venv", "__pycache__", ".tox",
-    ".pytest_cache", ".mypy_cache", ".ruff_cache", "build", "dist",
-    "target", ".next", ".nuxt", ".cache", ".gradle", ".idea", ".vscode",
-})
+SKIP_DIR_NAMES = frozenset(
+    {
+        "node_modules",
+        ".git",
+        ".venv",
+        "venv",
+        "__pycache__",
+        ".tox",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+        "build",
+        "dist",
+        "target",
+        ".next",
+        ".nuxt",
+        ".cache",
+        ".gradle",
+        ".idea",
+        ".vscode",
+    }
+)
 
 
 # ── Filesystem walk ─────────────────────────────────────────────────────
@@ -342,7 +359,8 @@ def handle_projects_discover_command(args) -> None:
 
 
 def _filter_manifest_to_target(
-    manifest: dict[str, Any], target: str,
+    manifest: dict[str, Any],
+    target: str,
 ) -> dict[str, Any]:
     """Filter a discover-manifest down to a single named project.
 
@@ -371,9 +389,7 @@ def _filter_manifest_to_target(
     return out
 
 
-def _register_discovered_to_registry(
-    manifest: dict[str, Any], *, prune: bool = False
-) -> dict[str, int]:
+def _register_discovered_to_registry(manifest: dict[str, Any], *, prune: bool = False) -> dict[str, int]:
     """Upsert discovered projects into ~/.empirica/registry.yaml.
 
     Reads each discovered project's `.empirica/project.yaml` to extract the
@@ -397,21 +413,11 @@ def _register_discovered_to_registry(
     for entry in manifest.get("projects", []):
         raw_path = entry.get("path") or ""
         proj_yaml = _read_project_yaml_for_registry(raw_path)
-        project_id = (
-            proj_yaml.get("project_id")
-            or entry.get("project_id")
-            or entry.get("slug")
-            or entry.get("name")
-        )
+        project_id = proj_yaml.get("project_id") or entry.get("project_id") or entry.get("slug") or entry.get("name")
         if not project_id:
             continue
         slug = entry.get("slug") or proj_yaml.get("slug") or entry.get("name") or ""
-        name = (
-            proj_yaml.get("display_name")
-            or proj_yaml.get("name")
-            or entry.get("name")
-            or ""
-        )
+        name = proj_yaml.get("display_name") or proj_yaml.get("name") or entry.get("name") or ""
         was_existing = project_id in existing_ids
         upsert_project(
             registry,
@@ -474,9 +480,7 @@ def handle_daemon_list_command(args) -> None:
             sys.stdout.write(json.dumps(registry, indent=2) + "\n")
             return
         if output_format == "yaml":
-            sys.stdout.write(
-                yaml.dump(registry, default_flow_style=False, sort_keys=False, allow_unicode=True)
-            )
+            sys.stdout.write(yaml.dump(registry, default_flow_style=False, sort_keys=False, allow_unicode=True))
             return
 
         # Table format
@@ -497,10 +501,7 @@ def handle_daemon_list_command(args) -> None:
             pid = p.get("project_id", "")
             pid_short = pid[:36] if len(pid) > 36 else pid.ljust(36)
             sys.stdout.write(
-                f"{p.get('name',''):{name_w}}  "
-                f"{p.get('slug',''):{slug_w}}  "
-                f"{pid_short}  "
-                f"{p.get('path','')}\n"
+                f"{p.get('name', ''):{name_w}}  {p.get('slug', ''):{slug_w}}  {pid_short}  {p.get('path', '')}\n"
             )
         sys.stdout.write(f"\n{len(projects)} projects registered.\n")
     except Exception as e:
@@ -532,6 +533,7 @@ def handle_daemon_grant_command(args) -> None:
     try:
         from empirica.api import daemon_grants
         from empirica.config.credentials_loader import CredentialsLoader
+
         # Snapshot what the extension will receive on its next poll.
         cortex_cfg = CredentialsLoader().get_cortex_config()
         credentials_snapshot = {"cortex": cortex_cfg}
@@ -541,8 +543,7 @@ def handle_daemon_grant_command(args) -> None:
         )
         if record is None:
             _emit_grant_error(
-                f"No pending grant for user_code={user_code!r} "
-                "(unknown, expired, or already approved/denied)",
+                f"No pending grant for user_code={user_code!r} (unknown, expired, or already approved/denied)",
                 output_format,
             )
             return
@@ -578,6 +579,7 @@ def handle_daemon_deny_command(args) -> None:
         return
     try:
         from empirica.api import daemon_grants
+
         record = daemon_grants.deny_grant(user_code=user_code)
         if record is None:
             _emit_grant_error(
@@ -595,10 +597,7 @@ def handle_daemon_deny_command(args) -> None:
         if output_format == "json":
             sys.stdout.write(json.dumps(payload, indent=2) + "\n")
         else:
-            sys.stdout.write(
-                f"🚫 Grant denied for {record.requesting_app!r} "
-                f"(user_code={record.user_code}).\n"
-            )
+            sys.stdout.write(f"🚫 Grant denied for {record.requesting_app!r} (user_code={record.user_code}).\n")
     except Exception as e:
         handle_cli_error(e, "daemon-deny")
 
@@ -612,6 +611,7 @@ def handle_daemon_grants_list_command(args) -> None:
     output_format = getattr(args, "output", "table")
     try:
         from empirica.api import daemon_grants
+
         daemon_grants.reap_expired()
         records = daemon_grants.list_records()
         payload = {
@@ -635,18 +635,16 @@ def handle_daemon_grants_list_command(args) -> None:
             sys.stdout.write("# No pending credential grants.\n")
             return
         sys.stdout.write(
-            f"{'USER_CODE':<11}  {'STATUS':<10}  {'REQUESTING_APP':<18}  "
-            f"DEVICE_CODE_PREFIX  EXPIRES_IN_SEC\n"
+            f"{'USER_CODE':<11}  {'STATUS':<10}  {'REQUESTING_APP':<18}  DEVICE_CODE_PREFIX  EXPIRES_IN_SEC\n"
         )
         sys.stdout.write("-" * 80 + "\n")
         import time as _time
+
         now = _time.time()
         for r in records:
             ttl = max(0, int(r.expires_at - now))
             sys.stdout.write(
-                f"{r.user_code:<11}  {r.status:<10}  "
-                f"{r.requesting_app:<18}  {r.device_code[:8]}            "
-                f"{ttl}\n"
+                f"{r.user_code:<11}  {r.status:<10}  {r.requesting_app:<18}  {r.device_code[:8]}            {ttl}\n"
             )
     except Exception as e:
         handle_cli_error(e, "daemon-grants-list")
@@ -697,7 +695,7 @@ def handle_projects_sync_command(args) -> None:
             "discovered": n_discovered,
             "manifest_written": False,
             "registry": None,  # filled by phase 2
-            "cortex": None,    # filled by phase 3
+            "cortex": None,  # filled by phase 3
             "phases_skipped": [],
         }
 
@@ -717,7 +715,8 @@ def handle_projects_sync_command(args) -> None:
 
         try:
             outcome["registry"] = _register_discovered_to_registry(
-                manifest, prune=getattr(args, "prune", False),
+                manifest,
+                prune=getattr(args, "prune", False),
             )
         except Exception as e:
             print(f"⚠ Registry upsert failed: {e}", file=sys.stderr)
@@ -778,12 +777,9 @@ def _sync_phase3_cortex_post(args, output_format: str) -> dict[str, Any] | None:
     timeout = float(getattr(args, "timeout", 10.0))
     force_metadata = bool(getattr(args, "force_metadata_update", False))
     if output_format == "human":
-        print(f"📡 Registering {len(projects)} projects on Cortex at {cortex_url}",
-              file=sys.stderr)
+        print(f"📡 Registering {len(projects)} projects on Cortex at {cortex_url}", file=sys.stderr)
     results = [
-        _register_one_project(p, cortex_url, api_key, timeout,
-                              force_metadata_update=force_metadata)
-        for p in projects
+        _register_one_project(p, cortex_url, api_key, timeout, force_metadata_update=force_metadata) for p in projects
     ]
     registered = sum(1 for r in results if r.get("status") in (0, 200, 201))
     failed = len(results) - registered
@@ -816,17 +812,18 @@ def _emit_sync_summary(outcome: dict[str, Any], output_format: str, *, dry_run: 
 
     if outcome["registry"]:
         r = outcome["registry"]
-        line = (f"📌 Registry: +{r['added']} added, ~{r['updated']} updated"
-                + (f", −{r['pruned']} pruned" if r['pruned'] else "")
-                + f" → {r['total']} total")
+        line = (
+            f"📌 Registry: +{r['added']} added, ~{r['updated']} updated"
+            + (f", −{r['pruned']} pruned" if r["pruned"] else "")
+            + f" → {r['total']} total"
+        )
         print(line, file=sys.stderr)
     elif "registry_upsert" in outcome["phases_skipped"] and not dry_run:
         print("⏭  Registry upsert skipped", file=sys.stderr)
 
     if outcome["cortex"]:
         c = outcome["cortex"]
-        print(f"☁️  Cortex: {c['registered']} registered, {c['failed']} failed "
-              f"({c['cortex_url']})", file=sys.stderr)
+        print(f"☁️  Cortex: {c['registered']} registered, {c['failed']} failed ({c['cortex_url']})", file=sys.stderr)
     elif "cortex_post" in outcome["phases_skipped"]:
         reason = "(--no-cortex)" if not dry_run else "(dry-run)"
         print(f"⏭  Cortex POST skipped {reason}", file=sys.stderr)
@@ -914,6 +911,7 @@ def _resolve_cortex_config(args) -> tuple[str | None, str | None]:
         return arg_url.rstrip("/"), arg_key
 
     from empirica.config.credentials_loader import get_credentials_loader
+
     cfg = get_credentials_loader().get_cortex_config()
     url = arg_url or cfg.get("url")
     key = arg_key or cfg.get("api_key")
@@ -983,11 +981,14 @@ def _link_user_to_project(
     payload = {"project_id": project_id}
     try:
         status, _body = _post_project(
-            cortex_url, CORTEX_USER_PROJECTS_PATH, payload, api_key, timeout,
+            cortex_url,
+            CORTEX_USER_PROJECTS_PATH,
+            payload,
+            api_key,
+            timeout,
         )
     except (urllib.error.URLError, OSError, TimeoutError) as e:
-        return {"linked": False, "status": 0,
-                "reason": f"network: {type(e).__name__}: {e}"}
+        return {"linked": False, "status": 0, "reason": f"network: {type(e).__name__}: {e}"}
     if status in (200, 201, 204, 409):
         return {"linked": True, "status": status}
     return {"linked": False, "status": status, "reason": f"http {status}"}
@@ -1042,16 +1043,20 @@ def _register_one_project(
             if isinstance(body, dict):
                 project_id = body.get("project_id") or body.get("id")
             register_result = {
-                "name": project["name"], "outcome": "registered",
-                "status": status, "project_id": project_id,
+                "name": project["name"],
+                "outcome": "registered",
+                "status": status,
+                "project_id": project_id,
             }
             break
         if status == 409:
             if isinstance(body, dict):
                 project_id = body.get("project_id") or body.get("id")
             register_result = {
-                "name": project["name"], "outcome": "skipped",
-                "status": 409, "reason": "already_exists",
+                "name": project["name"],
+                "outcome": "skipped",
+                "status": 409,
+                "reason": "already_exists",
                 "project_id": project_id,
             }
             break
@@ -1065,19 +1070,22 @@ def _register_one_project(
         }
 
     if register_result is None:
-        return {"name": project["name"], "outcome": "failed", "status": 0,
-                "reason": "exhausted endpoints"}
+        return {"name": project["name"], "outcome": "failed", "status": 0, "reason": "exhausted endpoints"}
 
     # Defensive user-link (closes prop_oqijggci4fctlejurnryhomccm). Best-effort —
     # register itself already succeeded; a link failure does NOT flip the
     # outcome. Surfaced under `link` so callers can surface stragglers.
     if project_id:
         register_result["link"] = _link_user_to_project(
-            cortex_url, project_id, api_key, timeout,
+            cortex_url,
+            project_id,
+            api_key,
+            timeout,
         )
     else:
         register_result["link"] = {
-            "linked": False, "status": 0,
+            "linked": False,
+            "status": 0,
             "reason": "no project_id in register response",
         }
     return register_result
@@ -1095,22 +1103,26 @@ def _format_register_summary(
         counts[r["outcome"]] = counts.get(r["outcome"], 0) + 1
 
     if output_format == "json":
-        return json.dumps({
-            "ok": counts["failed"] == 0,
-            "dry_run": dry_run,
-            "cortex_url": cortex_url,
-            "summary": counts,
-            "results": results,
-        }, indent=2) + "\n"
+        return (
+            json.dumps(
+                {
+                    "ok": counts["failed"] == 0,
+                    "dry_run": dry_run,
+                    "cortex_url": cortex_url,
+                    "summary": counts,
+                    "results": results,
+                },
+                indent=2,
+            )
+            + "\n"
+        )
 
     lines: list[str] = []
     if dry_run:
         lines.append(f"DRY-RUN: would register {len(results)} projects on Cortex")
     else:
         lines.append(
-            f"Registered {counts['registered']}, "
-            f"skipped {counts['skipped']} (already exist), "
-            f"failed {counts['failed']}"
+            f"Registered {counts['registered']}, skipped {counts['skipped']} (already exist), failed {counts['failed']}"
         )
     if counts["failed"]:
         lines.append("")
@@ -1122,9 +1134,7 @@ def _format_register_summary(
     return "\n".join(lines)
 
 
-def _load_projects_for_register(
-    manifest_arg: str | None, from_discovered: bool
-) -> list[dict[str, Any]] | None:
+def _load_projects_for_register(manifest_arg: str | None, from_discovered: bool) -> list[dict[str, Any]] | None:
     """Source projects for bulk-register.
 
     Default: read the user's curated `~/.empirica/registry.yaml` (the same
@@ -1160,6 +1170,7 @@ def _load_projects_for_register(
 
     # Default: source from the curated registry.yaml
     from empirica.api.registry import DEFAULT_REGISTRY_PATH, load_registry
+
     registry = load_registry()
     if not registry.get("projects"):
         print(
@@ -1223,11 +1234,15 @@ def handle_projects_bulk_register_command(args) -> None:
 
         # Dry-run short-circuit: no Cortex round-trip needed
         if dry_run:
-            results = [{"name": p["name"], "outcome": "registered", "status": 0,
-                        "reason": "dry-run"} for p in projects]
-            sys.stdout.write(_format_register_summary(
-                results, output_format, dry_run=True, cortex_url=None,
-            ))
+            results = [{"name": p["name"], "outcome": "registered", "status": 0, "reason": "dry-run"} for p in projects]
+            sys.stdout.write(
+                _format_register_summary(
+                    results,
+                    output_format,
+                    dry_run=True,
+                    cortex_url=None,
+                )
+            )
             return
 
         # Live run: resolve Cortex config, POST each project
@@ -1253,13 +1268,17 @@ def handle_projects_bulk_register_command(args) -> None:
             )
 
         results = [
-            _register_one_project(p, cortex_url, api_key, timeout,
-                                  force_metadata_update=force_metadata)
+            _register_one_project(p, cortex_url, api_key, timeout, force_metadata_update=force_metadata)
             for p in projects
         ]
-        sys.stdout.write(_format_register_summary(
-            results, output_format, dry_run=False, cortex_url=cortex_url,
-        ))
+        sys.stdout.write(
+            _format_register_summary(
+                results,
+                output_format,
+                dry_run=False,
+                cortex_url=cortex_url,
+            )
+        )
     except Exception as e:
         handle_cli_error(e, "projects-bulk-register")
 
@@ -1284,7 +1303,8 @@ def _resolve_project_id_from_yaml() -> str | None:
 
 
 def _classify_unregister_outcome(
-    status: int, purge: bool,
+    status: int,
+    purge: bool,
 ) -> tuple[bool, str]:
     """Map cortex /v1/projects/unregister status code → (ok, outcome)."""
     if status in (200, 201, 204):
@@ -1365,7 +1385,11 @@ def handle_projects_unregister_command(args) -> None:
             payload["slug"] = slug
 
         status, body = _post_project(
-            cortex_url, CORTEX_UNREGISTER_PATH, payload, api_key, timeout,
+            cortex_url,
+            CORTEX_UNREGISTER_PATH,
+            payload,
+            api_key,
+            timeout,
         )
 
         ok, outcome = _classify_unregister_outcome(status, purge)
@@ -1388,8 +1412,7 @@ def handle_projects_unregister_command(args) -> None:
                 ident = project_id or slug or "?"
                 print(f"✅ {verb} project {ident} on cortex (status={status})")
             else:
-                print(f"❌ Unregister failed: {outcome} (status={status})",
-                      file=sys.stderr)
+                print(f"❌ Unregister failed: {outcome} (status={status})", file=sys.stderr)
                 if body and body.get("reason"):
                     print(f"   {body['reason']}", file=sys.stderr)
 
@@ -1404,8 +1427,8 @@ def handle_projects_unregister_command(args) -> None:
 
 def _project_register_error(message: str, hint: str, output_format: str) -> int:
     """Emit an actionable error for project-register. Returns the exit code."""
-    if output_format == 'json':
-        print(json.dumps({'ok': False, 'error': message, 'hint': hint}, indent=2))
+    if output_format == "json":
+        print(json.dumps({"ok": False, "error": message, "hint": hint}, indent=2))
     else:
         print(f"❌ {message}", file=sys.stderr)
         print(f"   {hint}", file=sys.stderr)
@@ -1438,74 +1461,81 @@ def handle_project_register_command(args) -> None:
       1 — local writes failed (nothing got written) OR config error
       2 — local writes shipped, cortex POST failed (re-runnable)
     """
-    output_format = getattr(args, 'output', 'human')
-    no_cortex = getattr(args, 'no_cortex', False)
-    skip_link = getattr(args, 'skip_user_link', False)
-    timeout = float(getattr(args, 'timeout', 10.0))
-    force_metadata_update = getattr(args, 'force_metadata_update', False)
+    output_format = getattr(args, "output", "human")
+    no_cortex = getattr(args, "no_cortex", False)
+    skip_link = getattr(args, "skip_user_link", False)
+    timeout = float(getattr(args, "timeout", 10.0))
+    force_metadata_update = getattr(args, "force_metadata_update", False)
 
     try:
         # 1. Resolve path
-        raw_path = getattr(args, 'path', None) or '.'
+        raw_path = getattr(args, "path", None) or "."
         project_path = Path(raw_path).resolve()
-        project_yaml_path = project_path / '.empirica' / 'project.yaml'
+        project_yaml_path = project_path / ".empirica" / "project.yaml"
 
         if not project_path.exists():
-            sys.exit(_project_register_error(
-                f"Path does not exist: {project_path}",
-                "Pass a path to a directory containing .empirica/project.yaml",
-                output_format,
-            ))
+            sys.exit(
+                _project_register_error(
+                    f"Path does not exist: {project_path}",
+                    "Pass a path to a directory containing .empirica/project.yaml",
+                    output_format,
+                )
+            )
         if not project_yaml_path.exists():
-            sys.exit(_project_register_error(
-                f"No .empirica/project.yaml at {project_path}",
-                f"Run 'empirica project-init' in {project_path} first.",
-                output_format,
-            ))
+            sys.exit(
+                _project_register_error(
+                    f"No .empirica/project.yaml at {project_path}",
+                    f"Run 'empirica project-init' in {project_path} first.",
+                    output_format,
+                )
+            )
 
         # 2. Read project.yaml
         try:
-            project_yaml = yaml.safe_load(project_yaml_path.read_text(encoding='utf-8')) or {}
+            project_yaml = yaml.safe_load(project_yaml_path.read_text(encoding="utf-8")) or {}
         except (OSError, yaml.YAMLError) as e:
-            sys.exit(_project_register_error(
-                f"Could not read {project_yaml_path}: {e}",
-                "Check file permissions and YAML syntax.",
-                output_format,
-            ))
+            sys.exit(
+                _project_register_error(
+                    f"Could not read {project_yaml_path}: {e}",
+                    "Check file permissions and YAML syntax.",
+                    output_format,
+                )
+            )
 
-        project_id = project_yaml.get('project_id')
+        project_id = project_yaml.get("project_id")
         if not project_id:
-            sys.exit(_project_register_error(
-                f"{project_yaml_path} has no project_id",
-                "Run 'empirica project-init --force' to mint and persist a project_id.",
-                output_format,
-            ))
+            sys.exit(
+                _project_register_error(
+                    f"{project_yaml_path} has no project_id",
+                    "Run 'empirica project-init --force' to mint and persist a project_id.",
+                    output_format,
+                )
+            )
 
-        name = (
-            project_yaml.get('display_name')
-            or project_yaml.get('name')
-            or project_path.name
-        )
-        description = project_yaml.get('description') or ''
-        project_type = project_yaml.get('type') or 'software'
-        repo_url = project_yaml.get('repository') or _git_remote_for_path(project_path)
+        name = project_yaml.get("display_name") or project_yaml.get("name") or project_path.name
+        description = project_yaml.get("description") or ""
+        project_type = project_yaml.get("type") or "software"
+        repo_url = project_yaml.get("repository") or _git_remote_for_path(project_path)
 
         # 3. Dual-write workspace.db (global_projects + entity_registry)
         from .workspace_init import _register_in_workspace_db
+
         ws_ok = _register_in_workspace_db(
             project_id=project_id,
             name=name,
-            trajectory_path=str(project_path / '.empirica'),
+            trajectory_path=str(project_path / ".empirica"),
             description=description,
             git_remote_url=repo_url,
             project_type=project_type,
         )
         if not ws_ok:
-            sys.exit(_project_register_error(
-                "Failed to write workspace.db",
-                "Check ~/.empirica/workspace/workspace.db permissions and disk space.",
-                output_format,
-            ))
+            sys.exit(
+                _project_register_error(
+                    "Failed to write workspace.db",
+                    "Check ~/.empirica/workspace/workspace.db permissions and disk space.",
+                    output_format,
+                )
+            )
 
         # 4. Upsert registry.yaml
         from empirica.api.registry import (
@@ -1513,11 +1543,12 @@ def handle_project_register_command(args) -> None:
             save_registry,
             upsert_project,
         )
+
         registry = load_registry()
         upsert_project(
             registry,
             project_id=project_id,
-            slug=project_yaml.get('slug') or name,
+            slug=project_yaml.get("slug") or name,
             name=name,
             path=str(project_path),
             repo_url=repo_url,
@@ -1525,11 +1556,11 @@ def handle_project_register_command(args) -> None:
         save_registry(registry)
 
         local_summary = {
-            'project_id': project_id,
-            'name': name,
-            'path': str(project_path),
-            'workspace_db': True,
-            'registry_yaml': True,
+            "project_id": project_id,
+            "name": name,
+            "path": str(project_path),
+            "workspace_db": True,
+            "registry_yaml": True,
         }
 
         # 5. Cortex POST (unless --no-cortex)
@@ -1546,18 +1577,14 @@ def handle_project_register_command(args) -> None:
 
         # 6. Report + exit
         result = {
-            'ok': True,
-            'local': local_summary,
-            'cortex': cortex_outcome,
+            "ok": True,
+            "local": local_summary,
+            "cortex": cortex_outcome,
         }
 
-        cortex_failed = (
-            not no_cortex
-            and not cortex_outcome.get('skipped')
-            and not cortex_outcome.get('ok')
-        )
+        cortex_failed = not no_cortex and not cortex_outcome.get("skipped") and not cortex_outcome.get("ok")
 
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(result, indent=2))
         else:
             _format_project_register_human(result)
@@ -1590,39 +1617,46 @@ def _project_register_cortex_step(
     Returns the cortex_outcome dict the handler emits in `result['cortex']`.
     """
     if no_cortex:
-        return {'skipped': True, 'reason': '--no-cortex'}
+        return {"skipped": True, "reason": "--no-cortex"}
 
     cortex_url, api_key = _resolve_cortex_config(args)
     if not (cortex_url and api_key):
         return {
-            'skipped': True,
-            'reason': 'no cortex_url/api_key resolved (configure ~/.empirica/credentials.yaml)',
+            "skipped": True,
+            "reason": "no cortex_url/api_key resolved (configure ~/.empirica/credentials.yaml)",
         }
 
     payload: dict[str, Any] = {
-        'project_id': project_id,  # ask cortex to adopt the local UUID
-        'name': name,
-        'display_name': name,
+        "project_id": project_id,  # ask cortex to adopt the local UUID
+        "name": name,
+        "display_name": name,
     }
     if repo_url:
-        payload['repo_url'] = repo_url
+        payload["repo_url"] = repo_url
     if force_metadata_update:
-        payload['force_metadata_update'] = True
+        payload["force_metadata_update"] = True
 
     try:
         status, body = _post_project(
-            cortex_url, CORTEX_REGISTER_PATH, payload, api_key, timeout,
+            cortex_url,
+            CORTEX_REGISTER_PATH,
+            payload,
+            api_key,
+            timeout,
         )
     except (urllib.error.URLError, OSError, TimeoutError) as e:
         return {
-            'ok': False,
-            'reason': f"network: {type(e).__name__}: {e}",
+            "ok": False,
+            "reason": f"network: {type(e).__name__}: {e}",
         }
 
     cortex_outcome = _interpret_cortex_register_response(status, body, project_id)
-    if cortex_outcome.get('ok') and not skip_link and cortex_outcome.get('project_id'):
-        cortex_outcome['link'] = _link_user_to_project(
-            cortex_url, cortex_outcome['project_id'], api_key, timeout,
+    if cortex_outcome.get("ok") and not skip_link and cortex_outcome.get("project_id"):
+        cortex_outcome["link"] = _link_user_to_project(
+            cortex_url,
+            cortex_outcome["project_id"],
+            api_key,
+            timeout,
         )
     return cortex_outcome
 
@@ -1630,10 +1664,13 @@ def _project_register_cortex_step(
 def _git_remote_for_path(project_path: Path) -> str | None:
     """git remote get-url origin in the given path. None on miss."""
     import subprocess
+
     try:
         result = subprocess.run(
-            ['git', '-C', str(project_path), 'remote', 'get-url', 'origin'],
-            capture_output=True, text=True, timeout=5,
+            ["git", "-C", str(project_path), "remote", "get-url", "origin"],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         url = result.stdout.strip()
         return url if (result.returncode == 0 and url) else None
@@ -1654,52 +1691,52 @@ def _interpret_cortex_register_response(
     the mismatch so callers can surface it.
     """
     if status in (200, 201):
-        returned_id = (body or {}).get('project_id') or (body or {}).get('id')
+        returned_id = (body or {}).get("project_id") or (body or {}).get("id")
         diverged = bool(returned_id and returned_id != local_project_id)
         return {
-            'ok': True,
-            'status': status,
-            'outcome': 'registered',
-            'project_id': returned_id or local_project_id,
-            'diverged': diverged,
-            'local_project_id': local_project_id if diverged else None,
+            "ok": True,
+            "status": status,
+            "outcome": "registered",
+            "project_id": returned_id or local_project_id,
+            "diverged": diverged,
+            "local_project_id": local_project_id if diverged else None,
         }
     if status == 409:
-        returned_id = (body or {}).get('project_id') or (body or {}).get('id')
+        returned_id = (body or {}).get("project_id") or (body or {}).get("id")
         diverged = bool(returned_id and returned_id != local_project_id)
         return {
-            'ok': True,
-            'status': 409,
-            'outcome': 'already_registered',
-            'project_id': returned_id or local_project_id,
-            'diverged': diverged,
-            'local_project_id': local_project_id if diverged else None,
+            "ok": True,
+            "status": 409,
+            "outcome": "already_registered",
+            "project_id": returned_id or local_project_id,
+            "diverged": diverged,
+            "local_project_id": local_project_id if diverged else None,
         }
     return {
-        'ok': False,
-        'status': status,
-        'outcome': 'failed',
-        'reason': f"http {status}",
+        "ok": False,
+        "status": status,
+        "outcome": "failed",
+        "reason": f"http {status}",
     }
 
 
 def _format_project_register_human(result: dict[str, Any]) -> None:
     """Render the project-register result for human stdout."""
-    local = result['local']
-    cortex = result['cortex']
+    local = result["local"]
+    cortex = result["cortex"]
 
     print("✅ Local: dual-write + registry.yaml")
     print(f"   project_id:  {local['project_id']}")
     print(f"   name:        {local['name']}")
     print(f"   path:        {local['path']}")
 
-    if cortex.get('skipped'):
-        reason = cortex.get('reason') or 'skipped'
+    if cortex.get("skipped"):
+        reason = cortex.get("reason") or "skipped"
         print(f"\n⊙ Cortex: skipped ({reason})")
-    elif cortex.get('ok'):
-        verb = 'registered' if cortex.get('outcome') == 'registered' else 'already registered'
+    elif cortex.get("ok"):
+        verb = "registered" if cortex.get("outcome") == "registered" else "already registered"
         print(f"\n✅ Cortex: {verb} (status={cortex.get('status')})")
-        if cortex.get('diverged'):
+        if cortex.get("diverged"):
             print(
                 f"   ⚠ project_id divergence: cortex returned "
                 f"{cortex.get('project_id')} (local: {cortex.get('local_project_id')})",
@@ -1711,19 +1748,17 @@ def _format_project_register_human(result: dict[str, Any]) -> None:
                 "extension renders the divergence diagnostically.",
                 file=sys.stderr,
             )
-        link = cortex.get('link') or {}
-        if link.get('linked') is False and link.get('reason'):
+        link = cortex.get("link") or {}
+        if link.get("linked") is False and link.get("reason"):
             print(f"   ⚠ user-link best-effort: {link.get('reason')}", file=sys.stderr)
     else:
         print(
-            f"\n❌ Cortex: {cortex.get('outcome', 'failed')} "
-            f"(status={cortex.get('status', 0)})",
+            f"\n❌ Cortex: {cortex.get('outcome', 'failed')} (status={cortex.get('status', 0)})",
             file=sys.stderr,
         )
-        if cortex.get('reason'):
+        if cortex.get("reason"):
             print(f"   {cortex['reason']}", file=sys.stderr)
         print(
-            "\n   Local writes succeeded — re-run 'empirica project register' "
-            "to retry cortex.",
+            "\n   Local writes succeeded — re-run 'empirica project register' to retry cortex.",
             file=sys.stderr,
         )

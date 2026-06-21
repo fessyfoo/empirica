@@ -94,7 +94,8 @@ def test_resolve_profile_still_returns_prose_when_only_markdown_changed(monkeypa
     collector = PostTestCollector(session_id="test", phase="praxic")
     _force_auto_profile(collector, monkeypatch)
     monkeypatch.setattr(
-        collector, "_get_session_changed_files",
+        collector,
+        "_get_session_changed_files",
         lambda: ["README.md", "notes.txt"],
     )
     profile = collector._resolve_profile()
@@ -106,7 +107,8 @@ def test_resolve_profile_returns_code_for_python_files(monkeypatch):
     collector = PostTestCollector(session_id="test", phase="praxic")
     _force_auto_profile(collector, monkeypatch)
     monkeypatch.setattr(
-        collector, "_get_session_changed_files",
+        collector,
+        "_get_session_changed_files",
         lambda: ["empirica/foo.py"],
     )
     profile = collector._resolve_profile()
@@ -135,6 +137,7 @@ def test_insufficient_profile_skips_profile_collectors(monkeypatch):
         def _stub(*args, **kwargs):
             invoked.append(name)
             return []
+
         return _stub
 
     universal_methods = [
@@ -160,12 +163,8 @@ def test_insufficient_profile_skips_profile_collectors(monkeypatch):
     assert "_collect_goal_metrics" in invoked
 
     # Profile-specific collectors do NOT run
-    assert "_collect_test_results" not in invoked, (
-        "pytest collector should not run for INSUFFICIENT profile"
-    )
-    assert "_collect_git_metrics" not in invoked, (
-        "git collector should not run for INSUFFICIENT profile"
-    )
+    assert "_collect_test_results" not in invoked, "pytest collector should not run for INSUFFICIENT profile"
+    assert "_collect_git_metrics" not in invoked, "git collector should not run for INSUFFICIENT profile"
     assert "_collect_code_quality_metrics" not in invoked, (
         "code_quality collector should not run for INSUFFICIENT profile"
     )
@@ -189,8 +188,10 @@ def test_collect_all_captures_source_errors_with_type_and_message(monkeypatch):
     monkeypatch.setattr(collector, "_collect_artifact_metrics", boom)
     # Stub the other universal collectors as no-ops
     for method in [
-        "_collect_goal_metrics", "_collect_issue_metrics",
-        "_collect_triage_metrics", "_collect_codebase_model_metrics",
+        "_collect_goal_metrics",
+        "_collect_issue_metrics",
+        "_collect_triage_metrics",
+        "_collect_codebase_model_metrics",
         "_collect_non_git_file_metrics",
     ]:
         monkeypatch.setattr(collector, method, lambda: [])
@@ -218,8 +219,10 @@ def test_collect_all_distinguishes_empty_from_failed(monkeypatch):
     monkeypatch.setattr(collector, "_collect_artifact_metrics", lambda: [])
     # other universal collectors as no-ops
     for method in [
-        "_collect_goal_metrics", "_collect_issue_metrics",
-        "_collect_triage_metrics", "_collect_codebase_model_metrics",
+        "_collect_goal_metrics",
+        "_collect_issue_metrics",
+        "_collect_triage_metrics",
+        "_collect_codebase_model_metrics",
         "_collect_non_git_file_metrics",
     ]:
         monkeypatch.setattr(collector, method, lambda: [])
@@ -248,8 +251,10 @@ def test_collect_all_source_errors_truncates_long_messages(monkeypatch):
 
     monkeypatch.setattr(collector, "_collect_artifact_metrics", boom)
     for method in [
-        "_collect_goal_metrics", "_collect_issue_metrics",
-        "_collect_triage_metrics", "_collect_codebase_model_metrics",
+        "_collect_goal_metrics",
+        "_collect_issue_metrics",
+        "_collect_triage_metrics",
+        "_collect_codebase_model_metrics",
         "_collect_non_git_file_metrics",
     ]:
         monkeypatch.setattr(collector, method, lambda: [])

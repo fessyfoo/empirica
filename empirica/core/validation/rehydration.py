@@ -35,9 +35,7 @@ class EpistemicRehydration:
         self.ai_id = ai_id
 
     def rehydrate_from_checkpoint(
-        self,
-        checkpoint_data: dict[str, Any],
-        my_knowledge_assessment: dict[str, float]
+        self, checkpoint_data: dict[str, Any], my_knowledge_assessment: dict[str, float]
     ) -> dict[str, Any]:
         """
         I'm resuming from a checkpoint. What should I understand before starting?
@@ -97,11 +95,9 @@ class EpistemicRehydration:
             "recommended_preflight_know": round(recommended_know, 2),
             "warnings": warnings,
             "ready_to_proceed": ready,
-            "message": self._format_rehydration_message(
-                understanding_ratio, confidence_boost, warnings, ready
-            ),
+            "message": self._format_rehydration_message(understanding_ratio, confidence_boost, warnings, ready),
             "session_id": self.session_id,
-            "ai_id": self.ai_id
+            "ai_id": self.ai_id,
         }
 
     def _identify_rehydration_warnings(
@@ -110,7 +106,7 @@ class EpistemicRehydration:
         unknowns: list[dict],
         deadends: list[dict],
         understanding_ratio: float,
-        my_knowledge: dict[str, float]
+        my_knowledge: dict[str, float],
     ) -> list[str]:
         """
         Identify potential issues during rehydration.
@@ -130,23 +126,19 @@ class EpistemicRehydration:
         # Warning 1: Low understanding
         if understanding_ratio < 0.5:
             warnings.append(
-                f"Low understanding of findings ({understanding_ratio*100:.0f}%) - "
+                f"Low understanding of findings ({understanding_ratio * 100:.0f}%) - "
                 "recommend additional investigation before proceeding"
             )
 
         # Warning 2: Many unknowns
         if len(unknowns) > 8:
-            warnings.append(
-                f"Many unknowns remaining ({len(unknowns)}) - "
-                "problem may be more complex than appears"
-            )
+            warnings.append(f"Many unknowns remaining ({len(unknowns)}) - problem may be more complex than appears")
 
         # Warning 3: Deadends without clear reason
         unexplained_deadends = [d for d in deadends if not d.get("blocker")]
         if unexplained_deadends:
             warnings.append(
-                f"{len(unexplained_deadends)} deadends without clear blockers - "
-                "understand why before retrying"
+                f"{len(unexplained_deadends)} deadends without clear blockers - understand why before retrying"
             )
 
         # Warning 4: My knowledge doesn't match findings complexity
@@ -160,23 +152,16 @@ class EpistemicRehydration:
         # Warning 5: Contradictory signals
         findings_confidence = sum(f.get("certainty", 0.5) for f in findings) / max(len(findings), 1)
         if findings_confidence < 0.6 and len(findings) > 3:
-            warnings.append(
-                "Low confidence findings despite many discoveries - "
-                "previous AI may have been uncertain"
-            )
+            warnings.append("Low confidence findings despite many discoveries - previous AI may have been uncertain")
 
         return warnings
 
     def _format_rehydration_message(
-        self,
-        understanding_ratio: float,
-        confidence_boost: float,
-        warnings: list[str],
-        ready: bool
+        self, understanding_ratio: float, confidence_boost: float, warnings: list[str], ready: bool
     ) -> str:
         """Format human-readable rehydration message"""
         msg = "\n📚 Epistemic Rehydration:\n"
-        msg += f"   Understanding: {understanding_ratio*100:.0f}%\n"
+        msg += f"   Understanding: {understanding_ratio * 100:.0f}%\n"
         msg += f"   Confidence boost: +{confidence_boost:.3f}\n"
 
         if warnings:
@@ -192,9 +177,7 @@ class EpistemicRehydration:
         return msg
 
     def calculate_adjusted_preflight(
-        self,
-        checkpoint_data: dict[str, Any],
-        my_base_assessment: dict[str, float]
+        self, checkpoint_data: dict[str, Any], my_base_assessment: dict[str, float]
     ) -> dict[str, float]:
         """
         Calculate adjusted PREFLIGHT vectors based on rehydration.
@@ -208,10 +191,7 @@ class EpistemicRehydration:
         Returns:
             Adjusted assessment dict with same keys as input
         """
-        rehydration = self.rehydrate_from_checkpoint(
-            checkpoint_data,
-            my_base_assessment
-        )
+        rehydration = self.rehydrate_from_checkpoint(checkpoint_data, my_base_assessment)
 
         adjusted = my_base_assessment.copy()
 

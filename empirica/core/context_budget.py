@@ -58,15 +58,18 @@ logger = logging.getLogger(__name__)
 
 # --- Memory Zones ---
 
+
 class MemoryZone(str, Enum):
     """Context window memory zones (like Linux memory zones)."""
-    ANCHOR = "anchor"      # Non-evictable, always resident
-    WORKING = "working"    # Active task context, managed by priority
-    CACHE = "cache"        # Preloaded, evicted first under pressure
+
+    ANCHOR = "anchor"  # Non-evictable, always resident
+    WORKING = "working"  # Active task context, managed by priority
+    CACHE = "cache"  # Preloaded, evicted first under pressure
 
 
 class ContentType(str, Enum):
     """Types of content that occupy context window space."""
+
     CALIBRATION = "calibration"
     PROTOCOL = "protocol"
     FINDING = "finding"
@@ -82,6 +85,7 @@ class ContentType(str, Enum):
 
 class InjectionChannel(str, Enum):
     """How content gets injected into context."""
+
     HOOK = "hook"
     SKILL = "skill"
     MCP = "mcp"
@@ -91,8 +95,10 @@ class InjectionChannel(str, Enum):
 
 # --- Extended Event Types ---
 
+
 class BudgetEventTypes:
     """Event types published by the Context Budget Manager."""
+
     MEMORY_PRESSURE = "memory_pressure"
     CONTEXT_EVICTED = "context_evicted"
     CONTEXT_INJECTED = "context_injected"
@@ -103,6 +109,7 @@ class BudgetEventTypes:
 
 # --- Data Models ---
 
+
 @dataclass
 class ContextItem:
     """A single item occupying space in the context window.
@@ -110,6 +117,7 @@ class ContextItem:
     Like a memory page: has an address (id), size (estimated_tokens),
     priority (for replacement), and zone (anchor/working/cache).
     """
+
     id: str
     zone: MemoryZone
     content_type: ContentType
@@ -191,6 +199,7 @@ class BudgetThresholds:
 
     Like sysctl vm.* parameters in Linux.
     """
+
     total_capacity: int = 200000
     anchor_reserve: int = 15000
     working_set_target: int = 150000
@@ -202,7 +211,7 @@ class BudgetThresholds:
     pressure_threshold: float = 0.85
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> 'BudgetThresholds':
+    def from_dict(cls, d: dict[str, Any]) -> "BudgetThresholds":
         """Create from dictionary, ignoring unknown keys."""
         known = {f.name for f in cls.__dataclass_fields__.values()}
         return cls(**{k: v for k, v in d.items() if k in known})
@@ -214,6 +223,7 @@ class BudgetThresholds:
 @dataclass
 class BudgetReport:
     """Snapshot of current context budget state (like /proc/meminfo)."""
+
     timestamp: float
     session_id: str
     total_capacity: int
@@ -245,6 +255,7 @@ class BudgetReport:
 @dataclass
 class EvictionResult:
     """Result of an eviction operation."""
+
     evicted_items: list[ContextItem]
     tokens_freed: int
     reason: str
@@ -254,6 +265,7 @@ class EvictionResult:
 @dataclass
 class InjectionRequest:
     """Request to inject content into context window."""
+
     content_id: str
     reason: str
     content_type: ContentType
@@ -265,6 +277,7 @@ class InjectionRequest:
 
 
 # --- The Manager ---
+
 
 class ContextBudgetManager(EpistemicObserver):
     """
@@ -333,19 +346,12 @@ class ContextBudgetManager(EpistemicObserver):
         vector = drop_data.get("vector", "know")
         value = drop_data.get("value", 0.0)
 
-        logger.info(
-            f"Budget manager: page fault - {vector} dropped to {value:.2f}"
-        )
+        logger.info(f"Budget manager: page fault - {vector} dropped to {value:.2f}")
 
         if vector in ("know", "context"):
-            self._request_bootstrap_injection(
-                reason=f"{vector}_dropped_to_{value:.2f}"
-            )
+            self._request_bootstrap_injection(reason=f"{vector}_dropped_to_{value:.2f}")
         elif vector == "uncertainty":
-            self._request_protocol_injection(
-                "ask_before_investigate",
-                reason=f"uncertainty_spike_{value:.2f}"
-            )
+            self._request_protocol_injection("ask_before_investigate", reason=f"uncertainty_spike_{value:.2f}")
 
     def _on_postflight_complete(self, event: EpistemicEvent):
         """Decay stale items after postflight for session {event.session_id}."""
@@ -354,25 +360,24 @@ class ContextBudgetManager(EpistemicObserver):
 
     def _on_drift_detected(self, event: EpistemicEvent):
         """Inject relevant protocols on calibration drift."""
-        self._request_protocol_injection(
-            "epistemic_conduct",
-            reason=f"calibration_drift_detected_{event.session_id}"
-        )
+        self._request_protocol_injection("epistemic_conduct", reason=f"calibration_drift_detected_{event.session_id}")
 
     def _on_goal_created(self, event: EpistemicEvent):
         """Register new goal as working set item."""
         goal_data = event.data
-        self.register_item(ContextItem(
-            id=f"goal_{goal_data.get('goal_id', uuid.uuid4().hex[:8])}",
-            zone=MemoryZone.WORKING,
-            content_type=ContentType.GOAL,
-            source="goals-create",
-            channel=InjectionChannel.MCP,
-            label=goal_data.get("objective", "Unknown goal")[:80],
-            estimated_tokens=200,
-            epistemic_value=0.8,
-            evictable=False,
-        ))
+        self.register_item(
+            ContextItem(
+                id=f"goal_{goal_data.get('goal_id', uuid.uuid4().hex[:8])}",
+                zone=MemoryZone.WORKING,
+                content_type=ContentType.GOAL,
+                source="goals-create",
+                channel=InjectionChannel.MCP,
+                label=goal_data.get("objective", "Unknown goal")[:80],
+                estimated_tokens=200,
+                epistemic_value=0.8,
+                evictable=False,
+            )
+        )
 
     def _on_goal_completed(self, event: EpistemicEvent):
         """Move completed goal from working to cache."""
@@ -407,9 +412,7 @@ class ContextBudgetManager(EpistemicObserver):
                 return False
 
         self._inventory[item.id] = item
-        logger.debug(
-            f"Registered: {item.label} ({item.estimated_tokens}t, {item.zone.value})"
-        )
+        logger.debug(f"Registered: {item.label} ({item.estimated_tokens}t, {item.zone.value})")
         return True
 
     def unregister_item(self, item_id: str) -> ContextItem | None:
@@ -446,21 +449,14 @@ class ContextBudgetManager(EpistemicObserver):
 
     # --- Eviction ---
 
-    def evict_lowest_priority(
-        self, tokens_needed: int, reason: str = "pressure"
-    ) -> EvictionResult:
+    def evict_lowest_priority(self, tokens_needed: int, reason: str = "pressure") -> EvictionResult:
         """Evict lowest-priority items to free space.
 
         Page replacement algorithm: score all evictable items,
         remove lowest-priority first until enough space freed.
         """
-        evictable = [
-            item for item in self._inventory.values()
-            if item.evictable
-        ]
-        evictable.sort(
-            key=lambda i: i.compute_priority(self.thresholds.decay_rate)
-        )
+        evictable = [item for item in self._inventory.values() if item.evictable]
+        evictable.sort(key=lambda i: i.compute_priority(self.thresholds.decay_rate))
 
         evicted = []
         freed = 0
@@ -482,30 +478,23 @@ class ContextBudgetManager(EpistemicObserver):
         if evicted:
             self._eviction_count += len(evicted)
             self._eviction_log.append(result)
-            logger.info(
-                f"Evicted {len(evicted)} items, freed {freed} tokens "
-                f"(reason: {reason})"
+            logger.info(f"Evicted {len(evicted)} items, freed {freed} tokens (reason: {reason})")
+            self._publish_event(
+                BudgetEventTypes.CONTEXT_EVICTED,
+                {
+                    "items_evicted": len(evicted),
+                    "tokens_freed": freed,
+                    "reason": reason,
+                    "evicted_labels": [i.label[:50] for i in evicted],
+                },
             )
-            self._publish_event(BudgetEventTypes.CONTEXT_EVICTED, {
-                "items_evicted": len(evicted),
-                "tokens_freed": freed,
-                "reason": reason,
-                "evicted_labels": [i.label[:50] for i in evicted],
-            })
 
         return result
 
-    def _evict_from_zone(
-        self, zone: MemoryZone, tokens_needed: int, reason: str
-    ) -> EvictionResult:
+    def _evict_from_zone(self, zone: MemoryZone, tokens_needed: int, reason: str) -> EvictionResult:
         """Evict from a specific zone."""
-        evictable = [
-            item for item in self._inventory.values()
-            if item.zone == zone and item.evictable
-        ]
-        evictable.sort(
-            key=lambda i: i.compute_priority(self.thresholds.decay_rate)
-        )
+        evictable = [item for item in self._inventory.values() if item.zone == zone and item.evictable]
+        evictable.sort(key=lambda i: i.compute_priority(self.thresholds.decay_rate))
 
         evicted = []
         freed = 0
@@ -541,20 +530,21 @@ class ContextBudgetManager(EpistemicObserver):
                 f"Memory pressure: {report.utilization:.1%} utilization "
                 f"({report.total_used}/{report.total_capacity} tokens)"
             )
-            self._publish_event(BudgetEventTypes.MEMORY_PRESSURE, {
-                "utilization": report.utilization,
-                "total_used": report.total_used,
-                "total_capacity": report.total_capacity,
-                "eviction_candidates": report.eviction_candidates,
-            })
+            self._publish_event(
+                BudgetEventTypes.MEMORY_PRESSURE,
+                {
+                    "utilization": report.utilization,
+                    "total_used": report.total_used,
+                    "total_capacity": report.total_capacity,
+                    "eviction_candidates": report.eviction_candidates,
+                },
+            )
 
             if self.thresholds.eviction_aggressiveness > 0.5:
                 target = int(report.total_capacity * 0.7)
                 to_free = report.total_used - target
                 if to_free > 0:
-                    self.evict_lowest_priority(
-                        to_free, reason="auto_pressure_relief"
-                    )
+                    self.evict_lowest_priority(to_free, reason="auto_pressure_relief")
 
     def _decay_all_items(self):
         """Apply time decay to all items (like aging pages)."""
@@ -573,9 +563,7 @@ class ContextBudgetManager(EpistemicObserver):
 
         if evict_candidates:
             self._eviction_count += len(evict_candidates)
-            logger.info(
-                f"Decay pass: evicted {len(evict_candidates)} stale items"
-            )
+            logger.info(f"Decay pass: evicted {len(evict_candidates)} stale items")
 
     # --- Injection Requests ---
 
@@ -589,15 +577,11 @@ class ContextBudgetManager(EpistemicObserver):
         if total_used + request.estimated_tokens > self.thresholds.total_capacity:
             if request.priority != "critical":
                 logger.info(
-                    f"Injection rejected: {request.content_id} "
-                    f"({request.estimated_tokens}t would exceed budget)"
+                    f"Injection rejected: {request.content_id} ({request.estimated_tokens}t would exceed budget)"
                 )
                 return False
             else:
-                self.evict_lowest_priority(
-                    request.estimated_tokens,
-                    reason=f"critical_injection_{request.content_id}"
-                )
+                self.evict_lowest_priority(request.estimated_tokens, reason=f"critical_injection_{request.content_id}")
 
         handler = self._injection_handlers.get(request.preferred_channel)
         if handler:
@@ -607,10 +591,7 @@ class ContextBudgetManager(EpistemicObserver):
                 logger.error(f"Injection handler failed: {e}")
                 return False
 
-        zone = (
-            MemoryZone.WORKING if request.priority == "critical"
-            else MemoryZone.CACHE
-        )
+        zone = MemoryZone.WORKING if request.priority == "critical" else MemoryZone.CACHE
         item = ContextItem(
             id=request.content_id,
             zone=zone,
@@ -624,12 +605,15 @@ class ContextBudgetManager(EpistemicObserver):
         )
         self.register_item(item)
 
-        self._publish_event(BudgetEventTypes.CONTEXT_INJECTED, {
-            "content_id": request.content_id,
-            "reason": request.reason,
-            "tokens": request.estimated_tokens,
-            "channel": request.preferred_channel.value,
-        })
+        self._publish_event(
+            BudgetEventTypes.CONTEXT_INJECTED,
+            {
+                "content_id": request.content_id,
+                "reason": request.reason,
+                "tokens": request.estimated_tokens,
+                "channel": request.preferred_channel.value,
+            },
+        )
         return True
 
     def register_injection_handler(
@@ -643,14 +627,16 @@ class ContextBudgetManager(EpistemicObserver):
 
     def _request_bootstrap_injection(self, reason: str):
         """Request project bootstrap data injection."""
-        self.request_injection(InjectionRequest(
-            content_id="project_bootstrap",
-            reason=reason,
-            content_type=ContentType.BOOTSTRAP,
-            preferred_channel=InjectionChannel.MCP,
-            estimated_tokens=5000,
-            epistemic_value=0.8,
-        ))
+        self.request_injection(
+            InjectionRequest(
+                content_id="project_bootstrap",
+                reason=reason,
+                content_type=ContentType.BOOTSTRAP,
+                preferred_channel=InjectionChannel.MCP,
+                estimated_tokens=5000,
+                epistemic_value=0.8,
+            )
+        )
 
     def _request_protocol_injection(self, protocol_name: str, reason: str):
         """Request MCO protocol injection via skill channel."""
@@ -661,15 +647,17 @@ class ContextBudgetManager(EpistemicObserver):
             "personas": 2500,
             "protocols": 1000,
         }
-        self.request_injection(InjectionRequest(
-            content_id=f"protocol_{protocol_name}",
-            reason=reason,
-            content_type=ContentType.PROTOCOL,
-            preferred_channel=InjectionChannel.SKILL,
-            estimated_tokens=token_estimates.get(protocol_name, 2000),
-            epistemic_value=0.7,
-            metadata={"protocol_name": protocol_name},
-        ))
+        self.request_injection(
+            InjectionRequest(
+                content_id=f"protocol_{protocol_name}",
+                reason=reason,
+                content_type=ContentType.PROTOCOL,
+                preferred_channel=InjectionChannel.SKILL,
+                estimated_tokens=token_estimates.get(protocol_name, 2000),
+                epistemic_value=0.7,
+                metadata={"protocol_name": protocol_name},
+            )
+        )
 
     # --- Zone Accounting ---
 
@@ -684,11 +672,7 @@ class ContextBudgetManager(EpistemicObserver):
 
     def _get_zone_usage(self, zone: MemoryZone) -> int:
         """Get current token usage for a zone."""
-        return sum(
-            item.estimated_tokens
-            for item in self._inventory.values()
-            if item.zone == zone
-        )
+        return sum(item.estimated_tokens for item in self._inventory.values() if item.zone == zone)
 
     def _get_total_usage(self) -> int:
         """Get total token usage across all zones."""
@@ -704,16 +688,10 @@ class ContextBudgetManager(EpistemicObserver):
         cache_used = self._get_zone_usage(MemoryZone.CACHE)
 
         all_items = list(self._inventory.values())
-        scored = [
-            (item, item.compute_priority(self.thresholds.decay_rate))
-            for item in all_items
-        ]
+        scored = [(item, item.compute_priority(self.thresholds.decay_rate)) for item in all_items]
         scored.sort(key=lambda x: x[1], reverse=True)
 
-        eviction_candidates = sum(
-            1 for _, score in scored
-            if score < self.thresholds.min_priority_threshold
-        )
+        eviction_candidates = sum(1 for _, score in scored if score < self.thresholds.min_priority_threshold)
         utilization = total_used / max(self.thresholds.total_capacity, 1)
 
         return BudgetReport(
@@ -730,21 +708,13 @@ class ContextBudgetManager(EpistemicObserver):
             cache_used=cache_used,
             cache_limit=self.thresholds.cache_limit,
             total_items=len(all_items),
-            anchor_items=len(
-                [i for i in all_items if i.zone == MemoryZone.ANCHOR]
-            ),
-            working_items=len(
-                [i for i in all_items if i.zone == MemoryZone.WORKING]
-            ),
-            cache_items=len(
-                [i for i in all_items if i.zone == MemoryZone.CACHE]
-            ),
+            anchor_items=len([i for i in all_items if i.zone == MemoryZone.ANCHOR]),
+            working_items=len([i for i in all_items if i.zone == MemoryZone.WORKING]),
+            cache_items=len([i for i in all_items if i.zone == MemoryZone.CACHE]),
             under_pressure=utilization >= self.thresholds.pressure_threshold,
             eviction_candidates=eviction_candidates,
             top_items=[item.to_dict() for item, _ in scored[:5]],
-            bottom_items=(
-                [item.to_dict() for item, _ in scored[-5:]] if scored else []
-            ),
+            bottom_items=([item.to_dict() for item, _ in scored[-5:]] if scored else []),
         )
 
     def get_inventory_summary(self) -> dict[str, Any]:
@@ -772,12 +742,14 @@ class ContextBudgetManager(EpistemicObserver):
         """Publish event on the epistemic bus."""
         try:
             bus = get_global_bus()
-            bus.publish(EpistemicEvent(
-                event_type=event_type,
-                agent_id=f"cbm:{self.node_id}",
-                session_id=self.session_id,
-                data={**data, "node_id": self.node_id},
-            ))
+            bus.publish(
+                EpistemicEvent(
+                    event_type=event_type,
+                    agent_id=f"cbm:{self.node_id}",
+                    session_id=self.session_id,
+                    data={**data, "node_id": self.node_id},
+                )
+            )
         except Exception as e:
             logger.debug(f"Could not publish event: {e}")
 
@@ -787,6 +759,7 @@ class ContextBudgetManager(EpistemicObserver):
         """Persist budget state to database for cross-session continuity."""
         try:
             from empirica.data.session_database import SessionDatabase
+
             db = SessionDatabase()
             if db.conn is None:
                 logger.error("No database connection")
@@ -806,26 +779,26 @@ class ContextBudgetManager(EpistemicObserver):
                 )
             """)
 
-            inventory_data = {
-                item_id: item.to_dict()
-                for item_id, item in self._inventory.items()
-            }
+            inventory_data = {item_id: item.to_dict() for item_id, item in self._inventory.items()}
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO context_budget_state
                 (session_id, node_id, inventory_json, thresholds_json,
                  page_faults, evictions, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                self.session_id,
-                self.node_id,
-                json.dumps(inventory_data),
-                json.dumps(self.thresholds.to_dict()),
-                self._page_fault_count,
-                self._eviction_count,
-                self.created_at,
-                time.time(),
-            ))
+            """,
+                (
+                    self.session_id,
+                    self.node_id,
+                    json.dumps(inventory_data),
+                    json.dumps(self.thresholds.to_dict()),
+                    self._page_fault_count,
+                    self._eviction_count,
+                    self.created_at,
+                    time.time(),
+                ),
+            )
 
             db.conn.commit()
             db.close()
@@ -836,6 +809,7 @@ class ContextBudgetManager(EpistemicObserver):
 
 
 # --- Token Estimation ---
+
 
 def estimate_tokens(text: str) -> int:
     """Estimate token count for a text string.
@@ -849,17 +823,17 @@ def estimate_tokens(text: str) -> int:
 
 # --- Threshold Loading ---
 
+
 def load_thresholds_from_config() -> BudgetThresholds:
     """Load budget thresholds from MCO config directory."""
     from pathlib import Path
 
-    config_path = (
-        Path(__file__).parent.parent / "config" / "mco" / "context_budget.yaml"
-    )
+    config_path = Path(__file__).parent.parent / "config" / "mco" / "context_budget.yaml"
 
     if config_path.exists():
         try:
             import yaml
+
             with open(config_path) as f:
                 data = yaml.safe_load(f) or {}
             thresholds_data = data.get("context_budget", data)
@@ -885,9 +859,7 @@ def get_budget_manager(
 
     if _global_manager is None:
         if session_id is None:
-            raise ValueError(
-                "session_id required for first creation of budget manager"
-            )
+            raise ValueError("session_id required for first creation of budget manager")
         if thresholds is None:
             thresholds = load_thresholds_from_config()
 
@@ -896,9 +868,7 @@ def get_budget_manager(
             thresholds=thresholds,
             node_id=node_id,
         )
-        logger.info(
-            f"Created global ContextBudgetManager for session {session_id}"
-        )
+        logger.info(f"Created global ContextBudgetManager for session {session_id}")
 
     return _global_manager
 

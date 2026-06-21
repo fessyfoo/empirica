@@ -18,9 +18,7 @@ from pathlib import Path
 import yaml
 
 HOOK_PATH = (
-    Path(__file__).parent.parent
-    / "empirica" / "plugins" / "claude-code-integration"
-    / "hooks" / "session-init.py"
+    Path(__file__).parent.parent / "empirica" / "plugins" / "claude-code-integration" / "hooks" / "session-init.py"
 )
 
 
@@ -45,10 +43,7 @@ def _make_workspace_db(tmp_path: Path, trajectory: str, project_uuid: str) -> Pa
     ws_dir.mkdir(parents=True)
     db = ws_dir / "workspace.db"
     conn = sqlite3.connect(str(db))
-    conn.execute(
-        "CREATE TABLE global_projects ("
-        "id TEXT PRIMARY KEY, name TEXT, trajectory_path TEXT)"
-    )
+    conn.execute("CREATE TABLE global_projects (id TEXT PRIMARY KEY, name TEXT, trajectory_path TEXT)")
     conn.execute(
         "INSERT INTO global_projects (id, name, trajectory_path) VALUES (?, ?, ?)",
         (project_uuid, "test-proj", trajectory),
@@ -62,10 +57,17 @@ def _make_project_yaml(project_root: Path, project_id_value: str) -> Path:
     """Create a .empirica/project.yaml with the given project_id."""
     (project_root / ".empirica").mkdir(parents=True)
     yaml_path = project_root / ".empirica" / "project.yaml"
-    yaml_path.write_text(yaml.safe_dump({
-        "name": "Test", "ai_id": "test", "project_id": project_id_value,
-        "version": "2.0",
-    }, sort_keys=False))
+    yaml_path.write_text(
+        yaml.safe_dump(
+            {
+                "name": "Test",
+                "ai_id": "test",
+                "project_id": project_id_value,
+                "version": "2.0",
+            },
+            sort_keys=False,
+        )
+    )
     return yaml_path
 
 
@@ -152,15 +154,20 @@ def test_preserves_other_yaml_fields(tmp_path, monkeypatch):
     proj = tmp_path / "myproj"
     (proj / ".empirica").mkdir(parents=True)
     yaml_path = proj / ".empirica" / "project.yaml"
-    yaml_path.write_text(yaml.safe_dump({
-        "version": "2.0",
-        "name": "Custom Name",
-        "ai_id": "myai",
-        "project_id": "myproj",
-        "description": "preserve me",
-        "tags": ["a", "b"],
-        "evidence_profile": "code",
-    }, sort_keys=False))
+    yaml_path.write_text(
+        yaml.safe_dump(
+            {
+                "version": "2.0",
+                "name": "Custom Name",
+                "ai_id": "myai",
+                "project_id": "myproj",
+                "description": "preserve me",
+                "tags": ["a", "b"],
+                "evidence_profile": "code",
+            },
+            sort_keys=False,
+        )
+    )
     _make_workspace_db(tmp_path, str(proj / ".empirica"), uuid)
 
     mod._heal_project_yaml_project_id_at_init(str(proj))

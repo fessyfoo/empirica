@@ -51,6 +51,7 @@ def _read_work_phase(project_path: str | None, instance_id: str | None) -> str |
         return None
     try:
         from empirica.core.cockpit.instance_state import _read_transaction_state
+
         state = _read_transaction_state(project_path, instance_id)
     except Exception:
         return None
@@ -58,6 +59,7 @@ def _read_work_phase(project_path: str | None, instance_id: str | None) -> str |
     if phase in ("noetic", "praxic"):
         return phase
     return None
+
 
 # Vector → display label mappings. Two-letter labels avoid the
 # context/clarity/completion collision that single-letter abbrevs hit.
@@ -171,9 +173,17 @@ class StatuslinePanel(Static):
         # renderers expect (same shapes the CC plugin uses).
         vectors: dict[str, float] = {}
         for k in (
-            "know", "uncertainty", "context", "clarity",
-            "coherence", "signal", "density",
-            "state", "change", "completion", "impact",
+            "know",
+            "uncertainty",
+            "context",
+            "clarity",
+            "coherence",
+            "signal",
+            "density",
+            "state",
+            "change",
+            "completion",
+            "impact",
         ):
             v = getattr(summary, k, None)
             if v is not None:
@@ -217,10 +227,12 @@ class StatuslinePanel(Static):
         parts = []
         if badge:
             parts.append(badge)
-        parts.extend([
-            format_confidence(conf, backend=_BACKEND),
-            format_open_counts(open_counts, backend=_BACKEND),
-        ])
+        parts.extend(
+            [
+                format_confidence(conf, backend=_BACKEND),
+                format_open_counts(open_counts, backend=_BACKEND),
+            ]
+        )
         for k, lbl in _FULL_LABELS:
             v = vectors.get(k)
             if v is not None:

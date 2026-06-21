@@ -29,6 +29,7 @@ References:
 - Sahoo et al. (NeurIPS 2021): "Reliable Decisions with Threshold Calibration"
 - Gneiting & Raftery (2007): "Strictly Proper Scoring Rules, Prediction, and Estimation"
 """
+
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -57,38 +58,39 @@ def _load_calibration_config() -> dict:
     """
     try:
         from empirica.config.threshold_loader import ThresholdLoader
+
         loader = ThresholdLoader.get_instance()
         return {
             "baselines": {
                 "ready_know_threshold": loader.get(
-                    'cascade.ready_know_threshold',
+                    "cascade.ready_know_threshold",
                     _FALLBACK_BASELINES["ready_know_threshold"],
                 ),
                 "ready_uncertainty_threshold": loader.get(
-                    'cascade.ready_uncertainty_threshold',
+                    "cascade.ready_uncertainty_threshold",
                     _FALLBACK_BASELINES["ready_uncertainty_threshold"],
                 ),
             },
             "ceilings": {
                 "ready_know_threshold": loader.get(
-                    'calibration.safety_ceiling_know',
+                    "calibration.safety_ceiling_know",
                     _FALLBACK_CEILINGS["ready_know_threshold"],
                 ),
                 "ready_uncertainty_threshold": loader.get(
-                    'calibration.safety_ceiling_uncertainty',
+                    "calibration.safety_ceiling_uncertainty",
                     _FALLBACK_CEILINGS["ready_uncertainty_threshold"],
                 ),
             },
             "max_inflation": loader.get(
-                'calibration.max_inflation',
+                "calibration.max_inflation",
                 _FALLBACK_MAX_INFLATION,
             ),
             "min_transactions": loader.get(
-                'calibration.min_transactions',
+                "calibration.min_transactions",
                 _FALLBACK_MIN_TRANSACTIONS,
             ),
             "lookback": loader.get(
-                'calibration.lookback',
+                "calibration.lookback",
                 _FALLBACK_LOOKBACK,
             ),
         }
@@ -106,12 +108,13 @@ def _load_calibration_config() -> dict:
 @dataclass
 class BrierDecomposition:
     """Murphy (1973) decomposition of Brier score."""
-    brier_score: float       # Overall: 0 = perfect, 1 = worst
-    reliability: float       # Calibration error: 0 = perfectly calibrated
-    resolution: float        # Discrimination: higher = better at distinguishing
-    uncertainty: float       # Domain difficulty: not controllable
-    n_predictions: int       # Sample size
-    n_bins: int              # Bins used for decomposition
+
+    brier_score: float  # Overall: 0 = perfect, 1 = worst
+    reliability: float  # Calibration error: 0 = perfectly calibrated
+    resolution: float  # Discrimination: higher = better at distinguishing
+    uncertainty: float  # Domain difficulty: not controllable
+    n_predictions: int  # Sample size
+    n_bins: int  # Bins used for decomposition
 
 
 def compute_brier_score(predictions: list[tuple[float, float]]) -> float:
@@ -159,12 +162,14 @@ def compute_check_brier(
         actual = 1.0 if cr.get("passed") else 0.0
         contribution = (predicted - actual) ** 2
         pairs.append((predicted, actual))
-        per_check.append({
-            "check_id": cr.get("check_id", "unknown"),
-            "predicted_pass": predicted,
-            "actual_pass": actual == 1.0,
-            "brier_contribution": round(contribution, 4),
-        })
+        per_check.append(
+            {
+                "check_id": cr.get("check_id", "unknown"),
+                "predicted_pass": predicted,
+                "actual_pass": actual == 1.0,
+                "brier_contribution": round(contribution, 4),
+            }
+        )
 
     if not pairs:
         return None
@@ -175,10 +180,7 @@ def compute_check_brier(
         "n_predictions": len(pairs),
         "per_check": per_check,
         "interpretation": (
-            "perfect" if brier < 0.01 else
-            "good" if brier < 0.1 else
-            "moderate" if brier < 0.25 else
-            "poor"
+            "perfect" if brier < 0.01 else "good" if brier < 0.1 else "moderate" if brier < 0.25 else "poor"
         ),
     }
 
@@ -200,8 +202,12 @@ def compute_brier_decomposition(
     """
     if not predictions:
         return BrierDecomposition(
-            brier_score=1.0, reliability=1.0, resolution=0.0,
-            uncertainty=0.25, n_predictions=0, n_bins=0,
+            brier_score=1.0,
+            reliability=1.0,
+            resolution=0.0,
+            uncertainty=0.25,
+            n_predictions=0,
+            n_bins=0,
         )
 
     n = len(predictions)
@@ -224,8 +230,8 @@ def compute_brier_decomposition(
     resolution = 0.0
     for _bin_idx, bin_items in bins.items():
         n_k = len(bin_items)
-        f_k = sum(p for p, _ in bin_items) / n_k   # Mean forecast in bin
-        o_k = sum(o for _, o in bin_items) / n_k    # Mean observed in bin
+        f_k = sum(p for p, _ in bin_items) / n_k  # Mean forecast in bin
+        o_k = sum(o for _, o in bin_items) / n_k  # Mean observed in bin
 
         reliability += (n_k / n) * (f_k - o_k) ** 2
         resolution += (n_k / n) * (o_k - o_bar) ** 2
@@ -317,13 +323,16 @@ def compute_dynamic_thresholds(
 
         for phase in ["noetic", "praxic"]:
             # Get recent trajectory points with both self-assessed and grounded
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT self_assessed, grounded
                 FROM calibration_trajectory
                 WHERE ai_id = ? AND phase = ? AND grounded IS NOT NULL
                 ORDER BY timestamp DESC
                 LIMIT ?
-            """, (ai_id, phase, lb))
+            """,
+                (ai_id, phase, lb),
+            )
 
             rows = cursor.fetchall()
 
@@ -404,13 +413,16 @@ def get_brier_profile(
             phase_filter = "AND phase = ?" if phase != "combined" else ""
             params = [ai_id] + ([phase] if phase != "combined" else []) + [lookback]
 
-            cursor.execute(f"""
+            cursor.execute(
+                f"""
                 SELECT self_assessed, grounded
                 FROM calibration_trajectory
                 WHERE ai_id = ? {phase_filter} AND grounded IS NOT NULL
                 ORDER BY timestamp DESC
                 LIMIT ?
-            """, params)
+            """,
+                params,
+            )
 
             rows = cursor.fetchall()
             if len(rows) < 3:
@@ -421,8 +433,8 @@ def get_brier_profile(
             decomp = compute_brier_decomposition(predictions)
 
             # Compute recent vs historical for trend
-            recent = predictions[:len(predictions) // 2] if len(predictions) >= 6 else predictions
-            historical = predictions[len(predictions) // 2:] if len(predictions) >= 6 else []
+            recent = predictions[: len(predictions) // 2] if len(predictions) >= 6 else predictions
+            historical = predictions[len(predictions) // 2 :] if len(predictions) >= 6 else []
 
             trend = "stable"
             if historical:
@@ -457,13 +469,13 @@ def _find_brier_section(lines: list[str]) -> tuple[int, int]:
     in_section = False
 
     for i, line in enumerate(lines):
-        if '# Brier calibration' in line and section_start == -1:
+        if "# Brier calibration" in line and section_start == -1:
             section_start = i
-        elif line.strip().startswith('brier_calibration:'):
+        elif line.strip().startswith("brier_calibration:"):
             if section_start == -1:
                 section_start = i
             in_section = True
-        elif in_section and line.strip() and not line.startswith(' ') and not line.startswith('\t'):
+        elif in_section and line.strip() and not line.startswith(" ") and not line.startswith("\t"):
             section_end = i
             break
 
@@ -498,8 +510,10 @@ def export_brier_to_breadcrumbs(
     if not git_root:
         try:
             result = subprocess.run(
-                ['git', 'rev-parse', '--show-toplevel'],
-                capture_output=True, text=True, timeout=5,
+                ["git", "rev-parse", "--show-toplevel"],
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if result.returncode == 0:
                 git_root = result.stdout.strip()
@@ -508,7 +522,7 @@ def export_brier_to_breadcrumbs(
         except Exception:
             return False
 
-    breadcrumbs_path = os.path.join(git_root, '.breadcrumbs.yaml')
+    breadcrumbs_path = os.path.join(git_root, ".breadcrumbs.yaml")
 
     profile = get_brier_profile(ai_id, db)
     if not profile:
@@ -530,7 +544,7 @@ def export_brier_to_breadcrumbs(
         "brier_calibration:\n",
         f'  last_updated: "{timestamp}"\n',
         f"  ai_id: {ai_id}\n",
-        "  note: \"Murphy (1973) decomposition: BS = Reliability - Resolution + Uncertainty\"\n",
+        '  note: "Murphy (1973) decomposition: BS = Reliability - Resolution + Uncertainty"\n',
     ]
 
     for phase in ["noetic", "praxic", "combined"]:
@@ -554,7 +568,7 @@ def export_brier_to_breadcrumbs(
         lines.append(f"    n_predictions: {data['n_predictions']}\n")
         lines.append(f"    trend: {data.get('trend', 'stable')}\n")
 
-    yaml_block = ''.join(lines)
+    yaml_block = "".join(lines)
 
     # Read existing file, find/replace brier_calibration section
     try:
@@ -566,17 +580,13 @@ def export_brier_to_breadcrumbs(
         section_start, section_end = _find_brier_section(existing_lines)
 
         if section_start >= 0:
-            new_lines = (
-                existing_lines[:section_start]
-                + [yaml_block]
-                + existing_lines[section_end:]
-            )
+            new_lines = existing_lines[:section_start] + [yaml_block] + existing_lines[section_end:]
         elif existing_lines:
             new_lines = existing_lines + [yaml_block]
         else:
             new_lines = [yaml_block]
 
-        with open(breadcrumbs_path, 'w') as f:
+        with open(breadcrumbs_path, "w") as f:
             f.writelines(new_lines)
 
         return True

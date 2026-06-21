@@ -9,11 +9,4 @@ MVP implementation focuses on explicit goal creation (AI creates goals directly 
 from .repository import GoalRepository
 from .types import Dependency, DependencyType, Goal, ScopeVector, SuccessCriterion
 
-__all__ = [
-    'Dependency',
-    'DependencyType',
-    'Goal',
-    'GoalRepository',
-    'ScopeVector',
-    'SuccessCriterion'
-]
+__all__ = ["Dependency", "DependencyType", "Goal", "GoalRepository", "ScopeVector", "SuccessCriterion"]

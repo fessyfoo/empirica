@@ -36,8 +36,9 @@ from empirica.core.cockpit.launcher.state import (
 class LaunchResult:
     """Returned by ``launch_cockpit``. Lets the caller decide whether
     to attach interactively or print a summary."""
+
     session_name: str
-    created: bool          # True if a new session was created; False if attached to existing
+    created: bool  # True if a new session was created; False if attached to existing
     windows_created: list[str]
     status_windows_created: list[str]
     error: str | None = None
@@ -47,7 +48,7 @@ def _tmux(*args: str, check: bool = False) -> subprocess.CompletedProcess:
     """Run a tmux command, capturing output. Doesn't raise on non-zero
     by default — callers inspect ``returncode`` and ``stderr``."""
     return subprocess.run(
-        ['tmux', *args],
+        ["tmux", *args],
         capture_output=True,
         text=True,
         check=check,
@@ -57,14 +58,14 @@ def _tmux(*args: str, check: bool = False) -> subprocess.CompletedProcess:
 
 def tmux_available() -> bool:
     """True iff the ``tmux`` binary is on PATH."""
-    return shutil.which('tmux') is not None
+    return shutil.which("tmux") is not None
 
 
 def cockpit_session_exists(session_name: str) -> bool:
     """Check whether a tmux session with the given name is running."""
     if not tmux_available():
         return False
-    result = _tmux('has-session', '-t', session_name)
+    result = _tmux("has-session", "-t", session_name)
     return result.returncode == 0
 
 
@@ -84,7 +85,7 @@ def launch_cockpit(config: LauncherConfig) -> LaunchResult:
             created=False,
             windows_created=[],
             status_windows_created=[],
-            error='tmux binary not found on PATH',
+            error="tmux binary not found on PATH",
         )
 
     # Idempotent: if the session exists, just record we're attaching.
@@ -104,7 +105,7 @@ def launch_cockpit(config: LauncherConfig) -> LaunchResult:
             created=False,
             windows_created=[],
             status_windows_created=[],
-            error='config has no projects and no status windows — nothing to launch',
+            error="config has no projects and no status windows — nothing to launch",
         )
 
     write_session_start()
@@ -116,10 +117,14 @@ def launch_cockpit(config: LauncherConfig) -> LaunchResult:
     if config.projects:
         first = config.projects[0]
         result = _tmux(
-            'new-session', '-d',
-            '-s', config.session_name,
-            '-n', first.name,
-            '-c', first.path,
+            "new-session",
+            "-d",
+            "-s",
+            config.session_name,
+            "-n",
+            first.name,
+            "-c",
+            first.path,
             first.launch,
         )
         if result.returncode != 0:
@@ -128,7 +133,7 @@ def launch_cockpit(config: LauncherConfig) -> LaunchResult:
                 created=False,
                 windows_created=[],
                 status_windows_created=[],
-                error=f'tmux new-session failed: {result.stderr.strip() or result.stdout.strip()}',
+                error=f"tmux new-session failed: {result.stderr.strip() or result.stdout.strip()}",
             )
         windows_created.append(first.name)
         remaining_projects = config.projects[1:]
@@ -136,9 +141,12 @@ def launch_cockpit(config: LauncherConfig) -> LaunchResult:
         # No projects — bootstrap with the first status window.
         first_status = config.status_windows[0]
         result = _tmux(
-            'new-session', '-d',
-            '-s', config.session_name,
-            '-n', first_status.name,
+            "new-session",
+            "-d",
+            "-s",
+            config.session_name,
+            "-n",
+            first_status.name,
             first_status.command,
         )
         if result.returncode != 0:
@@ -147,7 +155,7 @@ def launch_cockpit(config: LauncherConfig) -> LaunchResult:
                 created=False,
                 windows_created=[],
                 status_windows_created=[],
-                error=f'tmux new-session failed: {result.stderr.strip() or result.stdout.strip()}',
+                error=f"tmux new-session failed: {result.stderr.strip() or result.stdout.strip()}",
             )
         status_windows_created.append(first_status.name)
         remaining_projects = []
@@ -155,10 +163,13 @@ def launch_cockpit(config: LauncherConfig) -> LaunchResult:
     # Additional project windows
     for project in remaining_projects:
         result = _tmux(
-            'new-window',
-            '-t', config.session_name,
-            '-n', project.name,
-            '-c', project.path,
+            "new-window",
+            "-t",
+            config.session_name,
+            "-n",
+            project.name,
+            "-c",
+            project.path,
             project.launch,
         )
         if result.returncode == 0:
@@ -171,9 +182,11 @@ def launch_cockpit(config: LauncherConfig) -> LaunchResult:
         status_iter = config.status_windows[1:]
     for status in status_iter:
         result = _tmux(
-            'new-window',
-            '-t', config.session_name,
-            '-n', status.name,
+            "new-window",
+            "-t",
+            config.session_name,
+            "-n",
+            status.name,
             status.command,
         )
         if result.returncode == 0:
@@ -190,19 +203,19 @@ def launch_cockpit(config: LauncherConfig) -> LaunchResult:
     )
 
 
-def cockpit_kill(session_name: str = 'cockpit') -> tuple[bool, str | None]:
+def cockpit_kill(session_name: str = "cockpit") -> tuple[bool, str | None]:
     """Destroy the tmux session and write the clean-shutdown marker.
 
     Returns ``(success, error_message)``. Returns ``(True, None)`` even
     if the session didn't exist (idempotent).
     """
     if not tmux_available():
-        return False, 'tmux binary not found on PATH'
+        return False, "tmux binary not found on PATH"
 
     if cockpit_session_exists(session_name):
-        result = _tmux('kill-session', '-t', session_name)
+        result = _tmux("kill-session", "-t", session_name)
         if result.returncode != 0:
-            return False, f'tmux kill-session failed: {result.stderr.strip()}'
+            return False, f"tmux kill-session failed: {result.stderr.strip()}"
 
     # Clean shutdown marker even when the session didn't exist —
     # the operator's intent was to have the cockpit gone.
@@ -216,11 +229,12 @@ def cockpit_kill(session_name: str = 'cockpit') -> tuple[bool, str | None]:
 @dataclass
 class GroupLaunchResult:
     """Per-group bring-up result."""
+
     group_name: str
     tmux_session: str
-    created: bool                 # True = new tmux session created; False = adopted existing
-    panes_created: int            # 1 (initial) + N splits = total pane count actually in session
-    alacritty_pid: int | None     # PID of the spawned alacritty, or None if spawn failed/skipped
+    created: bool  # True = new tmux session created; False = adopted existing
+    panes_created: int  # 1 (initial) + N splits = total pane count actually in session
+    alacritty_pid: int | None  # PID of the spawned alacritty, or None if spawn failed/skipped
     alacritty_skipped: bool = False  # True when an existing client was found and we skipped spawning a duplicate
     error: str | None = None
 
@@ -228,8 +242,9 @@ class GroupLaunchResult:
 @dataclass
 class GroupsLaunchResult:
     """Aggregate result for ``launch_groups``."""
+
     groups: list[GroupLaunchResult] = field(default_factory=list)
-    error: str | None = None      # top-level error (e.g. tmux missing); per-group errors live on each result
+    error: str | None = None  # top-level error (e.g. tmux missing); per-group errors live on each result
 
     def all_ok(self) -> bool:
         return self.error is None and all(g.error is None for g in self.groups)
@@ -237,12 +252,12 @@ class GroupsLaunchResult:
 
 def alacritty_available() -> bool:
     """True iff ``alacritty`` is on PATH."""
-    return shutil.which('alacritty') is not None
+    return shutil.which("alacritty") is not None
 
 
 def _group_session_name(group_name: str) -> str:
     """Tmux session name for a group. Prefixed to namespace from ad-hoc sessions."""
-    return f'empirica-{group_name}'
+    return f"empirica-{group_name}"
 
 
 def _session_has_attached_client(session_name: str) -> bool:
@@ -255,7 +270,7 @@ def _session_has_attached_client(session_name: str) -> bool:
     """
     if not tmux_available():
         return False
-    result = _tmux('list-clients', '-t', session_name, '-F', '#{client_pid}')
+    result = _tmux("list-clients", "-t", session_name, "-F", "#{client_pid}")
     if result.returncode != 0:
         return False
     return any(line.strip() for line in result.stdout.splitlines())
@@ -275,7 +290,7 @@ def _resolve_pane(pane: PaneSpec, config: LauncherConfig) -> tuple[str | None, s
             # than the whole session failing.
             return None, f'echo "[empirica] unknown project: {pane.project_ref}" && bash'
         return proj.path, proj.launch
-    return None, pane.inline_command or 'bash'
+    return None, pane.inline_command or "bash"
 
 
 def _create_group_session(group: GroupSpec, config: LauncherConfig) -> tuple[bool, int, str | None]:
@@ -291,13 +306,13 @@ def _create_group_session(group: GroupSpec, config: LauncherConfig) -> tuple[boo
     or ``base-index 1`` (very common in user configs).
     """
     session_name = _group_session_name(group.name)
-    split_flag = '-h' if group.split == 'horizontal' else '-v'
+    split_flag = "-h" if group.split == "horizontal" else "-v"
 
     if cockpit_session_exists(session_name):
         # Adopt path: count existing panes in the active window.
         # Use just the session name — tmux defaults to its active window,
         # which is base-index-agnostic.
-        result = _tmux('list-panes', '-t', session_name, '-F', '#{pane_id}')
+        result = _tmux("list-panes", "-t", session_name, "-F", "#{pane_id}")
         existing = len([line for line in result.stdout.splitlines() if line.strip()])
         # Augment: if the session has fewer panes than the config wants,
         # split in the missing ones (running fresh commands per the config).
@@ -306,47 +321,50 @@ def _create_group_session(group: GroupSpec, config: LauncherConfig) -> tuple[boo
         if existing < configured:
             for pane in group.panes[existing:]:
                 cwd, cmd = _resolve_pane(pane, config)
-                split_args = ['split-window', '-t', session_name, split_flag]
+                split_args = ["split-window", "-t", session_name, split_flag]
                 if cwd:
-                    split_args += ['-c', cwd]
+                    split_args += ["-c", cwd]
                 split_args.append(cmd)
                 sresult = _tmux(*split_args)
                 if sresult.returncode == 0:
                     existing += 1
-            _tmux('select-layout', '-t', session_name,
-                  'even-horizontal' if group.split == 'horizontal' else 'even-vertical')
+            _tmux(
+                "select-layout",
+                "-t",
+                session_name,
+                "even-horizontal" if group.split == "horizontal" else "even-vertical",
+            )
         return False, existing, None
 
     if not group.panes:
-        return False, 0, f'group {group.name!r} has no panes'
+        return False, 0, f"group {group.name!r} has no panes"
 
     # Fresh path: create session with first pane, then split in the rest.
     first = group.panes[0]
     cwd, cmd = _resolve_pane(first, config)
-    args = ['new-session', '-d', '-s', session_name, '-n', group.name]
+    args = ["new-session", "-d", "-s", session_name, "-n", group.name]
     if cwd:
-        args += ['-c', cwd]
+        args += ["-c", cwd]
     args.append(cmd)
     result = _tmux(*args)
     if result.returncode != 0:
-        return False, 0, f'tmux new-session failed: {result.stderr.strip() or result.stdout.strip()}'
+        return False, 0, f"tmux new-session failed: {result.stderr.strip() or result.stdout.strip()}"
 
     panes_created = 1
 
     for pane in group.panes[1:]:
         cwd, cmd = _resolve_pane(pane, config)
         # Target by session name only — base-index-agnostic.
-        split_args = ['split-window', '-t', session_name, split_flag]
+        split_args = ["split-window", "-t", session_name, split_flag]
         if cwd:
-            split_args += ['-c', cwd]
+            split_args += ["-c", cwd]
         split_args.append(cmd)
         sresult = _tmux(*split_args)
         if sresult.returncode == 0:
             panes_created += 1
 
     # Even out pane sizes so a 2-pane horizontal split is 50/50.
-    _tmux('select-layout', '-t', session_name,
-          'even-horizontal' if group.split == 'horizontal' else 'even-vertical')
+    _tmux("select-layout", "-t", session_name, "even-horizontal" if group.split == "horizontal" else "even-vertical")
 
     return True, panes_created, None
 
@@ -359,17 +377,23 @@ def _spawn_alacritty(group_name: str, session_name: str, extra_args: list[str]) 
     cockpit windows.
     """
     if not alacritty_available():
-        return None, 'alacritty binary not found on PATH'
+        return None, "alacritty binary not found on PATH"
 
-    wm_class = f'empirica-{group_name}'
-    title = f'Empirica · {group_name}'
+    wm_class = f"empirica-{group_name}"
+    title = f"Empirica · {group_name}"
 
     cmd = [
-        'alacritty',
-        '--class', wm_class,
-        '--title', title,
+        "alacritty",
+        "--class",
+        wm_class,
+        "--title",
+        title,
         *extra_args,
-        '-e', 'tmux', 'attach-session', '-t', session_name,
+        "-e",
+        "tmux",
+        "attach-session",
+        "-t",
+        session_name,
     ]
 
     try:
@@ -386,7 +410,7 @@ def _spawn_alacritty(group_name: str, session_name: str, extra_args: list[str]) 
         )
         return proc.pid, None
     except OSError as exc:
-        return None, f'alacritty spawn failed: {exc}'
+        return None, f"alacritty spawn failed: {exc}"
 
 
 def launch_groups(config: LauncherConfig) -> GroupsLaunchResult:
@@ -400,10 +424,10 @@ def launch_groups(config: LauncherConfig) -> GroupsLaunchResult:
     sessions in fresh alacritty windows without losing claude state.
     """
     if not tmux_available():
-        return GroupsLaunchResult(error='tmux binary not found on PATH')
+        return GroupsLaunchResult(error="tmux binary not found on PATH")
 
     if not config.groups:
-        return GroupsLaunchResult(error='config has no groups — nothing to launch')
+        return GroupsLaunchResult(error="config has no groups — nothing to launch")
 
     write_session_start()
 
@@ -412,14 +436,16 @@ def launch_groups(config: LauncherConfig) -> GroupsLaunchResult:
         session_name = _group_session_name(group.name)
         created, pane_count, err = _create_group_session(group, config)
         if err:
-            results.append(GroupLaunchResult(
-                group_name=group.name,
-                tmux_session=session_name,
-                created=False,
-                panes_created=0,
-                alacritty_pid=None,
-                error=err,
-            ))
+            results.append(
+                GroupLaunchResult(
+                    group_name=group.name,
+                    tmux_session=session_name,
+                    created=False,
+                    panes_created=0,
+                    alacritty_pid=None,
+                    error=err,
+                )
+            )
             continue
 
         # Dedup: if the session already has a client attached (= an
@@ -427,14 +453,16 @@ def launch_groups(config: LauncherConfig) -> GroupsLaunchResult:
         # spawn a duplicate. Re-launching becomes idempotent at the
         # window level, not just the session level.
         if _session_has_attached_client(session_name):
-            results.append(GroupLaunchResult(
-                group_name=group.name,
-                tmux_session=session_name,
-                created=created,
-                panes_created=pane_count,
-                alacritty_pid=None,
-                alacritty_skipped=True,
-            ))
+            results.append(
+                GroupLaunchResult(
+                    group_name=group.name,
+                    tmux_session=session_name,
+                    created=created,
+                    panes_created=pane_count,
+                    alacritty_pid=None,
+                    alacritty_skipped=True,
+                )
+            )
             continue
 
         pid, alacritty_err = _spawn_alacritty(
@@ -442,14 +470,16 @@ def launch_groups(config: LauncherConfig) -> GroupsLaunchResult:
             session_name=session_name,
             extra_args=config.alacritty_args,
         )
-        results.append(GroupLaunchResult(
-            group_name=group.name,
-            tmux_session=session_name,
-            created=created,
-            panes_created=pane_count,
-            alacritty_pid=pid,
-            error=alacritty_err,
-        ))
+        results.append(
+            GroupLaunchResult(
+                group_name=group.name,
+                tmux_session=session_name,
+                created=created,
+                panes_created=pane_count,
+                alacritty_pid=pid,
+                error=alacritty_err,
+            )
+        )
 
     write_lock()
     return GroupsLaunchResult(groups=results)

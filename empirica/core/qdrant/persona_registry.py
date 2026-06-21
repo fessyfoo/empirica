@@ -91,15 +91,10 @@ class PersonaRegistry:
         "change",
         "completion",
         "impact",
-        "uncertainty"
+        "uncertainty",
     ]
 
-    def __init__(
-        self,
-        qdrant_host: str = "localhost",
-        qdrant_port: int = 6333,
-        prefer_grpc: bool = True
-    ):
+    def __init__(self, qdrant_host: str = "localhost", qdrant_port: int = 6333, prefer_grpc: bool = True):
         """
         Initialize PersonaRegistry
 
@@ -112,18 +107,12 @@ class PersonaRegistry:
             ConnectionError: If cannot connect to Qdrant
         """
         try:
-            self.client = QdrantClient(
-                host=qdrant_host,
-                port=qdrant_port,
-                prefer_grpc=prefer_grpc
-            )
+            self.client = QdrantClient(host=qdrant_host, port=qdrant_port, prefer_grpc=prefer_grpc)
 
             # Verify connection
             self.client.get_collections()
 
-            logger.info(
-                f"✓ Connected to Qdrant at {qdrant_host}:{qdrant_port}"
-            )
+            logger.info(f"✓ Connected to Qdrant at {qdrant_host}:{qdrant_port}")
 
         except Exception as e:
             logger.error(f"Failed to connect to Qdrant: {e}")
@@ -145,10 +134,7 @@ class PersonaRegistry:
 
             self.client.create_collection(
                 collection_name=self.COLLECTION_NAME,
-                vectors_config=VectorParams(
-                    size=self.VECTOR_SIZE,
-                    distance=Distance.COSINE
-                )
+                vectors_config=VectorParams(size=self.VECTOR_SIZE, distance=Distance.COSINE),
             )
 
             logger.info(f"✓ Created collection: {self.COLLECTION_NAME}")
@@ -186,21 +172,14 @@ class PersonaRegistry:
                 "created_at": public_persona["created_at"],
                 "reputation_score": public_persona["epistemic_config"]["priors"].get("uncertainty", 0.5),
                 "tags": public_persona["metadata"].get("tags", []),
-                "identity_ai_id": public_persona.get("identity_ai_id", "")
+                "identity_ai_id": public_persona.get("identity_ai_id", ""),
             }
 
             # Create point
-            point = PointStruct(
-                id=point_id,
-                vector=vector,
-                payload=metadata
-            )
+            point = PointStruct(id=point_id, vector=vector, payload=metadata)
 
             # Upsert point (insert or update)
-            self.client.upsert(
-                collection_name=self.COLLECTION_NAME,
-                points=[point]
-            )
+            self.client.upsert(collection_name=self.COLLECTION_NAME, points=[point])
 
             logger.info(
                 f"✓ Registered persona: {signing_persona.persona.persona_id} "
@@ -213,11 +192,7 @@ class PersonaRegistry:
             logger.error(f"Failed to register persona: {e}")
             raise ValueError(f"Cannot register persona: {e}") from e
 
-    def find_personas_by_domain(
-        self,
-        domain: str,
-        limit: int = 10
-    ) -> list[dict[str, Any]]:
+    def find_personas_by_domain(self, domain: str, limit: int = 10) -> list[dict[str, Any]]:
         """
         Find personas focused on a specific domain
 
@@ -255,11 +230,7 @@ class PersonaRegistry:
             logger.warning(f"Error finding personas by domain: {e}")
             return []
 
-    def find_personas_by_tag(
-        self,
-        tag: str,
-        limit: int = 10
-    ) -> list[dict[str, Any]]:
+    def find_personas_by_tag(self, tag: str, limit: int = 10) -> list[dict[str, Any]]:
         """
         Find personas by tag
 
@@ -271,10 +242,7 @@ class PersonaRegistry:
             List of matching personas
         """
         try:
-            results = self.client.scroll(
-                collection_name=self.COLLECTION_NAME,
-                limit=limit * 2
-            )
+            results = self.client.scroll(collection_name=self.COLLECTION_NAME, limit=limit * 2)
 
             matching = []
             for point in results[0]:
@@ -288,10 +256,7 @@ class PersonaRegistry:
             return []
 
     def find_similar_personas(
-        self,
-        signing_persona: SigningPersona,
-        limit: int = 5,
-        min_similarity: float = 0.7
+        self, signing_persona: SigningPersona, limit: int = 5, min_similarity: float = 0.7
     ) -> list[dict[str, Any]]:
         """
         Find personas with similar epistemic profiles
@@ -316,7 +281,7 @@ class PersonaRegistry:
                 collection_name=self.COLLECTION_NAME,
                 query_vector=query_vector,
                 limit=limit + 1,  # +1 to exclude self
-                query_filter=None
+                query_filter=None,
             )
 
             similar = []
@@ -349,10 +314,7 @@ class PersonaRegistry:
         """
         try:
             point_id = self._persona_id_to_point_id(persona_id)
-            point = self.client.retrieve(
-                collection_name=self.COLLECTION_NAME,
-                ids=[point_id]
-            )
+            point = self.client.retrieve(collection_name=self.COLLECTION_NAME, ids=[point_id])
 
             if not point:
                 return None
@@ -373,13 +335,10 @@ class PersonaRegistry:
         try:
             results = self.client.scroll(
                 collection_name=self.COLLECTION_NAME,
-                limit=10000  # Reasonable limit
+                limit=10000,  # Reasonable limit
             )
 
-            personas = [
-                self._point_to_persona_dict(point)
-                for point in results[0]
-            ]
+            personas = [self._point_to_persona_dict(point) for point in results[0]]
 
             logger.info(f"✓ Listed {len(personas)} personas")
             return personas
@@ -399,10 +358,7 @@ class PersonaRegistry:
             List of personas of that type
         """
         try:
-            results = self.client.scroll(
-                collection_name=self.COLLECTION_NAME,
-                limit=10000
-            )
+            results = self.client.scroll(collection_name=self.COLLECTION_NAME, limit=10000)
 
             matching = [
                 self._point_to_persona_dict(point)
@@ -417,10 +373,7 @@ class PersonaRegistry:
             return []
 
     def get_personas_by_reputation(
-        self,
-        min_reputation: float = 0.0,
-        max_reputation: float = 1.0,
-        limit: int = 10
+        self, min_reputation: float = 0.0, max_reputation: float = 1.0, limit: int = 10
     ) -> list[dict[str, Any]]:
         """
         Get high-reputation personas
@@ -437,10 +390,7 @@ class PersonaRegistry:
             all_personas = self.list_all_personas()
 
             # Filter by reputation
-            filtered = [
-                p for p in all_personas
-                if min_reputation <= p.get("reputation_score", 0.5) <= max_reputation
-            ]
+            filtered = [p for p in all_personas if min_reputation <= p.get("reputation_score", 0.5) <= max_reputation]
 
             # Sort by reputation (descending)
             filtered.sort(key=lambda x: x.get("reputation_score", 0.5), reverse=True)
@@ -463,10 +413,7 @@ class PersonaRegistry:
         """
         try:
             point_id = self._persona_id_to_point_id(persona_id)
-            self.client.delete(
-                collection_name=self.COLLECTION_NAME,
-                points_selector=point_id
-            )
+            self.client.delete(collection_name=self.COLLECTION_NAME, points_selector=point_id)
 
             logger.info(f"✓ Deleted persona: {persona_id}")
             return True
@@ -489,7 +436,7 @@ class PersonaRegistry:
                 "collection": self.COLLECTION_NAME,
                 "total_personas": collection_info.points_count,
                 "vectors_size": self.VECTOR_SIZE,
-                "vector_keys": self.VECTOR_KEYS
+                "vector_keys": self.VECTOR_KEYS,
             }
 
         except Exception as e:
@@ -543,21 +490,14 @@ class PersonaRegistry:
                 "source_session": provenance.get("session_id"),
                 "branch_id": agent_package.get("branch_id"),
                 "export_timestamp": agent_package.get("export_timestamp"),
-                "tags": ["epistemic_agent", "imported", agent_package.get("persona_id", "general")]
+                "tags": ["epistemic_agent", "imported", agent_package.get("persona_id", "general")],
             }
 
             # Create point
-            point = PointStruct(
-                id=point_id,
-                vector=vector,
-                payload=metadata
-            )
+            point = PointStruct(id=point_id, vector=vector, payload=metadata)
 
             # Upsert
-            self.client.upsert(
-                collection_name=self.COLLECTION_NAME,
-                points=[point]
-            )
+            self.client.upsert(collection_name=self.COLLECTION_NAME, points=[point])
 
             logger.info(f"✓ Registered agent: {agent_id} (point_id={point_id})")
             return str(point_id)
@@ -566,11 +506,7 @@ class PersonaRegistry:
             logger.error(f"Failed to register agent: {e}")
             raise ValueError(f"Cannot register agent: {e}") from e
 
-    def find_agents_by_domain(
-        self,
-        domain: str,
-        limit: int = 10
-    ) -> list[dict[str, Any]]:
+    def find_agents_by_domain(self, domain: str, limit: int = 10) -> list[dict[str, Any]]:
         """
         Find epistemic agents by investigation domain.
 
@@ -582,10 +518,7 @@ class PersonaRegistry:
             List of agent dicts with metadata
         """
         try:
-            results = self.client.scroll(
-                collection_name=self.COLLECTION_NAME,
-                limit=limit * 2
-            )
+            results = self.client.scroll(collection_name=self.COLLECTION_NAME, limit=limit * 2)
 
             matching = []
             for point in results[0]:
@@ -603,11 +536,7 @@ class PersonaRegistry:
             logger.warning(f"Error finding agents: {e}")
             return []
 
-    def find_agents_by_reputation(
-        self,
-        min_reputation: float = 0.5,
-        limit: int = 10
-    ) -> list[dict[str, Any]]:
+    def find_agents_by_reputation(self, min_reputation: float = 0.5, limit: int = 10) -> list[dict[str, Any]]:
         """
         Find high-reputation epistemic agents.
 
@@ -619,10 +548,7 @@ class PersonaRegistry:
             List of agents sorted by reputation
         """
         try:
-            results = self.client.scroll(
-                collection_name=self.COLLECTION_NAME,
-                limit=1000
-            )
+            results = self.client.scroll(collection_name=self.COLLECTION_NAME, limit=1000)
 
             agents = []
             for point in results[0]:
@@ -655,7 +581,7 @@ class PersonaRegistry:
             "source_project": point.payload.get("source_project"),
             "branch_id": point.payload.get("branch_id"),
             "tags": point.payload.get("tags", []),
-            "vector": point.vector if hasattr(point, 'vector') else None
+            "vector": point.vector if hasattr(point, "vector") else None,
         }
 
     # Helper methods
@@ -665,7 +591,7 @@ class PersonaRegistry:
         """Convert persona_id to Qdrant point ID"""
         # Use SHA256 hash of persona_id, then take first 8 bytes as int
         hash_val = sha256(persona_id.encode()).digest()
-        point_id = int.from_bytes(hash_val[:8], byteorder='big') % (2**31 - 1)
+        point_id = int.from_bytes(hash_val[:8], byteorder="big") % (2**31 - 1)
         return point_id
 
     @staticmethod
@@ -681,5 +607,5 @@ class PersonaRegistry:
             "created_at": point.payload.get("created_at"),
             "reputation_score": point.payload.get("reputation_score", 0.5),
             "tags": point.payload.get("tags", []),
-            "vector": point.vector if hasattr(point, 'vector') else None
+            "vector": point.vector if hasattr(point, "vector") else None,
         }

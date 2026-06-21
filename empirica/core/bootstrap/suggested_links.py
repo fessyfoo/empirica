@@ -100,9 +100,9 @@ def suggest_links_for_artifact(  # noqa: C901 — multi-step lookup, reads linea
         return []
 
     collections = [
-        _memory_collection(project_id),       # finding, unknown, dead_end, mistake
+        _memory_collection(project_id),  # finding, unknown, dead_end, mistake
         _assumptions_collection(project_id),  # assumption
-        _decisions_collection(project_id),    # decision
+        _decisions_collection(project_id),  # decision
     ]
 
     # Fetch a generous slice from each collection; we'll dedupe + cap below.
@@ -159,8 +159,7 @@ def suggest_links_for_artifact(  # noqa: C901 — multi-step lookup, reads linea
                     legacy_hits.append((point_id, score))
 
     if legacy_hits:
-        _resolve_legacy_hits(legacy_hits, project_id, project_path,
-                              exclude_id, all_hits, similarity_threshold)
+        _resolve_legacy_hits(legacy_hits, project_id, project_path, exclude_id, all_hits, similarity_threshold)
 
     ranked = sorted(
         all_hits.values(),
@@ -235,6 +234,7 @@ def _resolve_db_path(project_path: str | Path | None) -> Path | None:
         return Path(project_path) / ".empirica" / "sessions" / "sessions.db"
     try:
         from empirica.utils.session_resolver import InstanceResolver as R
+
         root = R.project_path()
         if root:
             return Path(root) / ".empirica" / "sessions" / "sessions.db"

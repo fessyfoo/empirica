@@ -30,6 +30,7 @@ SESSION_ID = str(uuid.uuid4())
 
 # ── Finding dedup ────────────────────────────────────────────────────────────
 
+
 class TestFindingDedup:
     def test_exact_duplicate_returns_same_id(self, fresh_db):
         """Logging the exact same finding text twice should return the same ID."""
@@ -91,6 +92,7 @@ class TestFindingDedup:
 
 # ── Unknown dedup ────────────────────────────────────────────────────────────
 
+
 class TestUnknownDedup:
     def test_exact_duplicate_returns_same_id(self, fresh_db):
         """Logging the exact same unknown text twice should return the same ID."""
@@ -122,6 +124,7 @@ class TestUnknownDedup:
 
 
 # ── Dead-end dedup ───────────────────────────────────────────────────────────
+
 
 class TestDeadEndDedup:
     def test_exact_duplicate_returns_same_id(self, fresh_db):
@@ -157,21 +160,14 @@ class TestDeadEndDedup:
         """Same content with different whitespace/casing should dedup."""
         repo = fresh_db.breadcrumbs
 
-        id1 = repo.log_dead_end(
-            PROJECT_ID, SESSION_ID,
-            "  Tried  DIRECT  SQL  ",
-            "  PERMISSIONS  denied  "
-        )
-        id2 = repo.log_dead_end(
-            PROJECT_ID, SESSION_ID,
-            "tried direct sql",
-            "permissions denied"
-        )
+        id1 = repo.log_dead_end(PROJECT_ID, SESSION_ID, "  Tried  DIRECT  SQL  ", "  PERMISSIONS  denied  ")
+        id2 = repo.log_dead_end(PROJECT_ID, SESSION_ID, "tried direct sql", "permissions denied")
 
         assert id1 == id2, "Normalized dead ends should dedup"
 
 
 # ── Edge cases ───────────────────────────────────────────────────────────────
+
 
 class TestDedupEdgeCases:
     def test_finding_only_one_row_stored(self, fresh_db):

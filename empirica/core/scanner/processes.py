@@ -17,31 +17,41 @@ logger = logging.getLogger(__name__)
 
 def _shorten_cmdline(cmdline: list[str], max_chars: int = 512) -> str:
     """Join a process cmdline list and clip to ``max_chars`` for safety."""
-    text = ' '.join(cmdline) if cmdline else ''
+    text = " ".join(cmdline) if cmdline else ""
     if len(text) <= max_chars:
         return text
-    return text[: max_chars - 1] + '…'
+    return text[: max_chars - 1] + "…"
 
 
 def _row_for_proc(proc, scanner_pid: int, now: float) -> dict[str, Any] | None:
     """Build a single process row. Returns None on access failure (skip)."""
     try:
-        info = proc.as_dict(attrs=[
-            'pid', 'ppid', 'cmdline', 'create_time', 'cwd',
-            'num_fds', 'cpu_percent', 'memory_info', 'name', 'username',
-        ])
+        info = proc.as_dict(
+            attrs=[
+                "pid",
+                "ppid",
+                "cmdline",
+                "create_time",
+                "cwd",
+                "num_fds",
+                "cpu_percent",
+                "memory_info",
+                "name",
+                "username",
+            ]
+        )
     except Exception:  # psutil.NoSuchProcess / AccessDenied / ZombieProcess
         return None
 
-    pid = info.get('pid')
+    pid = info.get("pid")
     if pid is None:
         return None
 
-    cmdline_list = info.get('cmdline') or []
-    create_time = info.get('create_time')
+    cmdline_list = info.get("cmdline") or []
+    create_time = info.get("create_time")
     age_seconds = int(now - create_time) if create_time else None
 
-    memory_info = info.get('memory_info')
+    memory_info = info.get("memory_info")
     memory_mb = None
     if memory_info is not None:
         try:
@@ -50,17 +60,17 @@ def _row_for_proc(proc, scanner_pid: int, now: float) -> dict[str, Any] | None:
             memory_mb = None
 
     return {
-        'pid': pid,
-        'name': info.get('name'),
-        'cmdline': _shorten_cmdline(cmdline_list),
-        'parent_pid': info.get('ppid'),
-        'age_seconds': age_seconds,
-        'working_dir': info.get('cwd'),
-        'num_open_files': info.get('num_fds'),
-        'cpu_percent': info.get('cpu_percent'),
-        'memory_mb': memory_mb,
-        'username': info.get('username'),
-        'is_scanner_self': pid == scanner_pid,
+        "pid": pid,
+        "name": info.get("name"),
+        "cmdline": _shorten_cmdline(cmdline_list),
+        "parent_pid": info.get("ppid"),
+        "age_seconds": age_seconds,
+        "working_dir": info.get("cwd"),
+        "num_open_files": info.get("num_fds"),
+        "cpu_percent": info.get("cpu_percent"),
+        "memory_mb": memory_mb,
+        "username": info.get("username"),
+        "is_scanner_self": pid == scanner_pid,
     }
 
 
@@ -76,17 +86,17 @@ def collect_processes(read_surface) -> tuple[list[dict[str, Any]], dict[str, Any
     coverage marked accordingly so the snapshot is truthful about what it saw.
     """
     coverage: dict[str, Any] = {
-        'attempted': 0,
-        'succeeded': 0,
-        'skipped': 0,
-        'skip_reasons': {},
+        "attempted": 0,
+        "succeeded": 0,
+        "skipped": 0,
+        "skip_reasons": {},
     }
 
     try:
         import psutil
     except ImportError:
         logger.warning("psutil not available; process collector returning []")
-        coverage['skip_reasons']['psutil_missing'] = 1
+        coverage["skip_reasons"]["psutil_missing"] = 1
         return [], coverage
 
     scanner_pid = os.getpid()
@@ -97,22 +107,18 @@ def collect_processes(read_surface) -> tuple[list[dict[str, Any]], dict[str, Any
         proc_iter = list(psutil.process_iter([]))
     except Exception as exc:
         logger.warning(f"process_iter failed: {exc}")
-        coverage['skip_reasons']['process_iter_failed'] = str(exc)
+        coverage["skip_reasons"]["process_iter_failed"] = str(exc)
         return [], coverage
 
     for proc in proc_iter:
-        coverage['attempted'] += 1
+        coverage["attempted"] += 1
         row = _row_for_proc(proc, scanner_pid, now)
         if row is None:
-            coverage['skipped'] += 1
-            coverage['skip_reasons']['inaccessible'] = \
-                coverage['skip_reasons'].get('inaccessible', 0) + 1
+            coverage["skipped"] += 1
+            coverage["skip_reasons"]["inaccessible"] = coverage["skip_reasons"].get("inaccessible", 0) + 1
             continue
-        rows.append(read_surface.filter_dict('process', row))
-        coverage['succeeded'] += 1
+        rows.append(read_surface.filter_dict("process", row))
+        coverage["succeeded"] += 1
 
-    coverage['ratio'] = (
-        coverage['succeeded'] / coverage['attempted']
-        if coverage['attempted'] else 1.0
-    )
+    coverage["ratio"] = coverage["succeeded"] / coverage["attempted"] if coverage["attempted"] else 1.0
     return rows, coverage

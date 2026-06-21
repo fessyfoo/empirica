@@ -26,12 +26,7 @@ def calculate_confidence(vectors: dict | None) -> float:
     uncertainty = vectors.get("uncertainty", 0.5)
     context = vectors.get("context", 0.5)
     completion = vectors.get("completion", 0.0)
-    confidence = (
-        0.40 * know
-        + 0.30 * (1.0 - uncertainty)
-        + 0.20 * context
-        + 0.10 * completion
-    )
+    confidence = 0.40 * know + 0.30 * (1.0 - uncertainty) + 0.20 * context + 0.10 * completion
     return max(0.0, min(1.0, confidence))
 
 

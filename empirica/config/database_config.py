@@ -46,6 +46,7 @@ def get_database_config() -> dict[str, Any]:
     database_url = os.environ.get("DATABASE_URL")
     if database_url and database_url.startswith("postgresql"):
         from urllib.parse import urlparse
+
         parsed = urlparse(database_url)
         return {
             "type": "postgresql",
@@ -55,7 +56,7 @@ def get_database_config() -> dict[str, Any]:
                 "database": (parsed.path or "/empirica").lstrip("/"),
                 "user": parsed.username or "empirica",
                 "password": parsed.password or "",
-            }
+            },
         }
 
     # Check EMPIRICA_DB_TYPE environment variable
@@ -70,7 +71,7 @@ def get_database_config() -> dict[str, Any]:
                 "database": os.environ.get("EMPIRICA_DB_NAME", "empirica"),
                 "user": os.environ.get("EMPIRICA_DB_USER", "empirica"),
                 "password": os.environ.get("EMPIRICA_DB_PASSWORD", ""),
-            }
+            },
         }
 
     # Try to load from config.yaml
@@ -98,7 +99,7 @@ def get_database_config() -> dict[str, Any]:
         "type": "sqlite",
         "sqlite": {
             "path": None  # Will use default from path_resolver
-        }
+        },
     }
 
 

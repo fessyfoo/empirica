@@ -21,9 +21,7 @@ SCHEMAS = [
     # were deprecated in favor of project_* tables with transaction_id.
     # Sessions delineate compact windows only; transactions are the atomic unit.
     # See: migration_027_drop_session_noetic_tables
-
     # ── Lessons and knowledge graph (migration 014) ──
-
     """
     CREATE TABLE IF NOT EXISTS lessons (
                     id TEXT PRIMARY KEY,
@@ -77,7 +75,6 @@ SCHEMAS = [
                     UNIQUE(name, version)
                 )
     """,
-
     """
     CREATE TABLE IF NOT EXISTS lesson_steps (
                     id TEXT PRIMARY KEY,
@@ -101,7 +98,6 @@ SCHEMAS = [
                     UNIQUE(lesson_id, step_order)
                 )
     """,
-
     """
     CREATE TABLE IF NOT EXISTS lesson_epistemic_deltas (
                     id TEXT PRIMARY KEY,
@@ -113,7 +109,6 @@ SCHEMAS = [
                     UNIQUE(lesson_id, vector_name)
                 )
     """,
-
     """
     CREATE TABLE IF NOT EXISTS lesson_prerequisites (
                     id TEXT PRIMARY KEY,
@@ -126,7 +121,6 @@ SCHEMAS = [
                     FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
                 )
     """,
-
     """
     CREATE TABLE IF NOT EXISTS lesson_corrections (
                     id TEXT PRIMARY KEY,
@@ -142,7 +136,6 @@ SCHEMAS = [
                     FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
                 )
     """,
-
     """
     CREATE TABLE IF NOT EXISTS knowledge_graph (
                     id TEXT PRIMARY KEY,
@@ -158,7 +151,6 @@ SCHEMAS = [
                     UNIQUE(source_type, source_id, relation_type, target_type, target_id)
                 )
     """,
-
     """
     CREATE TABLE IF NOT EXISTS lesson_replays (
                     id TEXT PRIMARY KEY,
@@ -179,9 +171,7 @@ SCHEMAS = [
                     FOREIGN KEY (session_id) REFERENCES sessions(session_id)
                 )
     """,
-
     # ── Auto-captured issues (migration 016) ──
-
     """
     CREATE TABLE IF NOT EXISTS auto_captured_issues (
                     id TEXT PRIMARY KEY,
@@ -202,9 +192,7 @@ SCHEMAS = [
                     FOREIGN KEY (session_id) REFERENCES sessions(session_id)
                 )
     """,
-
     # ── Project relationships (migration 018) ──
-
     """
     CREATE TABLE IF NOT EXISTS project_relationships (
                     id TEXT PRIMARY KEY,
@@ -221,9 +209,7 @@ SCHEMAS = [
                     UNIQUE(source_project_id, target_project_id, relationship_type)
                 )
     """,
-
     # ── Cross-project finding links (migration 019) ──
-
     """
     CREATE TABLE IF NOT EXISTS cross_project_finding_links (
                     id TEXT PRIMARY KEY,
@@ -241,9 +227,7 @@ SCHEMAS = [
                     UNIQUE(finding_id, target_project_id)
                 )
     """,
-
     # ── Client projects (migration 020) ──
-
     """
     CREATE TABLE IF NOT EXISTS client_projects (
                     id TEXT PRIMARY KEY,
@@ -261,9 +245,7 @@ SCHEMAS = [
                     UNIQUE(client_id, project_id, relationship_type)
                 )
     """,
-
     # ── Attention budgets and rollup logs (migration 024) ──
-
     """
     CREATE TABLE IF NOT EXISTS attention_budgets (
                     id TEXT PRIMARY KEY,
@@ -279,7 +261,6 @@ SCHEMAS = [
                     FOREIGN KEY (session_id) REFERENCES sessions(session_id)
                 )
     """,
-
     """
     CREATE TABLE IF NOT EXISTS rollup_logs (
                     id TEXT PRIMARY KEY,

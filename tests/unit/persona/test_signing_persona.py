@@ -42,7 +42,7 @@ def test_persona_profile(test_identity):
             user_id="test",
             identity_name="researcher_test",
             public_key=test_identity.public_key_hex(),
-            reputation_score=0.75
+            reputation_score=0.75,
         ),
         epistemic_config=EpistemicConfig(
             priors={
@@ -58,14 +58,11 @@ def test_persona_profile(test_identity):
                 "change": 0.70,
                 "completion": 0.05,
                 "impact": 0.65,
-                "uncertainty": 0.75
+                "uncertainty": 0.75,
             },
-            focus_domains=["research", "exploration", "learning"]
+            focus_domains=["research", "exploration", "learning"],
         ),
-        metadata=PersonaMetadata(
-            tags=["test", "researcher"],
-            created_by="test_suite"
-        )
+        metadata=PersonaMetadata(tags=["test", "researcher"], created_by="test_suite"),
     )
 
 
@@ -91,19 +88,24 @@ def test_signing_persona_fails_without_public_key():
         persona_id="test",
         name="Test",
         version="1.0.0",
-        signing_identity=SigningIdentityConfig(
-            user_id="test",
-            identity_name="test",
-            public_key="a" * 64
-        ),
+        signing_identity=SigningIdentityConfig(user_id="test", identity_name="test", public_key="a" * 64),
         epistemic_config=EpistemicConfig(
             priors={
-                "engagement": 0.8, "know": 0.6, "do": 0.7, "context": 0.6,
-                "clarity": 0.6, "coherence": 0.6, "signal": 0.6, "density": 0.5,
-                "state": 0.6, "change": 0.7, "completion": 0.05, "impact": 0.6,
-                "uncertainty": 0.75
+                "engagement": 0.8,
+                "know": 0.6,
+                "do": 0.7,
+                "context": 0.6,
+                "clarity": 0.6,
+                "coherence": 0.6,
+                "signal": 0.6,
+                "density": 0.5,
+                "state": 0.6,
+                "change": 0.7,
+                "completion": 0.05,
+                "impact": 0.6,
+                "uncertainty": 0.75,
             }
-        )
+        ),
     )
 
     with pytest.raises(ValueError, match="must have public key loaded"):
@@ -125,7 +127,7 @@ def test_sign_epistemic_state_preflight(signing_persona):
         "change": 0.70,
         "completion": 0.05,
         "impact": 0.65,
-        "uncertainty": 0.75
+        "uncertainty": 0.75,
     }
 
     signed = signing_persona.sign_epistemic_state(state, phase="PREFLIGHT")
@@ -147,10 +149,19 @@ def test_sign_epistemic_state_preflight(signing_persona):
 def test_sign_epistemic_state_all_phases(signing_persona):
     """Test signing states for all CASCADE phases"""
     state = {
-        "engagement": 0.85, "know": 0.75, "do": 0.80, "context": 0.70,
-        "clarity": 0.75, "coherence": 0.75, "signal": 0.75, "density": 0.65,
-        "state": 0.70, "change": 0.70, "completion": 0.20, "impact": 0.70,
-        "uncertainty": 0.60
+        "engagement": 0.85,
+        "know": 0.75,
+        "do": 0.80,
+        "context": 0.70,
+        "clarity": 0.75,
+        "coherence": 0.75,
+        "signal": 0.75,
+        "density": 0.65,
+        "state": 0.70,
+        "change": 0.70,
+        "completion": 0.20,
+        "impact": 0.70,
+        "uncertainty": 0.60,
     }
 
     phases = ["PREFLIGHT", "INVESTIGATE", "CHECK", "ACT", "POSTFLIGHT"]
@@ -188,7 +199,7 @@ def test_sign_invalid_vector_value(signing_persona):
         "change": 0.70,
         "completion": 0.05,
         "impact": 0.65,
-        "uncertainty": 0.75
+        "uncertainty": 0.75,
     }
 
     with pytest.raises(ValueError, match=r"must be in \[0\.0, 1\.0\]"):
@@ -210,7 +221,7 @@ def test_verify_valid_signature(signing_persona):
         "change": 0.70,
         "completion": 0.05,
         "impact": 0.65,
-        "uncertainty": 0.75
+        "uncertainty": 0.75,
     }
 
     signed = signing_persona.sign_epistemic_state(state, phase="PREFLIGHT")
@@ -234,7 +245,7 @@ def test_verify_tampered_signature(signing_persona):
         "change": 0.70,
         "completion": 0.05,
         "impact": 0.65,
-        "uncertainty": 0.75
+        "uncertainty": 0.75,
     }
 
     signed = signing_persona.sign_epistemic_state(state, phase="PREFLIGHT")
@@ -261,7 +272,7 @@ def test_verify_tampered_state(signing_persona):
         "change": 0.70,
         "completion": 0.05,
         "impact": 0.65,
-        "uncertainty": 0.75
+        "uncertainty": 0.75,
     }
 
     signed = signing_persona.sign_epistemic_state(state, phase="PREFLIGHT")
@@ -318,7 +329,7 @@ def test_signature_determinism(signing_persona):
         "change": 0.70,
         "completion": 0.05,
         "impact": 0.65,
-        "uncertainty": 0.75
+        "uncertainty": 0.75,
     }
 
     # Use same timestamp for both signings to ensure determinism
@@ -348,7 +359,7 @@ def test_cross_persona_verification_fails(signing_persona, test_identity):
         "change": 0.70,
         "completion": 0.05,
         "impact": 0.65,
-        "uncertainty": 0.75
+        "uncertainty": 0.75,
     }
 
     # Sign with first persona
@@ -363,18 +374,25 @@ def test_cross_persona_verification_fails(signing_persona, test_identity):
         name="Other Researcher",
         version="1.0.0",
         signing_identity=SigningIdentityConfig(
-            user_id="test",
-            identity_name="other",
-            public_key=other_identity.public_key_hex()
+            user_id="test", identity_name="other", public_key=other_identity.public_key_hex()
         ),
         epistemic_config=EpistemicConfig(
             priors={
-                "engagement": 0.80, "know": 0.60, "do": 0.70, "context": 0.65,
-                "clarity": 0.60, "coherence": 0.65, "signal": 0.60, "density": 0.55,
-                "state": 0.60, "change": 0.70, "completion": 0.05, "impact": 0.65,
-                "uncertainty": 0.75
+                "engagement": 0.80,
+                "know": 0.60,
+                "do": 0.70,
+                "context": 0.65,
+                "clarity": 0.60,
+                "coherence": 0.65,
+                "signal": 0.60,
+                "density": 0.55,
+                "state": 0.60,
+                "change": 0.70,
+                "completion": 0.05,
+                "impact": 0.65,
+                "uncertainty": 0.75,
             }
-        )
+        ),
     )
 
     other_signing = SigningPersona(other_profile, other_identity)

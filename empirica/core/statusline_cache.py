@@ -26,22 +26,24 @@ from pathlib import Path
 from typing import Any
 
 # Platform-specific file locking
-if sys.platform == 'win32':
+if sys.platform == "win32":
     import msvcrt
+
     fcntl = None
 else:
     import fcntl
+
     msvcrt = None
 
 
 # Cache directory - persistent location
-CACHE_DIR = Path.home() / '.empirica' / 'statusline_cache'
+CACHE_DIR = Path.home() / ".empirica" / "statusline_cache"
 
 
 # Cross-platform file locking helpers
 def _lock_file(f, exclusive: bool = True):
     """Lock a file (exclusive or shared) in a cross-platform way."""
-    if sys.platform == 'win32':
+    if sys.platform == "win32":
         # Windows: use msvcrt
         mode = msvcrt.LK_NBLCK if exclusive else msvcrt.LK_NBRLCK
         try:
@@ -58,7 +60,7 @@ def _lock_file(f, exclusive: bool = True):
 
 def _unlock_file(f):
     """Unlock a file in a cross-platform way."""
-    if sys.platform == 'win32':
+    if sys.platform == "win32":
         # Windows: use msvcrt
         msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
     else:
@@ -100,28 +102,28 @@ class StatuslineCacheEntry:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> 'StatuslineCacheEntry':
+    def from_dict(cls, data: dict[str, Any]) -> "StatuslineCacheEntry":
         """Create from dictionary."""
         # Handle missing fields gracefully. Missing ai_id means the entry
         # was written by code older than the mesh ai_id convention — return
         # '' rather than substituting our own identity for the original
         # writer's. The statusline degrades gracefully on empty ai_id.
         return cls(
-            session_id=data.get('session_id', ''),
-            ai_id=data.get('ai_id', ''),
-            instance_id=data.get('instance_id', ''),
-            project_id=data.get('project_id'),
-            project_name=data.get('project_name'),
-            project_path=data.get('project_path'),
-            phase=data.get('phase'),
-            vectors=data.get('vectors'),
-            gate_decision=data.get('gate_decision'),
-            deltas=data.get('deltas'),
-            open_goals=data.get('open_goals', 0),
-            open_unknowns=data.get('open_unknowns', 0),
-            goal_linked_unknowns=data.get('goal_linked_unknowns', 0),
-            confidence=data.get('confidence'),
-            updated_at=data.get('updated_at', 0.0),
+            session_id=data.get("session_id", ""),
+            ai_id=data.get("ai_id", ""),
+            instance_id=data.get("instance_id", ""),
+            project_id=data.get("project_id"),
+            project_name=data.get("project_name"),
+            project_path=data.get("project_path"),
+            phase=data.get("phase"),
+            vectors=data.get("vectors"),
+            gate_decision=data.get("gate_decision"),
+            deltas=data.get("deltas"),
+            open_goals=data.get("open_goals", 0),
+            open_unknowns=data.get("open_unknowns", 0),
+            goal_linked_unknowns=data.get("goal_linked_unknowns", 0),
+            confidence=data.get("confidence"),
+            updated_at=data.get("updated_at", 0.0),
         )
 
 
@@ -134,6 +136,7 @@ def get_instance_id() -> str:
     """
     try:
         from empirica.utils.session_resolver import InstanceResolver as R
+
         result = R.instance_id()
         if result:
             return result
@@ -216,7 +219,7 @@ class StatuslineCache:
                 entry.project_path = self.project_path
 
             # Write with exclusive lock
-            with open(self.cache_file, 'w') as f:
+            with open(self.cache_file, "w") as f:
                 _lock_file(f, exclusive=True)
                 try:
                     json.dump(entry.to_dict(), f, indent=2)
@@ -271,20 +274,21 @@ class StatuslineCache:
         Returns:
             True if update succeeded
         """
-        entry = self.read(max_age=float('inf'))  # Don't check staleness for updates
+        entry = self.read(max_age=float("inf"))  # Don't check staleness for updates
         if entry is None:
             # Create new entry — derive ai_id from the canonical mesh chain
             # (project.yaml → basename) rather than hardcoding a default.
             # We DO know our own identity here, unlike from_dict.
-            ai_id = kwargs.get('ai_id')
+            ai_id = kwargs.get("ai_id")
             if not ai_id:
                 try:
                     from empirica.utils.session_resolver import InstanceResolver
-                    ai_id = InstanceResolver.ai_id() or ''
+
+                    ai_id = InstanceResolver.ai_id() or ""
                 except Exception:
-                    ai_id = ''
+                    ai_id = ""
             entry = StatuslineCacheEntry(
-                session_id=kwargs.get('session_id', ''),
+                session_id=kwargs.get("session_id", ""),
                 ai_id=ai_id,
                 instance_id=self.instance_id,
             )
@@ -359,6 +363,7 @@ class StatuslineCache:
 
 # Convenience functions for direct usage
 
+
 def write_statusline_cache(
     session_id: str,
     ai_id: str,
@@ -397,10 +402,7 @@ def write_statusline_cache(
     return cache.write(entry)
 
 
-def read_statusline_cache(
-    project_path: str | None = None,
-    max_age: float = 300.0
-) -> StatuslineCacheEntry | None:
+def read_statusline_cache(project_path: str | None = None, max_age: float = 300.0) -> StatuslineCacheEntry | None:
     """
     Read from statusline cache.
 
@@ -410,10 +412,7 @@ def read_statusline_cache(
     return cache.read(max_age=max_age)
 
 
-def update_statusline_vectors(
-    vectors: dict[str, float],
-    project_path: str | None = None
-) -> bool:
+def update_statusline_vectors(vectors: dict[str, float], project_path: str | None = None) -> bool:
     """
     Update just the vectors in the cache.
 
@@ -423,18 +422,14 @@ def update_statusline_vectors(
     return cache.update(vectors=vectors)
 
 
-def update_statusline_phase(
-    phase: str,
-    gate_decision: str | None = None,
-    project_path: str | None = None
-) -> bool:
+def update_statusline_phase(phase: str, gate_decision: str | None = None, project_path: str | None = None) -> bool:
     """
     Update the CASCADE phase in the cache.
 
     Use this after phase transitions.
     """
     cache = StatuslineCache(project_path=project_path)
-    kwargs = {'phase': phase}
+    kwargs = {"phase": phase}
     if gate_decision:
-        kwargs['gate_decision'] = gate_decision
+        kwargs["gate_decision"] = gate_decision
     return cache.update(**kwargs)

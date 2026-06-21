@@ -60,11 +60,7 @@ class GitGoalStore:
         """Check if we're in a git repository"""
         try:
             result = subprocess.run(
-                ['git', 'rev-parse', '--git-dir'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                timeout=5
+                ["git", "rev-parse", "--git-dir"], cwd=self.workspace_root, capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -76,11 +72,7 @@ class GitGoalStore:
             return False
         try:
             result = subprocess.run(
-                ['git', 'rev-parse', 'HEAD'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                timeout=5
+                ["git", "rev-parse", "HEAD"], cwd=self.workspace_root, capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -93,7 +85,7 @@ class GitGoalStore:
         ai_id: str,
         goal_data: dict[str, Any],
         epistemic_state: dict[str, float] | None = None,
-        lineage: list[dict[str, str]] | None = None
+        lineage: list[dict[str, str]] | None = None,
     ) -> bool:
         """
         Store goal in git notes
@@ -120,19 +112,14 @@ class GitGoalStore:
         try:
             # Build goal payload
             payload = {
-                'goal_id': goal_id,
-                'session_id': session_id,
-                'ai_id': ai_id,
-                'created_at': datetime.now(timezone.utc).isoformat(),
-                'goal_data': goal_data,
-                'epistemic_state': epistemic_state or {},
-                'lineage': lineage or [
-                    {
-                        'ai_id': ai_id,
-                        'timestamp': datetime.now(timezone.utc).isoformat(),
-                        'action': 'created'
-                    }
-                ]
+                "goal_id": goal_id,
+                "session_id": session_id,
+                "ai_id": ai_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "goal_data": goal_data,
+                "epistemic_state": epistemic_state or {},
+                "lineage": lineage
+                or [{"ai_id": ai_id, "timestamp": datetime.now(timezone.utc).isoformat(), "action": "created"}],
             }
 
             # Serialize
@@ -140,22 +127,18 @@ class GitGoalStore:
 
             # Get current commit
             result = subprocess.run(
-                ['git', 'rev-parse', 'HEAD'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                check=True
+                ["git", "rev-parse", "HEAD"], cwd=self.workspace_root, capture_output=True, text=True, check=True
             )
             commit_hash = result.stdout.strip()
 
             # Store in git notes (refs/notes/empirica/goals/<goal-id>)
-            note_ref = f'empirica/goals/{goal_id}'
+            note_ref = f"empirica/goals/{goal_id}"
             subprocess.run(
-                ['git', 'notes', f'--ref={note_ref}', 'add', '-f', '-m', payload_json, commit_hash],
+                ["git", "notes", f"--ref={note_ref}", "add", "-f", "-m", payload_json, commit_hash],
                 cwd=self.workspace_root,
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             )
 
             logger.info(f"✓ Stored goal {goal_id[:8]} in git notes (ai={ai_id})")
@@ -183,14 +166,11 @@ class GitGoalStore:
 
         try:
             # Try to find goal in git notes
-            note_ref = f'empirica/goals/{goal_id}'
+            note_ref = f"empirica/goals/{goal_id}"
 
             # List which commit has the note (notes can be on any commit, not just HEAD)
             result = subprocess.run(
-                ['git', 'notes', f'--ref={note_ref}', 'list'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True
+                ["git", "notes", f"--ref={note_ref}", "list"], cwd=self.workspace_root, capture_output=True, text=True
             )
 
             if result.returncode != 0 or not result.stdout.strip():
@@ -204,10 +184,10 @@ class GitGoalStore:
 
             # Load note from the commit it's actually attached to
             result = subprocess.run(
-                ['git', 'notes', f'--ref={note_ref}', 'show', commit_hash],
+                ["git", "notes", f"--ref={note_ref}", "show", commit_hash],
                 cwd=self.workspace_root,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:
@@ -219,11 +199,7 @@ class GitGoalStore:
             logger.warning(f"Failed to load goal from git: {e}")
             return None
 
-    def discover_goals(
-        self,
-        from_ai_id: str | None = None,
-        session_id: str | None = None
-    ) -> list[dict[str, Any]]:
+    def discover_goals(self, from_ai_id: str | None = None, session_id: str | None = None) -> list[dict[str, Any]]:
         """
         Discover goals from other AIs
 
@@ -241,10 +217,10 @@ class GitGoalStore:
             # List all goal note refs using for-each-ref
             # This properly handles custom refs like refs/notes/empirica/goals/*
             result = subprocess.run(
-                ['git', 'for-each-ref', 'refs/notes/empirica/goals/'],
+                ["git", "for-each-ref", "refs/notes/empirica/goals/"],
                 cwd=self.workspace_root,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:
@@ -254,29 +230,29 @@ class GitGoalStore:
 
             # Parse for-each-ref output
             # Format: <commit-hash> commit\trefs/notes/empirica/goals/<goal-id>
-            for line in result.stdout.strip().split('\n'):
+            for line in result.stdout.strip().split("\n"):
                 if not line:
                     continue
 
-                parts = line.split('\t')
+                parts = line.split("\t")
                 if len(parts) < 2:
                     continue
 
                 ref = parts[1]  # refs/notes/empirica/goals/<goal-id>
-                if not ref.startswith('refs/notes/empirica/goals/'):
+                if not ref.startswith("refs/notes/empirica/goals/"):
                     continue
 
                 # Extract goal ID from ref path
-                goal_id = ref.split('/')[-1]
+                goal_id = ref.split("/")[-1]
                 goal_data = self.load_goal(goal_id)
 
                 if not goal_data:
                     continue
 
                 # Apply filters
-                if from_ai_id and goal_data.get('ai_id') != from_ai_id:
+                if from_ai_id and goal_data.get("ai_id") != from_ai_id:
                     continue
-                if session_id and goal_data.get('session_id') != session_id:
+                if session_id and goal_data.get("session_id") != session_id:
                     continue
 
                 goals.append(goal_data)
@@ -287,12 +263,7 @@ class GitGoalStore:
             logger.warning(f"Failed to discover goals: {e}")
             return []
 
-    def add_lineage(
-        self,
-        goal_id: str,
-        ai_id: str,
-        action: str
-    ) -> bool:
+    def add_lineage(self, goal_id: str, ai_id: str, action: str) -> bool:
         """
         Add lineage entry when AI resumes goal
 
@@ -309,18 +280,16 @@ class GitGoalStore:
             return False
 
         # Add lineage entry
-        goal_data['lineage'].append({
-            'ai_id': ai_id,
-            'timestamp': datetime.now(timezone.utc).isoformat(),
-            'action': action
-        })
+        goal_data["lineage"].append(
+            {"ai_id": ai_id, "timestamp": datetime.now(timezone.utc).isoformat(), "action": action}
+        )
 
         # Re-store with updated lineage
         return self.store_goal(
             goal_id=goal_id,
-            session_id=goal_data['session_id'],
-            ai_id=goal_data['ai_id'],  # Keep original creator
-            goal_data=goal_data['goal_data'],
-            epistemic_state=goal_data.get('epistemic_state'),
-            lineage=goal_data['lineage']  # Pass updated lineage
+            session_id=goal_data["session_id"],
+            ai_id=goal_data["ai_id"],  # Keep original creator
+            goal_data=goal_data["goal_data"],
+            epistemic_state=goal_data.get("epistemic_state"),
+            lineage=goal_data["lineage"],  # Pass updated lineage
         )

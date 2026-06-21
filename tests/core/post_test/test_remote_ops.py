@@ -76,34 +76,45 @@ def test_remote_ops_excludes_all_evidence_sources():
     seen vector as insufficient_evidence."""
     bundle = _make_bundle_with_evidence()
     self_assessed = {
-        "know": 0.8, "signal": 0.7, "context": 0.6, "do": 0.7,
-        "change": 0.5, "state": 0.6, "completion": 0.9, "uncertainty": 0.3,
+        "know": 0.8,
+        "signal": 0.7,
+        "context": 0.6,
+        "do": 0.7,
+        "change": 0.5,
+        "state": 0.6,
+        "completion": 0.9,
+        "uncertainty": 0.3,
     }
 
     mapper = EvidenceMapper()
     assessment = mapper.map_evidence(
-        bundle, self_assessed, phase="combined",
-        domain="default", work_type="remote-ops",
+        bundle,
+        self_assessed,
+        phase="combined",
+        domain="default",
+        work_type="remote-ops",
     )
 
     # No grounded values — every source was excluded.
     assert assessment.grounded == {}, (
-        "remote-ops should produce no grounded estimates: every relevance "
-        "weight is 0.0 so no source contributes"
+        "remote-ops should produce no grounded estimates: every relevance weight is 0.0 so no source contributes"
     )
 
     # No calibration gaps — there's nothing to compare against.
-    assert assessment.calibration_gaps == {}, (
-        "remote-ops should produce no calibration gaps"
-    )
+    assert assessment.calibration_gaps == {}, "remote-ops should produce no calibration gaps"
 
     # Every vector that had evidence lands in insufficient_evidence_vectors.
     expected_in_insufficient = {
-        "know", "signal", "context", "do", "change", "state", "completion",
+        "know",
+        "signal",
+        "context",
+        "do",
+        "change",
+        "state",
+        "completion",
     }
     assert expected_in_insufficient <= set(assessment.insufficient_evidence_vectors), (
-        f"Expected all vectors with evidence to be insufficient, got "
-        f"{assessment.insufficient_evidence_vectors}"
+        f"Expected all vectors with evidence to be insufficient, got {assessment.insufficient_evidence_vectors}"
     )
 
 
@@ -114,7 +125,10 @@ def test_remote_ops_self_assessed_vectors_unchanged():
     self_assessed = {"know": 0.8, "uncertainty": 0.2}
     mapper = EvidenceMapper()
     assessment = mapper.map_evidence(
-        bundle, self_assessed, phase="combined", work_type="remote-ops",
+        bundle,
+        self_assessed,
+        phase="combined",
+        work_type="remote-ops",
     )
     assert assessment.self_assessed == self_assessed
 
@@ -126,7 +140,10 @@ def test_remote_ops_zero_calibration_score():
     self_assessed = {"know": 0.8, "uncertainty": 0.2}
     mapper = EvidenceMapper()
     assessment = mapper.map_evidence(
-        bundle, self_assessed, phase="combined", work_type="remote-ops",
+        bundle,
+        self_assessed,
+        phase="combined",
+        work_type="remote-ops",
     )
     # No gaps means no weighted score contribution
     assert assessment.overall_calibration_score == 0.0
@@ -141,6 +158,7 @@ def _make_test_db(tmp_path):
     """Build a temporary SessionDatabase for integration tests that need
     the wrapper's calibration_insights + storage operations to run."""
     from empirica.data.session_database import SessionDatabase
+
     return SessionDatabase(str(tmp_path / "test.db"))
 
 
@@ -168,9 +186,7 @@ def test_run_grounded_verification_remote_ops_combined_mode(tmp_path):
 
     # Pipeline should return a dict with ungrounded holistic
     assert result is not None
-    assert result.get("_internal_calibration_score") is None, (
-        "remote-ops should produce no holistic calibration score"
-    )
+    assert result.get("_internal_calibration_score") is None, "remote-ops should produce no holistic calibration score"
 
     # The combined phase result should be ungrounded_remote_ops
     combined = result.get("combined")
@@ -219,7 +235,6 @@ def test_run_grounded_verification_remote_ops_phase_aware(tmp_path):
 
     for phase_name, phase_result in phases.items():
         assert phase_result.get("calibration_status") == "ungrounded_remote_ops", (
-            f"Phase {phase_name} should be ungrounded_remote_ops, got "
-            f"{phase_result.get('calibration_status')}"
+            f"Phase {phase_name} should be ungrounded_remote_ops, got {phase_result.get('calibration_status')}"
         )
         assert phase_result.get("_internal_gaps", {}) == {}

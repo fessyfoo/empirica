@@ -57,6 +57,7 @@ class SqliteBusObserver(EpistemicObserver):
         """Create events table if it doesn't exist."""
         try:
             from empirica.data.session_database import SessionDatabase
+
             db = SessionDatabase()
             if db.conn is None:
                 return
@@ -89,6 +90,7 @@ class SqliteBusObserver(EpistemicObserver):
         """Persist event to SQLite."""
         try:
             from empirica.data.session_database import SessionDatabase
+
             db = SessionDatabase()
             if db.conn is None:
                 return
@@ -96,19 +98,22 @@ class SqliteBusObserver(EpistemicObserver):
             event_id = str(uuid.uuid4())
             node_id = os.getenv("EMPIRICA_AI_ID", "unknown")
 
-            db.conn.execute("""
+            db.conn.execute(
+                """
                 INSERT INTO epistemic_events
                 (id, session_id, event_type, agent_id, data_json, timestamp, node_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                event_id,
-                event.session_id,
-                event.event_type,
-                event.agent_id,
-                json.dumps(event.data),
-                event.timestamp,
-                node_id,
-            ))
+            """,
+                (
+                    event_id,
+                    event.session_id,
+                    event.event_type,
+                    event.agent_id,
+                    json.dumps(event.data),
+                    event.timestamp,
+                    node_id,
+                ),
+            )
             db.conn.commit()
             db.close()
             self._event_count += 1
@@ -128,6 +133,7 @@ class SqliteBusObserver(EpistemicObserver):
         """
         try:
             from empirica.data.session_database import SessionDatabase
+
             db = SessionDatabase()
             if db.conn is None:
                 return []
@@ -180,6 +186,7 @@ class QdrantBusObserver(EpistemicObserver):
         """Check if Qdrant is available."""
         try:
             from empirica.core.qdrant.vector_store import _check_qdrant_available
+
             return _check_qdrant_available()
         except Exception:
             return False
@@ -192,6 +199,7 @@ class QdrantBusObserver(EpistemicObserver):
                 _get_qdrant_client,
                 _get_vector_size,
             )
+
             client = _get_qdrant_client()
             if client is None:
                 self._available = False
@@ -221,10 +229,7 @@ class QdrantBusObserver(EpistemicObserver):
             )
 
             # Create searchable text from event
-            event_text = (
-                f"{event.event_type}: {event.agent_id} "
-                f"{json.dumps(event.data)[:500]}"
-            )
+            event_text = f"{event.event_type}: {event.agent_id} {json.dumps(event.data)[:500]}"
             client = _get_qdrant_client()
             if client is None:
                 return
@@ -242,18 +247,20 @@ class QdrantBusObserver(EpistemicObserver):
 
             client.upsert(
                 collection_name=self.COLLECTION_NAME,
-                points=[PointStruct(
-                    id=point_id,
-                    vector=embedding,
-                    payload={
-                        "event_type": event.event_type,
-                        "agent_id": event.agent_id,
-                        "session_id": event.session_id,
-                        "data": event.data,
-                        "timestamp": event.timestamp,
-                        "node_id": node_id,
-                    },
-                )],
+                points=[
+                    PointStruct(
+                        id=point_id,
+                        vector=embedding,
+                        payload={
+                            "event_type": event.event_type,
+                            "agent_id": event.agent_id,
+                            "session_id": event.session_id,
+                            "data": event.data,
+                            "timestamp": event.timestamp,
+                            "node_id": node_id,
+                        },
+                    )
+                ],
             )
             self._event_count += 1
         except Exception as e:
@@ -293,12 +300,14 @@ class QdrantBusObserver(EpistemicObserver):
 
             query_filter = None
             if event_type:
-                query_filter = Filter(must=[
-                    FieldCondition(
-                        key="event_type",
-                        match=MatchValue(value=event_type),
-                    ),
-                ])
+                query_filter = Filter(
+                    must=[
+                        FieldCondition(
+                            key="event_type",
+                            match=MatchValue(value=event_type),
+                        ),
+                    ]
+                )
 
             results = client.query_points(
                 collection_name=self.COLLECTION_NAME,

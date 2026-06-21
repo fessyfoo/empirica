@@ -43,16 +43,16 @@ class MCOLoader:
     This reduces context window usage by ~180KB when only a subset is needed.
     """
 
-    _instance: Optional['MCOLoader'] = None
+    _instance: Optional["MCOLoader"] = None
 
     # Config registry: maps attribute name to (filename, top-level key or None)
     _CONFIG_REGISTRY: ClassVar[dict[str, tuple[str, str | None]]] = {
-        'model_profiles': ('model_profiles.yaml', 'model_profiles'),
-        'personas': ('personas.yaml', 'personas'),
-        'epistemic_conduct': ('epistemic_conduct.yaml', None),
-        'ask_before_investigate': ('ask_before_investigate.yaml', None),
-        'protocols': ('protocols.yaml', 'protocols'),
-        'confidence_weights': ('confidence_weights.yaml', None),
+        "model_profiles": ("model_profiles.yaml", "model_profiles"),
+        "personas": ("personas.yaml", "personas"),
+        "epistemic_conduct": ("epistemic_conduct.yaml", None),
+        "ask_before_investigate": ("ask_before_investigate.yaml", None),
+        "protocols": ("protocols.yaml", "protocols"),
+        "confidence_weights": ("confidence_weights.yaml", None),
     }
 
     def __init__(self, config_dir: Path | None = None, eager: bool = False):
@@ -64,11 +64,11 @@ class MCOLoader:
             eager: If True, load all configs immediately (legacy behavior)
         """
         if config_dir is None:
-            config_dir = Path(__file__).parent / 'mco'
+            config_dir = Path(__file__).parent / "mco"
 
         self.config_dir = config_dir
-        self._loaded: dict[str, Any] = {}   # Lazily populated configs
-        self._load_count = 0                 # Track how many configs loaded
+        self._loaded: dict[str, Any] = {}  # Lazily populated configs
+        self._load_count = 0  # Track how many configs loaded
         self.metadata: dict[str, dict[str, Any]] = {}
 
         if eager:
@@ -83,7 +83,7 @@ class MCOLoader:
         raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
 
     @classmethod
-    def get_instance(cls, config_dir: Path | None = None) -> 'MCOLoader':
+    def get_instance(cls, config_dir: Path | None = None) -> "MCOLoader":
         """Get singleton instance"""
         if cls._instance is None:
             cls._instance = cls(config_dir)
@@ -115,7 +115,7 @@ class MCOLoader:
 
             if top_key:
                 self._loaded[name] = data.get(top_key, {})
-                self.metadata[name] = data.get('metadata', {})
+                self.metadata[name] = data.get("metadata", {})
             else:
                 self._loaded[name] = data
 
@@ -166,11 +166,17 @@ class MCOLoader:
         relational vectors engagement and uncertainty.
         """
         defaults = {
-            "know": "foundation", "do": "foundation", "context": "foundation",
-            "clarity": "comprehension", "coherence": "comprehension",
-            "signal": "comprehension", "density": "comprehension",
-            "state": "execution", "change": "execution",
-            "completion": "execution", "impact": "execution",
+            "know": "foundation",
+            "do": "foundation",
+            "context": "foundation",
+            "clarity": "comprehension",
+            "coherence": "comprehension",
+            "signal": "comprehension",
+            "density": "comprehension",
+            "state": "execution",
+            "change": "execution",
+            "completion": "execution",
+            "impact": "execution",
             "engagement": "meta",
             "uncertainty": "meta",
         }
@@ -187,7 +193,7 @@ class MCOLoader:
             Bias correction configuration or empty dict if not found
         """
         if model_name in self.model_profiles:
-            return self.model_profiles[model_name].get('bias_profile', {})
+            return self.model_profiles[model_name].get("bias_profile", {})
 
         logger.warning(f"Model profile not found: {model_name}")
         return {}
@@ -212,22 +218,22 @@ class MCOLoader:
             Inferred persona name
         """
         # Simple heuristics for now
-        if ai_id and 'research' in ai_id.lower():
-            return 'researcher'
-        if ai_id and 'review' in ai_id.lower():
-            return 'reviewer'
-        if ai_id and 'coord' in ai_id.lower():
-            return 'coordinator'
+        if ai_id and "research" in ai_id.lower():
+            return "researcher"
+        if ai_id and "review" in ai_id.lower():
+            return "reviewer"
+        if ai_id and "coord" in ai_id.lower():
+            return "coordinator"
 
-        if task_type == 'research':
-            return 'researcher'
-        if task_type == 'review':
-            return 'reviewer'
-        if task_type == 'coordinate':
-            return 'coordinator'
+        if task_type == "research":
+            return "researcher"
+        if task_type == "review":
+            return "reviewer"
+        if task_type == "coordinate":
+            return "coordinator"
 
         # Default to implementer
-        return 'implementer'
+        return "implementer"
 
     def infer_model(self, ai_id: str | None = None) -> str:
         """
@@ -240,25 +246,30 @@ class MCOLoader:
             Inferred model name
         """
         if not ai_id:
-            return 'claude_sonnet'  # default
+            return "claude_sonnet"  # default
 
         ai_lower = ai_id.lower()
 
-        if 'haiku' in ai_lower:
-            return 'claude_haiku'
-        if 'sonnet' in ai_lower or 'claude-code' in ai_lower:
-            return 'claude_sonnet'
-        if 'gpt-4' in ai_lower or 'gpt4' in ai_lower:
-            return 'gpt4'
-        if 'gpt-3.5' in ai_lower or 'gpt35' in ai_lower:
-            return 'gpt35'
+        if "haiku" in ai_lower:
+            return "claude_haiku"
+        if "sonnet" in ai_lower or "claude-code" in ai_lower:
+            return "claude_sonnet"
+        if "gpt-4" in ai_lower or "gpt4" in ai_lower:
+            return "gpt4"
+        if "gpt-3.5" in ai_lower or "gpt35" in ai_lower:
+            return "gpt35"
 
         # Default
-        return 'claude_sonnet'
+        return "claude_sonnet"
 
-    def export_snapshot(self, session_id: str, ai_id: str | None = None,
-                       model: str | None = None, persona: str | None = None,
-                       cascade_style: str = 'default') -> dict[str, Any]:
+    def export_snapshot(
+        self,
+        session_id: str,
+        ai_id: str | None = None,
+        model: str | None = None,
+        persona: str | None = None,
+        cascade_style: str = "default",
+    ) -> dict[str, Any]:
         """
         Export MCO configuration snapshot for pre-compact saving.
 
@@ -287,49 +298,45 @@ class MCOLoader:
 
         # Load cascade style from ThresholdLoader
         from empirica.config.threshold_loader import get_threshold_config
+
         threshold_loader = get_threshold_config()
 
         # Extract key values for quick reference
-        bias_corrections = model_profile.get('bias_profile', {})
-        investigation_style = persona_config.get('investigation_style', {})
+        bias_corrections = model_profile.get("bias_profile", {})
+        investigation_style = persona_config.get("investigation_style", {})
 
         snapshot = {
             "model": model,
             "persona": persona,
             "cascade_style": cascade_style,
-
             # Model-specific bias corrections
             "bias_corrections": {
-                "uncertainty_adjustment": bias_corrections.get('uncertainty_awareness', 0.0),
-                "confidence_adjustment": -bias_corrections.get('overconfidence_correction', 0.0),
-                "creativity_bias": bias_corrections.get('creativity_bias', 0.0),
-                "speed_vs_accuracy": bias_corrections.get('speed_vs_accuracy', 0.0),
+                "uncertainty_adjustment": bias_corrections.get("uncertainty_awareness", 0.0),
+                "confidence_adjustment": -bias_corrections.get("overconfidence_correction", 0.0),
+                "creativity_bias": bias_corrections.get("creativity_bias", 0.0),
+                "speed_vs_accuracy": bias_corrections.get("speed_vs_accuracy", 0.0),
             },
-
             # Persona investigation budgets
             "investigation_budget": {
-                "max_rounds": investigation_style.get('max_rounds', 7),
-                "tools_per_round": investigation_style.get('tools_per_round', 2),
-                "uncertainty_threshold": investigation_style.get('uncertainty_threshold', 0.60),
+                "max_rounds": investigation_style.get("max_rounds", 7),
+                "tools_per_round": investigation_style.get("tools_per_round", 2),
+                "uncertainty_threshold": investigation_style.get("uncertainty_threshold", 0.60),
             },
-
             # Threshold values (from cascade_style)
             "thresholds": {
-                "engagement": threshold_loader.get('engagement_threshold', 0.60),
-                "ready_confidence": threshold_loader.get('cascade.ready_confidence_threshold', 0.70),
-                "ready_uncertainty": threshold_loader.get('cascade.ready_uncertainty_threshold', 0.35),
-                "ready_context": threshold_loader.get('cascade.ready_context_threshold', 0.65),
+                "engagement": threshold_loader.get("engagement_threshold", 0.60),
+                "ready_confidence": threshold_loader.get("cascade.ready_confidence_threshold", 0.70),
+                "ready_uncertainty": threshold_loader.get("cascade.ready_uncertainty_threshold", 0.35),
+                "ready_context": threshold_loader.get("cascade.ready_context_threshold", 0.65),
             },
-
             # Full configs for reference
             "full_configs": {
                 "model_profile": model_profile,
                 "persona_config": persona_config,
             },
-
             # Epistemic conduct and investigation strategy
             "epistemic_conduct": self.epistemic_conduct,
-            "ask_before_investigate": self.ask_before_investigate
+            "ask_before_investigate": self.ask_before_investigate,
         }
 
         return snapshot
@@ -344,37 +351,37 @@ class MCOLoader:
         Returns:
             Formatted text for presenting to AI
         """
-        bias = snapshot['bias_corrections']
-        budget = snapshot['investigation_budget']
-        thresh = snapshot['thresholds']
+        bias = snapshot["bias_corrections"]
+        budget = snapshot["investigation_budget"]
+        thresh = snapshot["thresholds"]
 
         # Get epistemic conduct config
-        snapshot.get('epistemic_conduct', {})
-        ask_config = snapshot.get('ask_before_investigate', {})
+        snapshot.get("epistemic_conduct", {})
+        ask_config = snapshot.get("ask_before_investigate", {})
 
         formatted = f"""
 ## Your MCO Configuration
 
-**Model Profile:** `{snapshot['model']}` (from `model_profiles.yaml`)
-**Persona:** `{snapshot['persona']}` (from `personas.yaml`)
-**CASCADE Style:** `{snapshot['cascade_style']}` (from `cascade_styles.yaml`)
+**Model Profile:** `{snapshot["model"]}` (from `model_profiles.yaml`)
+**Persona:** `{snapshot["persona"]}` (from `personas.yaml`)
+**CASCADE Style:** `{snapshot["cascade_style"]}` (from `cascade_styles.yaml`)
 
 ### Bias Corrections (Apply to Self-Assessments)
-- **Uncertainty adjustment:** +{bias['uncertainty_adjustment']:.2f} (you underestimate doubt)
-- **Confidence adjustment:** {bias['confidence_adjustment']:.2f} (you overestimate knowing)
-- **Creativity bias:** {bias['creativity_bias']:.2f}
-- **Speed vs accuracy:** {bias['speed_vs_accuracy']:.2f}
+- **Uncertainty adjustment:** +{bias["uncertainty_adjustment"]:.2f} (you underestimate doubt)
+- **Confidence adjustment:** {bias["confidence_adjustment"]:.2f} (you overestimate knowing)
+- **Creativity bias:** {bias["creativity_bias"]:.2f}
+- **Speed vs accuracy:** {bias["speed_vs_accuracy"]:.2f}
 
 ### Investigation Budget
-- **Max investigation rounds:** {budget['max_rounds']}
-- **Tools per round:** {budget['tools_per_round']}
-- **Uncertainty threshold:** {budget['uncertainty_threshold']:.2f}
+- **Max investigation rounds:** {budget["max_rounds"]}
+- **Tools per round:** {budget["tools_per_round"]}
+- **Uncertainty threshold:** {budget["uncertainty_threshold"]:.2f}
 
 ### Readiness Thresholds
-- **Engagement threshold:** {thresh['engagement']:.2f}
-- **Ready confidence:** ≥{thresh['ready_confidence']:.2f}
-- **Ready uncertainty:** ≤{thresh['ready_uncertainty']:.2f}
-- **Ready context:** ≥{thresh['ready_context']:.2f}
+- **Engagement threshold:** {thresh["engagement"]:.2f}
+- **Ready confidence:** ≥{thresh["ready_confidence"]:.2f}
+- **Ready uncertainty:** ≤{thresh["ready_uncertainty"]:.2f}
+- **Ready context:** ≥{thresh["ready_context"]:.2f}
 
 ### Epistemic Conduct (CRITICAL - Bidirectional Accountability)
 
@@ -411,10 +418,10 @@ class MCOLoader:
 """
 
         # Add ask-before-investigate guidance
-        ask_triggers = ask_config.get('ask_triggers', {})
-        if 'uncertainty_with_context' in ask_triggers:
-            unc_threshold = ask_triggers['uncertainty_with_context'].get('uncertainty_threshold', 0.65)
-            ctx_threshold = ask_triggers['uncertainty_with_context'].get('context_threshold', 0.50)
+        ask_triggers = ask_config.get("ask_triggers", {})
+        if "uncertainty_with_context" in ask_triggers:
+            unc_threshold = ask_triggers["uncertainty_with_context"].get("uncertainty_threshold", 0.65)
+            ctx_threshold = ask_triggers["uncertainty_with_context"].get("context_threshold", 0.50)
             formatted += f"""
 - **High uncertainty ({unc_threshold:.2f}+) with context ({ctx_threshold:.2f}+):** ASK FIRST
   - You have enough info to formulate specific questions

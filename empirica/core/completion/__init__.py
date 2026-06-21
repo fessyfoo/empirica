@@ -10,9 +10,4 @@ from .git_query import GitProgressQuery
 from .tracker import CompletionTracker
 from .types import CompletionMetrics, CompletionRecord
 
-__all__ = [
-    'CompletionMetrics',
-    'CompletionRecord',
-    'CompletionTracker',
-    'GitProgressQuery'
-]
+__all__ = ["CompletionMetrics", "CompletionRecord", "CompletionTracker", "GitProgressQuery"]

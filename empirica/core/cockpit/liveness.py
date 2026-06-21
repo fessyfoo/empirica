@@ -32,10 +32,10 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-EMPIRICA_DIR = Path.home() / '.empirica'
-TTY_SESSIONS_DIR = EMPIRICA_DIR / 'tty_sessions'
+EMPIRICA_DIR = Path.home() / ".empirica"
+TTY_SESSIONS_DIR = EMPIRICA_DIR / "tty_sessions"
 
-TMUX_INSTANCE_PATTERN = re.compile(r'^tmux_(.+)$')
+TMUX_INSTANCE_PATTERN = re.compile(r"^tmux_(.+)$")
 
 # An instance with no PID/tmux info but activity within this window is
 # treated as alive (covers fresh sessions where session-init hasn't yet
@@ -53,7 +53,7 @@ class LivenessResult:
 
 # Commands tmux reports as the foreground process when Claude Code is running.
 # 'claude' is the bin name; 'node' covers older installations / dev launches.
-_CLAUDE_COMMANDS = frozenset({'claude', 'node'})
+_CLAUDE_COMMANDS = frozenset({"claude", "node"})
 
 
 def _live_tmux_panes() -> set[str] | None:
@@ -67,12 +67,14 @@ def _live_tmux_panes() -> set[str] | None:
     Returns None if we couldn't query tmux at all (signal inconclusive,
     fall through to PID/activity checks).
     """
-    if shutil.which('tmux') is None:
+    if shutil.which("tmux") is None:
         return None
     try:
         result = subprocess.run(
-            ['tmux', 'list-panes', '-a', '-F', '#{pane_id} #{pane_current_command}'],
-            capture_output=True, text=True, timeout=2,
+            ["tmux", "list-panes", "-a", "-F", "#{pane_id} #{pane_current_command}"],
+            capture_output=True,
+            text=True,
+            timeout=2,
         )
     except (subprocess.TimeoutExpired, OSError):
         return None
@@ -86,7 +88,7 @@ def _live_tmux_panes() -> set[str] | None:
             continue
         pane_id, cmd = parts
         if cmd in _CLAUDE_COMMANDS:
-            panes.add(pane_id.lstrip('%'))
+            panes.add(pane_id.lstrip("%"))
     return panes
 
 
@@ -95,18 +97,20 @@ def _all_tmux_panes() -> set[str] | None:
     distinguishing 'pane gone' (terminal closed) from 'pane exists but
     Claude exited' — both are 'dead' for the cockpit, but the explanation
     differs."""
-    if shutil.which('tmux') is None:
+    if shutil.which("tmux") is None:
         return None
     try:
         result = subprocess.run(
-            ['tmux', 'list-panes', '-a', '-F', '#{pane_id}'],
-            capture_output=True, text=True, timeout=2,
+            ["tmux", "list-panes", "-a", "-F", "#{pane_id}"],
+            capture_output=True,
+            text=True,
+            timeout=2,
         )
     except (subprocess.TimeoutExpired, OSError):
         return None
     if result.returncode != 0:
         return set()
-    return {line.strip().lstrip('%') for line in result.stdout.splitlines() if line.strip()}
+    return {line.strip().lstrip("%") for line in result.stdout.splitlines() if line.strip()}
 
 
 def _process_alive(pid: int) -> bool:
@@ -121,29 +125,29 @@ def _process_alive(pid: int) -> bool:
 
 def _read_captured_pids(instance_id: str) -> tuple[int | None, int | None]:
     """Return (pid, ppid) captured at session-init time, or (None, None)."""
-    inst_file = EMPIRICA_DIR / 'instance_projects' / f'{instance_id}.json'
+    inst_file = EMPIRICA_DIR / "instance_projects" / f"{instance_id}.json"
     if inst_file.exists():
         try:
-            with open(inst_file, encoding='utf-8') as f:
+            with open(inst_file, encoding="utf-8") as f:
                 data = json.load(f)
-            pid = data.get('pid') if isinstance(data.get('pid'), int) else None
-            ppid = data.get('ppid') if isinstance(data.get('ppid'), int) else None
+            pid = data.get("pid") if isinstance(data.get("pid"), int) else None
+            ppid = data.get("ppid") if isinstance(data.get("ppid"), int) else None
             if pid or ppid:
                 return pid, ppid
-            tty_key = data.get('tty_key')
+            tty_key = data.get("tty_key")
         except (OSError, json.JSONDecodeError):
             tty_key = None
     else:
         tty_key = None
 
     if tty_key:
-        tty_file = TTY_SESSIONS_DIR / f'{tty_key}.json'
+        tty_file = TTY_SESSIONS_DIR / f"{tty_key}.json"
         if tty_file.exists():
             try:
-                with open(tty_file, encoding='utf-8') as f:
+                with open(tty_file, encoding="utf-8") as f:
                     data = json.load(f)
-                pid = data.get('pid') if isinstance(data.get('pid'), int) else None
-                ppid = data.get('ppid') if isinstance(data.get('ppid'), int) else None
+                pid = data.get("pid") if isinstance(data.get("pid"), int) else None
+                ppid = data.get("ppid") if isinstance(data.get("ppid"), int) else None
                 return pid, ppid
             except (OSError, json.JSONDecodeError):
                 pass
@@ -187,7 +191,7 @@ def is_alive(
             (the running cockpit is alive by definition)
     """
     if current_instance_id and instance_id == current_instance_id:
-        return LivenessResult(alive=True, reason='current instance')
+        return LivenessResult(alive=True, reason="current instance")
 
     # Signal 1 — tmux pane shows claude foreground.
     tmux_pane: str | None = None
@@ -201,11 +205,11 @@ def is_alive(
             if tmux_pane in live_panes:
                 return LivenessResult(
                     alive=True,
-                    reason=f'tmux pane %{tmux_pane} running claude',
+                    reason=f"tmux pane %{tmux_pane} running claude",
                     tmux_pane=tmux_pane,
                 )
             all_panes = _all_tmux_panes() or set()
-            pane_state = 'bash' if tmux_pane in all_panes else 'absent'
+            pane_state = "bash" if tmux_pane in all_panes else "absent"
         # tmux not queryable → pane_state stays None; fall through to PID
 
     # Signal 2 — captured PID liveness. Authoritative when present.
@@ -218,14 +222,14 @@ def is_alive(
             # split window, etc.).
             return LivenessResult(
                 alive=True,
-                reason=f'pid {target_pid} alive',
+                reason=f"pid {target_pid} alive",
                 pid_checked=target_pid,
                 tmux_pane=tmux_pane,
             )
         # PID dead → definitive dead, independent of tmux.
         return LivenessResult(
             alive=False,
-            reason=f'pid {target_pid} dead',
+            reason=f"pid {target_pid} dead",
             pid_checked=target_pid,
             tmux_pane=tmux_pane,
         )
@@ -236,31 +240,24 @@ def is_alive(
     # definitive negative — a stale instance file getting touched by a
     # housekeeping sweep doesn't revive a tmux pane whose foreground
     # is bash, and the recent-activity glow shouldn't override that.
-    pane_negative = pane_state in ('bash', 'absent')
-    if (
-        not pane_negative
-        and last_activity_seconds is not None
-        and last_activity_seconds < RECENT_ACTIVITY_S
-    ):
+    pane_negative = pane_state in ("bash", "absent")
+    if not pane_negative and last_activity_seconds is not None and last_activity_seconds < RECENT_ACTIVITY_S:
         return LivenessResult(
             alive=True,
-            reason=f'recent activity ({int(last_activity_seconds)}s ago)',
+            reason=f"recent activity ({int(last_activity_seconds)}s ago)",
             tmux_pane=tmux_pane,
         )
 
     # All signals exhausted. If tmux gave us a definitive negative,
     # surface that as the reason; otherwise generic.
-    if pane_state == 'bash':
-        reason = (
-            f'tmux pane %{tmux_pane} exists but claude is not running there '
-            'and no captured PID survived'
-        )
-    elif pane_state == 'absent':
-        reason = f'tmux pane %{tmux_pane} does not exist'
+    if pane_state == "bash":
+        reason = f"tmux pane %{tmux_pane} exists but claude is not running there and no captured PID survived"
+    elif pane_state == "absent":
+        reason = f"tmux pane %{tmux_pane} does not exist"
     else:
-        reason = 'no pid, no recent activity, no tmux pane evidence'
+        reason = "no pid, no recent activity, no tmux pane evidence"
 
     return LivenessResult(alive=False, reason=reason, tmux_pane=tmux_pane)
 
 
-__all__ = ['LivenessResult', 'is_alive']
+__all__ = ["LivenessResult", "is_alive"]

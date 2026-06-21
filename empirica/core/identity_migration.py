@@ -82,15 +82,9 @@ def _write_yaml_project_id(project_root: str | Path, new_id: str) -> bool:
     return True
 
 
-def _lookup_workspace_uuid(
-    project_root: str | Path, workspace_db: str | Path | None = None
-) -> str | None:
+def _lookup_workspace_uuid(project_root: str | Path, workspace_db: str | Path | None = None) -> str | None:
     """Canonical UUID for a project from workspace.db global_projects, by path."""
-    ws = (
-        Path(workspace_db)
-        if workspace_db
-        else Path.home() / ".empirica" / "workspace" / "workspace.db"
-    )
+    ws = Path(workspace_db) if workspace_db else Path.home() / ".empirica" / "workspace" / "workspace.db"
     if not ws.exists():
         return None
     trajectory = str(Path(project_root) / ".empirica")
@@ -144,11 +138,7 @@ def resolve_canonical_uuid(
 
 def _tables_with_project_id(conn: sqlite3.Connection) -> list[str]:
     tables = [
-        r[0]
-        for r in conn.execute(
-            "SELECT name FROM sqlite_master "
-            "WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
-        )
+        r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
     ]
     out = []
     for table in tables:
@@ -158,9 +148,7 @@ def _tables_with_project_id(conn: sqlite3.Connection) -> list[str]:
     return out
 
 
-def rekey_project_id_in_db(
-    db_path: str | Path, old_id: str, new_id: str
-) -> dict[str, int]:
+def rekey_project_id_in_db(db_path: str | Path, old_id: str, new_id: str) -> dict[str, int]:
     """Re-key ``project_id`` from ``old_id`` to ``new_id`` across every table in
     one SQLite db that carries a ``project_id`` column.
 
@@ -185,9 +173,7 @@ def rekey_project_id_in_db(
     return result
 
 
-def rekey_project_local_dbs(
-    project_root: str | Path, old_id: str, new_id: str
-) -> dict[str, dict[str, int]]:
+def rekey_project_local_dbs(project_root: str | Path, old_id: str, new_id: str) -> dict[str, dict[str, int]]:
     """Re-key every ``.db`` under ``<project_root>/.empirica/`` (sessions +
     artifacts). Returns ``{db_relpath: {table: rows}}`` for dbs touched."""
     empirica_dir = Path(project_root) / ".empirica"
@@ -223,10 +209,7 @@ def migrate_project_to_uuid(
     if yaml_id is None:
         return {
             "status": "no_project",
-            "message": (
-                f"No .empirica/project.yaml at {project_root}. "
-                "Run 'empirica project-init' to create it."
-            ),
+            "message": (f"No .empirica/project.yaml at {project_root}. Run 'empirica project-init' to create it."),
         }
     if is_uuid(yaml_id):
         return {"status": "already_uuid", "project_id": yaml_id}
@@ -321,20 +304,12 @@ def _make_cortex_slug_resolver(timeout: float = 8.0) -> CortexResolver:
             cred = Path.home() / ".empirica" / "credentials.yaml"
             if not cred.exists():
                 return None
-            cortex = (yaml.safe_load(cred.read_text(encoding="utf-8")) or {}).get(
-                "cortex"
-            ) or {}
+            cortex = (yaml.safe_load(cred.read_text(encoding="utf-8")) or {}).get("cortex") or {}
             url, key = cortex.get("url"), cortex.get("api_key")
             if not url or not key:
                 return None
-            endpoint = (
-                url.rstrip("/")
-                + "/v1/projects/by-slug/"
-                + urllib.parse.quote(str(slug), safe="")
-            )
-            req = urllib.request.Request(
-                endpoint, headers={"Authorization": f"Bearer {key}"}
-            )
+            endpoint = url.rstrip("/") + "/v1/projects/by-slug/" + urllib.parse.quote(str(slug), safe="")
+            req = urllib.request.Request(endpoint, headers={"Authorization": f"Bearer {key}"})
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
             if body.get("ok") and isinstance(body.get("project"), dict):
@@ -375,11 +350,7 @@ def run_force_migration(
     if installed:
         # Default to the live cortex slug→UUID resolver; an explicit injected
         # resolver (incl. a stub) overrides it (tests / custom flows).
-        resolver = (
-            cortex_resolver
-            if cortex_resolver is not None
-            else _make_cortex_slug_resolver()
-        )
+        resolver = cortex_resolver if cortex_resolver is not None else _make_cortex_slug_resolver()
         mint_fn = None  # never fork a possibly-registered identity
     else:
         resolver = None

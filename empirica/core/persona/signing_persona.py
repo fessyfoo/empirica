@@ -94,16 +94,10 @@ class SigningPersona:
         if ai_identity.public_key is None:
             raise ValueError("AIIdentity must have public key loaded")
 
-        logger.info(
-            f"✓ Created SigningPersona: {persona_profile.persona_id} "
-            f"with identity {ai_identity.ai_id}"
-        )
+        logger.info(f"✓ Created SigningPersona: {persona_profile.persona_id} with identity {ai_identity.ai_id}")
 
     def _create_canonical_state(
-        self,
-        epistemic_vectors: dict[str, float],
-        phase: str,
-        timestamp: str | None = None
+        self, epistemic_vectors: dict[str, float], phase: str, timestamp: str | None = None
     ) -> dict[str, Any]:
         """
         Create canonical representation of epistemic state
@@ -121,9 +115,19 @@ class SigningPersona:
         """
         # Validate required vectors
         required_vectors = [
-            "engagement", "know", "do", "context",
-            "clarity", "coherence", "signal", "density",
-            "state", "change", "completion", "impact", "uncertainty"
+            "engagement",
+            "know",
+            "do",
+            "context",
+            "clarity",
+            "coherence",
+            "signal",
+            "density",
+            "state",
+            "change",
+            "completion",
+            "impact",
+            "uncertainty",
         ]
 
         for vector in required_vectors:
@@ -140,11 +144,8 @@ class SigningPersona:
             "persona_version": self.persona.version,
             "phase": phase,
             "timestamp": timestamp or datetime.now(timezone.utc).isoformat(),
-            "vectors": {
-                k: epistemic_vectors[k]
-                for k in sorted(required_vectors)
-            },
-            "public_key": self.identity.public_key_hex()
+            "vectors": {k: epistemic_vectors[k] for k in sorted(required_vectors)},
+            "public_key": self.identity.public_key_hex(),
         }
 
         return canonical
@@ -154,7 +155,7 @@ class SigningPersona:
         epistemic_vectors: dict[str, float],
         phase: str,
         additional_data: dict[str, Any] | None = None,
-        timestamp: str | None = None
+        timestamp: str | None = None,
     ) -> dict[str, Any]:
         """
         Sign an epistemic state with the persona's private key
@@ -179,8 +180,8 @@ class SigningPersona:
         canonical_state = self._create_canonical_state(epistemic_vectors, phase, timestamp=timestamp)
 
         # Serialize to JSON (sorted keys for determinism)
-        message_json = json.dumps(canonical_state, sort_keys=True, separators=(',', ':'))
-        message_bytes = message_json.encode('utf-8')
+        message_json = json.dumps(canonical_state, sort_keys=True, separators=(",", ":"))
+        message_bytes = message_json.encode("utf-8")
 
         # Sign with private key
         signature_bytes = self.identity.sign(message_bytes)
@@ -190,7 +191,7 @@ class SigningPersona:
             "state": canonical_state,
             "signature": signature_bytes.hex(),
             "algorithm": "Ed25519",
-            "verified": False
+            "verified": False,
         }
 
         # Include additional metadata if provided
@@ -231,8 +232,8 @@ class SigningPersona:
                 return False
 
             # Recreate the exact message that was signed
-            message_json = json.dumps(state, sort_keys=True, separators=(',', ':'))
-            message_bytes = message_json.encode('utf-8')
+            message_json = json.dumps(state, sort_keys=True, separators=(",", ":"))
+            message_bytes = message_json.encode("utf-8")
 
             # Convert signature from hex
             signature_bytes = bytes.fromhex(signature_hex)
@@ -241,22 +242,12 @@ class SigningPersona:
             public_key_bytes = bytes.fromhex(state["public_key"])
 
             # Verify using AIIdentity static method
-            is_valid = self.identity.__class__.verify(
-                signature_bytes,
-                message_bytes,
-                public_key_bytes
-            )
+            is_valid = self.identity.__class__.verify(signature_bytes, message_bytes, public_key_bytes)
 
             if is_valid:
-                logger.info(
-                    f"✓ Verified signature: {state['persona_id']} "
-                    f"phase={state['phase']}"
-                )
+                logger.info(f"✓ Verified signature: {state['persona_id']} phase={state['phase']}")
             else:
-                logger.warning(
-                    f"✗ Signature verification failed: {state['persona_id']} "
-                    f"phase={state['phase']}"
-                )
+                logger.warning(f"✗ Signature verification failed: {state['persona_id']} phase={state['phase']}")
 
             return is_valid
 
@@ -279,7 +270,7 @@ class SigningPersona:
             "epistemic_priors": self.persona.epistemic_config.priors,
             "focus_domains": self.persona.epistemic_config.focus_domains,
             "persona_type": self.persona.get_type(),
-            "created_at": self.identity.created_at
+            "created_at": self.identity.created_at,
         }
 
     def export_public_persona(self) -> dict[str, Any]:
@@ -300,11 +291,11 @@ class SigningPersona:
             "epistemic_config": {
                 "priors": self.persona.epistemic_config.priors,
                 "thresholds": self.persona.epistemic_config.thresholds,
-                "focus_domains": self.persona.epistemic_config.focus_domains
+                "focus_domains": self.persona.epistemic_config.focus_domains,
             },
             "capabilities": asdict(self.persona.capabilities),
             "metadata": asdict(self.persona.metadata),
             "persona_type": self.persona.get_type(),
             "created_at": self.identity.created_at,
-            "identity_ai_id": self.identity.ai_id
+            "identity_ai_id": self.identity.ai_id,
         }

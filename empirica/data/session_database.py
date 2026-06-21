@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 # Import canonical structures
 try:
     from canonical.reflex_frame import Action, EpistemicAssessment, VectorState  # noqa: F401, I001 — availability check for CANONICAL_AVAILABLE  # pyright: ignore[reportUnusedImport,reportMissingImports]
+
     CANONICAL_AVAILABLE = True
 except ImportError:
     CANONICAL_AVAILABLE = False
@@ -56,6 +57,7 @@ def _resolve_canonical_project_root() -> str | None:
     """
     try:
         from empirica.utils.session_resolver import InstanceResolver as R
+
         path = R.project_path()
         if path:
             return str(path)
@@ -63,6 +65,7 @@ def _resolve_canonical_project_root() -> str | None:
         pass
     try:
         from empirica.utils.session_resolver import find_project_root
+
         p = find_project_root(allow_git_root=True)
         if p:
             return str(p)
@@ -98,6 +101,7 @@ class SessionDatabase:
             # Use provided path or default
             if db_path is None:
                 from empirica.config.path_resolver import get_session_db_path
+
                 db_path = str(get_session_db_path())
 
             self.db_path = Path(db_path)
@@ -118,11 +122,8 @@ class SessionDatabase:
 
         # Initialize retry policy for resilience
         from empirica.data.connection_pool import RetryPolicy
-        self.retry_policy = RetryPolicy(
-            max_retries=5,
-            base_delay=0.1,
-            max_delay=10.0
-        )
+
+        self.retry_policy = RetryPolicy(max_retries=5, base_delay=0.1, max_delay=10.0)
         logger.debug("✓ Retry policy initialized (exponential backoff, max 5 retries)")
 
         self._create_tables()
@@ -142,6 +143,7 @@ class SessionDatabase:
             VectorRepository,
             WorkspaceRepository,
         )
+
         self.sessions = SessionRepository(self.conn)
         self.cascades = CascadeRepository(self.conn)
         self.goals = GoalDataRepository(self.conn)
@@ -166,6 +168,7 @@ class SessionDatabase:
         """Lazy-load TaskRepository to avoid circular dependency"""
         if self._tasks is None:
             from empirica.core.tasks.repository import TaskRepository
+
             self._tasks = TaskRepository(db_path=self._tasks_db_path)
         return self._tasks
 
@@ -174,6 +177,7 @@ class SessionDatabase:
         """Lazy-load core GoalRepository for query methods"""
         if self._core_goals is None:
             from empirica.core.goals.repository import GoalRepository
+
             self._core_goals = GoalRepository()
         return self._core_goals
 
@@ -218,6 +222,7 @@ class SessionDatabase:
         # Run tracked migrations (SQLite only — PostgreSQL gets fresh schema)
         if dialect == "sqlite":
             from empirica.data.migrations import ALL_MIGRATIONS, MigrationRunner
+
             migration_runner = MigrationRunner(self.conn)
             migration_runner.run_all(ALL_MIGRATIONS)
 
@@ -246,7 +251,9 @@ class SessionDatabase:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_projects_activity ON projects(last_activity_timestamp)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_project_handoffs_project ON project_handoffs(project_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_project_handoffs_timestamp ON project_handoffs(created_timestamp)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_project_handoffs_timestamp ON project_handoffs(created_timestamp)"
+        )
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_project_findings_project ON project_findings(project_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_project_findings_session ON project_findings(session_id)")
@@ -261,15 +268,23 @@ class SessionDatabase:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_epistemic_sources_confidence ON epistemic_sources(confidence)")
 
         # Indexes for investigation_branches
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_investigation_branches_session ON investigation_branches(session_id)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_investigation_branches_session ON investigation_branches(session_id)"
+        )
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_investigation_branches_status ON investigation_branches(status)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_investigation_branches_winner ON investigation_branches(is_winner)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_investigation_branches_merge_score ON investigation_branches(merge_score)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_investigation_branches_winner ON investigation_branches(is_winner)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_investigation_branches_merge_score ON investigation_branches(merge_score)"
+        )
 
         # Indexes for merge_decisions
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_merge_decisions_session ON merge_decisions(session_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_merge_decisions_round ON merge_decisions(investigation_round)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_merge_decisions_winning_branch ON merge_decisions(winning_branch_id)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_merge_decisions_winning_branch ON merge_decisions(winning_branch_id)"
+        )
 
         # Indexes for token_savings
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_token_savings_session ON token_savings(session_id)")
@@ -288,11 +303,16 @@ class SessionDatabase:
 
         self.conn.commit()
 
-    def create_session(self, ai_id: str, components_loaded: int = 0,
-                      user_id: str | None = None, subject: str | None = None,
-                      bootstrap_level: int = 1,
-                      parent_session_id: str | None = None,
-                      project_id: str | None = None) -> str:
+    def create_session(
+        self,
+        ai_id: str,
+        components_loaded: int = 0,
+        user_id: str | None = None,
+        subject: str | None = None,
+        bootstrap_level: int = 1,
+        parent_session_id: str | None = None,
+        project_id: str | None = None,
+    ) -> str:
         """
         Create new session, return session_id (delegates to SessionRepository)
 
@@ -309,13 +329,22 @@ class SessionDatabase:
             session_id: UUID string
         """
         return self.sessions.create_session(
-            ai_id, components_loaded, user_id, subject, bootstrap_level,
+            ai_id,
+            components_loaded,
+            user_id,
+            subject,
+            bootstrap_level,
             parent_session_id=parent_session_id,
-            project_id=project_id
+            project_id=project_id,
         )
 
-    def end_session(self, session_id: str, avg_confidence: float | None = None,
-                   drift_detected: bool = False, notes: str | None = None):
+    def end_session(
+        self,
+        session_id: str,
+        avg_confidence: float | None = None,
+        drift_detected: bool = False,
+        notes: str | None = None,
+    ):
         """Mark session as ended (delegates to SessionRepository)"""
         self._validate_session_id(session_id)
         return self.sessions.end_session(session_id, avg_confidence, drift_detected, notes)
@@ -389,8 +418,14 @@ class SessionDatabase:
             expected_project_id=expected_project_id,
         )
 
-    def create_cascade(self, session_id: str, task: str, context: dict[str, Any],
-                      goal_id: str | None = None, goal: dict[str, Any] | None = None) -> str:
+    def create_cascade(
+        self,
+        session_id: str,
+        task: str,
+        context: dict[str, Any],
+        goal_id: str | None = None,
+        goal: dict[str, Any] | None = None,
+    ) -> str:
         """Create cascade record (delegates to CascadeRepository)"""
         self._validate_session_id(session_id)
         return self.cascades.create_cascade(session_id, task, context, goal_id, goal)
@@ -399,18 +434,30 @@ class SessionDatabase:
         """Mark cascade phase as completed (delegates to CascadeRepository)"""
         return self.cascades.update_cascade_phase(cascade_id, phase, completed)
 
-    def complete_cascade(self, cascade_id: str, final_action: str, final_confidence: float,
-                        investigation_rounds: int, duration_ms: int,
-                        engagement_gate_passed: bool, bayesian_active: bool = False,
-                        drift_monitored: bool = False):
+    def complete_cascade(
+        self,
+        cascade_id: str,
+        final_action: str,
+        final_confidence: float,
+        investigation_rounds: int,
+        duration_ms: int,
+        engagement_gate_passed: bool,
+        bayesian_active: bool = False,
+        drift_monitored: bool = False,
+    ):
         """Mark cascade as completed with final results (delegates to CascadeRepository)"""
         return self.cascades.complete_cascade(
-            cascade_id, final_action, final_confidence, investigation_rounds,
-            duration_ms, engagement_gate_passed, bayesian_active, drift_monitored
+            cascade_id,
+            final_action,
+            final_confidence,
+            investigation_rounds,
+            duration_ms,
+            engagement_gate_passed,
+            bayesian_active,
+            drift_monitored,
         )
 
-    def log_epistemic_assessment(self, cascade_id: str, assessment: Any,
-                                phase: str):
+    def log_epistemic_assessment(self, cascade_id: str, assessment: Any, phase: str):
         """
         DEPRECATED: Use store_vectors() instead.
 
@@ -422,30 +469,30 @@ class SessionDatabase:
 
         # Extract vectors from assessment object
         vectors = {
-            'engagement': assessment.engagement.score,
-            'know': assessment.know.score,
-            'do': assessment.do.score,
-            'context': assessment.context.score,
-            'clarity': assessment.clarity.score,
-            'coherence': assessment.coherence.score,
-            'signal': assessment.signal.score,
-            'density': assessment.density.score,
-            'state': assessment.state.score,
-            'change': assessment.change.score,
-            'completion': assessment.completion.score,
-            'impact': assessment.impact.score,
-            'uncertainty': assessment.uncertainty.score
+            "engagement": assessment.engagement.score,
+            "know": assessment.know.score,
+            "do": assessment.do.score,
+            "context": assessment.context.score,
+            "clarity": assessment.clarity.score,
+            "coherence": assessment.coherence.score,
+            "signal": assessment.signal.score,
+            "density": assessment.density.score,
+            "state": assessment.state.score,
+            "change": assessment.change.score,
+            "completion": assessment.completion.score,
+            "impact": assessment.impact.score,
+            "uncertainty": assessment.uncertainty.score,
         }
 
         # Build metadata from rationales
         metadata = {
-            'assessment_id': assessment.assessment_id,
-            'engagement_gate_passed': assessment.engagement_gate_passed,
-            'foundation_confidence': assessment.foundation_confidence,
-            'comprehension_confidence': assessment.comprehension_confidence,
-            'execution_confidence': assessment.execution_confidence,
-            'overall_confidence': assessment.overall_confidence,
-            'recommended_action': assessment.recommended_action.value
+            "assessment_id": assessment.assessment_id,
+            "engagement_gate_passed": assessment.engagement_gate_passed,
+            "foundation_confidence": assessment.foundation_confidence,
+            "comprehension_confidence": assessment.comprehension_confidence,
+            "execution_confidence": assessment.execution_confidence,
+            "overall_confidence": assessment.overall_confidence,
+            "recommended_action": assessment.recommended_action.value,
         }
 
         # Get session_id from cascade
@@ -460,31 +507,43 @@ class SessionDatabase:
 
         # Store using reflexes table
         self.store_vectors(
-            session_id=session_id,
-            phase=phase.upper(),
-            vectors=vectors,
-            cascade_id=cascade_id,
-            metadata=metadata
+            session_id=session_id, phase=phase.upper(), vectors=vectors, cascade_id=cascade_id, metadata=metadata
         )
 
-    def log_bayesian_belief(self, cascade_id: str, vector_name: str, mean: float,
-                           variance: float, evidence_count: int,
-                           prior_mean: float, prior_variance: float):
+    def log_bayesian_belief(
+        self,
+        cascade_id: str,
+        vector_name: str,
+        mean: float,
+        variance: float,
+        evidence_count: int,
+        prior_mean: float,
+        prior_variance: float,
+    ):
         """Track Bayesian belief updates"""
         belief_id = str(uuid.uuid4())
 
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO bayesian_beliefs (
                 belief_id, cascade_id, vector_name,
                 mean, variance, evidence_count,
                 prior_mean, prior_variance, last_updated
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            belief_id, cascade_id, vector_name,
-            mean, variance, evidence_count,
-            prior_mean, prior_variance, datetime.now()
-        ))
+        """,
+            (
+                belief_id,
+                cascade_id,
+                vector_name,
+                mean,
+                variance,
+                evidence_count,
+                prior_mean,
+                prior_variance,
+                datetime.now(),
+            ),
+        )
 
         self.conn.commit()
 
@@ -503,24 +562,29 @@ class SessionDatabase:
         Get all assessments for a cascade from reflexes table.
         """
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT * FROM reflexes WHERE cascade_id = ? ORDER BY timestamp
-        """, (cascade_id,))
+        """,
+            (cascade_id,),
+        )
         return [dict(row) for row in cursor.fetchall()]
 
-    def log_preflight_assessment(self, session_id: str, cascade_id: str | None,
-                                 prompt_summary: str, vectors: dict[str, float],
-                                 uncertainty_notes: str = "") -> int:
+    def log_preflight_assessment(
+        self,
+        session_id: str,
+        cascade_id: str | None,
+        prompt_summary: str,
+        vectors: dict[str, float],
+        uncertainty_notes: str = "",
+    ) -> int:
         """
         DEPRECATED: Use store_vectors() instead.
 
         This method redirects to store_vectors() for backward compatibility.
         """
         # Store metadata in reflex_data
-        metadata = {
-            "prompt_summary": prompt_summary,
-            "uncertainty_notes": uncertainty_notes
-        }
+        metadata = {"prompt_summary": prompt_summary, "uncertainty_notes": uncertainty_notes}
 
         return self.store_vectors(
             session_id=session_id,
@@ -528,17 +592,23 @@ class SessionDatabase:
             vectors=vectors,
             cascade_id=cascade_id,
             metadata=metadata,
-            reasoning=uncertainty_notes
+            reasoning=uncertainty_notes,
         )
 
-    def log_check_phase_assessment(self, session_id: str, cascade_id: str | None,
-                                   investigation_cycle: int, confidence: float,
-                                   decision: str, gaps: list[str],
-                                   next_targets: list[str],
-                                   notes: str = "",
-                                   vectors: dict[str, float] | None = None,
-                                   findings: list[str] | None = None,
-                                   remaining_unknowns: list[str] | None = None) -> int:
+    def log_check_phase_assessment(
+        self,
+        session_id: str,
+        cascade_id: str | None,
+        investigation_cycle: int,
+        confidence: float,
+        decision: str,
+        gaps: list[str],
+        next_targets: list[str],
+        notes: str = "",
+        vectors: dict[str, float] | None = None,
+        findings: list[str] | None = None,
+        remaining_unknowns: list[str] | None = None,
+    ) -> int:
         """
         DEPRECATED: Use store_vectors() instead.
 
@@ -551,7 +621,7 @@ class SessionDatabase:
             "gaps_identified": gaps,
             "next_investigation_targets": next_targets,
             "findings": findings,
-            "remaining_unknowns": remaining_unknowns
+            "remaining_unknowns": remaining_unknowns,
         }
 
         # If vectors provided, use them; otherwise create minimal vector with uncertainty
@@ -565,14 +635,19 @@ class SessionDatabase:
             cascade_id=cascade_id,
             round_num=investigation_cycle,
             metadata=metadata,
-            reasoning=notes
+            reasoning=notes,
         )
 
-    def log_postflight_assessment(self, session_id: str, cascade_id: str | None,
-                                  task_summary: str, vectors: dict[str, float],
-                                  postflight_confidence: float,
-                                  calibration_accuracy: str,
-                                  learning_notes: str = "") -> int:
+    def log_postflight_assessment(
+        self,
+        session_id: str,
+        cascade_id: str | None,
+        task_summary: str,
+        vectors: dict[str, float],
+        postflight_confidence: float,
+        calibration_accuracy: str,
+        learning_notes: str = "",
+    ) -> int:
         """
         DEPRECATED: Use store_vectors() instead.
 
@@ -582,7 +657,7 @@ class SessionDatabase:
         metadata = {
             "task_summary": task_summary,
             "postflight_confidence": postflight_confidence,
-            "calibration_accuracy": calibration_accuracy
+            "calibration_accuracy": calibration_accuracy,
         }
 
         return self.store_vectors(
@@ -591,7 +666,7 @@ class SessionDatabase:
             vectors=vectors,
             cascade_id=cascade_id,
             metadata=metadata,
-            reasoning=learning_notes
+            reasoning=learning_notes,
         )
 
     def get_preflight_assessment(self, session_id: str) -> dict | None:
@@ -641,12 +716,15 @@ class SessionDatabase:
     def get_last_session_by_ai(self, ai_id: str) -> dict | None:
         """Get most recent session for an AI agent"""
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT * FROM sessions
             WHERE ai_id = ?
             ORDER BY start_time DESC
             LIMIT 1
-        """, (ai_id,))
+        """,
+            (ai_id,),
+        )
         row = cursor.fetchone()
         return dict(row) if row else None
 
@@ -670,51 +748,47 @@ class SessionDatabase:
         git_state = {}
         try:
             # Current branch
-            branch = subprocess.run(['git', 'branch', '--show-current'],
-                                   capture_output=True, text=True, check=True)
-            git_state['branch'] = branch.stdout.strip()
+            branch = subprocess.run(["git", "branch", "--show-current"], capture_output=True, text=True, check=True)
+            git_state["branch"] = branch.stdout.strip()
 
             # Current commit
-            commit = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'],
-                                   capture_output=True, text=True, check=True)
-            git_state['commit'] = commit.stdout.strip()
+            commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True)
+            git_state["commit"] = commit.stdout.strip()
 
             # Last 5 commits
-            log = subprocess.run(['git', 'log', '--oneline', '-5'],
-                                capture_output=True, text=True, check=True)
-            git_state['last_5_commits'] = log.stdout.strip().split('\n')
+            log = subprocess.run(["git", "log", "--oneline", "-5"], capture_output=True, text=True, check=True)
+            git_state["last_5_commits"] = log.stdout.strip().split("\n")
 
             # Diff stat (lightweight)
-            diff_stat = subprocess.run(['git', 'diff', '--stat', 'HEAD'],
-                                      capture_output=True, text=True, check=True)
-            git_state['diff_stat'] = diff_stat.stdout.strip() if diff_stat.stdout.strip() else "No uncommitted changes"
+            diff_stat = subprocess.run(["git", "diff", "--stat", "HEAD"], capture_output=True, text=True, check=True)
+            git_state["diff_stat"] = diff_stat.stdout.strip() if diff_stat.stdout.strip() else "No uncommitted changes"
 
         except subprocess.CalledProcessError as e:
-            git_state['error'] = f"Git error: {e}"
+            git_state["error"] = f"Git error: {e}"
 
         # Get epistemic trajectory (PREFLIGHT → CHECK → POSTFLIGHT)
         trajectory = {}
 
         # PREFLIGHT
-        preflight = self.get_latest_vectors(session_id, phase='PREFLIGHT')
+        preflight = self.get_latest_vectors(session_id, phase="PREFLIGHT")
         if preflight:
-            trajectory['preflight'] = preflight['vectors']
+            trajectory["preflight"] = preflight["vectors"]
 
         # CHECK gates (all of them)
-        check_gates = self.get_vectors_by_phase(session_id, phase='CHECK')
+        check_gates = self.get_vectors_by_phase(session_id, phase="CHECK")
         if check_gates:
-            trajectory['check_gates'] = [c['vectors'] for c in check_gates]
+            trajectory["check_gates"] = [c["vectors"] for c in check_gates]
 
         # POSTFLIGHT
-        postflight = self.get_latest_vectors(session_id, phase='POSTFLIGHT')
+        postflight = self.get_latest_vectors(session_id, phase="POSTFLIGHT")
         if postflight:
-            trajectory['postflight'] = postflight['vectors']
+            trajectory["postflight"] = postflight["vectors"]
 
         # Calculate learning delta
         learning_delta = {}
         if preflight and postflight:
-            pre_vectors = preflight['vectors']
-            post_vectors = postflight['vectors']
+            pre_vectors = preflight["vectors"]
+            post_vectors = postflight["vectors"]
             for key in post_vectors:
                 if key in pre_vectors:
                     if pre_vectors[key] is not None and post_vectors[key] is not None:
@@ -724,24 +798,29 @@ class SessionDatabase:
         active_goals = []
         goal_tree = self.get_goal_tree(session_id)
         for goal in goal_tree:
-            if goal.get('status') != 'completed':
-                active_goals.append({
-                    'id': goal['goal_id'],
-                    'objective': goal['objective'],
-                    'progress': f"{goal.get('completed_subtasks', 0)}/{goal.get('total_subtasks', 0)}"
-                })
+            if goal.get("status") != "completed":
+                active_goals.append(
+                    {
+                        "id": goal["goal_id"],
+                        "objective": goal["objective"],
+                        "progress": f"{goal.get('completed_subtasks', 0)}/{goal.get('total_subtasks', 0)}",
+                    }
+                )
 
         # Get sources referenced in this session
-        project_id = session.get('project_id')
+        project_id = session.get("project_id")
         sources_referenced = []
         if project_id:
             sources = self.get_epistemic_sources(project_id, session_id=session_id, limit=10)
-            sources_referenced = [{
-                'title': s['title'],
-                'type': s['source_type'],
-                'confidence': s['confidence'],
-                'url': s.get('source_url')
-            } for s in sources]
+            sources_referenced = [
+                {
+                    "title": s["title"],
+                    "type": s["source_type"],
+                    "confidence": s["confidence"],
+                    "url": s.get("source_url"),
+                }
+                for s in sources
+            ]
 
         # Get findings, unknowns, mistakes, dead-ends for this session (DUAL-SCOPE)
         findings = []
@@ -752,54 +831,72 @@ class SessionDatabase:
         cursor_local = self.conn.cursor()
 
         # Get findings for this session (project_findings is canonical)
-        cursor_local.execute("""
+        cursor_local.execute(
+            """
             SELECT id, finding, impact, created_timestamp
             FROM project_findings WHERE session_id = ?
             ORDER BY created_timestamp DESC
-        """, (session_id,))
-        findings = [{'id': row[0], 'finding': row[1], 'impact': row[2], 'timestamp': row[3]}
-                   for row in cursor_local.fetchall()]
+        """,
+            (session_id,),
+        )
+        findings = [
+            {"id": row[0], "finding": row[1], "impact": row[2], "timestamp": row[3]} for row in cursor_local.fetchall()
+        ]
 
         # Get unknowns for this session
-        cursor_local.execute("""
+        cursor_local.execute(
+            """
             SELECT id, unknown, is_resolved, created_timestamp
             FROM project_unknowns WHERE session_id = ?
             ORDER BY created_timestamp DESC
-        """, (session_id,))
-        unknowns = [{'id': row[0], 'unknown': row[1], 'resolved': row[2], 'timestamp': row[3]}
-                   for row in cursor_local.fetchall()]
+        """,
+            (session_id,),
+        )
+        unknowns = [
+            {"id": row[0], "unknown": row[1], "resolved": row[2], "timestamp": row[3]}
+            for row in cursor_local.fetchall()
+        ]
 
         # Get mistakes for this session
-        cursor_local.execute("""
+        cursor_local.execute(
+            """
             SELECT id, mistake, cost_estimate, created_timestamp
             FROM mistakes_made WHERE session_id = ?
             ORDER BY created_timestamp DESC
-        """, (session_id,))
-        mistakes = [{'id': row[0], 'mistake': row[1], 'cost': row[2], 'timestamp': row[3]}
-                   for row in cursor_local.fetchall()]
+        """,
+            (session_id,),
+        )
+        mistakes = [
+            {"id": row[0], "mistake": row[1], "cost": row[2], "timestamp": row[3]} for row in cursor_local.fetchall()
+        ]
 
         # Get dead-ends for this session
-        cursor_local.execute("""
+        cursor_local.execute(
+            """
             SELECT id, approach, why_failed, created_timestamp
             FROM project_dead_ends WHERE session_id = ?
             ORDER BY created_timestamp DESC
-        """, (session_id,))
-        dead_ends = [{'id': row[0], 'approach': row[1], 'why_failed': row[2], 'timestamp': row[3]}
-                    for row in cursor_local.fetchall()]
+        """,
+            (session_id,),
+        )
+        dead_ends = [
+            {"id": row[0], "approach": row[1], "why_failed": row[2], "timestamp": row[3]}
+            for row in cursor_local.fetchall()
+        ]
 
         return {
-            'session_id': session_id,
-            'ai_id': session['ai_id'],
-            'git_state': git_state,
-            'epistemic_trajectory': trajectory,
-            'learning_delta': learning_delta,
-            'active_goals': active_goals,
-            'sources_referenced': sources_referenced,
-            'findings': findings,
-            'unknowns': unknowns,
-            'mistakes': mistakes,
-            'dead_ends': dead_ends,
-            'subject': session.get('subject')
+            "session_id": session_id,
+            "ai_id": session["ai_id"],
+            "git_state": git_state,
+            "epistemic_trajectory": trajectory,
+            "learning_delta": learning_delta,
+            "active_goals": active_goals,
+            "sources_referenced": sources_referenced,
+            "findings": findings,
+            "unknowns": unknowns,
+            "mistakes": mistakes,
+            "dead_ends": dead_ends,
+            "subject": session.get("subject"),
         }
 
     def get_session_summary(self, session_id: str, detail_level: str = "summary") -> dict | None:
@@ -840,26 +937,26 @@ class SessionDatabase:
             content = feature_file.read_text()
 
             # Count completed features (lines with ✅ COMPLETE)
-            completed = len(re.findall(r'✅ COMPLETE', content))
+            completed = len(re.findall(r"✅ COMPLETE", content))
 
             # Count in-progress goals (lines starting with - ` in IN-PROGRESS section)
-            in_progress_match = re.search(r'In-Progress Goals \((\d+)\)', content)
+            in_progress_match = re.search(r"In-Progress Goals \((\d+)\)", content)
             in_progress = int(in_progress_match.group(1)) if in_progress_match else 0
 
             # Count assigned goals
-            assigned_match = re.search(r'Assigned to Rovo \((\d+)\)', content)
+            assigned_match = re.search(r"Assigned to Rovo \((\d+)\)", content)
             assigned = int(assigned_match.group(1)) if assigned_match else 0
 
             total = completed + in_progress
             completion_pct = (completed / total * 100) if total > 0 else 0
 
             return {
-                'completed': completed,
-                'in_progress': in_progress,
-                'assigned': assigned,
-                'total': total,
-                'completion_percentage': round(completion_pct, 1),
-                'status': 'healthy' if completion_pct >= 50 else 'developing'
+                "completed": completed,
+                "in_progress": in_progress,
+                "assigned": assigned,
+                "total": total,
+                "completion_percentage": round(completion_pct, 1),
+                "status": "healthy" if completion_pct >= 50 else "developing",
             }
         except Exception as e:
             logger.debug(f"Failed to parse FEATURE_STATUS.md: {e}")
@@ -948,13 +1045,13 @@ class SessionDatabase:
         if not current_state:
             return {"error": "No current state found"}
 
-        current_vectors = current_state.get('vectors', {})
+        current_vectors = current_state.get("vectors", {})
 
         # Calculate diffs
         diffs = {}
         significant_changes = []
 
-        checkpoint_vectors = last_checkpoint.get('vectors', {})
+        checkpoint_vectors = last_checkpoint.get("vectors", {})
 
         for key in current_vectors:
             old_val = checkpoint_vectors.get(key, 0.5)
@@ -964,27 +1061,20 @@ class SessionDatabase:
             else:
                 diff = 0.0
 
-            diffs[key] = {
-                'old': old_val,
-                'new': new_val,
-                'diff': diff,
-                'abs_diff': abs(diff)
-            }
+            diffs[key] = {"old": old_val, "new": new_val, "diff": diff, "abs_diff": abs(diff)}
 
             if abs(diff) >= threshold:
-                significant_changes.append({
-                    'vector': key,
-                    'change': diff,
-                    'direction': 'increased' if diff > 0 else 'decreased'
-                })
+                significant_changes.append(
+                    {"vector": key, "change": diff, "direction": "increased" if diff > 0 else "decreased"}
+                )
 
         return {
-            'checkpoint_id': last_checkpoint.get('checkpoint_id'),
-            'checkpoint_phase': last_checkpoint.get('phase'),
-            'checkpoint_timestamp': last_checkpoint.get('timestamp'),
-            'diffs': diffs,
-            'significant_changes': significant_changes,
-            'threshold': threshold
+            "checkpoint_id": last_checkpoint.get("checkpoint_id"),
+            "checkpoint_phase": last_checkpoint.get("phase"),
+            "checkpoint_timestamp": last_checkpoint.get("timestamp"),
+            "diffs": diffs,
+            "significant_changes": significant_changes,
+            "threshold": threshold,
         }
 
     def _get_checkpoint_from_reflexes(self, session_id: str, phase: str | None = None) -> dict | None:
@@ -1020,43 +1110,51 @@ class SessionDatabase:
         if result:
             # Build vectors dict from individual columns
             vectors = {
-                "engagement": result['engagement'],
-                "foundation": {
-                    "know": result['know'],
-                    "do": result['do'],
-                    "context": result['context']
-                },
+                "engagement": result["engagement"],
+                "foundation": {"know": result["know"], "do": result["do"], "context": result["context"]},
                 "comprehension": {
-                    "clarity": result['clarity'],
-                    "coherence": result['coherence'],
-                    "signal": result['signal'],
-                    "density": result['density']
+                    "clarity": result["clarity"],
+                    "coherence": result["coherence"],
+                    "signal": result["signal"],
+                    "density": result["density"],
                 },
                 "execution": {
-                    "state": result['state'],
-                    "change": result['change'],
-                    "completion": result['completion'],
-                    "impact": result['impact']
+                    "state": result["state"],
+                    "change": result["change"],
+                    "completion": result["completion"],
+                    "impact": result["impact"],
                 },
-                "uncertainty": result['uncertainty']
+                "uncertainty": result["uncertainty"],
             }
 
             return {
-                "checkpoint_id": str(result['id']),  # Use id as checkpoint_id
+                "checkpoint_id": str(result["id"]),  # Use id as checkpoint_id
                 "vectors": vectors,
-                "phase": result['phase'],
-                "timestamp": result['timestamp'],
-                "reasoning": result['reasoning'],
+                "phase": result["phase"],
+                "timestamp": result["timestamp"],
+                "reasoning": result["reasoning"],
                 "round": 0,  # SQLite doesn't track rounds in checkpoint
                 "source": "sqlite_fallback",
-                "token_count": None  # Not tracked in SQLite
+                "token_count": None,  # Not tracked in SQLite
             }
 
         return None
 
-    def store_vectors(self, session_id: str, phase: str, vectors: dict[str, float], cascade_id: str | None = None, round_num: int = 1, metadata: dict | None = None, reasoning: str | None = None, transaction_id: str | None = None):
+    def store_vectors(
+        self,
+        session_id: str,
+        phase: str,
+        vectors: dict[str, float],
+        cascade_id: str | None = None,
+        round_num: int = 1,
+        metadata: dict | None = None,
+        reasoning: str | None = None,
+        transaction_id: str | None = None,
+    ):
         """Store epistemic vectors (delegates to VectorRepository)"""
-        return self.vectors.store_vectors(session_id, phase, vectors, cascade_id, round_num, metadata, reasoning, transaction_id=transaction_id)
+        return self.vectors.store_vectors(
+            session_id, phase, vectors, cascade_id, round_num, metadata, reasoning, transaction_id=transaction_id
+        )
 
     def get_latest_vectors(self, session_id: str, phase: str | None = None) -> dict | None:
         """Get latest epistemic vectors for session (delegates to VectorRepository)"""
@@ -1066,8 +1164,14 @@ class SessionDatabase:
     # Goal and Subtask Management (for decision quality + continuity + audit)
     # =========================================================================
 
-    def create_goal(self, session_id: str, objective: str, scope_breadth: float | None = None,
-                   scope_duration: float | None = None, scope_coordination: float | None = None) -> str:
+    def create_goal(
+        self,
+        session_id: str,
+        objective: str,
+        scope_breadth: float | None = None,
+        scope_duration: float | None = None,
+        scope_coordination: float | None = None,
+    ) -> str:
         """Create a new goal for this session (delegates to GoalRepository)
 
         Args:
@@ -1080,10 +1184,9 @@ class SessionDatabase:
         Returns:
             goal_id (UUID string)
         """
-        return self.goals.create_goal(session_id, objective, scope_breadth,
-                                      scope_duration, scope_coordination)
+        return self.goals.create_goal(session_id, objective, scope_breadth, scope_duration, scope_coordination)
 
-    def create_subtask(self, goal_id: str, description: str, importance: str = 'medium') -> str:
+    def create_subtask(self, goal_id: str, description: str, importance: str = "medium") -> str:
         """Create a subtask within a goal (delegates to GoalRepository)
 
         Args:
@@ -1178,10 +1281,7 @@ class SessionDatabase:
         Returns:
             List of Goal objects matching filters
         """
-        return self.core_goals.query_goals(
-            session_id=session_id,
-            is_completed=is_completed
-        )
+        return self.core_goals.query_goals(session_id=session_id, is_completed=is_completed)
 
     def query_subtasks(self, goal_id: str | None = None, status: str | None = None) -> list:
         """Query subtasks with optional filters (delegates to TaskRepository)
@@ -1197,15 +1297,13 @@ class SessionDatabase:
         task_status = None
         if status:
             from empirica.core.tasks.types import TaskStatus
+
             try:
                 task_status = TaskStatus(status)
             except ValueError:
                 pass  # Invalid status, ignore
 
-        return self.tasks.query_subtasks(
-            goal_id=goal_id,
-            status=task_status
-        )
+        return self.tasks.query_subtasks(goal_id=goal_id, status=task_status)
 
     def get_goal_subtasks(self, goal_id: str) -> list:
         """Get all subtasks for a specific goal (delegates to TaskRepository)
@@ -1236,13 +1334,14 @@ class SessionDatabase:
             "total": total,
             "completed": completed,
             "remaining": total - completed,
-            "percentage": round((completed / total * 100), 1) if total > 0 else 0.0
+            "percentage": round((completed / total * 100), 1) if total > 0 else 0.0,
         }
 
     # ========== Investigation Branches (Epistemic Auto-Merge) ==========
 
-    def create_branch(self, session_id: str, branch_name: str, investigation_path: str,
-                     git_branch_name: str, preflight_vectors: dict) -> str:
+    def create_branch(
+        self, session_id: str, branch_name: str, investigation_path: str, git_branch_name: str, preflight_vectors: dict
+    ) -> str:
         """Create a new investigation branch (delegates to BranchRepository)
 
         Args:
@@ -1255,11 +1354,13 @@ class SessionDatabase:
         Returns:
             Branch ID
         """
-        return self.branches.create_branch(session_id, branch_name, investigation_path,
-                                           git_branch_name, preflight_vectors)
+        return self.branches.create_branch(
+            session_id, branch_name, investigation_path, git_branch_name, preflight_vectors
+        )
 
-    def checkpoint_branch(self, branch_id: str, postflight_vectors: dict,
-                         tokens_spent: int, time_spent_minutes: int) -> bool:
+    def checkpoint_branch(
+        self, branch_id: str, postflight_vectors: dict, tokens_spent: int, time_spent_minutes: int
+    ) -> bool:
         """Checkpoint a branch after investigation (delegates to BranchRepository)
 
         Args:
@@ -1271,8 +1372,7 @@ class SessionDatabase:
         Returns:
             Success boolean
         """
-        return self.branches.checkpoint_branch(branch_id, postflight_vectors,
-                                               tokens_spent, time_spent_minutes)
+        return self.branches.checkpoint_branch(branch_id, postflight_vectors, tokens_spent, time_spent_minutes)
 
     def calculate_branch_merge_score(self, branch_id: str) -> dict:
         """Calculate epistemic merge score for a branch (delegates to BranchRepository)
@@ -1300,7 +1400,7 @@ class SessionDatabase:
         repos: list[str] | None = None,
         project_type: str | None = None,
         project_tags: list[str] | None = None,
-        parent_project_id: str | None = None
+        parent_project_id: str | None = None,
     ) -> str:
         """Create a new project (delegates to ProjectRepository)
 
@@ -1316,10 +1416,12 @@ class SessionDatabase:
             project_id: UUID string
         """
         return self.projects.create_project(
-            name, description, repos,
+            name,
+            description,
+            repos,
             project_type=project_type,
             project_tags=project_tags,
-            parent_project_id=parent_project_id
+            parent_project_id=parent_project_id,
         )
 
     def get_project(self, project_id: str) -> dict | None:
@@ -1349,7 +1451,7 @@ class SessionDatabase:
         project_summary: str,
         key_decisions: list[str] | None = None,
         patterns_discovered: list[str] | None = None,
-        remaining_work: list[str] | None = None
+        remaining_work: list[str] | None = None,
     ) -> str:
         """Create project-level handoff report (delegates to ProjectRepository)"""
         return self.projects.create_project_handoff(
@@ -1373,7 +1475,8 @@ class SessionDatabase:
         Returns list of issues sorted by severity and recency.
         """
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, session_id, severity, category, message, status, created_at, code_location
             FROM auto_captured_issues
             WHERE session_id IN (
@@ -1385,27 +1488,31 @@ class SessionDatabase:
                              WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END,
                 created_at DESC
             LIMIT ?
-        """, (project_id, limit))
+        """,
+            (project_id, limit),
+        )
 
         rows = cursor.fetchall()
         issues = []
         for row in rows:
-            issues.append({
-                'id': row[0],
-                'session_id': row[1],
-                'severity': row[2],
-                'category': row[3],
-                'message': row[4],
-                'status': row[5],
-                'created_at': row[6],
-                'code_location': row[7]
-            })
+            issues.append(
+                {
+                    "id": row[0],
+                    "session_id": row[1],
+                    "severity": row[2],
+                    "category": row[3],
+                    "message": row[4],
+                    "status": row[5],
+                    "created_at": row[6],
+                    "code_location": row[7],
+                }
+            )
 
         # Deduplicate by message (same error may occur in multiple sessions)
         seen_messages = set()
         unique_issues = []
         for issue in issues:
-            msg = issue.get('message', '')
+            msg = issue.get("message", "")
             if msg not in seen_messages:
                 seen_messages.add(msg)
                 unique_issues.append(issue)
@@ -1427,49 +1534,53 @@ class SessionDatabase:
         try:
             # Get current branch
             branch_result = subprocess.run(
-                ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
                 cwd=project_root,
                 capture_output=True,
                 text=True,
-                timeout=2
+                timeout=2,
             )
-            current_branch = branch_result.stdout.strip() if branch_result.returncode == 0 else 'unknown'
+            current_branch = branch_result.stdout.strip() if branch_result.returncode == 0 else "unknown"
 
             # Get status short summary
             status_result = subprocess.run(
-                ['git', 'status', '--short'],
-                cwd=project_root,
-                capture_output=True,
-                text=True,
-                timeout=2
+                ["git", "status", "--short"], cwd=project_root, capture_output=True, text=True, timeout=2
             )
-            uncommitted = len(status_result.stdout.strip().split('\n')) if status_result.returncode == 0 and status_result.stdout.strip() else 0
+            uncommitted = (
+                len(status_result.stdout.strip().split("\n"))
+                if status_result.returncode == 0 and status_result.stdout.strip()
+                else 0
+            )
 
             # Get untracked files
             untracked_result = subprocess.run(
-                ['git', 'ls-files', '--others', '--exclude-standard'],
+                ["git", "ls-files", "--others", "--exclude-standard"],
                 cwd=project_root,
                 capture_output=True,
                 text=True,
-                timeout=2
+                timeout=2,
             )
-            untracked = len(untracked_result.stdout.strip().split('\n')) if untracked_result.returncode == 0 and untracked_result.stdout.strip() else 0
+            untracked = (
+                len(untracked_result.stdout.strip().split("\n"))
+                if untracked_result.returncode == 0 and untracked_result.stdout.strip()
+                else 0
+            )
 
             # Get recent commits (last 3)
             commits_result = subprocess.run(
-                ['git', 'log', '--oneline', '-3'],
-                cwd=project_root,
-                capture_output=True,
-                text=True,
-                timeout=2
+                ["git", "log", "--oneline", "-3"], cwd=project_root, capture_output=True, text=True, timeout=2
             )
-            recent_commits = commits_result.stdout.strip().split('\n') if commits_result.returncode == 0 and commits_result.stdout.strip() else []
+            recent_commits = (
+                commits_result.stdout.strip().split("\n")
+                if commits_result.returncode == 0 and commits_result.stdout.strip()
+                else []
+            )
 
             return {
-                'current_branch': current_branch,
-                'uncommitted_changes': uncommitted,
-                'untracked_files': untracked,
-                'recent_commits': recent_commits
+                "current_branch": current_branch,
+                "uncommitted_changes": uncommitted,
+                "untracked_files": untracked,
+                "recent_commits": recent_commits,
             }
         except Exception as e:
             logger.debug(f"Error getting git status: {e}")
@@ -1479,8 +1590,9 @@ class SessionDatabase:
     def _analyze_py_file_imports(py_file, root_path, package_prefixes, reverse_graph, external_deps, entry_points):
         """Analyze a single Python file for imports and entry points."""
         import ast
+
         try:
-            file_content = py_file.read_text(errors='replace')
+            file_content = py_file.read_text(errors="replace")
             tree = ast.parse(file_content)
         except (SyntaxError, UnicodeDecodeError):
             return
@@ -1496,22 +1608,27 @@ class SessionDatabase:
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
-                    top = alias.name.split('.')[0]
+                    top = alias.name.split(".")[0]
                     if top in package_prefixes:
                         reverse_graph[alias.name].add(module_name)
                     else:
                         external_deps.add(top)
             elif isinstance(node, ast.ImportFrom) and node.module:
-                top = node.module.split('.')[0]
+                top = node.module.split(".")[0]
                 if top in package_prefixes:
                     reverse_graph[node.module].add(module_name)
                 elif node.level == 0:
                     external_deps.add(top)
         for node in ast.walk(tree):
-            if (isinstance(node, ast.If) and isinstance(node.test, ast.Compare) and len(node.test.comparators) == 1):
+            if isinstance(node, ast.If) and isinstance(node.test, ast.Compare) and len(node.test.comparators) == 1:
                 left = node.test.left
                 comp = node.test.comparators[0]
-                if isinstance(left, ast.Name) and left.id == '__name__' and isinstance(comp, ast.Constant) and comp.value == '__main__':
+                if (
+                    isinstance(left, ast.Name)
+                    and left.id == "__name__"
+                    and isinstance(comp, ast.Constant)
+                    and comp.value == "__main__"
+                ):
                     entry_points.append(module_name)
                     break
 
@@ -1540,8 +1657,10 @@ class SessionDatabase:
         # Belt-and-suspenders: refuse to mkdir .empirica/ under a path that
         # isn't a real project root. Prevents stray .empirica/cache/ in subdirs
         # when a future caller passes a non-canonical project_root.
-        if not ((root_path / ".empirica" / "project.yaml").exists() or
-                (root_path / ".empirica" / "sessions" / "sessions.db").exists()):
+        if not (
+            (root_path / ".empirica" / "project.yaml").exists()
+            or (root_path / ".empirica" / "sessions" / "sessions.db").exists()
+        ):
             return None
 
         # Check cache (5-minute TTL)
@@ -1555,9 +1674,18 @@ class SessionDatabase:
             except Exception:
                 pass
 
-        skip_exact = {'.git', '__pycache__', 'dist', 'build',
-                      'node_modules', '.empirica', '.qdrant_data', '.tox', '.mypy_cache'}
-        skip_prefixes = ('.venv', 'venv', '.eggs')
+        skip_exact = {
+            ".git",
+            "__pycache__",
+            "dist",
+            "build",
+            "node_modules",
+            ".empirica",
+            ".qdrant_data",
+            ".tox",
+            ".mypy_cache",
+        }
+        skip_prefixes = (".venv", "venv", ".eggs")
 
         def _should_skip(part: str) -> bool:
             return part in skip_exact or part.startswith(skip_prefixes)
@@ -1565,8 +1693,8 @@ class SessionDatabase:
         # Discover top-level packages (dirs with __init__.py)
         packages = []
         for d in sorted(root_path.iterdir()):
-            if d.is_dir() and not _should_skip(d.name) and not d.name.startswith('.'):
-                if (d / '__init__.py').exists():
+            if d.is_dir() and not _should_skip(d.name) and not d.name.startswith("."):
+                if (d / "__init__.py").exists():
                     packages.append(d.name)
 
         package_prefixes = set(packages)
@@ -1586,24 +1714,25 @@ class SessionDatabase:
             module_count += 1
             all_module_basenames.add(py_file.stem)
 
-            self._analyze_py_file_imports(py_file, root_path, package_prefixes, reverse_graph, external_deps, entry_points)
+            self._analyze_py_file_imports(
+                py_file, root_path, package_prefixes, reverse_graph, external_deps, entry_points
+            )
 
         # Build hotspots (top 10 by importer count)
         hotspots = sorted(
-            [{"module": mod, "importers": len(importers)}
-             for mod, importers in reverse_graph.items()],
+            [{"module": mod, "importers": len(importers)} for mod, importers in reverse_graph.items()],
             key=lambda x: x["importers"],
-            reverse=True
+            reverse=True,
         )[:10]
 
         # Filter out stdlib, project-internal, and private modules
         import sys
-        stdlib_modules = getattr(sys, 'stdlib_module_names', set())
+
+        stdlib_modules = getattr(sys, "stdlib_module_names", set())
         external_deps -= stdlib_modules
         external_deps -= package_prefixes
         external_deps -= all_module_basenames  # Remove local script imports
-        external_deps = {d for d in external_deps
-                         if not d.startswith('_')}
+        external_deps = {d for d in external_deps if not d.startswith("_")}
 
         result = {
             "packages": sorted(packages),
@@ -1621,7 +1750,6 @@ class SessionDatabase:
             pass
 
         return result
-
 
     def _resolve_and_validate_project(self, project_id: str) -> dict | None:
         """Resolve project name to UUID and validate it exists"""
@@ -1655,7 +1783,9 @@ class SessionDatabase:
             total_unknowns = len(all_unknowns)
             unknowns = all_unknowns[:UNKNOWNS_LIMIT]
             if total_unknowns > UNKNOWNS_LIMIT:
-                truncation_warnings.append(f"unknowns: showing {UNKNOWNS_LIMIT} of {total_unknowns} unresolved (use 'empirica project-search' for full list)")
+                truncation_warnings.append(
+                    f"unknowns: showing {UNKNOWNS_LIMIT} of {total_unknowns} unresolved (use 'empirica project-search' for full list)"
+                )
 
             dead_ends = self.breadcrumbs.get_project_dead_ends(project_id, limit=DEAD_ENDS_LIMIT, subject=subject)
             recent_mistakes = self.breadcrumbs.get_project_mistakes(project_id, limit=MISTAKES_LIMIT)
@@ -1677,6 +1807,7 @@ class SessionDatabase:
                 _decisions_collection,
                 _get_qdrant_client,
             )
+
             if _check_qdrant_available():
                 client = _get_qdrant_client()
                 coll = _decisions_collection(project_id)
@@ -1684,26 +1815,28 @@ class SessionDatabase:
                     results = client.scroll(collection_name=coll, limit=DECISIONS_LIMIT, with_payload=True)
                     for pt in results[0]:
                         p = pt.payload or {}
-                        decisions.append({
-                            'choice': p.get('choice', ''),
-                            'rationale': p.get('rationale', ''),
-                            'reversibility': p.get('reversibility', 'exploratory'),
-                            'confidence': p.get('confidence_at_decision'),
-                        })
+                        decisions.append(
+                            {
+                                "choice": p.get("choice", ""),
+                                "rationale": p.get("rationale", ""),
+                                "reversibility": p.get("reversibility", "exploratory"),
+                                "confidence": p.get("confidence_at_decision"),
+                            }
+                        )
         except Exception:
             pass  # Qdrant unavailable — decisions won't load (non-fatal)
 
         result = {
-            'findings': findings,
-            'unknowns': unknowns,
-            'dead_ends': dead_ends,
-            'decisions': decisions,
-            'mistakes_to_avoid': recent_mistakes,
-            'reference_docs': reference_docs
+            "findings": findings,
+            "unknowns": unknowns,
+            "dead_ends": dead_ends,
+            "decisions": decisions,
+            "mistakes_to_avoid": recent_mistakes,
+            "reference_docs": reference_docs,
         }
 
         if truncation_warnings:
-            result['truncation_warnings'] = truncation_warnings
+            result["truncation_warnings"] = truncation_warnings
 
         return result
 
@@ -1718,31 +1851,28 @@ class SessionDatabase:
         truncation_warnings = []
 
         # Truncate 'goals' (active goals with subtask counts)
-        if 'goals' in goals_data:
-            total_goals = len(goals_data['goals'])
+        if "goals" in goals_data:
+            total_goals = len(goals_data["goals"])
             if total_goals > limit:
-                goals_data['goals'] = goals_data['goals'][:limit]
-                truncation_warnings.append(f"goals: showing {limit} of {total_goals} (use 'empirica goals-list' for full list)")
+                goals_data["goals"] = goals_data["goals"][:limit]
+                truncation_warnings.append(
+                    f"goals: showing {limit} of {total_goals} (use 'empirica goals-list' for full list)"
+                )
 
         # Truncate 'incomplete_work'
-        if 'incomplete_work' in goals_data:
-            total_incomplete = len(goals_data['incomplete_work'])
+        if "incomplete_work" in goals_data:
+            total_incomplete = len(goals_data["incomplete_work"])
             if total_incomplete > limit:
-                goals_data['incomplete_work'] = goals_data['incomplete_work'][:limit]
+                goals_data["incomplete_work"] = goals_data["incomplete_work"][:limit]
                 truncation_warnings.append(f"incomplete_work: showing {limit} of {total_incomplete}")
 
         if truncation_warnings:
-            goals_data['truncation_warnings'] = truncation_warnings
+            goals_data["truncation_warnings"] = truncation_warnings
 
         return goals_data
 
     def _capture_live_state_if_requested(
-        self,
-        session_id: str | None,
-        project_id: str,
-        include_live_state: bool,
-        fresh_assess: bool,
-        trigger: str | None
+        self, session_id: str | None, project_id: str, include_live_state: bool, fresh_assess: bool, trigger: str | None
     ) -> dict | None:
         """Capture live epistemic state if requested"""
         if not include_live_state:
@@ -1763,10 +1893,9 @@ class SessionDatabase:
 
         # CRITICAL: Include session_id in result so bootstrap can use it
         if result:
-            result['session_id'] = session_id
+            result["session_id"] = session_id
 
         return result
-
 
     def _build_situation(self, project_id: str, project_root: str) -> dict:
         """Compaction-recovery narrative.
@@ -1777,6 +1906,7 @@ class SessionDatabase:
         shape from the same code. See situation.py for field semantics.
         """
         from empirica.core.bootstrap.situation import build_situation
+
         return build_situation(project_root, project_id)
 
     def _count_project_artifacts(self, project_id: str) -> dict:
@@ -1814,16 +1944,15 @@ class SessionDatabase:
         try:
             # Goals are session-scoped — count via the sessions join
             goals_count = self._execute(
-                "SELECT COUNT(*) FROM goals WHERE session_id IN "
-                "(SELECT session_id FROM sessions WHERE project_id = ?)",
+                "SELECT COUNT(*) FROM goals WHERE session_id IN (SELECT session_id FROM sessions WHERE project_id = ?)",
                 (project_id,),
             ).fetchone()[0]
         except Exception:
             goals_count = 0
         return {
-            'total_sessions': int(sessions_count),
-            'total_transactions': int(transactions_count),
-            'total_goals': int(goals_count),
+            "total_sessions": int(sessions_count),
+            "total_transactions": int(transactions_count),
+            "total_goals": int(goals_count),
         }
 
     def _execute(self, sql: str, params: tuple = ()):
@@ -1840,24 +1969,24 @@ class SessionDatabase:
         stored denormalized columns are stale (never wired to insert
         triggers).
         """
-        repos = project.get('repos', []) or []
+        repos = project.get("repos", []) or []
         if isinstance(repos, str):
             try:
                 repos = json.loads(repos)
             except Exception:
                 repos = []
 
-        counts = self._count_project_artifacts(project['id'])
+        counts = self._count_project_artifacts(project["id"])
 
         return {
-            'id': project['id'],
-            'name': project.get('name', 'Unknown'),
-            'description': project.get('description', ''),
-            'status': project.get('status', 'active'),
-            'repos': repos,
-            'total_sessions': counts['total_sessions'],
-            'total_transactions': counts['total_transactions'],
-            'total_goals': counts['total_goals'],
+            "id": project["id"],
+            "name": project.get("name", "Unknown"),
+            "description": project.get("description", ""),
+            "status": project.get("status", "active"),
+            "repos": repos,
+            "total_sessions": counts["total_sessions"],
+            "total_transactions": counts["total_transactions"],
+            "total_goals": counts["total_goals"],
         }
 
     @staticmethod
@@ -1868,18 +1997,19 @@ class SessionDatabase:
         """
         try:
             from empirica.config.project_config_loader import load_project_config
+
             project_config = load_project_config()
             if not project_config:
                 return project_meta
 
-            yaml_enrichment = {'type': project_config.type}
-            for attr in ('domain', 'languages', 'tags', 'contacts', 'engagements', 'edges'):
+            yaml_enrichment = {"type": project_config.type}
+            for attr in ("domain", "languages", "tags", "contacts", "engagements", "edges"):
                 value = getattr(project_config, attr, None)
                 if value:
                     yaml_enrichment[attr] = value
-            if project_config.classification != 'internal':
-                yaml_enrichment['classification'] = project_config.classification
-            yaml_enrichment['evidence_profile'] = project_config.evidence_profile
+            if project_config.classification != "internal":
+                yaml_enrichment["classification"] = project_config.classification
+            yaml_enrichment["evidence_profile"] = project_config.evidence_profile
             project_meta.update(yaml_enrichment)
         except Exception:
             pass  # project.yaml enrichment is non-fatal
@@ -1890,8 +2020,8 @@ class SessionDatabase:
         # Flow state metrics (AI productivity patterns)
         try:
             flow_metrics = self.calculate_flow_metrics(resolved_id, limit=5)
-            if flow_metrics and flow_metrics.get('current_flow'):
-                breadcrumbs['flow_metrics'] = flow_metrics
+            if flow_metrics and flow_metrics.get("current_flow"):
+                breadcrumbs["flow_metrics"] = flow_metrics
         except Exception as e:
             logger.debug(f"Flow metrics calculation skipped: {e}")
 
@@ -1899,7 +2029,7 @@ class SessionDatabase:
         try:
             health_score = self.calculate_health_score(resolved_id, limit=5)
             if health_score:
-                breadcrumbs['health_score'] = health_score
+                breadcrumbs["health_score"] = health_score
         except Exception as e:
             logger.debug(f"Health score calculation skipped: {e}")
 
@@ -1907,9 +2037,9 @@ class SessionDatabase:
         try:
             feature_status = self._load_feature_status(project_root)
             if feature_status:
-                breadcrumbs['feature_status'] = feature_status
-                if 'health_score' in breadcrumbs:
-                    breadcrumbs['health_score']['feature_completion'] = feature_status
+                breadcrumbs["feature_status"] = feature_status
+                if "health_score" in breadcrumbs:
+                    breadcrumbs["health_score"]["feature_completion"] = feature_status
         except Exception as e:
             logger.debug(f"Feature status load skipped: {e}")
 
@@ -1926,22 +2056,22 @@ class SessionDatabase:
         """Attach dependency graph, git status, issues, and live state to breadcrumbs."""
         dep_graph = self._generate_dependency_summary(project_root)
         if dep_graph:
-            breadcrumbs['dependency_graph'] = dep_graph
+            breadcrumbs["dependency_graph"] = dep_graph
 
         git_status = self.get_git_status(project_root)
         if git_status:
-            breadcrumbs['git_status'] = git_status
+            breadcrumbs["git_status"] = git_status
 
         auto_issues = self.get_auto_captured_issues(resolved_id, limit=10)
         if auto_issues:
-            breadcrumbs['auto_captured_issues'] = auto_issues
+            breadcrumbs["auto_captured_issues"] = auto_issues
 
         live_state = self._capture_live_state_if_requested(
             session_id, resolved_id, include_live_state, fresh_assess, trigger
         )
         if live_state:
-            breadcrumbs['live_state'] = live_state
-            breadcrumbs['session_id'] = session_id or live_state.get('session_id')
+            breadcrumbs["live_state"] = live_state
+            breadcrumbs["session_id"] = session_id or live_state.get("session_id")
 
     def bootstrap_project_breadcrumbs(
         self,
@@ -1958,7 +2088,7 @@ class SessionDatabase:
         fresh_assess: bool = False,
         trigger: str | None = None,
         depth: str = "auto",
-        ai_id: str | None = None
+        ai_id: str | None = None,
     ) -> dict:
         """
         Generate epistemic breadcrumbs for starting a new session on existing project.
@@ -1991,7 +2121,7 @@ class SessionDatabase:
         if not project:
             return {"error": f"Project not found: {project_id}"}
 
-        resolved_id = project['id']
+        resolved_id = project["id"]
 
         # 2. Get latest handoff
         latest_handoff = self.get_latest_project_handoff(resolved_id)
@@ -2006,28 +2136,31 @@ class SessionDatabase:
 
         # 4. Load goals and merge truncation warnings
         goals_data = self._load_goals_for_project(resolved_id)
-        all_warnings = breadcrumbs.pop('truncation_warnings', []) + goals_data.pop('truncation_warnings', [])
+        all_warnings = breadcrumbs.pop("truncation_warnings", []) + goals_data.pop("truncation_warnings", [])
         breadcrumbs.update(goals_data)
         if all_warnings:
-            breadcrumbs['truncation_warnings'] = all_warnings
+            breadcrumbs["truncation_warnings"] = all_warnings
 
         # 5. Attach supplementary data (deps, git, issues, live state) — only when
         # project_root is resolved. Otherwise core breadcrumbs still ship.
         if project_root:
             self._attach_supplementary_data(
-                breadcrumbs, resolved_id, project_root,
-                session_id, include_live_state, fresh_assess, trigger,
+                breadcrumbs,
+                resolved_id,
+                project_root,
+                session_id,
+                include_live_state,
+                fresh_assess,
+                trigger,
             )
 
         # 6. Build and enrich project metadata
-        breadcrumbs['project'] = self._enrich_project_from_yaml(
-            self._build_project_metadata(project)
-        )
+        breadcrumbs["project"] = self._enrich_project_from_yaml(self._build_project_metadata(project))
 
         if latest_handoff:
-            breadcrumbs['latest_handoff'] = latest_handoff
+            breadcrumbs["latest_handoff"] = latest_handoff
         if ai_epistemic_handoff:
-            breadcrumbs['ai_epistemic_handoff'] = ai_epistemic_handoff
+            breadcrumbs["ai_epistemic_handoff"] = ai_epistemic_handoff
 
         # 7. Synthesize 'situation' — the compaction-recovery narrative.
         # Replaces the template-only `last_activity` field; carries
@@ -2037,28 +2170,30 @@ class SessionDatabase:
         # last_activity kept for backward-compat consumers; new narrative
         # lives in `situation` and is the recommended source.
         last_commit_msg = (
-            situation.get('last_praxic_action', {}).get('message')
-            if isinstance(situation.get('last_praxic_action'), dict) else None
+            situation.get("last_praxic_action", {}).get("message")
+            if isinstance(situation.get("last_praxic_action"), dict)
+            else None
         )
         last_at = (
-            situation.get('last_praxic_action', {}).get('at')
-            if isinstance(situation.get('last_praxic_action'), dict) else None
+            situation.get("last_praxic_action", {}).get("at")
+            if isinstance(situation.get("last_praxic_action"), dict)
+            else None
         )
-        breadcrumbs['last_activity'] = {
-            'summary': (
+        breadcrumbs["last_activity"] = {
+            "summary": (
                 f"Last commit: {last_commit_msg} (at {last_at})"
-                if last_commit_msg else
-                f"Last activity: {project.get('last_activity_timestamp', 'Unknown')}"
+                if last_commit_msg
+                else f"Last activity: {project.get('last_activity_timestamp', 'Unknown')}"
             ),
-            'next_focus': situation.get(
-                'next_focus',
-                'Continue with incomplete work and unknown resolutions',
+            "next_focus": situation.get(
+                "next_focus",
+                "Continue with incomplete work and unknown resolutions",
             ),
         }
 
         # 8. Generate context markdown if requested
         if context_to_inject:
-            breadcrumbs['context_markdown'] = generate_context_markdown(breadcrumbs)
+            breadcrumbs["context_markdown"] = generate_context_markdown(breadcrumbs)
 
         # 9. Attach optional metrics (flow, health, feature status)
         self._attach_optional_metrics(breadcrumbs, resolved_id, project_root)
@@ -2069,8 +2204,7 @@ class SessionDatabase:
 
         # 11. Reorder so `situation` appears first in JSON output
         # (attention-decay-aware — AI sees state-narrative before deep lists).
-        return {'situation': situation, **breadcrumbs}
-
+        return {"situation": situation, **breadcrumbs}
 
     def _auto_resolve_session(self, project_id: str, trigger: str | None) -> str | None:
         """
@@ -2081,41 +2215,48 @@ class SessionDatabase:
         2. If trigger='pre_compact': Get latest session for project (even if ended)
         3. Otherwise: Get latest ACTIVE session for project
         """
-        if trigger == 'post_compact':
+        if trigger == "post_compact":
             # Load session from pre-compact snapshot
             try:
                 import json
                 from pathlib import Path
+
                 ref_docs_dir = Path.cwd() / ".empirica" / "ref-docs"
                 snapshots = sorted(ref_docs_dir.glob("pre_summary_*.json"), reverse=True)
                 if snapshots:
                     with open(snapshots[0]) as f:
                         snapshot = json.load(f)
-                        return snapshot.get('session_id')
+                        return snapshot.get("session_id")
             except Exception:
                 logger.debug("Failed to read pre_summary snapshot for session_id")
 
         # Get latest session for project
         cursor = self.conn.cursor()
-        if trigger == 'pre_compact':
+        if trigger == "pre_compact":
             # Include ended sessions (POSTFLIGHT just ran)
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT session_id FROM sessions
                 WHERE project_id = ?
                 ORDER BY start_time DESC
                 LIMIT 1
-            """, (project_id,))
+            """,
+                (project_id,),
+            )
         else:
             # Only active sessions (end_time IS NULL)
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT session_id FROM sessions
                 WHERE project_id = ? AND end_time IS NULL
                 ORDER BY start_time DESC
                 LIMIT 1
-            """, (project_id,))
+            """,
+                (project_id,),
+            )
 
         row = cursor.fetchone()
-        return row['session_id'] if row else None
+        return row["session_id"] if row else None
 
     def _capture_fresh_state(self, session_id: str, project_id: str) -> dict:
         """
@@ -2135,34 +2276,23 @@ class SessionDatabase:
         # Try to get vectors from latest checkpoint
         try:
             from empirica.core.canonical.git_enhanced_reflex_logger import GitEnhancedReflexLogger
+
             git_logger = GitEnhancedReflexLogger(session_id=session_id, enable_git_notes=True)
             checkpoints = git_logger.list_checkpoints(limit=1)
 
             if checkpoints:
                 latest = checkpoints[0]
-                vectors = latest.get('vectors', {})
-                reasoning = latest.get('meta', {}).get('reasoning', 'Latest checkpoint reasoning')
-                phase = latest.get('phase', 'UNKNOWN')
+                vectors = latest.get("vectors", {})
+                reasoning = latest.get("meta", {}).get("reasoning", "Latest checkpoint reasoning")
+                phase = latest.get("phase", "UNKNOWN")
             else:
                 # No checkpoints - use minimal default
-                vectors = {
-                    "engagement": 0.5,
-                    "know": 0.5,
-                    "uncertainty": 0.5,
-                    "impact": 0.5,
-                    "completion": 0.0
-                }
+                vectors = {"engagement": 0.5, "know": 0.5, "uncertainty": 0.5, "impact": 0.5, "completion": 0.0}
                 reasoning = "Fresh assessment (no prior checkpoints)"
                 phase = None
         except Exception as e:
             # Fallback to minimal state
-            vectors = {
-                "engagement": 0.5,
-                "know": 0.5,
-                "uncertainty": 0.5,
-                "impact": 0.5,
-                "completion": 0.0
-            }
+            vectors = {"engagement": 0.5, "know": 0.5, "uncertainty": 0.5, "impact": 0.5, "completion": 0.0}
             reasoning = f"Fresh assessment (error loading checkpoint: {e})"
             phase = None
 
@@ -2172,13 +2302,12 @@ class SessionDatabase:
             "reasoning": reasoning,
             "phase": phase,
             "timestamp": datetime.now().isoformat(),
-            "fresh": True  # Flag to indicate this is fresh, not loaded checkpoint
+            "fresh": True,  # Flag to indicate this is fresh, not loaded checkpoint
         }
 
     def _load_latest_checkpoint_state(self, session_id: str) -> dict | None:
         """Load latest checkpoint from session (via GitEnhancedReflexLogger)"""
         try:
-
             from empirica.core.canonical.git_enhanced_reflex_logger import GitEnhancedReflexLogger
 
             git_logger = GitEnhancedReflexLogger(session_id=session_id, enable_git_notes=True)
@@ -2189,12 +2318,12 @@ class SessionDatabase:
 
             checkpoint = checkpoints[0]
             return {
-                "vectors": checkpoint.get('vectors', {}),
+                "vectors": checkpoint.get("vectors", {}),
                 "git": self._get_current_git_state(),  # Current git state, not from checkpoint
-                "reasoning": checkpoint.get('meta', {}).get('reasoning', ''),
-                "phase": checkpoint.get('phase'),
-                "timestamp": checkpoint.get('timestamp'),
-                "fresh": False  # Loaded from checkpoint, not fresh
+                "reasoning": checkpoint.get("meta", {}).get("reasoning", ""),
+                "phase": checkpoint.get("phase"),
+                "timestamp": checkpoint.get("timestamp"),
+                "fresh": False,  # Loaded from checkpoint, not fresh
             }
         except Exception as e:
             return {"error": str(e)}
@@ -2205,39 +2334,21 @@ class SessionDatabase:
 
         try:
             # Get HEAD commit
-            head = subprocess.run(
-                ['git', 'rev-parse', 'HEAD'],
-                capture_output=True,
-                text=True,
-                timeout=2
-            )
+            head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, timeout=2)
             head_commit = head.stdout.strip() if head.returncode == 0 else None
 
             # Get branch
             branch = subprocess.run(
-                ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                capture_output=True,
-                text=True,
-                timeout=2
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, timeout=2
             )
             branch_name = branch.stdout.strip() if branch.returncode == 0 else None
 
             # Check if dirty (uncommitted changes)
-            status = subprocess.run(
-                ['git', 'status', '--porcelain'],
-                capture_output=True,
-                text=True,
-                timeout=2
-            )
+            status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, timeout=2)
             dirty = len(status.stdout.strip()) > 0 if status.returncode == 0 else None
-            uncommitted_count = len(status.stdout.strip().split('\n')) if dirty else 0
+            uncommitted_count = len(status.stdout.strip().split("\n")) if dirty else 0
 
-            return {
-                "head": head_commit,
-                "branch": branch_name,
-                "dirty": dirty,
-                "uncommitted_files": uncommitted_count
-            }
+            return {"head": head_commit, "branch": branch_name, "dirty": dirty, "uncommitted_files": uncommitted_count}
         except Exception as e:
             return {"error": str(e)}
 
@@ -2247,15 +2358,16 @@ class SessionDatabase:
         try:
             import json
             from pathlib import Path
+
             ref_docs_dir = Path.cwd() / ".empirica" / "ref-docs"
             snapshots = sorted(ref_docs_dir.glob("pre_summary_*.json"), reverse=True)
-            if snapshots and breadcrumbs.get('live_state'):
+            if snapshots and breadcrumbs.get("live_state"):
                 with open(snapshots[0]) as f:
                     pre_snapshot = json.load(f)
-                pre_vectors = pre_snapshot.get('checkpoint', {}).get('vectors', {})
-                post_vectors = breadcrumbs['live_state'].get('vectors', {})
+                pre_vectors = pre_snapshot.get("checkpoint", {}).get("vectors", {})
+                post_vectors = breadcrumbs["live_state"].get("vectors", {})
                 drift, count = 0.0, 0
-                for key in ['know', 'uncertainty', 'engagement', 'impact', 'completion']:
+                for key in ["know", "uncertainty", "engagement", "impact", "completion"]:
                     if key in pre_vectors and key in post_vectors:
                         if pre_vectors[key] is not None and post_vectors[key] is not None:
                             drift += abs(pre_vectors[key] - post_vectors[key])
@@ -2292,64 +2404,90 @@ class SessionDatabase:
 
         # Shared slimming helpers for depth filtering
         def _slim_finding(f: dict) -> dict:
-            return {'finding': f.get('finding'), 'impact': f.get('impact')}
+            return {"finding": f.get("finding"), "impact": f.get("impact")}
 
         def _slim_unknown(u: dict) -> dict:
-            return {'unknown': u.get('unknown'), 'is_resolved': u.get('is_resolved', False)}
+            return {"unknown": u.get("unknown"), "is_resolved": u.get("is_resolved", False)}
 
         def _slim_goal(g: dict) -> dict:
             return {
-                'id': g.get('id', '')[:8],  # Short ID
-                'objective': g.get('objective'),
-                'status': g.get('status')
+                "id": g.get("id", "")[:8],  # Short ID
+                "objective": g.get("objective"),
+                "status": g.get("status"),
             }
 
         def _slim_dead_end(d: dict) -> dict:
-            return {'approach': d.get('approach'), 'why_failed': d.get('why_failed')}
+            return {"approach": d.get("approach"), "why_failed": d.get("why_failed")}
 
         def _slim_decision(d: dict) -> dict:
-            return {'choice': d.get('choice'), 'rationale': d.get('rationale')}
+            return {"choice": d.get("choice"), "rationale": d.get("rationale")}
 
         # Apply depth filter
         if depth == "minimal":
             # ~2k tokens target: essentials only
-            breadcrumbs['findings'] = [_slim_finding(f) for f in breadcrumbs.get('findings', [])[:5]]
-            breadcrumbs['unknowns'] = [_slim_unknown(u) for u in breadcrumbs.get('unknowns', [])[:5]]
-            breadcrumbs['dead_ends'] = [_slim_dead_end(d) for d in breadcrumbs.get('dead_ends', [])[:3]]
-            breadcrumbs['decisions'] = [_slim_decision(d) for d in breadcrumbs.get('decisions', [])[:3]]
-            breadcrumbs['mistakes_to_avoid'] = breadcrumbs.get('mistakes_to_avoid', [])[:2]
-            breadcrumbs['goals'] = [_slim_goal(g) for g in breadcrumbs.get('goals', [])[:1]]
-            breadcrumbs['active_goals'] = [_slim_goal(g) for g in breadcrumbs.get('active_goals', [])[:2]]
-            breadcrumbs['reference_docs'] = breadcrumbs.get('reference_docs', [])[:2]
+            breadcrumbs["findings"] = [_slim_finding(f) for f in breadcrumbs.get("findings", [])[:5]]
+            breadcrumbs["unknowns"] = [_slim_unknown(u) for u in breadcrumbs.get("unknowns", [])[:5]]
+            breadcrumbs["dead_ends"] = [_slim_dead_end(d) for d in breadcrumbs.get("dead_ends", [])[:3]]
+            breadcrumbs["decisions"] = [_slim_decision(d) for d in breadcrumbs.get("decisions", [])[:3]]
+            breadcrumbs["mistakes_to_avoid"] = breadcrumbs.get("mistakes_to_avoid", [])[:2]
+            breadcrumbs["goals"] = [_slim_goal(g) for g in breadcrumbs.get("goals", [])[:1]]
+            breadcrumbs["active_goals"] = [_slim_goal(g) for g in breadcrumbs.get("active_goals", [])[:2]]
+            breadcrumbs["reference_docs"] = breadcrumbs.get("reference_docs", [])[:2]
             # Remove expensive/verbose fields entirely
-            for key in ['dependency_graph', 'git_status', 'database_summary', 'structure_health',
-                       'flow_metrics', 'health_score', 'recent_artifacts', 'active_sessions',
-                       'integrity_analysis', 'feature_status', 'findings_with_goals',
-                       'epistemic_artifacts', 'ai_activity', 'semantic_docs', 'available_skills',
-                       'key_decisions', 'incomplete_work', 'auto_captured_issues', 'truncation_warnings']:
+            for key in [
+                "dependency_graph",
+                "git_status",
+                "database_summary",
+                "structure_health",
+                "flow_metrics",
+                "health_score",
+                "recent_artifacts",
+                "active_sessions",
+                "integrity_analysis",
+                "feature_status",
+                "findings_with_goals",
+                "epistemic_artifacts",
+                "ai_activity",
+                "semantic_docs",
+                "available_skills",
+                "key_decisions",
+                "incomplete_work",
+                "auto_captured_issues",
+                "truncation_warnings",
+            ]:
                 breadcrumbs.pop(key, None)
 
         elif depth == "moderate":
             # ~8k tokens target: balanced context for MCP
-            breadcrumbs['findings'] = [_slim_finding(f) for f in breadcrumbs.get('findings', [])[:10]]
-            breadcrumbs['unknowns'] = [_slim_unknown(u) for u in breadcrumbs.get('unknowns', [])[:10]]
-            breadcrumbs['dead_ends'] = [_slim_dead_end(d) for d in breadcrumbs.get('dead_ends', [])[:5]]
-            breadcrumbs['mistakes_to_avoid'] = breadcrumbs.get('mistakes_to_avoid', [])[:5]
-            breadcrumbs['goals'] = [_slim_goal(g) for g in breadcrumbs.get('goals', [])[:5]]
-            breadcrumbs['decisions'] = [_slim_decision(d) for d in breadcrumbs.get('decisions', [])[:5]]
-            breadcrumbs['active_goals'] = [_slim_goal(g) for g in breadcrumbs.get('active_goals', [])[:5]]
-            breadcrumbs['reference_docs'] = breadcrumbs.get('reference_docs', [])[:5]
-            breadcrumbs['incomplete_work'] = breadcrumbs.get('incomplete_work', [])[:3]
-            breadcrumbs['auto_captured_issues'] = breadcrumbs.get('auto_captured_issues', [])[:3]
+            breadcrumbs["findings"] = [_slim_finding(f) for f in breadcrumbs.get("findings", [])[:10]]
+            breadcrumbs["unknowns"] = [_slim_unknown(u) for u in breadcrumbs.get("unknowns", [])[:10]]
+            breadcrumbs["dead_ends"] = [_slim_dead_end(d) for d in breadcrumbs.get("dead_ends", [])[:5]]
+            breadcrumbs["mistakes_to_avoid"] = breadcrumbs.get("mistakes_to_avoid", [])[:5]
+            breadcrumbs["goals"] = [_slim_goal(g) for g in breadcrumbs.get("goals", [])[:5]]
+            breadcrumbs["decisions"] = [_slim_decision(d) for d in breadcrumbs.get("decisions", [])[:5]]
+            breadcrumbs["active_goals"] = [_slim_goal(g) for g in breadcrumbs.get("active_goals", [])[:5]]
+            breadcrumbs["reference_docs"] = breadcrumbs.get("reference_docs", [])[:5]
+            breadcrumbs["incomplete_work"] = breadcrumbs.get("incomplete_work", [])[:3]
+            breadcrumbs["auto_captured_issues"] = breadcrumbs.get("auto_captured_issues", [])[:3]
             # Remove expensive/verbose fields
-            for key in ['dependency_graph', 'database_summary', 'structure_health',
-                       'integrity_analysis', 'epistemic_artifacts', 'semantic_docs',
-                       'available_skills', 'findings_with_goals', 'recent_artifacts',
-                       'active_sessions', 'ai_activity', 'key_decisions']:
+            for key in [
+                "dependency_graph",
+                "database_summary",
+                "structure_health",
+                "integrity_analysis",
+                "epistemic_artifacts",
+                "semantic_docs",
+                "available_skills",
+                "findings_with_goals",
+                "recent_artifacts",
+                "active_sessions",
+                "ai_activity",
+                "key_decisions",
+            ]:
                 breadcrumbs.pop(key, None)
             # Remove flow_metrics/health_score entirely for moderate (still verbose)
-            breadcrumbs.pop('flow_metrics', None)
-            breadcrumbs.pop('health_score', None)
+            breadcrumbs.pop("flow_metrics", None)
+            breadcrumbs.pop("health_score", None)
 
         # depth == "full": no filtering (keep everything)
 
@@ -2358,18 +2496,21 @@ class SessionDatabase:
     def _get_latest_impact_score(self, session_id: str) -> float:
         """Get impact score from latest CASCADE assessment (PREFLIGHT/CHECK/POSTFLIGHT)"""
         try:
-            result = self.adapter.execute("""
+            result = self.adapter.execute(
+                """
                 SELECT impact FROM reflexes
                 WHERE session_id = ?
                 ORDER BY timestamp DESC
                 LIMIT 1
-            """, (session_id,))
+            """,
+                (session_id,),
+            )
             row = result.fetchone()
             if row is None:
                 return 0.5
             # Handle both dict (PostgreSQL RealDictCursor) and tuple (SQLite) rows
             if isinstance(row, dict):
-                return row.get('impact', 0.5) or 0.5
+                return row.get("impact", 0.5) or 0.5
             return row[0] if row[0] is not None else 0.5
         except Exception:
             return 0.5
@@ -2397,7 +2538,13 @@ class SessionDatabase:
             impact = self._get_latest_impact_score(session_id)
 
         return self.breadcrumbs.log_finding(
-            project_id, session_id, finding, goal_id, subtask_id, subject, impact,
+            project_id,
+            session_id,
+            finding,
+            goal_id,
+            subtask_id,
+            subject,
+            impact,
             transaction_id=transaction_id,
             entity_type=entity_type,
             entity_id=entity_id,
@@ -2414,16 +2561,14 @@ class SessionDatabase:
         goal_id: str | None = None,
         subtask_id: str | None = None,
         subject: str | None = None,
-        impact: float | None = None
+        impact: float | None = None,
     ) -> str:
         """Log a session-scoped finding (ephemeral, session-specific learning)"""
         # Auto-derive impact from latest CASCADE if not provided
         if impact is None:
             impact = self._get_latest_impact_score(session_id)
 
-        return self.breadcrumbs.log_session_finding(
-            session_id, finding, goal_id, subtask_id, subject, impact
-        )
+        return self.breadcrumbs.log_session_finding(session_id, finding, goal_id, subtask_id, subject, impact)
 
     def log_session_unknown(
         self,
@@ -2432,15 +2577,13 @@ class SessionDatabase:
         goal_id: str | None = None,
         subtask_id: str | None = None,
         subject: str | None = None,
-        impact: float | None = None
+        impact: float | None = None,
     ) -> str:
         """Log a session-scoped unknown"""
         if impact is None:
             impact = self._get_latest_impact_score(session_id)
 
-        return self.breadcrumbs.log_session_unknown(
-            session_id, unknown, goal_id, subtask_id, subject, impact
-        )
+        return self.breadcrumbs.log_session_unknown(session_id, unknown, goal_id, subtask_id, subject, impact)
 
     def log_session_dead_end(
         self,
@@ -2450,7 +2593,7 @@ class SessionDatabase:
         goal_id: str | None = None,
         subtask_id: str | None = None,
         subject: str | None = None,
-        impact: float | None = None
+        impact: float | None = None,
     ) -> str:
         """Log a session-scoped dead end"""
         if impact is None:
@@ -2468,12 +2611,11 @@ class SessionDatabase:
         cost_estimate: str | None = None,
         root_cause_vector: str | None = None,
         prevention: str | None = None,
-        goal_id: str | None = None
+        goal_id: str | None = None,
     ) -> str:
         """Log a session-scoped mistake"""
         return self.breadcrumbs.log_session_mistake(
-            session_id, mistake, why_wrong, cost_estimate,
-            root_cause_vector, prevention, goal_id
+            session_id, mistake, why_wrong, cost_estimate, root_cause_vector, prevention, goal_id
         )
 
     def log_unknown(
@@ -2498,7 +2640,13 @@ class SessionDatabase:
             impact = self._get_latest_impact_score(session_id)
 
         return self.breadcrumbs.log_unknown(
-            project_id, session_id, unknown, goal_id, subtask_id, subject, impact,
+            project_id,
+            session_id,
+            unknown,
+            goal_id,
+            subtask_id,
+            subject,
+            impact,
             transaction_id=transaction_id,
             entity_type=entity_type,
             entity_id=entity_id,
@@ -2507,12 +2655,9 @@ class SessionDatabase:
             description=description,
         )
 
-    def resolve_unknown(self, unknown_id: str, resolved_by: str,
-                        resolution_finding_id: str | None = None):
+    def resolve_unknown(self, unknown_id: str, resolved_by: str, resolution_finding_id: str | None = None):
         """Mark an unknown as resolved (delegates to BreadcrumbRepository)"""
-        return self.breadcrumbs.resolve_unknown(
-            unknown_id, resolved_by,
-            resolution_finding_id=resolution_finding_id)
+        return self.breadcrumbs.resolve_unknown(unknown_id, resolved_by, resolution_finding_id=resolution_finding_id)
 
     def log_dead_end(
         self,
@@ -2541,21 +2686,25 @@ class SessionDatabase:
         if impact is None:
             impact = self._get_latest_impact_score(session_id)
 
-        return self.breadcrumbs.log_dead_end(project_id, session_id, approach,
-                                             why_failed, goal_id, subtask_id, subject, impact,
-                                             transaction_id=transaction_id,
-                                             entity_type=entity_type,
-                                             entity_id=entity_id,
-                                             visibility=visibility,
-                                             epistemic_source=epistemic_source,
-                                             description=description)
+        return self.breadcrumbs.log_dead_end(
+            project_id,
+            session_id,
+            approach,
+            why_failed,
+            goal_id,
+            subtask_id,
+            subject,
+            impact,
+            transaction_id=transaction_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            visibility=visibility,
+            epistemic_source=epistemic_source,
+            description=description,
+        )
 
     def add_reference_doc(
-        self,
-        project_id: str,
-        doc_path: str,
-        doc_type: str | None = None,
-        description: str | None = None
+        self, project_id: str, doc_path: str, doc_type: str | None = None, description: str | None = None
     ) -> str:
         """Add a reference document to project (delegates to BreadcrumbRepository)"""
         return self.breadcrumbs.add_reference_doc(project_id, doc_path, doc_type, description)
@@ -2566,7 +2715,7 @@ class SessionDatabase:
         limit: int | None = None,
         subject: str | None = None,
         depth: str = "moderate",
-        uncertainty: float | None = None
+        uncertainty: float | None = None,
     ) -> list[dict]:
         """
         Get all findings for a project with deprecation filtering.
@@ -2582,18 +2731,18 @@ class SessionDatabase:
             Filtered list of findings
         """
         return self.breadcrumbs.get_project_findings(
-            project_id,
-            limit=limit,
-            subject=subject,
-            depth=depth,
-            uncertainty=uncertainty
+            project_id, limit=limit, subject=subject, depth=depth, uncertainty=uncertainty
         )
 
-    def get_project_unknowns(self, project_id: str, resolved: bool | None = None, subject: str | None = None, limit: int | None = None) -> list[dict]:
+    def get_project_unknowns(
+        self, project_id: str, resolved: bool | None = None, subject: str | None = None, limit: int | None = None
+    ) -> list[dict]:
         """Get unknowns for a project (delegates to BreadcrumbRepository)"""
         return self.breadcrumbs.get_project_unknowns(project_id, resolved, subject, limit)
 
-    def get_project_dead_ends(self, project_id: str, limit: int | None = None, subject: str | None = None) -> list[dict]:
+    def get_project_dead_ends(
+        self, project_id: str, limit: int | None = None, subject: str | None = None
+    ) -> list[dict]:
         """Get all dead ends for a project (delegates to BreadcrumbRepository)"""
         return self.breadcrumbs.get_project_dead_ends(project_id, limit, subject)
 
@@ -2614,7 +2763,7 @@ class SessionDatabase:
         supports_vectors: dict[str, float] | None = None,
         related_findings: list[str] | None = None,
         discovered_by_ai: str | None = None,
-        source_metadata: dict | None = None
+        source_metadata: dict | None = None,
     ) -> str:
         """Add an epistemic source to ground project knowledge
 
@@ -2638,7 +2787,8 @@ class SessionDatabase:
         source_id = str(uuid.uuid4())
 
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO epistemic_sources (
                 id, project_id, session_id,
                 source_type, source_url, title, description,
@@ -2647,15 +2797,24 @@ class SessionDatabase:
                 discovered_by_ai, discovered_at,
                 source_metadata
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            source_id, project_id, session_id,
-            source_type, source_url, title, description,
-            confidence, epistemic_layer,
-            json.dumps(supports_vectors) if supports_vectors else None,
-            json.dumps(related_findings) if related_findings else None,
-            discovered_by_ai, datetime.now(),
-            json.dumps(source_metadata) if source_metadata else None
-        ))
+        """,
+            (
+                source_id,
+                project_id,
+                session_id,
+                source_type,
+                source_url,
+                title,
+                description,
+                confidence,
+                epistemic_layer,
+                json.dumps(supports_vectors) if supports_vectors else None,
+                json.dumps(related_findings) if related_findings else None,
+                discovered_by_ai,
+                datetime.now(),
+                json.dumps(source_metadata) if source_metadata else None,
+            ),
+        )
 
         self.conn.commit()
         logger.info(f"📚 Epistemic source added: {title}")
@@ -2668,7 +2827,7 @@ class SessionDatabase:
         session_id: str | None = None,
         source_type: str | None = None,
         min_confidence: float = 0.0,
-        limit: int | None = None
+        limit: int | None = None,
     ) -> list[dict]:
         """Get epistemic sources for a project
 
@@ -2710,12 +2869,12 @@ class SessionDatabase:
         for row in cursor.fetchall():
             row_dict = dict(row)
             # Parse JSON fields
-            if row_dict.get('supports_vectors'):
-                row_dict['supports_vectors'] = json.loads(row_dict['supports_vectors'])
-            if row_dict.get('related_findings'):
-                row_dict['related_findings'] = json.loads(row_dict['related_findings'])
-            if row_dict.get('source_metadata'):
-                row_dict['source_metadata'] = json.loads(row_dict['source_metadata'])
+            if row_dict.get("supports_vectors"):
+                row_dict["supports_vectors"] = json.loads(row_dict["supports_vectors"])
+            if row_dict.get("related_findings"):
+                row_dict["related_findings"] = json.loads(row_dict["related_findings"])
+            if row_dict.get("source_metadata"):
+                row_dict["source_metadata"] = json.loads(row_dict["source_metadata"])
             results.append(row_dict)
 
         return results
@@ -2752,21 +2911,24 @@ class SessionDatabase:
         Returns:
             mistake_id: UUID string
         """
-        return self.breadcrumbs.log_mistake(session_id, mistake, why_wrong,
-                                           cost_estimate, root_cause_vector, prevention, goal_id, project_id,
-                                           transaction_id=transaction_id,
-                                           entity_type=entity_type,
-                                           entity_id=entity_id,
-                                           visibility=visibility,
-                                           epistemic_source=epistemic_source,
-                                           description=description)
+        return self.breadcrumbs.log_mistake(
+            session_id,
+            mistake,
+            why_wrong,
+            cost_estimate,
+            root_cause_vector,
+            prevention,
+            goal_id,
+            project_id,
+            transaction_id=transaction_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            visibility=visibility,
+            epistemic_source=epistemic_source,
+            description=description,
+        )
 
-    def get_mistakes(
-        self,
-        session_id: str | None = None,
-        goal_id: str | None = None,
-        limit: int = 10
-    ) -> list[dict]:
+    def get_mistakes(self, session_id: str | None = None, goal_id: str | None = None, limit: int = 10) -> list[dict]:
         """Retrieve logged mistakes (delegates to BreadcrumbRepository)
 
         Args:
@@ -2796,11 +2958,19 @@ class SessionDatabase:
     ) -> str:
         """Log an unverified belief (delegates to BreadcrumbRepository)."""
         return self.breadcrumbs.log_assumption(
-            project_id, session_id, assumption, confidence,
-            domain=domain, goal_id=goal_id, transaction_id=transaction_id,
-            entity_type=entity_type, entity_id=entity_id,
-            visibility=visibility, epistemic_source=epistemic_source,
-            description=description)
+            project_id,
+            session_id,
+            assumption,
+            confidence,
+            domain=domain,
+            goal_id=goal_id,
+            transaction_id=transaction_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            visibility=visibility,
+            epistemic_source=epistemic_source,
+            description=description,
+        )
 
     def log_decision(
         self,
@@ -2810,7 +2980,7 @@ class SessionDatabase:
         rationale: str,
         alternatives: str | None = None,
         confidence: float = 0.7,
-        reversibility: str = 'exploratory',
+        reversibility: str = "exploratory",
         goal_id: str | None = None,
         transaction_id: str | None = None,
         entity_type: str | None = None,
@@ -2822,20 +2992,28 @@ class SessionDatabase:
     ) -> str:
         """Log a decision choice point (delegates to BreadcrumbRepository)."""
         return self.breadcrumbs.log_decision(
-            project_id, session_id, choice, rationale,
-            alternatives=alternatives, confidence=confidence,
-            reversibility=reversibility, goal_id=goal_id,
+            project_id,
+            session_id,
+            choice,
+            rationale,
+            alternatives=alternatives,
+            confidence=confidence,
+            reversibility=reversibility,
+            goal_id=goal_id,
             transaction_id=transaction_id,
-            entity_type=entity_type, entity_id=entity_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
             evidence_refs=evidence_refs,
-            visibility=visibility, epistemic_source=epistemic_source,
-            description=description)
+            visibility=visibility,
+            epistemic_source=epistemic_source,
+            description=description,
+        )
 
     def log_bead(
         self,
         project_id: str,
         session_id: str,
-        coordination_state: str = 'open',
+        coordination_state: str = "open",
         updated_at: float | None = None,
         last_transition_actor: str | None = None,
         beads_issue_id: str | None = None,
@@ -2858,7 +3036,8 @@ class SessionDatabase:
         rows. New callers should use `cortex_propose(payload.action='create_ser')`.
         """
         return self.breadcrumbs.log_bead(
-            project_id, session_id,
+            project_id,
+            session_id,
             coordination_state=coordination_state,
             updated_at=updated_at,
             last_transition_actor=last_transition_actor,
@@ -2866,17 +3045,14 @@ class SessionDatabase:
             scope=scope,
             goal_id=goal_id,
             transaction_id=transaction_id,
-            entity_type=entity_type, entity_id=entity_id,
-            visibility=visibility, epistemic_source=epistemic_source,
-            description=description)
+            entity_type=entity_type,
+            entity_id=entity_id,
+            visibility=visibility,
+            epistemic_source=epistemic_source,
+            description=description,
+        )
 
-    def log_token_saving(
-        self,
-        session_id: str,
-        saving_type: str,
-        tokens_saved: int,
-        evidence: str
-    ) -> str:
+    def log_token_saving(self, session_id: str, saving_type: str, tokens_saved: int, evidence: str) -> str:
         """Log token saving (delegates to TokenRepository)"""
         return self.tokens.log_token_saving(session_id, saving_type, tokens_saved, evidence)
 
@@ -2894,13 +3070,12 @@ class SessionDatabase:
 
     def close(self):
         """Close database connection and all repositories"""
-        if hasattr(self, '_tasks') and self._tasks is not None:
+        if hasattr(self, "_tasks") and self._tasks is not None:
             self._tasks.close()
-        if hasattr(self, '_core_goals') and self._core_goals is not None:
+        if hasattr(self, "_core_goals") and self._core_goals is not None:
             self._core_goals.close()
         self.conn.commit()
         self.conn.close()
-
 
 
 if __name__ == "__main__":

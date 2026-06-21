@@ -202,11 +202,15 @@ def test_first_run_emits_pending_inbox_items(tmp_path):
             {"id": "prop_pending2", "status": "changed"},
         ]
 
-    events = poll_and_diff("cortex", "cortex-mailbox-poll",
-                           "https://cortex.test", "ctx_test",
-                           state_path=state_path,
-                           inbox_fetch_fn=fake_inbox,
-                           outbox_fetch_fn=_empty_fetch)
+    events = poll_and_diff(
+        "cortex",
+        "cortex-mailbox-poll",
+        "https://cortex.test",
+        "ctx_test",
+        state_path=state_path,
+        inbox_fetch_fn=fake_inbox,
+        outbox_fetch_fn=_empty_fetch,
+    )
     # Both items pass EMISSION_STATUSES_INBOX → both emit as "new"
     by_id = {e.proposal_id: e for e in events}
     assert "prop_pending1" in by_id, "first run must emit pending accepted items"
@@ -232,15 +236,17 @@ def test_first_run_filters_out_eco_review_even_on_bootstrap(tmp_path):
             {"id": "prop_undecided", "status": "eco_review"},
         ]
 
-    events = poll_and_diff("cortex", "cortex-mailbox-poll",
-                           "https://cortex.test", "ctx_test",
-                           state_path=state_path,
-                           inbox_fetch_fn=fake_inbox,
-                           outbox_fetch_fn=_empty_fetch)
-    ids = {e.proposal_id for e in events}
-    assert ids == {"prop_pending"}, (
-        "ECO-gated autonomy: eco_review must never wake the AI even on bootstrap"
+    events = poll_and_diff(
+        "cortex",
+        "cortex-mailbox-poll",
+        "https://cortex.test",
+        "ctx_test",
+        state_path=state_path,
+        inbox_fetch_fn=fake_inbox,
+        outbox_fetch_fn=_empty_fetch,
     )
+    ids = {e.proposal_id for e in events}
+    assert ids == {"prop_pending"}, "ECO-gated autonomy: eco_review must never wake the AI even on bootstrap"
 
 
 def test_subsequent_run_emits_only_new_proposals(tmp_path):
@@ -251,9 +257,16 @@ def test_subsequent_run_emits_only_new_proposals(tmp_path):
             {"id": "prop_a", "status": "accepted"},
             {"id": "prop_b", "status": "accepted"},
         ]
-    poll_and_diff("cortex", "mailbox", "https://c.test", "k",
-                  state_path=state_path,
-                  inbox_fetch_fn=fetch_first, outbox_fetch_fn=_empty_fetch)
+
+    poll_and_diff(
+        "cortex",
+        "mailbox",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=fetch_first,
+        outbox_fetch_fn=_empty_fetch,
+    )
 
     def fetch_second(url, key, ai_id):
         return [
@@ -261,9 +274,16 @@ def test_subsequent_run_emits_only_new_proposals(tmp_path):
             {"id": "prop_b", "status": "changed", "title": "B"},
             {"id": "prop_c", "status": "accepted", "title": "C"},
         ]
-    events = poll_and_diff("cortex", "mailbox", "https://c.test", "k",
-                            state_path=state_path,
-                            inbox_fetch_fn=fetch_second, outbox_fetch_fn=_empty_fetch)
+
+    events = poll_and_diff(
+        "cortex",
+        "mailbox",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=fetch_second,
+        outbox_fetch_fn=_empty_fetch,
+    )
 
     by_id = {e.proposal_id: e for e in events}
     assert "prop_a" not in by_id
@@ -274,14 +294,21 @@ def test_subsequent_run_emits_only_new_proposals(tmp_path):
 def test_poll_returns_empty_when_both_endpoints_fail(tmp_path):
     """Both inbox + outbox down → emit nothing, don't update state."""
     import urllib.error
+
     state_path = tmp_path / "state.json"
 
     def failing(url, key, ai_id):
         raise urllib.error.URLError("network down")
 
-    events = poll_and_diff("cortex", "mailbox", "https://c.test", "k",
-                            state_path=state_path,
-                            inbox_fetch_fn=failing, outbox_fetch_fn=failing)
+    events = poll_and_diff(
+        "cortex",
+        "mailbox",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=failing,
+        outbox_fetch_fn=failing,
+    )
     assert events == []
     assert not state_path.exists()
 
@@ -290,27 +317,42 @@ def test_partial_failure_one_endpoint_down_other_succeeds(tmp_path):
     """If inbox fails but outbox works (or vice versa), still proceed with
     the successful side. Don't punish the user for a partial outage."""
     import urllib.error
+
     state_path = tmp_path / "state.json"
 
     # Bootstrap first
-    poll_and_diff("cortex", "mailbox", "https://c.test", "k",
-                  state_path=state_path,
-                  inbox_fetch_fn=_empty_fetch, outbox_fetch_fn=_empty_fetch)
+    poll_and_diff(
+        "cortex",
+        "mailbox",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=_empty_fetch,
+        outbox_fetch_fn=_empty_fetch,
+    )
 
     def failing_inbox(url, key, ai_id):
         raise urllib.error.URLError("inbox endpoint timeout")
 
     def working_outbox(url, key, ai_id):
-        return [{
-            "id": "prop_done", "status": "completed",
-            "title": "My emission completed",
-            "audit_log": [{"action": "completed", "details": {"commit_sha": "abc123"}}],
-        }]
+        return [
+            {
+                "id": "prop_done",
+                "status": "completed",
+                "title": "My emission completed",
+                "audit_log": [{"action": "completed", "details": {"commit_sha": "abc123"}}],
+            }
+        ]
 
-    events = poll_and_diff("cortex", "mailbox", "https://c.test", "k",
-                            state_path=state_path,
-                            inbox_fetch_fn=failing_inbox,
-                            outbox_fetch_fn=working_outbox)
+    events = poll_and_diff(
+        "cortex",
+        "mailbox",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=failing_inbox,
+        outbox_fetch_fn=working_outbox,
+    )
     assert len(events) == 1
     assert events[0].direction == "outbox"
     assert events[0].status == "completed"
@@ -322,19 +364,31 @@ def test_eco_review_status_never_emits(tmp_path):
     appear in the fires log. Even though prop_pending is 'new', its
     eco_review status keeps it out of the emission."""
     state_path = tmp_path / "state.json"
-    poll_and_diff("cortex", "mailbox", "https://c.test", "k",
-                  state_path=state_path,
-                  inbox_fetch_fn=_empty_fetch, outbox_fetch_fn=_empty_fetch)
+    poll_and_diff(
+        "cortex",
+        "mailbox",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=_empty_fetch,
+        outbox_fetch_fn=_empty_fetch,
+    )
 
     def fetch_pending_inbox(url, key, ai_id):
         return [
             {"id": "prop_pending", "status": "eco_review", "title": "Pending"},
             {"id": "prop_decided", "status": "accepted", "title": "Decided"},
         ]
-    events = poll_and_diff("cortex", "mailbox", "https://c.test", "k",
-                            state_path=state_path,
-                            inbox_fetch_fn=fetch_pending_inbox,
-                            outbox_fetch_fn=_empty_fetch)
+
+    events = poll_and_diff(
+        "cortex",
+        "mailbox",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=fetch_pending_inbox,
+        outbox_fetch_fn=_empty_fetch,
+    )
     proposal_ids = [e.proposal_id for e in events]
     assert "prop_pending" not in proposal_ids
     assert "prop_decided" in proposal_ids
@@ -349,26 +403,39 @@ def test_outbox_completed_event_carries_commit_sha(tmp_path):
     which commit landed their work."""
     state_path = tmp_path / "state.json"
     # Bootstrap
-    poll_and_diff("cortex", "mailbox", "https://c.test", "k",
-                  state_path=state_path,
-                  inbox_fetch_fn=_empty_fetch, outbox_fetch_fn=_empty_fetch)
+    poll_and_diff(
+        "cortex",
+        "mailbox",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=_empty_fetch,
+        outbox_fetch_fn=_empty_fetch,
+    )
 
     def outbox_with_completion(url, key, ai_id):
-        return [{
-            "id": "prop_ox66hmeipzesjjtbasjkqgbpsm",
-            "status": "completed",
-            "title": "Add completion primitive",
-            "audit_log": [
-                {"action": "created", "actor": "David"},
-                {"action": "accepted", "actor": "eco-phone"},
-                {"action": "completed", "actor": "extension",
-                 "details": {"commit_sha": "66cda47"}},
-            ],
-        }]
-    events = poll_and_diff("cortex", "mailbox", "https://c.test", "k",
-                            state_path=state_path,
-                            inbox_fetch_fn=_empty_fetch,
-                            outbox_fetch_fn=outbox_with_completion)
+        return [
+            {
+                "id": "prop_ox66hmeipzesjjtbasjkqgbpsm",
+                "status": "completed",
+                "title": "Add completion primitive",
+                "audit_log": [
+                    {"action": "created", "actor": "David"},
+                    {"action": "accepted", "actor": "eco-phone"},
+                    {"action": "completed", "actor": "extension", "details": {"commit_sha": "66cda47"}},
+                ],
+            }
+        ]
+
+    events = poll_and_diff(
+        "cortex",
+        "mailbox",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=_empty_fetch,
+        outbox_fetch_fn=outbox_with_completion,
+    )
     assert len(events) == 1
     ev = events[0]
     assert ev.direction == "outbox"
@@ -384,6 +451,7 @@ def test_outbox_accepted_does_not_emit():
     """'accepted' on outbox = ECO approved YOUR emission. Target AI will act —
     no wake needed for the source AI. Must NOT cross emission boundary."""
     from empirica.core.loop_scheduler.content_poll import EMISSION_STATUSES_OUTBOX
+
     current = [{"id": "p1", "status": "accepted"}]
     outbox_diffs = diff_proposals(current, {}, valid_statuses=EMISSION_STATUSES_OUTBOX)
     assert outbox_diffs == [], "outbox 'accepted' is informational, must not emit"
@@ -393,18 +461,35 @@ def test_outbox_changed_emits_for_eco_refinement_request(tmp_path):
     """ECO sends a proposal back for refinement → outbox shows status=changed.
     The source AI must wake to emit a parent_id-linked refined proposal."""
     state_path = tmp_path / "state.json"
-    poll_and_diff("cortex", "mailbox", "https://c.test", "k",
-                  state_path=state_path,
-                  inbox_fetch_fn=_empty_fetch, outbox_fetch_fn=_empty_fetch)
+    poll_and_diff(
+        "cortex",
+        "mailbox",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=_empty_fetch,
+        outbox_fetch_fn=_empty_fetch,
+    )
 
     def outbox_changed(url, key, ai_id):
-        return [{"id": "prop_x", "status": "changed",
-                 "title": "Needs refinement",
-                 "eco_decision": {"actor": "David", "note": "tighten scope"}}]
-    events = poll_and_diff("cortex", "mailbox", "https://c.test", "k",
-                            state_path=state_path,
-                            inbox_fetch_fn=_empty_fetch,
-                            outbox_fetch_fn=outbox_changed)
+        return [
+            {
+                "id": "prop_x",
+                "status": "changed",
+                "title": "Needs refinement",
+                "eco_decision": {"actor": "David", "note": "tighten scope"},
+            }
+        ]
+
+    events = poll_and_diff(
+        "cortex",
+        "mailbox",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=_empty_fetch,
+        outbox_fetch_fn=outbox_changed,
+    )
     assert len(events) == 1
     assert events[0].status == "changed"
     assert events[0].direction == "outbox"
@@ -419,12 +504,19 @@ def test_inbox_and_outbox_state_share_proposals_map(tmp_path):
 
     def inbox(url, key, ai_id):
         return [{"id": "in1", "status": "accepted"}]
+
     def outbox(url, key, ai_id):
-        return [{"id": "out1", "status": "completed",
-                 "audit_log": [{"action": "completed", "details": {"commit_sha": "deadbeef"}}]}]
-    poll_and_diff("cortex", "mailbox", "https://c.test", "k",
-                  state_path=state_path,
-                  inbox_fetch_fn=inbox, outbox_fetch_fn=outbox)
+        return [
+            {
+                "id": "out1",
+                "status": "completed",
+                "audit_log": [{"action": "completed", "details": {"commit_sha": "deadbeef"}}],
+            }
+        ]
+
+    poll_and_diff(
+        "cortex", "mailbox", "https://c.test", "k", state_path=state_path, inbox_fetch_fn=inbox, outbox_fetch_fn=outbox
+    )
     state = load_state(state_path)
     props = state["proposals"]
     assert "in1" in props and props["in1"]["direction"] == "inbox"
@@ -453,22 +545,29 @@ def test_both_fetches_fail_default_returns_empty_and_preserves_state(tmp_path):
     must NOT touch state — graceful degrade for the timer/systemd callers."""
     state_path = tmp_path / "state.json"
     # Seed prior state so we can assert it's preserved untouched.
-    save_state(state_path, {"last_poll_ts": "2026-05-18T00:00:00+00:00",
-                            "proposals": {"old1": {"status": "accepted",
-                                                   "direction": "inbox"}},
-                            "bootstrap_completed": True})
+    save_state(
+        state_path,
+        {
+            "last_poll_ts": "2026-05-18T00:00:00+00:00",
+            "proposals": {"old1": {"status": "accepted", "direction": "inbox"}},
+            "bootstrap_completed": True,
+        },
+    )
     before = state_path.read_text()
 
-    events = poll_and_diff("empirica", "cortex-mailbox-poll",
-                           "https://cortex.test", "ctx_test",
-                           state_path=state_path,
-                           inbox_fetch_fn=_raising_fetch,
-                           outbox_fetch_fn=_raising_fetch)
+    events = poll_and_diff(
+        "empirica",
+        "cortex-mailbox-poll",
+        "https://cortex.test",
+        "ctx_test",
+        state_path=state_path,
+        inbox_fetch_fn=_raising_fetch,
+        outbox_fetch_fn=_raising_fetch,
+    )
 
     assert events == [], "total fetch failure yields no events"
     assert state_path.read_text() == before, (
-        "state must be preserved untouched on total fetch failure — "
-        "NOT overwritten with an empty proposals map"
+        "state must be preserved untouched on total fetch failure — NOT overwritten with an empty proposals map"
     )
 
 
@@ -478,12 +577,16 @@ def test_both_fetches_fail_raise_on_unreachable_raises(tmp_path):
     instead of silently no-op'ing (the deaf-for-10-days failure mode)."""
     state_path = tmp_path / "state.json"
     with pytest.raises(ContentPollUnreachable):
-        poll_and_diff("empirica", "cortex-mailbox-poll",
-                      "https://cortex.test", "ctx_test",
-                      state_path=state_path,
-                      inbox_fetch_fn=_raising_fetch,
-                      outbox_fetch_fn=_raising_fetch,
-                      raise_on_unreachable=True)
+        poll_and_diff(
+            "empirica",
+            "cortex-mailbox-poll",
+            "https://cortex.test",
+            "ctx_test",
+            state_path=state_path,
+            inbox_fetch_fn=_raising_fetch,
+            outbox_fetch_fn=_raising_fetch,
+            raise_on_unreachable=True,
+        )
 
 
 def test_one_fetch_fails_other_succeeds_still_processes(tmp_path):
@@ -491,15 +594,17 @@ def test_one_fetch_fails_other_succeeds_still_processes(tmp_path):
     raise_on_unreachable — the surviving direction still produces events
     and state advances. Only a TOTAL failure is 'unreachable'."""
     state_path = tmp_path / "state.json"
-    events = poll_and_diff("empirica", "cortex-mailbox-poll",
-                           "https://cortex.test", "ctx_test",
-                           state_path=state_path,
-                           inbox_fetch_fn=_ok_inbox,
-                           outbox_fetch_fn=_raising_fetch,
-                           raise_on_unreachable=True)
-    assert any(e.proposal_id == "in1" for e in events), (
-        "surviving inbox fetch must still emit its event"
+    events = poll_and_diff(
+        "empirica",
+        "cortex-mailbox-poll",
+        "https://cortex.test",
+        "ctx_test",
+        state_path=state_path,
+        inbox_fetch_fn=_ok_inbox,
+        outbox_fetch_fn=_raising_fetch,
+        raise_on_unreachable=True,
     )
+    assert any(e.proposal_id == "in1" for e in events), "surviving inbox fetch must still emit its event"
     # State advanced — proves the success path wrote despite outbox failing.
     state = load_state(state_path)
     assert "in1" in state["proposals"]
@@ -509,13 +614,18 @@ def test_loud_warning_logged_on_total_failure(tmp_path, caplog):
     """The failure must be visible at WARNING level (not debug) — that's
     what would have surfaced the freeze in seconds instead of 10 days."""
     import logging
+
     state_path = tmp_path / "state.json"
     with caplog.at_level(logging.WARNING, logger="empirica.core.loop_scheduler.content_poll"):
-        poll_and_diff("empirica", "cortex-mailbox-poll",
-                      "https://cortex.test", "ctx_test",
-                      state_path=state_path,
-                      inbox_fetch_fn=_raising_fetch,
-                      outbox_fetch_fn=_raising_fetch)
+        poll_and_diff(
+            "empirica",
+            "cortex-mailbox-poll",
+            "https://cortex.test",
+            "ctx_test",
+            state_path=state_path,
+            inbox_fetch_fn=_raising_fetch,
+            outbox_fetch_fn=_raising_fetch,
+        )
     msgs = " ".join(r.message for r in caplog.records)
     assert "BOTH inbox+outbox fetches failed" in msgs
     assert "empirica" in msgs
@@ -530,10 +640,8 @@ def test_loud_warning_logged_on_total_failure(tmp_path, caplog):
 def test_bead_fields_not_in_wake_event():
     """ProposalEvent doesn't carry bead_id or bridge_position anymore —
     those fields were padding for a concept that retired."""
-    p = {"id": "p", "status": "accepted",
-         "type": "code_change_request", "title": "ordinary proposal"}
-    ev = build_event(p, "new", "empirica", "cortex-mailbox-poll",
-                     direction="inbox")
+    p = {"id": "p", "status": "accepted", "type": "code_change_request", "title": "ordinary proposal"}
+    ev = build_event(p, "new", "empirica", "cortex-mailbox-poll", direction="inbox")
     assert not hasattr(ev, "bead_id")
     assert not hasattr(ev, "bridge_position")
     parsed = json.loads(ev.to_log_line())
@@ -554,16 +662,24 @@ class TestCanonicalResolver:
         from unittest.mock import MagicMock
 
         from empirica.core.loop_scheduler import content_poll
+
         # Reset cache for clean tests
         content_poll._CANONICAL_AI_ID_CACHE.clear()
 
         class _Resp:
             def __init__(self, payload):
                 import json
+
                 self._payload = json.dumps(payload).encode()
-            def __enter__(self): return self
-            def __exit__(self, *a): pass
-            def read(self): return self._payload
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                pass
+
+            def read(self):
+                return self._payload
 
         mock_urlopen = MagicMock(return_value=_Resp(body))
         monkeypatch.setattr(
@@ -573,18 +689,27 @@ class TestCanonicalResolver:
 
     def test_resolves_root_practice_via_exact_short_match(self, monkeypatch):
         from empirica.core.loop_scheduler.content_poll import _resolve_canonical_ai_id
-        self._mock_roster_response(monkeypatch, {
-            "self": {"tenant_slug": "david"},
-            "org": {"tenants": [{
-                "tenant_slug": "david",
-                "projects": [{
-                    "ai_id_short": "empirica",
-                    "ai_id_mesh": "empirica.david.empirica",
-                }],
-            }]},
-        })
-        assert _resolve_canonical_ai_id("https://c.test", "k", "empirica") == \
-            "empirica.david.empirica"
+
+        self._mock_roster_response(
+            monkeypatch,
+            {
+                "self": {"tenant_slug": "david"},
+                "org": {
+                    "tenants": [
+                        {
+                            "tenant_slug": "david",
+                            "projects": [
+                                {
+                                    "ai_id_short": "empirica",
+                                    "ai_id_mesh": "empirica.david.empirica",
+                                }
+                            ],
+                        }
+                    ]
+                },
+            },
+        )
+        assert _resolve_canonical_ai_id("https://c.test", "k", "empirica") == "empirica.david.empirica"
 
     def test_resolves_basename_directly_strict_canonical(self, monkeypatch):
         """Strict-canonical: listener basenames are the exact directory
@@ -592,23 +717,35 @@ class TestCanonicalResolver:
         the roster's `ai_id_short` directly. No dual-form candidate
         fallback — the listener and the roster speak the same shape."""
         from empirica.core.loop_scheduler.content_poll import _resolve_canonical_ai_id
-        self._mock_roster_response(monkeypatch, {
-            "self": {"tenant_slug": "david"},
-            "org": {"tenants": [{
-                "tenant_slug": "david",
-                "projects": [{
-                    "ai_id_short": "empirica-extension",
-                    "ai_id_mesh": "empirica.david.empirica-extension",
-                }],
-            }]},
-        })
-        assert _resolve_canonical_ai_id("https://c.test", "k", "empirica-extension") == \
-            "empirica.david.empirica-extension"
+
+        self._mock_roster_response(
+            monkeypatch,
+            {
+                "self": {"tenant_slug": "david"},
+                "org": {
+                    "tenants": [
+                        {
+                            "tenant_slug": "david",
+                            "projects": [
+                                {
+                                    "ai_id_short": "empirica-extension",
+                                    "ai_id_mesh": "empirica.david.empirica-extension",
+                                }
+                            ],
+                        }
+                    ]
+                },
+            },
+        )
+        assert (
+            _resolve_canonical_ai_id("https://c.test", "k", "empirica-extension") == "empirica.david.empirica-extension"
+        )
 
     def test_falls_back_to_basename_on_roster_failure(self, monkeypatch):
         """Failed roster fetch → return basename unchanged. Loud (logged)
         but doesn't crash the listener."""
         from empirica.core.loop_scheduler import content_poll
+
         content_poll._CANONICAL_AI_ID_CACHE.clear()
 
         def _boom(*a, **kw):
@@ -619,35 +756,46 @@ class TestCanonicalResolver:
             _boom,
         )
         from empirica.core.loop_scheduler.content_poll import _resolve_canonical_ai_id
-        assert _resolve_canonical_ai_id("https://c.test", "k", "empirica-extension") == \
-            "empirica-extension"
+
+        assert _resolve_canonical_ai_id("https://c.test", "k", "empirica-extension") == "empirica-extension"
 
     def test_skips_peer_tenants_only_matches_self_tenant(self, monkeypatch):
         """Tenant-scoped resolution: only the caller's own tenant's
         projects are considered — peer tenants with the same ai_id_short
         ignored."""
         from empirica.core.loop_scheduler.content_poll import _resolve_canonical_ai_id
-        self._mock_roster_response(monkeypatch, {
-            "self": {"tenant_slug": "david"},
-            "org": {"tenants": [
-                {
-                    "tenant_slug": "philipp",
-                    "projects": [{
-                        "ai_id_short": "empirica-extension",
-                        "ai_id_mesh": "empirica.philipp.empirica-extension",
-                    }],
+
+        self._mock_roster_response(
+            monkeypatch,
+            {
+                "self": {"tenant_slug": "david"},
+                "org": {
+                    "tenants": [
+                        {
+                            "tenant_slug": "philipp",
+                            "projects": [
+                                {
+                                    "ai_id_short": "empirica-extension",
+                                    "ai_id_mesh": "empirica.philipp.empirica-extension",
+                                }
+                            ],
+                        },
+                        {
+                            "tenant_slug": "david",
+                            "projects": [
+                                {
+                                    "ai_id_short": "empirica-extension",
+                                    "ai_id_mesh": "empirica.david.empirica-extension",
+                                }
+                            ],
+                        },
+                    ]
                 },
-                {
-                    "tenant_slug": "david",
-                    "projects": [{
-                        "ai_id_short": "empirica-extension",
-                        "ai_id_mesh": "empirica.david.empirica-extension",
-                    }],
-                },
-            ]},
-        })
-        assert _resolve_canonical_ai_id("https://c.test", "k", "empirica-extension") == \
-            "empirica.david.empirica-extension"
+            },
+        )
+        assert (
+            _resolve_canonical_ai_id("https://c.test", "k", "empirica-extension") == "empirica.david.empirica-extension"
+        )
 
     def test_cached_after_first_resolution(self, monkeypatch):
         """Second call doesn't hit roster again."""
@@ -658,16 +806,25 @@ class TestCanonicalResolver:
         content_poll._CANONICAL_AI_ID_CACHE.clear()
 
         # Prime cache
-        self._mock_roster_response(monkeypatch, {
-            "self": {"tenant_slug": "david"},
-            "org": {"tenants": [{
-                "tenant_slug": "david",
-                "projects": [{
-                    "ai_id_short": "empirica",
-                    "ai_id_mesh": "empirica.david.empirica",
-                }],
-            }]},
-        })
+        self._mock_roster_response(
+            monkeypatch,
+            {
+                "self": {"tenant_slug": "david"},
+                "org": {
+                    "tenants": [
+                        {
+                            "tenant_slug": "david",
+                            "projects": [
+                                {
+                                    "ai_id_short": "empirica",
+                                    "ai_id_mesh": "empirica.david.empirica",
+                                }
+                            ],
+                        }
+                    ]
+                },
+            },
+        )
         content_poll._resolve_canonical_ai_id("https://c.test", "k", "empirica")
 
         # Replace urlopen with a sentinel that explodes if called
@@ -677,8 +834,7 @@ class TestCanonicalResolver:
             kaboom,
         )
         # Second call must use cache
-        assert content_poll._resolve_canonical_ai_id("https://c.test", "k", "empirica") == \
-            "empirica.david.empirica"
+        assert content_poll._resolve_canonical_ai_id("https://c.test", "k", "empirica") == "empirica.david.empirica"
         kaboom.assert_not_called()
 
 
@@ -713,20 +869,28 @@ def test_state_merges_across_polls_does_not_lose_old_proposals(tmp_path):
         return []
 
     # First poll: A is new
-    events1 = poll_and_diff("empirica", "cortex-mailbox-poll",
-                            "https://c.test", "k",
-                            state_path=state_path,
-                            inbox_fetch_fn=inbox_a,
-                            outbox_fetch_fn=outbox_empty)
+    events1 = poll_and_diff(
+        "empirica",
+        "cortex-mailbox-poll",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=inbox_a,
+        outbox_fetch_fn=outbox_empty,
+    )
     assert len(events1) == 1
     assert events1[0].proposal_id == "propA"
 
     # Second poll: A + B. Only B should emit.
-    events2 = poll_and_diff("empirica", "cortex-mailbox-poll",
-                            "https://c.test", "k",
-                            state_path=state_path,
-                            inbox_fetch_fn=inbox_ab,
-                            outbox_fetch_fn=outbox_empty)
+    events2 = poll_and_diff(
+        "empirica",
+        "cortex-mailbox-poll",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=inbox_ab,
+        outbox_fetch_fn=outbox_empty,
+    )
     assert len(events2) == 1
     assert events2[0].proposal_id == "propB"
 
@@ -752,37 +916,46 @@ def test_transient_empty_response_does_not_wipe_state(tmp_path):
         return []
 
     # First poll: A is new, recorded in state.
-    poll_and_diff("empirica", "cortex-mailbox-poll",
-                  "https://c.test", "k",
-                  state_path=state_path,
-                  inbox_fetch_fn=inbox_a,
-                  outbox_fetch_fn=fetch_empty)
+    poll_and_diff(
+        "empirica",
+        "cortex-mailbox-poll",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=inbox_a,
+        outbox_fetch_fn=fetch_empty,
+    )
     assert "propA" in load_state(state_path)["proposals"]
 
     # Second poll: cortex returns empty for both directions (transient).
     # State must NOT be wiped.
-    events_empty = poll_and_diff("empirica", "cortex-mailbox-poll",
-                                  "https://c.test", "k",
-                                  state_path=state_path,
-                                  inbox_fetch_fn=fetch_empty,
-                                  outbox_fetch_fn=fetch_empty)
+    events_empty = poll_and_diff(
+        "empirica",
+        "cortex-mailbox-poll",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=fetch_empty,
+        outbox_fetch_fn=fetch_empty,
+    )
     assert events_empty == []
     assert "propA" in load_state(state_path)["proposals"], (
-        "transient empty response must not wipe last_seen — "
-        "otherwise next non-empty poll re-emits old proposals"
+        "transient empty response must not wipe last_seen — otherwise next non-empty poll re-emits old proposals"
     )
 
     # Third poll: A is still in inbox (cortex isn't filtering archived,
     # or A's status hasn't changed). With merge: NO emit because last_seen
     # still has A. Without merge: A would re-emit as "new".
-    events_third = poll_and_diff("empirica", "cortex-mailbox-poll",
-                                  "https://c.test", "k",
-                                  state_path=state_path,
-                                  inbox_fetch_fn=inbox_a,
-                                  outbox_fetch_fn=fetch_empty)
-    assert events_third == [], (
-        "proposal already in last_seen with same status must not re-emit"
+    events_third = poll_and_diff(
+        "empirica",
+        "cortex-mailbox-poll",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=inbox_a,
+        outbox_fetch_fn=fetch_empty,
     )
+    assert events_third == [], "proposal already in last_seen with same status must not re-emit"
 
 
 def test_old_proposal_dropped_from_response_is_still_remembered(tmp_path):
@@ -805,20 +978,38 @@ def test_old_proposal_dropped_from_response_is_still_remembered(tmp_path):
         return []
 
     # Poll 1: see A.
-    poll_and_diff("empirica", "cortex-mailbox-poll", "https://c.test", "k",
-                  state_path=state_path,
-                  inbox_fetch_fn=inbox_with_a, outbox_fetch_fn=outbox_empty)
+    poll_and_diff(
+        "empirica",
+        "cortex-mailbox-poll",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=inbox_with_a,
+        outbox_fetch_fn=outbox_empty,
+    )
 
     # Poll 2: cortex no longer returns A. We must still remember it.
-    poll_and_diff("empirica", "cortex-mailbox-poll", "https://c.test", "k",
-                  state_path=state_path,
-                  inbox_fetch_fn=inbox_without_a, outbox_fetch_fn=outbox_empty)
+    poll_and_diff(
+        "empirica",
+        "cortex-mailbox-poll",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=inbox_without_a,
+        outbox_fetch_fn=outbox_empty,
+    )
     assert "propA" in load_state(state_path)["proposals"]
 
     # Poll 3: cortex returns A again. Must NOT emit (already seen).
-    events = poll_and_diff("empirica", "cortex-mailbox-poll", "https://c.test", "k",
-                           state_path=state_path,
-                           inbox_fetch_fn=inbox_with_a, outbox_fetch_fn=outbox_empty)
+    events = poll_and_diff(
+        "empirica",
+        "cortex-mailbox-poll",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=inbox_with_a,
+        outbox_fetch_fn=outbox_empty,
+    )
     assert events == []
 
 
@@ -833,24 +1024,38 @@ def test_status_change_still_emits_after_merge(tmp_path):
 
     def outbox_completed(url, key, ai_id):
         # Same proposal_id, now in outbox as completed (status_changed).
-        return [{"id": "propX", "status": "completed",
-                 "audit_log": [{"action": "completed",
-                                "details": {"commit_sha": "abc123"}}]}]
+        return [
+            {
+                "id": "propX",
+                "status": "completed",
+                "audit_log": [{"action": "completed", "details": {"commit_sha": "abc123"}}],
+            }
+        ]
 
     def fetch_empty(url, key, ai_id):
         return []
 
     # Poll 1: accepted on inbox.
-    poll_and_diff("empirica", "cortex-mailbox-poll", "https://c.test", "k",
-                  state_path=state_path,
-                  inbox_fetch_fn=inbox_accepted,
-                  outbox_fetch_fn=fetch_empty)
+    poll_and_diff(
+        "empirica",
+        "cortex-mailbox-poll",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=inbox_accepted,
+        outbox_fetch_fn=fetch_empty,
+    )
 
     # Poll 2: same proposal now completed on outbox.
-    events = poll_and_diff("empirica", "cortex-mailbox-poll", "https://c.test", "k",
-                           state_path=state_path,
-                           inbox_fetch_fn=fetch_empty,
-                           outbox_fetch_fn=outbox_completed)
+    events = poll_and_diff(
+        "empirica",
+        "cortex-mailbox-poll",
+        "https://c.test",
+        "k",
+        state_path=state_path,
+        inbox_fetch_fn=fetch_empty,
+        outbox_fetch_fn=outbox_completed,
+    )
     assert len(events) == 1
     assert events[0].proposal_id == "propX"
     assert events[0].new_or_changed == "status_changed"

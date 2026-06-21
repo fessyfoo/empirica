@@ -92,8 +92,7 @@ def stream_chat_completions(
     response_id: str | None = None
     finish_reason = "stop"
 
-    with requests.post(url, json=request_body, headers=headers,
-                        stream=True, timeout=timeout) as resp:
+    with requests.post(url, json=request_body, headers=headers, stream=True, timeout=timeout) as resp:
         if not resp.ok:
             body = resp.text
             raise ProviderError(f"POST {url} → HTTP {resp.status_code}: {body[:300]}")
@@ -106,7 +105,7 @@ def stream_chat_completions(
                 continue
             if not line.startswith("data:"):
                 continue
-            data = line[len("data:"):].strip()
+            data = line[len("data:") :].strip()
             if not data:
                 continue
             if data == "[DONE]":

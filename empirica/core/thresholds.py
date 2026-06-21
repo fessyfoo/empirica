@@ -36,6 +36,7 @@ def _get_config():
     if _threshold_config is None:
         try:
             from empirica.config.threshold_loader import get_threshold_config
+
             _threshold_config = get_threshold_config()
         except Exception as e:
             logger.warning(f"Failed to load dynamic threshold config: {e}")
@@ -63,69 +64,70 @@ def _get_threshold(key_path: str, hardcoded_default: Any) -> Any:
 # If YAML config is unavailable, they fall back to hardcoded defaults.
 
 # Engagement Gate Threshold
-ENGAGEMENT_THRESHOLD = _get_threshold('engagement_threshold', 0.60)
+ENGAGEMENT_THRESHOLD = _get_threshold("engagement_threshold", 0.60)
 
 # Critical decision thresholds (system actions)
 CRITICAL_THRESHOLDS = {
-    'coherence_min': _get_threshold('critical.coherence_min', 0.50),
-    'density_max': _get_threshold('critical.density_max', 0.90),
-    'change_min': _get_threshold('critical.change_min', 0.50),
+    "coherence_min": _get_threshold("critical.coherence_min", 0.50),
+    "density_max": _get_threshold("critical.density_max", 0.90),
+    "change_min": _get_threshold("critical.change_min", 0.50),
 }
 
 # Uncertainty Thresholds
-UNCERTAINTY_LOW = _get_threshold('uncertainty.low', 0.70)
-UNCERTAINTY_MODERATE = _get_threshold('uncertainty.moderate', 0.30)
+UNCERTAINTY_LOW = _get_threshold("uncertainty.low", 0.70)
+UNCERTAINTY_MODERATE = _get_threshold("uncertainty.moderate", 0.30)
 
 # Comprehension Thresholds
-COMPREHENSION_HIGH = _get_threshold('comprehension.high', 0.80)
-COMPREHENSION_MODERATE = _get_threshold('comprehension.moderate', 0.50)
-CLARITY_THRESHOLD = _get_threshold('comprehension.clarity_min', 0.50)
-SIGNAL_THRESHOLD = _get_threshold('comprehension.signal_min', 0.50)
-COHERENCE_THRESHOLD = _get_threshold('comprehension.coherence_min', 0.50)
+COMPREHENSION_HIGH = _get_threshold("comprehension.high", 0.80)
+COMPREHENSION_MODERATE = _get_threshold("comprehension.moderate", 0.50)
+CLARITY_THRESHOLD = _get_threshold("comprehension.clarity_min", 0.50)
+SIGNAL_THRESHOLD = _get_threshold("comprehension.signal_min", 0.50)
+COHERENCE_THRESHOLD = _get_threshold("comprehension.coherence_min", 0.50)
 
 # Execution Thresholds
-EXECUTION_HIGH = _get_threshold('execution.high', 0.80)
-EXECUTION_MODERATE = _get_threshold('execution.moderate', 0.60)
-STATE_MAPPING_THRESHOLD = _get_threshold('execution.state_mapping_min', 0.60)
-COMPLETION_THRESHOLD = _get_threshold('execution.completion_min', 0.80)
-IMPACT_THRESHOLD = _get_threshold('execution.impact_min', 0.50)
+EXECUTION_HIGH = _get_threshold("execution.high", 0.80)
+EXECUTION_MODERATE = _get_threshold("execution.moderate", 0.60)
+STATE_MAPPING_THRESHOLD = _get_threshold("execution.state_mapping_min", 0.60)
+COMPLETION_THRESHOLD = _get_threshold("execution.completion_min", 0.80)
+IMPACT_THRESHOLD = _get_threshold("execution.impact_min", 0.50)
 
 # Confidence Thresholds
-CONFIDENCE_HIGH = _get_threshold('confidence.high', 0.85)
-CONFIDENCE_MODERATE = _get_threshold('confidence.moderate', 0.70)
-CONFIDENCE_LOW = _get_threshold('confidence.low', 0.50)
-GOAL_CONFIDENCE_THRESHOLD = _get_threshold('confidence.goal_orchestrator', 0.70)
+CONFIDENCE_HIGH = _get_threshold("confidence.high", 0.85)
+CONFIDENCE_MODERATE = _get_threshold("confidence.moderate", 0.70)
+CONFIDENCE_LOW = _get_threshold("confidence.low", 0.50)
+GOAL_CONFIDENCE_THRESHOLD = _get_threshold("confidence.goal_orchestrator", 0.70)
 
 # Density Overload (same as critical.density_max)
-DENSITY_OVERLOAD = _get_threshold('critical.density_max', 0.90)
+DENSITY_OVERLOAD = _get_threshold("critical.density_max", 0.90)
 
 
 # =============================================================================
 # DYNAMIC ACCESS FUNCTIONS (Recommended for new code)
 # =============================================================================
 
+
 def get_engagement_threshold() -> float:
     """Get current engagement threshold from active profile"""
-    return _get_threshold('engagement_threshold', 0.60)
+    return _get_threshold("engagement_threshold", 0.60)
 
 
 def get_critical_thresholds() -> dict:
     """Get current critical thresholds from active profile"""
     return {
-        'coherence_min': _get_threshold('critical.coherence_min', 0.50),
-        'density_max': _get_threshold('critical.density_max', 0.90),
-        'change_min': _get_threshold('critical.change_min', 0.50),
+        "coherence_min": _get_threshold("critical.coherence_min", 0.50),
+        "density_max": _get_threshold("critical.density_max", 0.90),
+        "change_min": _get_threshold("critical.change_min", 0.50),
     }
 
 
 def get_cascade_max_rounds() -> int:
     """Get maximum investigation rounds from active profile"""
-    return _get_threshold('cascade.max_investigation_rounds', 7)
+    return _get_threshold("cascade.max_investigation_rounds", 7)
 
 
 def get_check_confidence_threshold() -> float:
     """Get CHECK phase confidence gate from active profile"""
-    return _get_threshold('cascade.check_confidence_to_proceed', 0.70)
+    return _get_threshold("cascade.check_confidence_to_proceed", 0.70)
 
 
 def reload_thresholds():
@@ -145,24 +147,24 @@ def reload_thresholds():
     global GOAL_CONFIDENCE_THRESHOLD, DENSITY_OVERLOAD
 
     # Reload all constants
-    ENGAGEMENT_THRESHOLD = _get_threshold('engagement_threshold', 0.60)
+    ENGAGEMENT_THRESHOLD = _get_threshold("engagement_threshold", 0.60)
     CRITICAL_THRESHOLDS = get_critical_thresholds()
-    UNCERTAINTY_LOW = _get_threshold('uncertainty.low', 0.70)
-    UNCERTAINTY_MODERATE = _get_threshold('uncertainty.moderate', 0.30)
-    COMPREHENSION_HIGH = _get_threshold('comprehension.high', 0.80)
-    COMPREHENSION_MODERATE = _get_threshold('comprehension.moderate', 0.50)
-    CLARITY_THRESHOLD = _get_threshold('comprehension.clarity_min', 0.50)
-    SIGNAL_THRESHOLD = _get_threshold('comprehension.signal_min', 0.50)
-    COHERENCE_THRESHOLD = _get_threshold('comprehension.coherence_min', 0.50)
-    EXECUTION_HIGH = _get_threshold('execution.high', 0.80)
-    EXECUTION_MODERATE = _get_threshold('execution.moderate', 0.60)
-    STATE_MAPPING_THRESHOLD = _get_threshold('execution.state_mapping_min', 0.60)
-    COMPLETION_THRESHOLD = _get_threshold('execution.completion_min', 0.80)
-    IMPACT_THRESHOLD = _get_threshold('execution.impact_min', 0.50)
-    CONFIDENCE_HIGH = _get_threshold('confidence.high', 0.85)
-    CONFIDENCE_MODERATE = _get_threshold('confidence.moderate', 0.70)
-    CONFIDENCE_LOW = _get_threshold('confidence.low', 0.50)
-    GOAL_CONFIDENCE_THRESHOLD = _get_threshold('confidence.goal_orchestrator', 0.70)
-    DENSITY_OVERLOAD = _get_threshold('critical.density_max', 0.90)
+    UNCERTAINTY_LOW = _get_threshold("uncertainty.low", 0.70)
+    UNCERTAINTY_MODERATE = _get_threshold("uncertainty.moderate", 0.30)
+    COMPREHENSION_HIGH = _get_threshold("comprehension.high", 0.80)
+    COMPREHENSION_MODERATE = _get_threshold("comprehension.moderate", 0.50)
+    CLARITY_THRESHOLD = _get_threshold("comprehension.clarity_min", 0.50)
+    SIGNAL_THRESHOLD = _get_threshold("comprehension.signal_min", 0.50)
+    COHERENCE_THRESHOLD = _get_threshold("comprehension.coherence_min", 0.50)
+    EXECUTION_HIGH = _get_threshold("execution.high", 0.80)
+    EXECUTION_MODERATE = _get_threshold("execution.moderate", 0.60)
+    STATE_MAPPING_THRESHOLD = _get_threshold("execution.state_mapping_min", 0.60)
+    COMPLETION_THRESHOLD = _get_threshold("execution.completion_min", 0.80)
+    IMPACT_THRESHOLD = _get_threshold("execution.impact_min", 0.50)
+    CONFIDENCE_HIGH = _get_threshold("confidence.high", 0.85)
+    CONFIDENCE_MODERATE = _get_threshold("confidence.moderate", 0.70)
+    CONFIDENCE_LOW = _get_threshold("confidence.low", 0.50)
+    GOAL_CONFIDENCE_THRESHOLD = _get_threshold("confidence.goal_orchestrator", 0.70)
+    DENSITY_OVERLOAD = _get_threshold("critical.density_max", 0.90)
 
     logger.info("♻️  Thresholds reloaded from active profile")

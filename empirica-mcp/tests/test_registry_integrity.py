@@ -41,9 +41,7 @@ def test_required_list_is_subset_of_params(name):
     if entry.get("positional"):
         valid_names.add(entry["positional"])
     for req in entry.get("required", []):
-        assert req in valid_names, (
-            f"{name}: required field '{req}' is neither in params nor positional"
-        )
+        assert req in valid_names, f"{name}: required field '{req}' is neither in params nor positional"
 
 
 @pytest.mark.parametrize("name", sorted(TOOL_REGISTRY.keys()))
@@ -52,9 +50,7 @@ def test_list_params_subset_of_params(name):
     entry = TOOL_REGISTRY[name]
     params = set(entry.get("params", {}).keys())
     for lp in entry.get("list_params", []):
-        assert lp in params, (
-            f"{name}: list_params contains '{lp}' but it's not in params"
-        )
+        assert lp in params, f"{name}: list_params contains '{lp}' but it's not in params"
 
 
 @pytest.mark.parametrize("name", sorted(TOOL_REGISTRY.keys()))
@@ -63,9 +59,7 @@ def test_positional_not_also_in_params(name):
     entry = TOOL_REGISTRY[name]
     pos = entry.get("positional")
     if pos:
-        assert pos not in entry.get("params", {}), (
-            f"{name}: '{pos}' appears as BOTH positional and a flag — pick one"
-        )
+        assert pos not in entry.get("params", {}), f"{name}: '{pos}' appears as BOTH positional and a flag — pick one"
 
 
 @pytest.mark.parametrize("name", sorted(TOOL_REGISTRY.keys()))
@@ -81,9 +75,7 @@ def test_enum_param_keys_are_strings():
     for param, values in _ENUM_PARAMS.items():
         assert isinstance(param, str)
         assert isinstance(values, list)
-        assert all(isinstance(v, str) for v in values), (
-            f"_ENUM_PARAMS['{param}'] contains non-string values"
-        )
+        assert all(isinstance(v, str) for v in values), f"_ENUM_PARAMS['{param}'] contains non-string values"
 
 
 def test_registry_has_workflow_phase_tools():
@@ -106,6 +98,4 @@ def test_registry_size_floor():
     Catches accidental truncation. Loose lower bound — adjust upward as
     the surface grows. Failing on this means something stripped the
     registry."""
-    assert len(TOOL_REGISTRY) >= 30, (
-        f"TOOL_REGISTRY has only {len(TOOL_REGISTRY)} entries — likely truncated"
-    )
+    assert len(TOOL_REGISTRY) >= 30, f"TOOL_REGISTRY has only {len(TOOL_REGISTRY)} entries — likely truncated"

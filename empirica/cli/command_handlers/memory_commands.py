@@ -56,12 +56,12 @@ def handle_memory_prime_command(args):
         )
 
         # Optionally persist
-        if getattr(args, 'persist', False):
+        if getattr(args, "persist", False):
             persist_budget(budget)
 
         result = budget.to_dict()
 
-        if args.output == 'json':
+        if args.output == "json":
             print(json.dumps(result, indent=2))
         else:
             print(f"🎯 Attention Budget Allocated (total: {budget.total_budget})")
@@ -72,13 +72,13 @@ def handle_memory_prime_command(args):
                 print(f"  {alloc.domain:20s} [{bar}] {alloc.budget:2d} (gain: {alloc.expected_gain:.2f})")
             print("=" * 60)
             print(f"Budget ID: {budget.id}")
-            if getattr(args, 'persist', False):
+            if getattr(args, "persist", False):
                 print("✓ Persisted to database")
 
         return None  # Avoid cli_core.py double-printing
 
     except Exception as e:
-        handle_cli_error(e, "Memory prime", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Memory prime", getattr(args, "verbose", False))
         return None
 
 
@@ -105,11 +105,11 @@ def handle_memory_scope_command(args):
 
         # Determine zone filter
         zone_filter = None
-        if args.zone != 'all':
+        if args.zone != "all":
             zone_map = {
-                'anchor': MemoryZone.ANCHOR,
-                'working': MemoryZone.WORKING,
-                'cache': MemoryZone.CACHE,
+                "anchor": MemoryZone.ANCHOR,
+                "working": MemoryZone.WORKING,
+                "cache": MemoryZone.CACHE,
             }
             zone_filter = zone_map.get(args.zone)
 
@@ -147,7 +147,7 @@ def handle_memory_scope_command(args):
             "count": len(items),
         }
 
-        if args.output == 'json':
+        if args.output == "json":
             print(json.dumps(result, indent=2))
         else:
             print(f"📦 Memory Scope Query (scope: breadth={args.scope_breadth}, duration={args.scope_duration})")
@@ -157,7 +157,9 @@ def handle_memory_scope_command(args):
             else:
                 for item in items[:10]:  # Show top 10
                     zone_icon = {"anchor": "⚓", "working": "⚙️", "cache": "💾"}.get(item.zone.value, "?")
-                    print(f"  {zone_icon} {item.label[:50]:50s} {item.estimated_tokens:5d}t  p={item.compute_priority():.2f}")
+                    print(
+                        f"  {zone_icon} {item.label[:50]:50s} {item.estimated_tokens:5d}t  p={item.compute_priority():.2f}"
+                    )
                 if len(items) > 10:
                     print(f"  ... and {len(items) - 10} more")
             print("=" * 70)
@@ -165,7 +167,7 @@ def handle_memory_scope_command(args):
         return None  # Avoid cli_core.py double-printing
 
     except Exception as e:
-        handle_cli_error(e, "Memory scope", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Memory scope", getattr(args, "verbose", False))
         return None
 
 
@@ -188,7 +190,7 @@ def handle_memory_value_command(args):
         if not project_id:
             session = db.get_session(args.session_id)
             if session:
-                project_id = session.get('project_id')
+                project_id = session.get("project_id")
 
         if not project_id:
             print("Error: Could not determine project_id")
@@ -204,63 +206,70 @@ def handle_memory_value_command(args):
         existing_texts = []
 
         for f in findings:
-            text = f.get('finding', '')
+            text = f.get("finding", "")
             tokens = estimate_tokens(text)
             novelty = novelty_score(text, existing_texts) if existing_texts else 1.0
             gain = estimate_information_gain(
-                domain=f.get('subject', 'general'),
-                current_vectors={"know": args.know if hasattr(args, 'know') else 0.5, "uncertainty": 0.5},
+                domain=f.get("subject", "general"),
+                current_vectors={"know": args.know if hasattr(args, "know") else 0.5, "uncertainty": 0.5},
                 prior_findings=existing_texts,
             )
             value = (gain * novelty) / max(tokens, 1) * 1000  # Value per 1k tokens
-            all_items.append({
-                "type": "finding",
-                "text": text,
-                "tokens": tokens,
-                "novelty": novelty,
-                "gain": gain,
-                "value": value,
-                "subject": f.get('subject'),
-            })
+            all_items.append(
+                {
+                    "type": "finding",
+                    "text": text,
+                    "tokens": tokens,
+                    "novelty": novelty,
+                    "gain": gain,
+                    "value": value,
+                    "subject": f.get("subject"),
+                }
+            )
             existing_texts.append(text)
 
         for u in unknowns:
-            if u.get('is_resolved'):
+            if u.get("is_resolved"):
                 continue
-            text = u.get('unknown', '')
+            text = u.get("unknown", "")
             tokens = estimate_tokens(text)
             novelty = novelty_score(text, existing_texts) if existing_texts else 1.0
             # Unknowns have slightly higher base gain (they represent knowledge gaps)
-            gain = estimate_information_gain(
-                domain=u.get('subject', 'general'),
-                current_vectors={"know": 0.4, "uncertainty": 0.6},
-                prior_findings=existing_texts,
-            ) * 1.2
+            gain = (
+                estimate_information_gain(
+                    domain=u.get("subject", "general"),
+                    current_vectors={"know": 0.4, "uncertainty": 0.6},
+                    prior_findings=existing_texts,
+                )
+                * 1.2
+            )
             value = (gain * novelty) / max(tokens, 1) * 1000
-            all_items.append({
-                "type": "unknown",
-                "text": text,
-                "tokens": tokens,
-                "novelty": novelty,
-                "gain": gain,
-                "value": value,
-                "subject": u.get('subject'),
-            })
+            all_items.append(
+                {
+                    "type": "unknown",
+                    "text": text,
+                    "tokens": tokens,
+                    "novelty": novelty,
+                    "gain": gain,
+                    "value": value,
+                    "subject": u.get("subject"),
+                }
+            )
             existing_texts.append(text)
 
         # Filter by min gain
-        all_items = [i for i in all_items if i['gain'] >= args.min_gain]
+        all_items = [i for i in all_items if i["gain"] >= args.min_gain]
 
         # Sort by value (gain/token)
-        all_items.sort(key=lambda x: x['value'], reverse=True)
+        all_items.sort(key=lambda x: x["value"], reverse=True)
 
         # Select within budget
         selected = []
         total_tokens = 0
         for item in all_items:
-            if total_tokens + item['tokens'] <= args.budget:
+            if total_tokens + item["tokens"] <= args.budget:
                 selected.append(item)
-                total_tokens += item['tokens']
+                total_tokens += item["tokens"]
 
         result = {
             "session_id": args.session_id,
@@ -273,7 +282,7 @@ def handle_memory_value_command(args):
             "items": selected,
         }
 
-        if args.output == 'json':
+        if args.output == "json":
             print(json.dumps(result, indent=2))
         else:
             print(f"💎 Memory Value Retrieval (budget: {args.budget} tokens)")
@@ -281,7 +290,7 @@ def handle_memory_value_command(args):
             print(f"Selected {len(selected)} items using {total_tokens} tokens")
             print("-" * 70)
             for item in selected[:10]:
-                icon = "📝" if item['type'] == 'finding' else "❓"
+                icon = "📝" if item["type"] == "finding" else "❓"
                 print(f"  {icon} [{item['tokens']:4d}t] v={item['value']:.2f} | {item['text'][:50]}...")
             if len(selected) > 10:
                 print(f"  ... and {len(selected) - 10} more")
@@ -290,7 +299,7 @@ def handle_memory_value_command(args):
         return None  # Avoid cli_core.py double-printing
 
     except Exception as e:
-        handle_cli_error(e, "Memory value", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Memory value", getattr(args, "verbose", False))
         return None
 
 
@@ -312,7 +321,7 @@ def handle_pattern_check_command(args):
         if not project_id:
             session = db.get_session(args.session_id)
             if session:
-                project_id = session.get('project_id')
+                project_id = session.get("project_id")
 
         db.close()
 
@@ -329,11 +338,11 @@ def handle_pattern_check_command(args):
         )
 
         # Compute risk level
-        dead_end_count = len(warnings.get('dead_end_matches', []))
+        dead_end_count = len(warnings.get("dead_end_matches", []))
         # mistake_risk can be string or None in current implementation
-        mistake_risk_val = warnings.get('mistake_risk')
+        mistake_risk_val = warnings.get("mistake_risk")
         mistake_risk = 0.5 if mistake_risk_val else 0.0  # Treat non-None as medium risk
-        calibration_bias = warnings.get('calibration_bias', {})
+        calibration_bias = warnings.get("calibration_bias", {})
 
         risk_level = "low"
         if dead_end_count > 0 or mistake_risk > 0.5:
@@ -346,13 +355,13 @@ def handle_pattern_check_command(args):
             "project_id": project_id,
             "approach": args.approach,
             "risk_level": risk_level,
-            "dead_end_matches": warnings.get('dead_end_matches', []),
+            "dead_end_matches": warnings.get("dead_end_matches", []),
             "mistake_risk": mistake_risk,
             "calibration_bias": calibration_bias,
-            "recommendation": warnings.get('recommendation', 'proceed'),
+            "recommendation": warnings.get("recommendation", "proceed"),
         }
 
-        if args.output == 'json':
+        if args.output == "json":
             print(json.dumps(result, indent=2))
         else:
             risk_icons = {"low": "✅", "medium": "⚠️", "high": "🛑"}
@@ -361,9 +370,9 @@ def handle_pattern_check_command(args):
             print(f"Approach: {args.approach[:60]}...")
             print("-" * 60)
 
-            if warnings.get('dead_end_matches'):
+            if warnings.get("dead_end_matches"):
                 print("☠️ Dead-end matches:")
-                for de in warnings['dead_end_matches'][:3]:
+                for de in warnings["dead_end_matches"][:3]:
                     print(f"   • {de.get('approach', '')[:50]}...")
                     print(f"     Why failed: {de.get('why_failed', '')[:50]}...")
 
@@ -387,7 +396,7 @@ def handle_pattern_check_command(args):
         return None  # Avoid cli_core.py double-printing
 
     except Exception as e:
-        handle_cli_error(e, "Pattern check", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Pattern check", getattr(args, "verbose", False))
         return None
 
 
@@ -397,30 +406,38 @@ def _collect_child_findings(db, parent_session_id):
     Returns (children, all_findings) tuple.
     """
     cursor = db.conn.cursor()
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT session_id, ai_id FROM sessions
         WHERE parent_session_id = ?
         ORDER BY start_time
-    """, (parent_session_id,))
+    """,
+        (parent_session_id,),
+    )
     children = [dict(row) for row in cursor.fetchall()]
 
     all_findings = []
     for child in children:
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT finding, impact, subject
             FROM session_findings
             WHERE session_id = ?
             ORDER BY created_timestamp DESC
-        """, (child['session_id'],))
+        """,
+            (child["session_id"],),
+        )
         child_findings = [dict(row) for row in cursor.fetchall()]
         for f in child_findings:
-            all_findings.append({
-                "finding": f.get('finding', ''),
-                "agent_name": child.get('ai_id', 'unknown'),
-                "session_id": child['session_id'],
-                "impact": f.get('impact', 0.5),
-                "subject": f.get('subject'),
-            })
+            all_findings.append(
+                {
+                    "finding": f.get("finding", ""),
+                    "agent_name": child.get("ai_id", "unknown"),
+                    "session_id": child["session_id"],
+                    "impact": f.get("impact", 0.5),
+                    "subject": f.get("subject"),
+                }
+            )
 
     return children, all_findings
 
@@ -456,7 +473,7 @@ def handle_session_rollup_command(args):
         if not project_id:
             parent = db.get_session(args.parent_session_id)
             if parent:
-                project_id = parent.get('project_id')
+                project_id = parent.get("project_id")
         db.close()
 
         if not all_findings:
@@ -472,9 +489,10 @@ def handle_session_rollup_command(args):
         scored = []
         for f in all_findings:
             sf = gate.score_finding(
-                finding=f['finding'], agent_name=f['agent_name'],
-                domain=f.get('subject', 'general'),
-                confidence=f.get('impact', 0.5),
+                finding=f["finding"],
+                agent_name=f["agent_name"],
+                domain=f.get("subject", "general"),
+                confidence=f.get("impact", 0.5),
                 existing_findings=[s.finding for s in scored],
                 domain_relevance=1.0,
             )
@@ -485,7 +503,9 @@ def handle_session_rollup_command(args):
 
         if args.log_decisions:
             log_rollup_decision(
-                session_id=args.parent_session_id, budget_id=None, result=result,
+                session_id=args.parent_session_id,
+                budget_id=None,
+                result=result,
             )
 
         output = {
@@ -503,7 +523,7 @@ def handle_session_rollup_command(args):
             "rejected_findings": [f.to_dict() for f in result.rejected],
         }
 
-        if args.output == 'json':
+        if args.output == "json":
             print(json.dumps(output, indent=2))
         else:
             print(f"🔄 Session Rollup: {args.parent_session_id[:8]}...")
@@ -525,7 +545,7 @@ def handle_session_rollup_command(args):
         return None
 
     except Exception as e:
-        handle_cli_error(e, "Session rollup", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Session rollup", getattr(args, "verbose", False))
         return None
 
 
@@ -547,7 +567,7 @@ def handle_memory_report_command(args):
         report = manager.get_budget_report()
         result = report.to_dict()
 
-        if args.output == 'json':
+        if args.output == "json":
             print(json.dumps(result, indent=2))
         else:
             print("📊 Context Budget Report")
@@ -583,21 +603,24 @@ def handle_memory_report_command(args):
         # CC Memory Layer Stats
         try:
             from empirica.core.memory_manager import get_memory_stats
+
             mem_stats = get_memory_stats()
-            if 'error' not in mem_stats:
-                if args.output == 'json':
-                    result['cc_memory'] = mem_stats
+            if "error" not in mem_stats:
+                if args.output == "json":
+                    result["cc_memory"] = mem_stats
                 else:
                     print("\n📁 Claude Code Memory Layer")
                     print("-" * 60)
                     print(f"  Memory dir:  {mem_stats.get('memory_dir', 'N/A')}")
-                    print(f"  Files:       {mem_stats.get('file_count', 0)} ({mem_stats.get('total_size_bytes', 0) // 1024}KB)")
+                    print(
+                        f"  Files:       {mem_stats.get('file_count', 0)} ({mem_stats.get('total_size_bytes', 0) // 1024}KB)"
+                    )
                     print(f"  MEMORY.md:   {mem_stats.get('memory_md_lines', 0)} lines (cap: 200)")
-                    has_auto = mem_stats.get('memory_md_has_auto_section', False)
-                    auto_lines = mem_stats.get('auto_section_lines', 0)
+                    has_auto = mem_stats.get("memory_md_has_auto_section", False)
+                    auto_lines = mem_stats.get("auto_section_lines", 0)
                     print(f"  Auto section: {'Yes' if has_auto else 'No'} ({auto_lines} lines)")
-                    promoted = [f for f in mem_stats.get('files', []) if f['name'].startswith('promoted_')]
-                    manual = [f for f in mem_stats.get('files', []) if not f['name'].startswith('promoted_')]
+                    promoted = [f for f in mem_stats.get("files", []) if f["name"].startswith("promoted_")]
+                    manual = [f for f in mem_stats.get("files", []) if not f["name"].startswith("promoted_")]
                     print(f"  Manual files: {len(manual)}")
                     print(f"  Promoted:    {len(promoted)}")
                     print("=" * 60)
@@ -607,5 +630,5 @@ def handle_memory_report_command(args):
         return None  # Avoid cli_core.py double-printing
 
     except Exception as e:
-        handle_cli_error(e, "Memory report", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Memory report", getattr(args, "verbose", False))
         return None

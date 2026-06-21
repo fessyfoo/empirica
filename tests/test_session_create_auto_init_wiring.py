@@ -37,9 +37,7 @@ def test_handle_auto_init_returns_project_path_when_init_runs(tmp_path, monkeypa
             return_value=init_result,
         ),
     ):
-        performed, project_id, project_path = _handle_auto_init(
-            args, output_format="json", project_id=None
-        )
+        performed, project_id, project_path = _handle_auto_init(args, output_format="json", project_id=None)
 
     assert performed is True
     assert project_id == "uuid-1234"
@@ -55,9 +53,7 @@ def test_handle_auto_init_returns_path_even_when_already_initialized(tmp_path, m
     args = Namespace(auto_init=True)
 
     with patch("empirica.config.path_resolver.get_git_root", return_value=tmp_path):
-        performed, project_id, project_path = _handle_auto_init(
-            args, output_format="json", project_id="existing-uuid"
-        )
+        performed, project_id, project_path = _handle_auto_init(args, output_format="json", project_id="existing-uuid")
 
     # No init ran, but the path is still surfaced (auto_init_performed=False)
     assert performed is False
@@ -69,9 +65,7 @@ def test_handle_auto_init_no_flag_returns_none_path():
     """Without --auto-init, the third element is None."""
     args = Namespace(auto_init=False)
 
-    performed, project_id, project_path = _handle_auto_init(
-        args, output_format="json", project_id="some-uuid"
-    )
+    performed, project_id, project_path = _handle_auto_init(args, output_format="json", project_id="some-uuid")
 
     assert performed is False
     assert project_id == "some-uuid"
@@ -80,9 +74,7 @@ def test_handle_auto_init_no_flag_returns_none_path():
 
 def test_write_tty_session_uses_override_when_provided():
     """When project_path_override is set, it bypasses the resolver entirely."""
-    with patch(
-        "empirica.cli.command_handlers.session_create.R"
-    ) as resolver_mock:
+    with patch("empirica.cli.command_handlers.session_create.R") as resolver_mock:
         resolver_mock.project_path.return_value = None  # resolver can't find it
         resolver_mock.tty_write = MagicMock()
 
@@ -99,9 +91,7 @@ def test_write_tty_session_uses_override_when_provided():
 
 def test_write_tty_session_falls_back_to_resolver_when_no_override():
     """Backward-compat: with no override, the resolver chain is consulted."""
-    with patch(
-        "empirica.cli.command_handlers.session_create.R"
-    ) as resolver_mock:
+    with patch("empirica.cli.command_handlers.session_create.R") as resolver_mock:
         resolver_mock.project_path.return_value = "/resolved/by/chain"
         resolver_mock.tty_write = MagicMock()
 
@@ -116,9 +106,7 @@ def test_write_tty_session_falls_back_to_resolver_when_no_override():
 
 def test_write_tty_session_skips_when_resolver_returns_none_and_no_override():
     """If neither override nor resolver provides a path, tty_write is skipped (no-op)."""
-    with patch(
-        "empirica.cli.command_handlers.session_create.R"
-    ) as resolver_mock:
+    with patch("empirica.cli.command_handlers.session_create.R") as resolver_mock:
         resolver_mock.project_path.return_value = None
         resolver_mock.tty_write = MagicMock()
 

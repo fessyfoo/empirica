@@ -27,6 +27,7 @@ from .schema import StabilityMetrics
 @dataclass
 class CommitInfo:
     """Parsed git commit information."""
+
     hash: str
     author: str
     date: datetime
@@ -121,11 +122,8 @@ class StabilityEstimator:
             metrics.days_since_last_change = (now - newest).days
 
         # Maintenance ratio (bug fixes vs total)
-        bug_fix_patterns = ['fix', 'bug', 'patch', 'hotfix', 'repair']
-        bug_fixes = sum(
-            1 for c in commits
-            if any(p in c.message.lower() for p in bug_fix_patterns)
-        )
+        bug_fix_patterns = ["fix", "bug", "patch", "hotfix", "repair"]
+        bug_fixes = sum(1 for c in commits if any(p in c.message.lower() for p in bug_fix_patterns))
         if commits:
             metrics.maintenance_ratio = bug_fixes / len(commits)
 
@@ -142,13 +140,7 @@ class StabilityEstimator:
         try:
             # Get commit list with stats
             result = subprocess.run(
-                [
-                    "git", "log",
-                    "--format=%H|%an|%aI|%s",
-                    "--numstat",
-                    "--follow",
-                    "--", rel_path
-                ],
+                ["git", "log", "--format=%H|%an|%aI|%s", "--numstat", "--follow", "--", rel_path],
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
@@ -168,18 +160,18 @@ class StabilityEstimator:
         commits = []
         current_commit = None
 
-        for line in output.strip().split('\n'):
+        for line in output.strip().split("\n"):
             if not line:
                 continue
 
             # Check if this is a commit header line
-            if '|' in line and len(line.split('|')) == 4:
-                parts = line.split('|')
+            if "|" in line and len(line.split("|")) == 4:
+                parts = line.split("|")
                 try:
                     current_commit = CommitInfo(
                         hash=parts[0],
                         author=parts[1],
-                        date=datetime.fromisoformat(parts[2].replace('Z', '+00:00')),
+                        date=datetime.fromisoformat(parts[2].replace("Z", "+00:00")),
                         message=parts[3],
                     )
                     commits.append(current_commit)
@@ -187,12 +179,12 @@ class StabilityEstimator:
                     continue
 
             # Check if this is a numstat line (added, removed, filename)
-            elif current_commit and '\t' in line:
-                parts = line.split('\t')
+            elif current_commit and "\t" in line:
+                parts = line.split("\t")
                 if len(parts) >= 2:
                     try:
-                        added = int(parts[0]) if parts[0] != '-' else 0
-                        removed = int(parts[1]) if parts[1] != '-' else 0
+                        added = int(parts[0]) if parts[0] != "-" else 0
+                        removed = int(parts[1]) if parts[1] != "-" else 0
                         current_commit.lines_added += added
                         current_commit.lines_removed += removed
                     except ValueError:
@@ -272,7 +264,7 @@ class StabilityEstimator:
             signal = 0.7
 
         return {
-            'change': change,
-            'engagement': engagement,
-            'signal': signal,
+            "change": change,
+            "engagement": engagement,
+            "signal": signal,
         }

@@ -21,10 +21,7 @@ from pathlib import Path
 
 import pytest
 
-_HOOK = (
-    Path(__file__).resolve().parent.parent
-    / "empirica/plugins/claude-code-integration/hooks/sentinel-gate.py"
-)
+_HOOK = Path(__file__).resolve().parent.parent / "empirica/plugins/claude-code-integration/hooks/sentinel-gate.py"
 
 
 def _load_hook():
@@ -48,24 +45,36 @@ def test_diagnostic_recovery_verbs_allow_listed(cmd):
 # command short-circuits to allow (None) without ever reaching the rush/deny
 # logic. A genuinely praxic command would instead touch the cursor (and here
 # raise), so "returns None cleanly" == "escaped the gate".
-@pytest.mark.parametrize("command", [
-    "empirica postflight-submit -",
-    "empirica check-submit -",
-    "empirica doctor",
-    "empirica finding-log --finding x",
-    'empirica note "x"',
-])
+@pytest.mark.parametrize(
+    "command",
+    [
+        "empirica postflight-submit -",
+        "empirica check-submit -",
+        "empirica doctor",
+        "empirica finding-log --finding x",
+        'empirica note "x"',
+    ],
+)
 def test_recovery_verb_escapes_rush_guard(command):
     result = sg._validate_check_record(
-        None, "sess", None, 0,
-        tool_input={"command": command}, tool_name="Bash",
+        None,
+        "sess",
+        None,
+        0,
+        tool_input={"command": command},
+        tool_name="Bash",
     )
     assert result is None, f"{command!r} should escape the gate (allow), got {result!r}"
 
 
 def test_noetic_tool_escapes_rush_guard():
     result = sg._validate_check_record(
-        None, "sess", None, 0, tool_input={}, tool_name="Read",
+        None,
+        "sess",
+        None,
+        0,
+        tool_input={},
+        tool_name="Read",
     )
     assert result is None
 
@@ -77,8 +86,12 @@ def test_non_recovery_bash_is_not_escaped_by_the_hatch():
     # return None. So the raise proves the command reached the real gate.
     with pytest.raises(AttributeError):
         sg._validate_check_record(
-            None, "sess", "tx1", 0,
-            tool_input={"command": "rm -rf /tmp/whatever"}, tool_name="Bash",
+            None,
+            "sess",
+            "tx1",
+            0,
+            tool_input={"command": "rm -rf /tmp/whatever"},
+            tool_name="Bash",
         )
 
 

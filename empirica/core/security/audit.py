@@ -180,24 +180,28 @@ def _classify_findings(
                         kev_match = entry
                         break
 
-            findings.append({
-                "package": package,
-                "version": version,
-                "scope": scope,
-                "vulnerability_id": vuln_id,
-                "aliases": aliases,
-                "cve_ids": cve_ids,
-                "fix_versions": list(vuln.get("fix_versions", []) or []),
-                "description": (vuln.get("description") or "")[:200],
-                "kev": kev_match is not None,
-                "kev_entry": _summarize_kev_entry(kev_match) if kev_match else None,
-                "rotate_priority": _priority_for(kev_match, vuln),
-            })
+            findings.append(
+                {
+                    "package": package,
+                    "version": version,
+                    "scope": scope,
+                    "vulnerability_id": vuln_id,
+                    "aliases": aliases,
+                    "cve_ids": cve_ids,
+                    "fix_versions": list(vuln.get("fix_versions", []) or []),
+                    "description": (vuln.get("description") or "")[:200],
+                    "kev": kev_match is not None,
+                    "kev_entry": _summarize_kev_entry(kev_match) if kev_match else None,
+                    "rotate_priority": _priority_for(kev_match, vuln),
+                }
+            )
     # Sort: empirica scope first, then by priority within each scope
-    findings.sort(key=lambda f: (
-        0 if f["scope"] == "empirica" else 1,
-        _priority_rank(f["rotate_priority"]),
-    ))
+    findings.sort(
+        key=lambda f: (
+            0 if f["scope"] == "empirica" else 1,
+            _priority_rank(f["rotate_priority"]),
+        )
+    )
     return findings
 
 

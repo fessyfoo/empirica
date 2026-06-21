@@ -7,6 +7,7 @@ after the git notes enumeration fix.
 Bug: Goals stored in refs/notes/empirica/goals/<uuid> were not discoverable
 Fix: Use 'git for-each-ref' instead of 'git notes list'
 """
+
 import pytest
 
 from empirica.core.canonical.empirica_git import GitGoalStore
@@ -16,7 +17,6 @@ from empirica.core.canonical.empirica_git import GitGoalStore
 # (pytest -m "not integration"). Run explicitly via:
 #   pytest -m integration tests/...
 pytestmark = pytest.mark.integration
-
 
 
 class TestGoalHandoffRegression:
@@ -36,10 +36,10 @@ class TestGoalHandoffRegression:
 
         # Each goal should have required fields
         for goal in goals:
-            assert 'goal_id' in goal
-            assert 'ai_id' in goal
-            assert 'goal_data' in goal
-            assert 'lineage' in goal
+            assert "goal_id" in goal
+            assert "ai_id" in goal
+            assert "goal_data" in goal
+            assert "lineage" in goal
 
     def test_discover_goals_filters_by_ai(self):
         """
@@ -55,7 +55,7 @@ class TestGoalHandoffRegression:
             pytest.skip("No goals in repository")
 
         # Pick an AI that has goals
-        ai_id = all_goals[0]['ai_id']
+        ai_id = all_goals[0]["ai_id"]
 
         # Filter by that AI
         filtered_goals = store.discover_goals(from_ai_id=ai_id)
@@ -64,7 +64,7 @@ class TestGoalHandoffRegression:
 
         # All returned goals should be from that AI
         for goal in filtered_goals:
-            assert goal['ai_id'] == ai_id
+            assert goal["ai_id"] == ai_id
 
     def test_lineage_preserved_on_resume(self):
         """
@@ -80,15 +80,16 @@ class TestGoalHandoffRegression:
             pytest.skip("No goals in repository")
 
         goal = goals[0]
-        goal_id = goal['goal_id']
-        original_lineage_count = len(goal['lineage'])
+        goal_id = goal["goal_id"]
+        original_lineage_count = len(goal["lineage"])
 
         # Use unique ai_id per run to avoid idempotency issues
         import uuid
-        test_ai_id = f'test-ai-regression-{uuid.uuid4().hex[:8]}'
+
+        test_ai_id = f"test-ai-regression-{uuid.uuid4().hex[:8]}"
 
         # Add lineage entry
-        success = store.add_lineage(goal_id, test_ai_id, 'resumed')
+        success = store.add_lineage(goal_id, test_ai_id, "resumed")
         assert success, "add_lineage should succeed"
 
         # NOTE: load_goal reads from the original commit's note (git notes list
@@ -98,26 +99,24 @@ class TestGoalHandoffRegression:
         # git-notes-based storage (see goal_store.py store_goal/load_goal).
         # Verify the note was written to HEAD directly.
         import subprocess
-        note_ref = f'empirica/goals/{goal_id}'
-        result = subprocess.run(
-            ['git', 'notes', f'--ref={note_ref}', 'show', 'HEAD'],
-            capture_output=True, text=True
-        )
+
+        note_ref = f"empirica/goals/{goal_id}"
+        result = subprocess.run(["git", "notes", f"--ref={note_ref}", "show", "HEAD"], capture_output=True, text=True)
         assert result.returncode == 0, "Note should exist on HEAD"
         import json
+
         head_goal = json.loads(result.stdout)
-        assert len(head_goal['lineage']) == original_lineage_count + 1
+        assert len(head_goal["lineage"]) == original_lineage_count + 1
 
         # Last entry should be our addition
-        last_entry = head_goal['lineage'][-1]
-        assert last_entry['ai_id'] == test_ai_id
-        assert last_entry['action'] == 'resumed'
+        last_entry = head_goal["lineage"][-1]
+        assert last_entry["ai_id"] == test_ai_id
+        assert last_entry["action"] == "resumed"
 
         # Original lineage should still be there
         for i in range(original_lineage_count):
-            assert head_goal['lineage'][i] == goal['lineage'][i]
+            assert head_goal["lineage"][i] == goal["lineage"][i]
 
 
-
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

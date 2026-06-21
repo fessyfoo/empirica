@@ -17,8 +17,10 @@ def _build_cli_parser() -> ArgumentParser:
 def test_project_search_focused_includes_docs_by_default():
     client = type("DummyClient", (), {"collection_exists": lambda self, name: False})()
 
-    with patch("empirica.core.qdrant.memory._check_qdrant_available", return_value=True), \
-         patch("empirica.core.qdrant.memory._get_qdrant_client", return_value=client):
+    with (
+        patch("empirica.core.qdrant.memory._check_qdrant_available", return_value=True),
+        patch("empirica.core.qdrant.memory._get_qdrant_client", return_value=client),
+    ):
         results = search("project-id", "workflow state model")
 
     assert set(results.keys()) == {"docs", "eidetic", "episodic"}
@@ -28,13 +30,15 @@ def test_project_search_focused_includes_docs_by_default():
 def test_project_search_parser_help_matches_focused_default():
     parser = _build_cli_parser()
 
-    args = parser.parse_args([
-        "project-search",
-        "--project-id",
-        "proj-123",
-        "--task",
-        "workflow state model",
-    ])
+    args = parser.parse_args(
+        [
+            "project-search",
+            "--project-id",
+            "proj-123",
+            "--task",
+            "workflow state model",
+        ]
+    )
 
     assert args.type == "focused"
 

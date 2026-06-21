@@ -69,7 +69,7 @@ def _resolve_instance_id(args, fallback_to_current: bool = True) -> str | None:
     Priority: explicit --instance flag > current process's instance > None.
     None means "global" for sentinel; required for loop ops.
     """
-    instance = getattr(args, 'instance', None)
+    instance = getattr(args, "instance", None)
     if instance:
         return instance
     if fallback_to_current:
@@ -79,32 +79,33 @@ def _resolve_instance_id(args, fallback_to_current: bool = True) -> str | None:
 
 def _emit(args, payload: dict[str, Any], human_summary: str) -> int:
     """Emit JSON or human output based on --output."""
-    fmt = getattr(args, 'output', 'human')
-    if fmt == 'json':
-        sys.stdout.write(_json.dumps(payload, indent=2, sort_keys=False) + '\n')
+    fmt = getattr(args, "output", "human")
+    if fmt == "json":
+        sys.stdout.write(_json.dumps(payload, indent=2, sort_keys=False) + "\n")
     else:
-        sys.stdout.write(human_summary + '\n')
-    return 0 if payload.get('ok', True) else 1
+        sys.stdout.write(human_summary + "\n")
+    return 0 if payload.get("ok", True) else 1
 
 
 # ─── empirica sentinel ──────────────────────────────────────────────────────
 
+
 def handle_sentinel_pause_command(args) -> int:
     instance_id = _resolve_instance_id(args, fallback_to_current=True)
-    reason = getattr(args, 'reason', None)
+    reason = getattr(args, "reason", None)
     status = pause_sentinel(instance_id, reason=reason)
     payload = {
-        'ok': True,
-        'paused': status.paused,
-        'instance_id': status.instance_id,
-        'scope': status.scope,
-        'since': status.since,
-        'reason': status.reason,
+        "ok": True,
+        "paused": status.paused,
+        "instance_id": status.instance_id,
+        "scope": status.scope,
+        "since": status.since,
+        "reason": status.reason,
     }
-    target = status.instance_id or 'global'
-    summary = f'Sentinel paused for {target}'
+    target = status.instance_id or "global"
+    summary = f"Sentinel paused for {target}"
     if status.reason:
-        summary += f' (reason: {status.reason})'
+        summary += f" (reason: {status.reason})"
     return _emit(args, payload, summary)
 
 
@@ -112,20 +113,17 @@ def handle_sentinel_resume_command(args) -> int:
     instance_id = _resolve_instance_id(args, fallback_to_current=True)
     status = resume_sentinel(instance_id)
     payload = {
-        'ok': True,
-        'paused': status.paused,
-        'instance_id': status.instance_id,
-        'scope': status.scope,
+        "ok": True,
+        "paused": status.paused,
+        "instance_id": status.instance_id,
+        "scope": status.scope,
     }
-    target = instance_id or 'global'
+    target = instance_id or "global"
     if status.paused:
         # The instance pause was removed but a global pause still applies.
-        summary = (
-            f'Sentinel resume requested for {target}, '
-            f'but global pause is still in effect (scope={status.scope})'
-        )
+        summary = f"Sentinel resume requested for {target}, but global pause is still in effect (scope={status.scope})"
     else:
-        summary = f'Sentinel resumed for {target}'
+        summary = f"Sentinel resumed for {target}"
     return _emit(args, payload, summary)
 
 
@@ -134,22 +132,22 @@ def handle_sentinel_status_command_cockpit(args) -> int:
     instance_id = _resolve_instance_id(args, fallback_to_current=True)
     status = sentinel_status(instance_id)
     payload = {
-        'ok': True,
-        'paused': status.paused,
-        'instance_id': status.instance_id,
-        'scope': status.scope,
-        'since': status.since,
-        'reason': status.reason,
+        "ok": True,
+        "paused": status.paused,
+        "instance_id": status.instance_id,
+        "scope": status.scope,
+        "since": status.since,
+        "reason": status.reason,
     }
-    target = status.instance_id or 'global'
+    target = status.instance_id or "global"
     if status.paused:
-        summary = f'Sentinel PAUSED for {target} (scope={status.scope})'
+        summary = f"Sentinel PAUSED for {target} (scope={status.scope})"
         if status.since:
-            summary += f' since {status.since}'
+            summary += f" since {status.since}"
         if status.reason:
-            summary += f' — {status.reason}'
+            summary += f" — {status.reason}"
     else:
-        summary = f'Sentinel ON for {target}'
+        summary = f"Sentinel ON for {target}"
     return _emit(args, payload, summary)
 
 
@@ -172,8 +170,7 @@ def _require_instance_id(args) -> str:
     instance_id = _resolve_instance_id(args, fallback_to_current=True)
     if not instance_id:
         raise InstanceIdRequiredError(
-            'error: no instance_id available. Set EMPIRICA_INSTANCE_ID '
-            'or pass --instance ID explicitly.'
+            "error: no instance_id available. Set EMPIRICA_INSTANCE_ID or pass --instance ID explicitly."
         )
     return instance_id
 
@@ -185,27 +182,28 @@ def handle_loop_register_command(args) -> int:
         entry = registry.register(
             name=args.name,
             kind=args.kind,
-            cron=getattr(args, 'cron', None),
-            interval=getattr(args, 'interval', None),
-            description=getattr(args, 'description', '') or '',
-            backoff_policy=getattr(args, 'backoff', None),
-            base_interval=getattr(args, 'base_interval', None),
-            max_interval=getattr(args, 'max_interval', None),
+            cron=getattr(args, "cron", None),
+            interval=getattr(args, "interval", None),
+            description=getattr(args, "description", "") or "",
+            backoff_policy=getattr(args, "backoff", None),
+            base_interval=getattr(args, "base_interval", None),
+            max_interval=getattr(args, "max_interval", None),
         )
     except ValueError as e:
-        return _emit(args, {'ok': False, 'error': str(e)}, f'error: {e}')
+        return _emit(args, {"ok": False, "error": str(e)}, f"error: {e}")
 
     payload = {
-        'ok': True,
-        'instance_id': instance_id,
-        'loop': {'name': entry.name, **entry.to_dict()},
+        "ok": True,
+        "instance_id": instance_id,
+        "loop": {"name": entry.name, **entry.to_dict()},
     }
-    summary = f'Loop registered: {entry.name} ({entry.kind})'
-    if entry.backoff.policy == 'exponential':
+    summary = f"Loop registered: {entry.name} ({entry.kind})"
+    if entry.backoff.policy == "exponential":
         from empirica.core.cockpit.loop_registry import format_duration
+
         summary += (
-            f' [backoff exponential, base={format_duration(entry.backoff.base_interval_seconds)}, '
-            f'max={format_duration(entry.backoff.max_interval_seconds)}]'
+            f" [backoff exponential, base={format_duration(entry.backoff.base_interval_seconds)}, "
+            f"max={format_duration(entry.backoff.max_interval_seconds)}]"
         )
     return _emit(args, payload, summary)
 
@@ -214,12 +212,8 @@ def handle_loop_unregister_command(args) -> int:
     instance_id = _require_instance_id(args)
     registry = LoopRegistry(instance_id)
     removed = registry.unregister(args.name)
-    payload = {'ok': True, 'instance_id': instance_id, 'removed': removed, 'name': args.name}
-    summary = (
-        f'Loop unregistered: {args.name}'
-        if removed
-        else f'Loop {args.name} was not registered (no-op)'
-    )
+    payload = {"ok": True, "instance_id": instance_id, "removed": removed, "name": args.name}
+    summary = f"Loop unregistered: {args.name}" if removed else f"Loop {args.name} was not registered (no-op)"
     return _emit(args, payload, summary)
 
 
@@ -255,49 +249,46 @@ def handle_loop_pause_command(args) -> int:
             # specific cancellation (CronDelete / systemctl stop / atrm).
             registry.heartbeat(
                 name=args.name,
-                status=entry.last_status or 'ok',
+                status=entry.last_status or "ok",
                 result=entry.last_result,
                 message=entry.last_message,
-                next_scheduled_job_id='',
+                next_scheduled_job_id="",
             )
             # CronCreate-mode: surface a pending uninstall request so the
             # owning Claude instance picks it up via UserPromptSubmit hook
             # and calls CronDelete from inside that CC session. The empirica
             # CLI can't call CronDelete itself.
-            if scheduler_kind == 'cron-create':
+            if scheduler_kind == "cron-create":
                 pending = write_uninstall_pending(
                     instance_id=instance_id,
                     name=args.name,
                     job_id=cancelled_job_id,
                     scheduler_kind=scheduler_kind,
                     requested_by=get_instance_id(),
-                    reason='manual pause',
+                    reason="manual pause",
                 )
                 uninstall_pending_path = str(pending)
 
     payload = {
-        'ok': True,
-        'instance_id': instance_id,
-        'name': args.name,
-        'paused': paused,
-        'cancelled_job_id': cancelled_job_id,
-        'scheduler_kind': scheduler_kind,
-        'uninstall_pending_path': uninstall_pending_path,
+        "ok": True,
+        "instance_id": instance_id,
+        "name": args.name,
+        "paused": paused,
+        "cancelled_job_id": cancelled_job_id,
+        "scheduler_kind": scheduler_kind,
+        "uninstall_pending_path": uninstall_pending_path,
     }
-    summary = f'Loop paused: {args.name}'
+    summary = f"Loop paused: {args.name}"
     if cancelled_job_id:
-        summary += f' · cleared next_job={cancelled_job_id}'
-        if scheduler_kind == 'cron-create':
+        summary += f" · cleared next_job={cancelled_job_id}"
+        if scheduler_kind == "cron-create":
             if uninstall_pending_path:
                 summary += (
-                    ' · queued CronDelete request for owning instance '
-                    '(picked up via UserPromptSubmit; body pause-check is the backstop)'
+                    " · queued CronDelete request for owning instance "
+                    "(picked up via UserPromptSubmit; body pause-check is the backstop)"
                 )
             else:
-                summary += (
-                    ' (CronCreate: body pause-check is the backstop; '
-                    'next fire will exit silently)'
-                )
+                summary += " (CronCreate: body pause-check is the backstop; next fire will exit silently)"
     return _emit(args, payload, summary)
 
 
@@ -312,17 +303,15 @@ def handle_loop_resume_command(args) -> int:
     entry = registry.get(args.name)
     scheduler_kind = entry.scheduling.scheduler_kind if entry else None
     payload = {
-        'ok': True,
-        'instance_id': instance_id,
-        'name': args.name,
-        'paused': paused,
-        'scheduler_kind': scheduler_kind,
+        "ok": True,
+        "instance_id": instance_id,
+        "name": args.name,
+        "paused": paused,
+        "scheduler_kind": scheduler_kind,
     }
-    summary = f'Loop resumed: {args.name}'
-    if scheduler_kind == 'cron-create':
-        summary += (
-            f' · re-issue via /loop or run `empirica loop fire {args.name}`'
-        )
+    summary = f"Loop resumed: {args.name}"
+    if scheduler_kind == "cron-create":
+        summary += f" · re-issue via /loop or run `empirica loop fire {args.name}`"
     return _emit(args, payload, summary)
 
 
@@ -332,13 +321,13 @@ def handle_loop_set_interval_command(args) -> int:
     try:
         entry = registry.set_interval(args.name, args.interval)
     except (KeyError, ValueError) as e:
-        return _emit(args, {'ok': False, 'error': str(e)}, f'error: {e}')
+        return _emit(args, {"ok": False, "error": str(e)}, f"error: {e}")
     payload = {
-        'ok': True,
-        'instance_id': instance_id,
-        'loop': {'name': entry.name, **entry.to_dict()},
+        "ok": True,
+        "instance_id": instance_id,
+        "loop": {"name": entry.name, **entry.to_dict()},
     }
-    return _emit(args, payload, f'Loop interval set: {args.name} → {args.interval}')
+    return _emit(args, payload, f"Loop interval set: {args.name} → {args.interval}")
 
 
 def handle_loop_heartbeat_command(args) -> int:
@@ -348,28 +337,31 @@ def handle_loop_heartbeat_command(args) -> int:
         entry = registry.heartbeat(
             name=args.name,
             status=args.status,
-            result=getattr(args, 'result', None),
-            message=getattr(args, 'message', None),
-            next_scheduled_job_id=getattr(args, 'next_scheduled_job_id', None),
-            scheduler_kind=getattr(args, 'scheduler_kind', None),
+            result=getattr(args, "result", None),
+            message=getattr(args, "message", None),
+            next_scheduled_job_id=getattr(args, "next_scheduled_job_id", None),
+            scheduler_kind=getattr(args, "scheduler_kind", None),
         )
     except ValueError as e:
-        return _emit(args, {'ok': False, 'error': str(e)}, f'error: {e}')
+        return _emit(args, {"ok": False, "error": str(e)}, f"error: {e}")
 
     payload = {
-        'ok': True,
-        'instance_id': instance_id,
-        'loop': {'name': entry.name, **entry.to_dict()},
-        'paused': is_loop_paused(instance_id, entry.name),
+        "ok": True,
+        "instance_id": instance_id,
+        "loop": {"name": entry.name, **entry.to_dict()},
+        "paused": is_loop_paused(instance_id, entry.name),
     }
-    summary = f'Loop heartbeat: {entry.name} → {entry.last_status}/{entry.last_result}'
+    summary = f"Loop heartbeat: {entry.name} → {entry.last_status}/{entry.last_result}"
     if entry.last_message:
-        summary += f' ({entry.last_message})'
-    if entry.backoff.policy == 'exponential':
+        summary += f" ({entry.last_message})"
+    if entry.backoff.policy == "exponential":
         from empirica.core.cockpit.loop_registry import format_duration
-        summary += f' · streak={entry.backoff.empty_streak} next≥{format_duration(entry.backoff.current_interval_seconds())}'
+
+        summary += (
+            f" · streak={entry.backoff.empty_streak} next≥{format_duration(entry.backoff.current_interval_seconds())}"
+        )
     if entry.scheduling.next_scheduled_job_id:
-        summary += f' · next_job={entry.scheduling.next_scheduled_job_id}'
+        summary += f" · next_job={entry.scheduling.next_scheduled_job_id}"
     return _emit(args, payload, summary)
 
 
@@ -386,19 +378,16 @@ def handle_loop_schedule_next_command(args) -> int:
     if plan is None:
         return _emit(
             args,
-            {'ok': False, 'error': f'loop {args.name!r} not registered'},
-            f'error: loop {args.name!r} not registered',
+            {"ok": False, "error": f"loop {args.name!r} not registered"},
+            f"error: loop {args.name!r} not registered",
         )
     payload = {
-        'ok': True,
-        'instance_id': instance_id,
-        'name': args.name,
+        "ok": True,
+        "instance_id": instance_id,
+        "name": args.name,
         **plan.to_dict(),
     }
-    summary = (
-        f'next fire: {plan.fire_at.isoformat()} '
-        f'({plan.cron_one_shot}) — {plan.reason}'
-    )
+    summary = f"next fire: {plan.fire_at.isoformat()} ({plan.cron_one_shot}) — {plan.reason}"
     return _emit(args, payload, summary)
 
 
@@ -412,29 +401,30 @@ def handle_loop_install_request_command(args) -> int:
     The cockpit runs `empirica loop install-request --instance <ID> --name X
     --interval 15m` to make this happen — no manual /loop paste needed.
     """
-    target_instance = getattr(args, 'instance', None)
+    target_instance = getattr(args, "instance", None)
     if not target_instance:
         return _emit(
             args,
-            {'ok': False, 'error': '--instance required (target instance to install in)'},
-            'error: --instance required',
+            {"ok": False, "error": "--instance required (target instance to install in)"},
+            "error: --instance required",
         )
 
     name = args.name
     interval = args.interval
-    description = getattr(args, 'description', '') or ''
+    description = getattr(args, "description", "") or ""
     # Optional body_skill: if a paired skill exists with this loop's
     # name in the canonical catalog (or explicitly via --body-skill),
     # render_loop_cron_prompt uses its `## Cron Prompt Template` section
     # as the full prompt — no `[... your actual work ...]` placeholder.
-    body_skill = getattr(args, 'body_skill', None)
+    body_skill = getattr(args, "body_skill", None)
     if not body_skill:
         # Auto-resolve from canonical catalog by loop name
         try:
             from empirica.core.cockpit.canonical_loops import canonical_loop_by_name
+
             entry = canonical_loop_by_name(name)
-            if entry and entry.get('body_skill'):
-                body_skill = entry['body_skill']
+            if entry and entry.get("body_skill"):
+                body_skill = entry["body_skill"]
         except Exception:
             pass  # canonical lookup is best-effort
     # Fallback chain: explicit --base-interval > --interval > '15m' default.
@@ -444,8 +434,8 @@ def handle_loop_install_request_command(args) -> int:
     # template substitutes interval into backoff config — a None there
     # writes the literal string 'None' into the prompt and produces a
     # malformed `--interval "None"` flag in the body's register call.
-    base_interval = getattr(args, 'base_interval', None) or interval or '15m'
-    max_interval = getattr(args, 'max_interval', None) or '4h'
+    base_interval = getattr(args, "base_interval", None) or interval or "15m"
+    max_interval = getattr(args, "max_interval", None) or "4h"
     # If interval wasn't supplied (cron-only loop), use the resolved
     # base_interval so the rendered prompt template is well-formed.
     if not interval:
@@ -457,20 +447,20 @@ def handle_loop_install_request_command(args) -> int:
     try:
         entry = registry.register(
             name=name,
-            kind='cron',
+            kind="cron",
             interval=interval,
             description=description,
-            backoff_policy='exponential',
+            backoff_policy="exponential",
             base_interval=base_interval,
             max_interval=max_interval,
         )
     except ValueError as e:
-        return _emit(args, {'ok': False, 'error': str(e)}, f'error: {e}')
+        return _emit(args, {"ok": False, "error": str(e)}, f"error: {e}")
 
     # Stamp scheduler_kind so heartbeat fields don't drift later.
     registry.heartbeat(
         name=name,
-        status=entry.last_status or 'ok',
+        status=entry.last_status or "ok",
         result=entry.last_result,
         message=entry.last_message,
         scheduler_kind=DEFAULT_SCHEDULER_KIND,
@@ -481,6 +471,7 @@ def handle_loop_install_request_command(args) -> int:
     requested_by: str | None = None
     try:
         from empirica.utils.session_resolver import get_instance_id
+
         requested_by = get_instance_id()
     except Exception:
         requested_by = None
@@ -498,22 +489,19 @@ def handle_loop_install_request_command(args) -> int:
     )
 
     payload = {
-        'ok': True,
-        'instance_id': target_instance,
-        'name': name,
-        'interval': interval,
-        'pending_request_path': str(pending),
-        'requested_by': requested_by,
-        'scheduler_kind': DEFAULT_SCHEDULER_KIND,
-        'next_step': (
-            f'Target Claude in {target_instance} will see the install request '
-            f'on its next prompt and run /loop to call CronCreate'
+        "ok": True,
+        "instance_id": target_instance,
+        "name": name,
+        "interval": interval,
+        "pending_request_path": str(pending),
+        "requested_by": requested_by,
+        "scheduler_kind": DEFAULT_SCHEDULER_KIND,
+        "next_step": (
+            f"Target Claude in {target_instance} will see the install request "
+            f"on its next prompt and run /loop to call CronCreate"
         ),
     }
-    summary = (
-        f'Install request queued for {name} in {target_instance} '
-        f'({interval}) — surfaces on next UserPromptSubmit'
-    )
+    summary = f"Install request queued for {name} in {target_instance} ({interval}) — surfaces on next UserPromptSubmit"
     return _emit(args, payload, summary)
 
 
@@ -533,38 +521,38 @@ def handle_loop_fire_command(args) -> int:
     if entry is None:
         return _emit(
             args,
-            {'ok': False, 'error': f'loop {args.name!r} not registered'},
-            f'error: loop {args.name!r} not registered',
+            {"ok": False, "error": f"loop {args.name!r} not registered"},
+            f"error: loop {args.name!r} not registered",
         )
     plan = registry.schedule_next(args.name)
     payload: dict[str, Any] = {
-        'ok': True,
-        'instance_id': instance_id,
-        'name': args.name,
-        'scheduler_kind': entry.scheduling.scheduler_kind,
-        'paused': is_loop_paused(instance_id, args.name),
+        "ok": True,
+        "instance_id": instance_id,
+        "name": args.name,
+        "scheduler_kind": entry.scheduling.scheduler_kind,
+        "paused": is_loop_paused(instance_id, args.name),
     }
     if plan is not None:
         payload.update(plan.to_dict())
-    scheduler_kind = entry.scheduling.scheduler_kind or 'unknown'
-    if scheduler_kind == 'cron-create':
-        payload['hint'] = (
+    scheduler_kind = entry.scheduling.scheduler_kind or "unknown"
+    if scheduler_kind == "cron-create":
+        payload["hint"] = (
             f"empirica CLI can't call CronCreate directly. Re-issue via "
             f"/loop or run: CronCreate(cron='{plan.cron_one_shot}', "
             f"recurring=false, prompt='<loop body template>')"
             if plan
-            else 'no schedule plan — register loop first'
+            else "no schedule plan — register loop first"
         )
         summary = (
-            f'fire requested for {args.name} — install '
-            f"`{plan.cron_one_shot}`" if plan else f'fire requested for {args.name}'
+            f"fire requested for {args.name} — install `{plan.cron_one_shot}`"
+            if plan
+            else f"fire requested for {args.name}"
         )
     else:
         summary = (
-            f'fire requested for {args.name} ({scheduler_kind}) — '
-            f"`{plan.cron_one_shot}` at {plan.fire_at.isoformat()}"
+            f"fire requested for {args.name} ({scheduler_kind}) — `{plan.cron_one_shot}` at {plan.fire_at.isoformat()}"
             if plan
-            else f'fire requested for {args.name} ({scheduler_kind})'
+            else f"fire requested for {args.name} ({scheduler_kind})"
         )
     return _emit(args, payload, summary)
 
@@ -582,13 +570,13 @@ def handle_loop_should_fire_command(args) -> int:
     registry = LoopRegistry(instance_id)
     should, reason = registry.should_fire(args.name)
     payload = {
-        'ok': True,
-        'instance_id': instance_id,
-        'name': args.name,
-        'should_fire': should,
-        'reason': reason,
+        "ok": True,
+        "instance_id": instance_id,
+        "name": args.name,
+        "should_fire": should,
+        "reason": reason,
     }
-    summary = f'{"FIRE" if should else "SKIP"} ({reason})'
+    summary = f"{'FIRE' if should else 'SKIP'} ({reason})"
     _emit(args, payload, summary)
     return 0 if should else 1
 
@@ -599,15 +587,19 @@ def handle_loop_poke_command(args) -> int:
     registry = LoopRegistry(instance_id)
     entry = registry.poke(args.name)
     if entry is None:
-        payload = {'ok': False, 'error': f'loop not registered: {args.name}',
-                   'instance_id': instance_id, 'name': args.name}
-        return _emit(args, payload, payload['error'])
+        payload = {
+            "ok": False,
+            "error": f"loop not registered: {args.name}",
+            "instance_id": instance_id,
+            "name": args.name,
+        }
+        return _emit(args, payload, payload["error"])
     payload = {
-        'ok': True,
-        'instance_id': instance_id,
-        'loop': {'name': entry.name, **entry.to_dict()},
+        "ok": True,
+        "instance_id": instance_id,
+        "loop": {"name": entry.name, **entry.to_dict()},
     }
-    return _emit(args, payload, f'Loop poked: {args.name} (streak cleared, next fire allowed)')
+    return _emit(args, payload, f"Loop poked: {args.name} (streak cleared, next fire allowed)")
 
 
 def handle_loop_list_command(args) -> int:
@@ -618,22 +610,22 @@ def handle_loop_list_command(args) -> int:
     payload_loops = []
     for entry in loops:
         d = entry.to_dict()
-        d['name'] = entry.name
-        d['paused'] = is_loop_paused(instance_id, entry.name)
+        d["name"] = entry.name
+        d["paused"] = is_loop_paused(instance_id, entry.name)
         payload_loops.append(d)
 
     payload = {
-        'ok': True,
-        'instance_id': instance_id,
-        'count': len(loops),
-        'loops': payload_loops,
+        "ok": True,
+        "instance_id": instance_id,
+        "count": len(loops),
+        "loops": payload_loops,
     }
 
     if not loops:
-        summary = f'No loops registered for {instance_id}'
+        summary = f"No loops registered for {instance_id}"
     else:
-        rows = [f'  {l["name"]:<20} {l["kind"]:<8} paused={l["paused"]}' for l in payload_loops]
-        summary = f'Loops registered for {instance_id}:\n' + '\n'.join(rows)
+        rows = [f"  {l['name']:<20} {l['kind']:<8} paused={l['paused']}" for l in payload_loops]
+        summary = f"Loops registered for {instance_id}:\n" + "\n".join(rows)
 
     return _emit(args, payload, summary)
 
@@ -643,20 +635,24 @@ def handle_loop_status_command(args) -> int:
     registry = LoopRegistry(instance_id)
     entry = registry.get(args.name)
     if entry is None:
-        payload = {'ok': False, 'error': f'loop not registered: {args.name}',
-                   'instance_id': instance_id, 'name': args.name, 'paused': False}
-        return _emit(args, payload, payload['error'])
+        payload = {
+            "ok": False,
+            "error": f"loop not registered: {args.name}",
+            "instance_id": instance_id,
+            "name": args.name,
+            "paused": False,
+        }
+        return _emit(args, payload, payload["error"])
 
     paused = is_loop_paused(instance_id, args.name)
     payload = {
-        'ok': True,
-        'instance_id': instance_id,
-        'loop': {'name': entry.name, **entry.to_dict()},
-        'paused': paused,
+        "ok": True,
+        "instance_id": instance_id,
+        "loop": {"name": entry.name, **entry.to_dict()},
+        "paused": paused,
     }
     summary = (
-        f'{entry.name}: kind={entry.kind} paused={paused} '
-        f'last_run={entry.last_run} last_status={entry.last_status}'
+        f"{entry.name}: kind={entry.kind} paused={paused} last_run={entry.last_run} last_status={entry.last_status}"
     )
     return _emit(args, payload, summary)
 
@@ -691,17 +687,20 @@ def handle_loop_enable_command(args) -> int:
         LoopSchedulerUnavailable,
         get_loop_scheduler,
     )
+
     instance_id = _require_instance_id(args)
-    empirica_bin = _sh.which('empirica')
+    empirica_bin = _sh.which("empirica")
     if not empirica_bin:
         return _emit(
             args,
-            {'ok': False, 'error':
-             "Could not resolve absolute path to 'empirica' via shutil.which(). "
-             "Install via pipx (`pipx install empirica`) or activate the venv "
-             "before enabling a loop — otherwise the scheduler fires but the "
-             "service/agent can't find the binary."},
-            'enable failed: empirica binary not on PATH'
+            {
+                "ok": False,
+                "error": "Could not resolve absolute path to 'empirica' via shutil.which(). "
+                "Install via pipx (`pipx install empirica`) or activate the venv "
+                "before enabling a loop — otherwise the scheduler fires but the "
+                "service/agent can't find the binary.",
+            },
+            "enable failed: empirica binary not on PATH",
         )
     # T10: get_loop_scheduler picks systemd-user (Linux/WSL2) or launchd
     # (macOS). Same API surface across backends; handler stays portable.
@@ -709,31 +708,29 @@ def handle_loop_enable_command(args) -> int:
         sched = get_loop_scheduler(empirica_bin=empirica_bin)
         paths = sched.enable(instance_id, args.name, args.interval)
     except LoopSchedulerUnavailable as e:
-        return _emit(args, {'ok': False, 'error': str(e)},
-                     f'no scheduler available: {e}')
+        return _emit(args, {"ok": False, "error": str(e)}, f"no scheduler available: {e}")
     except Exception as e:
-        return _emit(args, {'ok': False, 'error': str(e)},
-                     f'enable failed: {e}')
+        return _emit(args, {"ok": False, "error": str(e)}, f"enable failed: {e}")
 
     # Register in the cockpit's loop registry (idempotent — register catches
     # the duplicate case). Stamp scheduler_kind='systemd' via heartbeat so
     # later toggles know to route through systemctl rather than the legacy
     # pause sidecar.
     registry = LoopRegistry(instance_id)
-    description = getattr(args, 'description', '') or ''
+    description = getattr(args, "description", "") or ""
     try:
         entry = registry.register(
             name=args.name,
-            kind='interval',
+            kind="interval",
             interval=args.interval,
             description=description,
         )
         registry.heartbeat(
             name=args.name,
-            status=entry.last_status or 'ok',
+            status=entry.last_status or "ok",
             result=entry.last_result,
             message=entry.last_message,
-            scheduler_kind='systemd-user',
+            scheduler_kind="systemd-user",
         )
     except ValueError:
         # Already registered — refresh scheduler_kind only.
@@ -741,21 +738,24 @@ def handle_loop_enable_command(args) -> int:
             existing = registry.get(args.name)
             registry.heartbeat(
                 name=args.name,
-                status=existing.last_status if existing else 'ok',
+                status=existing.last_status if existing else "ok",
                 result=existing.last_result if existing else None,
                 message=existing.last_message if existing else None,
-                scheduler_kind='systemd-user',
+                scheduler_kind="systemd-user",
             )
         except Exception:
             pass  # registry stamp is best-effort; systemd state is source of truth
 
     payload = {
-        'ok': True, 'instance_id': instance_id, 'name': args.name,
-        'interval': args.interval, 'scheduler_kind': 'systemd',
-        'timer_path': str(paths.timer), 'service_path': str(paths.service),
+        "ok": True,
+        "instance_id": instance_id,
+        "name": args.name,
+        "interval": args.interval,
+        "scheduler_kind": "systemd",
+        "timer_path": str(paths.timer),
+        "service_path": str(paths.service),
     }
-    return _emit(args, payload,
-                 f'enabled {args.name} (every {args.interval}) — timer + registry stamped systemd')
+    return _emit(args, payload, f"enabled {args.name} (every {args.interval}) — timer + registry stamped systemd")
 
 
 def handle_loop_disable_command(args) -> int:
@@ -766,16 +766,15 @@ def handle_loop_disable_command(args) -> int:
         LoopSchedulerUnavailable,
         get_loop_scheduler,
     )
+
     instance_id = _require_instance_id(args)
     try:
         sched = get_loop_scheduler()
         removed = sched.disable(instance_id, args.name)
     except LoopSchedulerUnavailable as e:
-        return _emit(args, {'ok': False, 'error': str(e)},
-                     f'no scheduler available: {e}')
-    payload = {'ok': True, 'instance_id': instance_id, 'name': args.name, 'removed': removed}
-    summary = (f'disabled {args.name} (scheduler entry removed)' if removed
-               else f'{args.name} was not enabled — no-op')
+        return _emit(args, {"ok": False, "error": str(e)}, f"no scheduler available: {e}")
+    payload = {"ok": True, "instance_id": instance_id, "name": args.name, "removed": removed}
+    summary = f"disabled {args.name} (scheduler entry removed)" if removed else f"{args.name} was not enabled — no-op"
     return _emit(args, payload, summary)
 
 
@@ -787,20 +786,26 @@ def handle_loop_systemd_status_command(args) -> int:
         LoopSchedulerUnavailable,
         get_loop_scheduler,
     )
+
     instance_id = _require_instance_id(args)
     try:
         sched = get_loop_scheduler()
         st = sched.status(instance_id, args.name)
     except LoopSchedulerUnavailable as e:
-        return _emit(args, {'ok': False, 'error': str(e)},
-                     f'no scheduler available: {e}')
+        return _emit(args, {"ok": False, "error": str(e)}, f"no scheduler available: {e}")
     payload = {
-        'ok': True, 'instance_id': instance_id, 'name': args.name,
-        'active': st.active, 'enabled': st.enabled,
-        'last_trigger': st.last_trigger, 'next_trigger': st.next_trigger,
+        "ok": True,
+        "instance_id": instance_id,
+        "name": args.name,
+        "active": st.active,
+        "enabled": st.enabled,
+        "last_trigger": st.last_trigger,
+        "next_trigger": st.next_trigger,
     }
-    summary = (f'{args.name}: active={st.active} enabled={st.enabled} '
-               f'last={st.last_trigger or "—"} next={st.next_trigger or "—"}')
+    summary = (
+        f"{args.name}: active={st.active} enabled={st.enabled} "
+        f"last={st.last_trigger or '—'} next={st.next_trigger or '—'}"
+    )
     return _emit(args, payload, summary)
 
 
@@ -810,13 +815,16 @@ def handle_loop_tick_command(args) -> int:
     Claude session. Must succeed even on systems without systemd (the log
     write is the contract; the timer mechanism is separate)."""
     from empirica.core.loop_scheduler import SystemdLoopScheduler
+
     try:
         path = SystemdLoopScheduler.tick(args.instance_id, args.name)
     except Exception as e:
-        return _emit(args, {'ok': False, 'error': str(e)}, f'tick failed: {e}')
-    return _emit(args, {'ok': True, 'log_path': str(path),
-                        'instance_id': args.instance_id, 'name': args.name},
-                 f'tick: {args.instance_id}/{args.name}')
+        return _emit(args, {"ok": False, "error": str(e)}, f"tick failed: {e}")
+    return _emit(
+        args,
+        {"ok": True, "log_path": str(path), "instance_id": args.instance_id, "name": args.name},
+        f"tick: {args.instance_id}/{args.name}",
+    )
 
 
 def handle_loop_listen_command(args) -> int:
@@ -833,8 +841,9 @@ def handle_loop_listen_command(args) -> int:
     Monitor lifecycle surfaces the problem clearly).
     """
     from empirica.core.loop_scheduler import run_listener
+
     instance_id = _require_instance_id(args)
-    loop_name = getattr(args, 'loop_name', None) or 'cortex-mailbox-poll'
+    loop_name = getattr(args, "loop_name", None) or "cortex-mailbox-poll"
     return run_listener(instance_id, loop_name)
 
 
@@ -861,6 +870,7 @@ def handle_loop_listen_install_command(args) -> int:
         ListenerServiceUnavailable,
         PersistentListenerService,
     )
+
     ai_id = _resolve_listener_ai_id(args)
     service = PersistentListenerService()
     try:
@@ -868,8 +878,7 @@ def handle_loop_listen_install_command(args) -> int:
     except ListenerServiceUnavailable as e:
         return _emit(args, {"ok": False, "error": str(e)}, f"error: {e}")
     except subprocess.CalledProcessError as e:
-        return _emit(args, {"ok": False, "error": f"install failed: {e}"},
-                     f"error: {e}")
+        return _emit(args, {"ok": False, "error": f"install failed: {e}"}, f"error: {e}")
 
     status = service.status(ai_id)
     payload = {
@@ -894,17 +903,17 @@ def handle_loop_listen_uninstall_command(args) -> int:
     from empirica.core.loop_scheduler.persistent_listener import (
         PersistentListenerService,
     )
+
     ai_id = _resolve_listener_ai_id(args)
     service = PersistentListenerService()
     removed = service.uninstall(ai_id)
     payload = {
-        "ok": True, "ai_id": ai_id,
-        "backend": service.backend, "removed": removed,
+        "ok": True,
+        "ai_id": ai_id,
+        "backend": service.backend,
+        "removed": removed,
     }
-    summary = (
-        f"Uninstalled persistent listener for {ai_id}"
-        if removed else f"No listener service for {ai_id} (no-op)"
-    )
+    summary = f"Uninstalled persistent listener for {ai_id}" if removed else f"No listener service for {ai_id} (no-op)"
     return _emit(args, payload, summary)
 
 
@@ -913,24 +922,32 @@ def handle_loop_listen_status_command(args) -> int:
     from empirica.core.loop_scheduler.persistent_listener import (
         PersistentListenerService,
     )
+
     ai_id = _resolve_listener_ai_id(args)
     status = PersistentListenerService().status(ai_id)
     payload = {
-        "ok": True, "ai_id": ai_id,
+        "ok": True,
+        "ai_id": ai_id,
         "backend": status.backend,
-        "installed": status.installed, "active": status.active,
-        "unit_path": status.unit_path, "log_path": status.log_path,
+        "installed": status.installed,
+        "active": status.active,
+        "unit_path": status.unit_path,
+        "log_path": status.log_path,
     }
     if status.backend == "unavailable":
-        summary = (f"Listener service: unavailable on this host ({sys.platform}). "
-                   f"Linux/WSL2 needs systemd-user, macOS needs launchctl.")
+        summary = (
+            f"Listener service: unavailable on this host ({sys.platform}). "
+            f"Linux/WSL2 needs systemd-user, macOS needs launchctl."
+        )
     elif not status.installed:
         summary = f"Listener service ({status.backend}) for {ai_id}: NOT installed"
     else:
         state = "active" if status.active else "INSTALLED but inactive"
-        summary = (f"Listener service ({status.backend}) for {ai_id}: {state}\n"
-                   f"  unit: {status.unit_path}\n"
-                   f"  log:  {status.log_path}")
+        summary = (
+            f"Listener service ({status.backend}) for {ai_id}: {state}\n"
+            f"  unit: {status.unit_path}\n"
+            f"  log:  {status.log_path}"
+        )
     return _emit(args, payload, summary)
 
 
@@ -951,18 +968,18 @@ def handle_listener_register_command(args) -> int:
         entry = registry.register(
             name=args.name,
             topic=args.topic,
-            description=getattr(args, 'description', '') or '',
-            on_wake_template=getattr(args, 'on_wake', '') or '',
+            description=getattr(args, "description", "") or "",
+            on_wake_template=getattr(args, "on_wake", "") or "",
         )
     except ValueError as e:
-        return _emit(args, {'ok': False, 'error': str(e)}, f'error: {e}')
+        return _emit(args, {"ok": False, "error": str(e)}, f"error: {e}")
 
     payload = {
-        'ok': True,
-        'instance_id': instance_id,
-        'listener': {'name': entry.name, **entry.to_dict()},
+        "ok": True,
+        "instance_id": instance_id,
+        "listener": {"name": entry.name, **entry.to_dict()},
     }
-    summary = f'Listener registered: {entry.name} (topic={entry.topic})'
+    summary = f"Listener registered: {entry.name} (topic={entry.topic})"
     return _emit(args, payload, summary)
 
 
@@ -971,14 +988,12 @@ def handle_listener_unregister_command(args) -> int:
     registry = ListenerRegistry(instance_id)
     removed = registry.unregister(args.name)
     payload = {
-        'ok': True, 'instance_id': instance_id,
-        'removed': removed, 'name': args.name,
+        "ok": True,
+        "instance_id": instance_id,
+        "removed": removed,
+        "name": args.name,
     }
-    summary = (
-        f'Listener unregistered: {args.name}'
-        if removed
-        else f'Listener {args.name} was not registered (no-op)'
-    )
+    summary = f"Listener unregistered: {args.name}" if removed else f"Listener {args.name} was not registered (no-op)"
     return _emit(args, payload, summary)
 
 
@@ -1005,10 +1020,10 @@ def handle_listener_pause_command(args) -> int:
     active_path = listener_active_path(instance_id, args.name)
     if active_path.exists():
         try:
-            with open(active_path, encoding='utf-8') as f:
+            with open(active_path, encoding="utf-8") as f:
                 active_data = _json.load(f)
-            monitor_task_id = active_data.get('monitor_task_id') or None
-            raw_pid = active_data.get('curl_pid')
+            monitor_task_id = active_data.get("monitor_task_id") or None
+            raw_pid = active_data.get("curl_pid")
             curl_pid = int(raw_pid) if raw_pid is not None else None
         except (OSError, ValueError, _json.JSONDecodeError):
             # Corrupt active file — pause flag is set; the body backstop
@@ -1022,33 +1037,30 @@ def handle_listener_pause_command(args) -> int:
             monitor_task_id=monitor_task_id,
             curl_pid=curl_pid,
             requested_by=get_instance_id(),
-            reason='manual pause',
+            reason="manual pause",
         )
         uninstall_pending_path = str(pending)
 
     payload = {
-        'ok': True,
-        'instance_id': instance_id,
-        'name': args.name,
-        'paused': paused,
-        'monitor_task_id': monitor_task_id,
-        'curl_pid': curl_pid,
-        'uninstall_pending_path': uninstall_pending_path,
+        "ok": True,
+        "instance_id": instance_id,
+        "name": args.name,
+        "paused": paused,
+        "monitor_task_id": monitor_task_id,
+        "curl_pid": curl_pid,
+        "uninstall_pending_path": uninstall_pending_path,
     }
 
-    summary = f'Listener paused: {args.name}'
+    summary = f"Listener paused: {args.name}"
     if uninstall_pending_path:
         summary += (
-            f' · queued TaskStop request for Monitor {monitor_task_id} '
-            '(picked up via UserPromptSubmit; body pause-check is the backstop)'
+            f" · queued TaskStop request for Monitor {monitor_task_id} "
+            "(picked up via UserPromptSubmit; body pause-check is the backstop)"
         )
     elif active_path.exists():
-        summary += (
-            ' (active file present but missing monitor_task_id — '
-            'body pause-check is the only backstop)'
-        )
+        summary += " (active file present but missing monitor_task_id — body pause-check is the only backstop)"
     else:
-        summary += ' (no active runtime — listener was already disarmed)'
+        summary += " (no active runtime — listener was already disarmed)"
 
     return _emit(args, payload, summary)
 
@@ -1057,15 +1069,12 @@ def handle_listener_resume_command(args) -> int:
     instance_id = _require_instance_id(args)
     paused = set_listener_paused(instance_id, args.name, paused=False)
     payload = {
-        'ok': True,
-        'instance_id': instance_id,
-        'name': args.name,
-        'paused': paused,
+        "ok": True,
+        "instance_id": instance_id,
+        "name": args.name,
+        "paused": paused,
     }
-    summary = (
-        f'Listener resumed: {args.name} '
-        '(re-arm via the inbox-listener skill or run `empirica listener fire`)'
-    )
+    summary = f"Listener resumed: {args.name} (re-arm via the inbox-listener skill or run `empirica listener fire`)"
     return _emit(args, payload, summary)
 
 
@@ -1075,22 +1084,19 @@ def handle_listener_record_wake_command(args) -> int:
     try:
         entry = registry.record_wake(
             name=args.name,
-            message=getattr(args, 'message', None),
+            message=getattr(args, "message", None),
         )
     except KeyError as e:
-        return _emit(args, {'ok': False, 'error': str(e)}, f'error: {e}')
+        return _emit(args, {"ok": False, "error": str(e)}, f"error: {e}")
     payload = {
-        'ok': True,
-        'instance_id': instance_id,
-        'listener': {'name': entry.name, **entry.to_dict()},
-        'paused': is_listener_paused(instance_id, entry.name),
+        "ok": True,
+        "instance_id": instance_id,
+        "listener": {"name": entry.name, **entry.to_dict()},
+        "paused": is_listener_paused(instance_id, entry.name),
     }
-    summary = (
-        f'Listener wake: {entry.name} → count={entry.wake_count} '
-        f'last_at={entry.last_wake_at}'
-    )
+    summary = f"Listener wake: {entry.name} → count={entry.wake_count} last_at={entry.last_wake_at}"
     if entry.last_message:
-        summary += f' ({entry.last_message})'
+        summary += f" ({entry.last_message})"
     return _emit(args, payload, summary)
 
 
@@ -1106,18 +1112,16 @@ def handle_listener_fire_command(args) -> int:
     if registry.get(args.name) is None:
         return _emit(
             args,
-            {'ok': False, 'error': f'listener not registered: {args.name}'},
-            f'error: listener not registered: {args.name}',
+            {"ok": False, "error": f"listener not registered: {args.name}"},
+            f"error: listener not registered: {args.name}",
         )
-    entry = registry.record_wake(args.name, message='manual fire')
+    entry = registry.record_wake(args.name, message="manual fire")
     payload = {
-        'ok': True,
-        'instance_id': instance_id,
-        'listener': {'name': entry.name, **entry.to_dict()},
+        "ok": True,
+        "instance_id": instance_id,
+        "listener": {"name": entry.name, **entry.to_dict()},
     }
-    summary = (
-        f'Listener fired: {entry.name} (V1: counted only — wake injection lands in item 4)'
-    )
+    summary = f"Listener fired: {entry.name} (V1: counted only — wake injection lands in item 4)"
     return _emit(args, payload, summary)
 
 
@@ -1129,26 +1133,25 @@ def handle_listener_list_command(args) -> int:
     payload_listeners = []
     for entry in listeners:
         d = entry.to_dict()
-        d['name'] = entry.name
-        d['paused'] = is_listener_paused(instance_id, entry.name)
+        d["name"] = entry.name
+        d["paused"] = is_listener_paused(instance_id, entry.name)
         payload_listeners.append(d)
 
     payload = {
-        'ok': True,
-        'instance_id': instance_id,
-        'count': len(listeners),
-        'listeners': payload_listeners,
+        "ok": True,
+        "instance_id": instance_id,
+        "count": len(listeners),
+        "listeners": payload_listeners,
     }
 
     if not listeners:
-        summary = f'No listeners registered for {instance_id}'
+        summary = f"No listeners registered for {instance_id}"
     else:
         rows = [
-            f'  {item["name"]:<20} {item["topic"]:<35} paused={item["paused"]} '
-            f'wakes={item["wake_count"]}'
+            f"  {item['name']:<20} {item['topic']:<35} paused={item['paused']} wakes={item['wake_count']}"
             for item in payload_listeners
         ]
-        summary = f'Listeners registered for {instance_id}:\n' + '\n'.join(rows)
+        summary = f"Listeners registered for {instance_id}:\n" + "\n".join(rows)
 
     return _emit(args, payload, summary)
 
@@ -1159,21 +1162,23 @@ def handle_listener_status_command(args) -> int:
     entry = registry.get(args.name)
     if entry is None:
         payload = {
-            'ok': False, 'error': f'listener not registered: {args.name}',
-            'instance_id': instance_id, 'name': args.name, 'paused': False,
+            "ok": False,
+            "error": f"listener not registered: {args.name}",
+            "instance_id": instance_id,
+            "name": args.name,
+            "paused": False,
         }
-        return _emit(args, payload, payload['error'])
+        return _emit(args, payload, payload["error"])
 
     paused = is_listener_paused(instance_id, args.name)
     payload = {
-        'ok': True,
-        'instance_id': instance_id,
-        'listener': {'name': entry.name, **entry.to_dict()},
-        'paused': paused,
+        "ok": True,
+        "instance_id": instance_id,
+        "listener": {"name": entry.name, **entry.to_dict()},
+        "paused": paused,
     }
     summary = (
-        f'{entry.name}: topic={entry.topic} paused={paused} '
-        f'wakes={entry.wake_count} last_wake_at={entry.last_wake_at}'
+        f"{entry.name}: topic={entry.topic} paused={paused} wakes={entry.wake_count} last_wake_at={entry.last_wake_at}"
     )
     return _emit(args, payload, summary)
 
@@ -1187,18 +1192,18 @@ def handle_listener_install_request_command(args) -> int:
     the embedded prompt template, arms the curl + Monitor, and writes
     the listener_active_*.json runtime metadata.
     """
-    target_instance = getattr(args, 'instance', None)
+    target_instance = getattr(args, "instance", None)
     if not target_instance:
         return _emit(
             args,
-            {'ok': False, 'error': '--instance required (target instance to install in)'},
-            'error: --instance required',
+            {"ok": False, "error": "--instance required (target instance to install in)"},
+            "error: --instance required",
         )
 
     name = args.name
     topic = args.topic
-    description = getattr(args, 'description', '') or ''
-    on_wake = getattr(args, 'on_wake', '') or ''
+    description = getattr(args, "description", "") or ""
+    on_wake = getattr(args, "on_wake", "") or ""
 
     # Register first so the listener is visible in the cockpit immediately
     # — even before the target Claude arms the curl + Monitor.
@@ -1211,7 +1216,7 @@ def handle_listener_install_request_command(args) -> int:
             on_wake_template=on_wake,
         )
     except ValueError as e:
-        return _emit(args, {'ok': False, 'error': str(e)}, f'error: {e}')
+        return _emit(args, {"ok": False, "error": str(e)}, f"error: {e}")
 
     pending_path_obj = write_listener_install_pending(
         instance_id=target_instance,
@@ -1223,31 +1228,29 @@ def handle_listener_install_request_command(args) -> int:
     )
 
     payload = {
-        'ok': True,
-        'instance_id': target_instance,
-        'listener': {'name': entry.name, **entry.to_dict()},
-        'pending_path': str(pending_path_obj),
+        "ok": True,
+        "instance_id": target_instance,
+        "listener": {"name": entry.name, **entry.to_dict()},
+        "pending_path": str(pending_path_obj),
     }
     summary = (
-        f'Listener install requested: {name} (topic={topic}) → {target_instance} '
-        '· pending file written; owning Claude will pick it up via UserPromptSubmit'
+        f"Listener install requested: {name} (topic={topic}) → {target_instance} "
+        "· pending file written; owning Claude will pick it up via UserPromptSubmit"
     )
     return _emit(args, payload, summary)
 
 
 # ─── empirica status ────────────────────────────────────────────────────────
 
+
 def handle_tui_command(args) -> int:
     """Launch the Textual cockpit TUI."""
     try:
         from empirica.cli.tui import run_tui
     except ImportError as e:
-        sys.stdout.write(
-            f'error: TUI requires the textual package — {e}\n'
-            'install with: pip install "empirica[tui]"\n'
-        )
+        sys.stdout.write(f'error: TUI requires the textual package — {e}\ninstall with: pip install "empirica[tui]"\n')
         return 2
-    return run_tui(include_dead=bool(getattr(args, 'include_dead', False)))
+    return run_tui(include_dead=bool(getattr(args, "include_dead", False)))
 
 
 def handle_status_command(args) -> int:
@@ -1260,39 +1263,37 @@ def handle_status_command(args) -> int:
       --json          machine-readable output
       --pretty        ANSI colored output (default for --output human)
     """
-    fmt = getattr(args, 'output', None)
-    json_mode = getattr(args, 'json', False) or fmt == 'json'
-    pretty_mode = getattr(args, 'pretty', False) or (fmt == 'human' and not json_mode)
+    fmt = getattr(args, "output", None)
+    json_mode = getattr(args, "json", False) or fmt == "json"
+    pretty_mode = getattr(args, "pretty", False) or (fmt == "human" and not json_mode)
     if not json_mode and not pretty_mode:
         # Default: pretty when stdout is a TTY, json otherwise (for piping).
         pretty_mode = sys.stdout.isatty()
         json_mode = not pretty_mode
 
-    explicit_instance = getattr(args, 'instance', None)
-    show_all = getattr(args, 'all', False)
-    include_dead = bool(getattr(args, 'include_dead', False))
+    explicit_instance = getattr(args, "instance", None)
+    show_all = getattr(args, "all", False)
+    include_dead = bool(getattr(args, "include_dead", False))
 
     if explicit_instance:
         payload = {
-            'generated_at': aggregate_all()['generated_at'],
-            'instances': [aggregate_instance_state(explicit_instance)],
-            'summary': {
-                'instances': 1,
-                'loops_registered': 0,
-                'loops_paused': 0,
-                'active_tx': 0,
-                'notify_dispatcher': build_notify_dispatcher_block(),
+            "generated_at": aggregate_all()["generated_at"],
+            "instances": [aggregate_instance_state(explicit_instance)],
+            "summary": {
+                "instances": 1,
+                "loops_registered": 0,
+                "loops_paused": 0,
+                "active_tx": 0,
+                "notify_dispatcher": build_notify_dispatcher_block(),
             },
         }
         # Refresh summary from the single instance.
-        instance: dict[str, Any] = payload['instances'][0]
-        loops: dict[str, Any] = instance.get('loops', {})
-        payload['summary']['loops_registered'] = len(loops)
-        payload['summary']['loops_paused'] = sum(
-            1 for v in loops.values() if v.get('paused')
-        )
-        payload['summary']['active_tx'] = sum(
-            1 for inst in payload['instances'] if inst['phase'] in ('noetic', 'praxic')
+        instance: dict[str, Any] = payload["instances"][0]
+        loops: dict[str, Any] = instance.get("loops", {})
+        payload["summary"]["loops_registered"] = len(loops)
+        payload["summary"]["loops_paused"] = sum(1 for v in loops.values() if v.get("paused"))
+        payload["summary"]["active_tx"] = sum(
+            1 for inst in payload["instances"] if inst["phase"] in ("noetic", "praxic")
         )
         all_mode = False
     elif show_all:
@@ -1302,24 +1303,22 @@ def handle_status_command(args) -> int:
         current = get_instance_id()
         if current:
             payload = {
-                'generated_at': aggregate_all(include_dead=True)['generated_at'],
-                'instances': [aggregate_instance_state(current)],
-                'summary': {
-                    'instances': 1,
-                    'loops_registered': 0,
-                    'loops_paused': 0,
-                    'active_tx': 0,
-                    'notify_dispatcher': build_notify_dispatcher_block(),
+                "generated_at": aggregate_all(include_dead=True)["generated_at"],
+                "instances": [aggregate_instance_state(current)],
+                "summary": {
+                    "instances": 1,
+                    "loops_registered": 0,
+                    "loops_paused": 0,
+                    "active_tx": 0,
+                    "notify_dispatcher": build_notify_dispatcher_block(),
                 },
             }
-            instance: dict[str, Any] = payload['instances'][0]
-            loops: dict[str, Any] = instance.get('loops', {})
-            payload['summary']['loops_registered'] = len(loops)
-            payload['summary']['loops_paused'] = sum(
-                1 for v in loops.values() if v.get('paused')
-            )
-            payload['summary']['active_tx'] = sum(
-                1 for inst in payload['instances'] if inst['phase'] in ('noetic', 'praxic')
+            instance: dict[str, Any] = payload["instances"][0]
+            loops: dict[str, Any] = instance.get("loops", {})
+            payload["summary"]["loops_registered"] = len(loops)
+            payload["summary"]["loops_paused"] = sum(1 for v in loops.values() if v.get("paused"))
+            payload["summary"]["active_tx"] = sum(
+                1 for inst in payload["instances"] if inst["phase"] in ("noetic", "praxic")
             )
             all_mode = False
         else:
@@ -1327,93 +1326,94 @@ def handle_status_command(args) -> int:
             all_mode = True
 
     if json_mode:
-        sys.stdout.write(render_json(payload) + '\n')
+        sys.stdout.write(render_json(payload) + "\n")
     else:
-        sys.stdout.write(render_pretty(payload, all_instances=all_mode) + '\n')
+        sys.stdout.write(render_pretty(payload, all_instances=all_mode) + "\n")
     return 0
 
 
 # ─── empirica instance ─────────────────────────────────────────────────────
 
+
 def handle_instance_kill_command(args) -> int:
     instance_id = args.instance_id
-    force = bool(getattr(args, 'force', False))
-    yes = bool(getattr(args, 'yes', False))
+    force = bool(getattr(args, "force", False))
+    yes = bool(getattr(args, "yes", False))
 
     # Defensive: don't let a stray command kill the very Claude that runs it.
     current = get_instance_id()
     if instance_id == current and not yes:
         payload = {
-            'ok': False,
-            'error': 'refusing to kill the current instance — pass --yes to override',
-            'instance_id': instance_id,
+            "ok": False,
+            "error": "refusing to kill the current instance — pass --yes to override",
+            "instance_id": instance_id,
         }
-        return _emit(args, payload, payload['error'])
+        return _emit(args, payload, payload["error"])
 
     result = kill_instance(instance_id, force=force)
     payload = {
-        'ok': result.success,
-        'instance_id': result.instance_id,
-        'method': result.method,
-        'pid': result.pid,
-        'detail': result.detail,
+        "ok": result.success,
+        "instance_id": result.instance_id,
+        "method": result.method,
+        "pid": result.pid,
+        "detail": result.detail,
     }
     summary = (
-        f'Killed {instance_id} ({result.method}): {result.detail}'
+        f"Killed {instance_id} ({result.method}): {result.detail}"
         if result.success
-        else f'Kill failed for {instance_id}: {result.detail}'
+        else f"Kill failed for {instance_id}: {result.detail}"
     )
     return _emit(args, payload, summary)
 
 
 def handle_instance_forget_command(args) -> int:
     instance_id = args.instance_id
-    yes = bool(getattr(args, 'yes', False))
+    yes = bool(getattr(args, "yes", False))
 
     current = get_instance_id()
     if instance_id == current and not yes:
         payload = {
-            'ok': False,
-            'error': 'refusing to forget the current instance — pass --yes to override',
-            'instance_id': instance_id,
+            "ok": False,
+            "error": "refusing to forget the current instance — pass --yes to override",
+            "instance_id": instance_id,
         }
-        return _emit(args, payload, payload['error'])
+        return _emit(args, payload, payload["error"])
 
     result = forget_instance(instance_id)
     payload = {
-        'ok': True,
-        'instance_id': result.instance_id,
-        'removed': result.removed,
-        'skipped': result.skipped,
-        'count': len(result.removed),
+        "ok": True,
+        "instance_id": result.instance_id,
+        "removed": result.removed,
+        "skipped": result.skipped,
+        "count": len(result.removed),
     }
     if not result.removed and not result.skipped:
-        summary = f'Nothing to forget for {instance_id} — no state files found'
+        summary = f"Nothing to forget for {instance_id} — no state files found"
     else:
-        summary = f'Forgot {instance_id}: removed {len(result.removed)} files'
+        summary = f"Forgot {instance_id}: removed {len(result.removed)} files"
         if result.skipped:
-            summary += f' ({len(result.skipped)} skipped)'
+            summary += f" ({len(result.skipped)} skipped)"
     return _emit(args, payload, summary)
 
 
 def handle_instance_label_command(args) -> int:
     instance_id = args.instance_id
-    label = getattr(args, 'label', None)
-    clear = bool(getattr(args, 'clear', False))
+    label = getattr(args, "label", None)
+    clear = bool(getattr(args, "clear", False))
 
     if clear:
         set_label(instance_id, None)
-        payload = {'ok': True, 'instance_id': instance_id, 'label': None, 'cleared': True}
-        return _emit(args, payload, f'Label cleared for {instance_id}')
+        payload = {"ok": True, "instance_id": instance_id, "label": None, "cleared": True}
+        return _emit(args, payload, f"Label cleared for {instance_id}")
 
     if label is None:
         existing = get_label(instance_id)
-        payload = {'ok': True, 'instance_id': instance_id, 'label': existing}
-        return _emit(args, payload, f'{instance_id}: {existing or "(no manual label)"}')
+        payload = {"ok": True, "instance_id": instance_id, "label": existing}
+        return _emit(args, payload, f"{instance_id}: {existing or '(no manual label)'}")
 
     new_label = set_label(instance_id, label)
-    payload = {'ok': True, 'instance_id': instance_id, 'label': new_label, 'cleared': False}
-    return _emit(args, payload, f'Label set for {instance_id}: {new_label}')
+    payload = {"ok": True, "instance_id": instance_id, "label": new_label, "cleared": False}
+    return _emit(args, payload, f"Label set for {instance_id}: {new_label}")
 
 
 def handle_instance_prune_command(args) -> int:
@@ -1422,53 +1422,53 @@ def handle_instance_prune_command(args) -> int:
     Skips the current instance (it's running this code, by definition alive).
     With --dry-run, prints what would be removed without removing anything.
     """
-    dry_run = bool(getattr(args, 'dry_run', False))
+    dry_run = bool(getattr(args, "dry_run", False))
     dead = discover_dead_instances()
 
     if not dead:
-        payload = {'ok': True, 'pruned': [], 'dry_run': dry_run, 'count': 0}
-        return _emit(args, payload, 'No dead instances to prune')
+        payload = {"ok": True, "pruned": [], "dry_run": dry_run, "count": 0}
+        return _emit(args, payload, "No dead instances to prune")
 
     pruned: list[dict[str, Any]] = []
     for iid in dead:
         if dry_run:
-            pruned.append({'instance_id': iid, 'removed_count': None, 'dry_run': True})
+            pruned.append({"instance_id": iid, "removed_count": None, "dry_run": True})
             continue
         result = forget_instance(iid)
-        pruned.append({
-            'instance_id': iid,
-            'removed_count': len(result.removed),
-            'skipped_count': len(result.skipped),
-        })
+        pruned.append(
+            {
+                "instance_id": iid,
+                "removed_count": len(result.removed),
+                "skipped_count": len(result.skipped),
+            }
+        )
 
-    payload = {'ok': True, 'pruned': pruned, 'dry_run': dry_run, 'count': len(pruned)}
+    payload = {"ok": True, "pruned": pruned, "dry_run": dry_run, "count": len(pruned)}
     if dry_run:
-        names = ', '.join(d['instance_id'] for d in pruned)
-        summary = f'[DRY RUN] would prune {len(pruned)} dead instances: {names}'
+        names = ", ".join(d["instance_id"] for d in pruned)
+        summary = f"[DRY RUN] would prune {len(pruned)} dead instances: {names}"
     else:
-        total_files = sum(p.get('removed_count', 0) or 0 for p in pruned)
-        summary = f'Pruned {len(pruned)} dead instances ({total_files} state files removed)'
+        total_files = sum(p.get("removed_count", 0) or 0 for p in pruned)
+        summary = f"Pruned {len(pruned)} dead instances ({total_files} state files removed)"
     return _emit(args, payload, summary)
 
 
 _INSTANCE_DISPATCH = {
-    'kill': handle_instance_kill_command,
-    'forget': handle_instance_forget_command,
-    'label': handle_instance_label_command,
-    'prune': handle_instance_prune_command,
+    "kill": handle_instance_kill_command,
+    "forget": handle_instance_forget_command,
+    "label": handle_instance_label_command,
+    "prune": handle_instance_prune_command,
 }
 
 
 def handle_instance_group_command(args) -> int:
-    action = getattr(args, 'instance_action', None)
+    action = getattr(args, "instance_action", None)
     if not action:
-        sys.stdout.write(
-            'usage: empirica instance <kill|forget|label> <instance_id> [args...]\n'
-        )
+        sys.stdout.write("usage: empirica instance <kill|forget|label> <instance_id> [args...]\n")
         return 2
     handler = _INSTANCE_DISPATCH.get(action)
     if handler is None:
-        sys.stdout.write(f'error: unknown instance action: {action}\n')
+        sys.stdout.write(f"error: unknown instance action: {action}\n")
         return 2
     return handler(args) or 0
 
@@ -1476,35 +1476,35 @@ def handle_instance_group_command(args) -> int:
 # ─── group dispatchers (mapped from cli_core 'sentinel'/'loop' commands) ────
 
 _SENTINEL_DISPATCH = {
-    'pause': handle_sentinel_pause_command,
-    'resume': handle_sentinel_resume_command,
-    'status': handle_sentinel_status_command_cockpit,
+    "pause": handle_sentinel_pause_command,
+    "resume": handle_sentinel_resume_command,
+    "status": handle_sentinel_status_command_cockpit,
 }
 
 _LOOP_DISPATCH = {
-    'register': handle_loop_register_command,
-    'unregister': handle_loop_unregister_command,
-    'pause': handle_loop_pause_command,
-    'resume': handle_loop_resume_command,
-    'set-interval': handle_loop_set_interval_command,
-    'heartbeat': handle_loop_heartbeat_command,
-    'should-fire': handle_loop_should_fire_command,
-    'poke': handle_loop_poke_command,
-    'schedule-next': handle_loop_schedule_next_command,
-    'fire': handle_loop_fire_command,
-    'install-request': handle_loop_install_request_command,
-    'list': handle_loop_list_command,
-    'status': handle_loop_status_command,
+    "register": handle_loop_register_command,
+    "unregister": handle_loop_unregister_command,
+    "pause": handle_loop_pause_command,
+    "resume": handle_loop_resume_command,
+    "set-interval": handle_loop_set_interval_command,
+    "heartbeat": handle_loop_heartbeat_command,
+    "should-fire": handle_loop_should_fire_command,
+    "poke": handle_loop_poke_command,
+    "schedule-next": handle_loop_schedule_next_command,
+    "fire": handle_loop_fire_command,
+    "install-request": handle_loop_install_request_command,
+    "list": handle_loop_list_command,
+    "status": handle_loop_status_command,
     # systemd-user scheduler (Phase 1a)
-    'enable': handle_loop_enable_command,
-    'disable': handle_loop_disable_command,
-    'systemd-status': handle_loop_systemd_status_command,
-    'tick': handle_loop_tick_command,
-    'listen': handle_loop_listen_command,
+    "enable": handle_loop_enable_command,
+    "disable": handle_loop_disable_command,
+    "systemd-status": handle_loop_systemd_status_command,
+    "tick": handle_loop_tick_command,
+    "listen": handle_loop_listen_command,
     # Persistent listener service (prop_flrtxxn32japbazq, 2026-05-18)
-    'listen-install': handle_loop_listen_install_command,
-    'listen-uninstall': handle_loop_listen_uninstall_command,
-    'listen-status': handle_loop_listen_status_command,
+    "listen-install": handle_loop_listen_install_command,
+    "listen-uninstall": handle_loop_listen_uninstall_command,
+    "listen-status": handle_loop_listen_status_command,
 }
 
 
@@ -1535,21 +1535,23 @@ def _resolve_canonical_ai_id(args) -> str | None:
     Distinct from `_resolve_listener_ai_id` (used by `loop listen-install`)
     which falls back to instance_id and raises if no instance.
     """
-    explicit = getattr(args, 'ai_id', None)
+    explicit = getattr(args, "ai_id", None)
     if explicit:
         return explicit
 
     import os as _os
-    env_override = _os.environ.get('EMPIRICA_AI_ID', '').strip()
+
+    env_override = _os.environ.get("EMPIRICA_AI_ID", "").strip()
     if env_override:
         return env_override
 
     try:
         import yaml as _yaml
-        proj_yaml = Path.cwd() / '.empirica' / 'project.yaml'
+
+        proj_yaml = Path.cwd() / ".empirica" / "project.yaml"
         if proj_yaml.exists():
             cfg = _yaml.safe_load(proj_yaml.read_text()) or {}
-            declared = cfg.get('ai_id')
+            declared = cfg.get("ai_id")
             if declared:
                 return str(declared)
     except Exception:
@@ -1564,6 +1566,7 @@ def _resolve_canonical_ai_id(args) -> str | None:
 
     try:
         from empirica.utils.session_resolver import InstanceResolver
+
         ai_id = InstanceResolver.ai_id()
         if ai_id:
             return ai_id
@@ -1602,27 +1605,36 @@ def handle_listener_on_command(args) -> int:
     """
     ai_id = _resolve_canonical_ai_id(args)
     if not ai_id:
-        return _emit(args, {
-            'ok': False,
-            'error': 'ai_id unresolved — pass --ai-id or set ai_id in .empirica/project.yaml',
-        }, 'error: ai_id unresolved')
+        return _emit(
+            args,
+            {
+                "ok": False,
+                "error": "ai_id unresolved — pass --ai-id or set ai_id in .empirica/project.yaml",
+            },
+            "error: ai_id unresolved",
+        )
 
-    name = getattr(args, 'name', None) or f'{ai_id}-inbox'
-    topic = getattr(args, 'topic', None)
+    name = getattr(args, "name", None) or f"{ai_id}-inbox"
+    topic = getattr(args, "topic", None)
     if not topic:
         from empirica.core.cockpit.notification_channels import (
             resolve_orchestration_events_topic,
         )
+
         try:
             topic = resolve_orchestration_events_topic(ai_id)
         except RuntimeError as e:
             # Resolver refuses to fall back to the dead bare topic when
             # cortex is unreachable — surface a clean error rather than
             # registering a listener that will 403 on every poll.
-            return _emit(args, {
-                'ok': False,
-                'error': str(e),
-            }, f'error: {e}')
+            return _emit(
+                args,
+                {
+                    "ok": False,
+                    "error": str(e),
+                },
+                f"error: {e}",
+            )
 
     # Detect persistent service. If present, pick the tail-Monitor mode;
     # otherwise the standalone-Monitor mode further down. Both paths share
@@ -1630,6 +1642,7 @@ def handle_listener_on_command(args) -> int:
     persistent_active = False
     try:
         from empirica.core.loop_scheduler.persistent_listener import is_listener_running
+
         persistent_active = is_listener_running(ai_id)
     except Exception:
         # is_listener_running is defensive; on any failure fall through
@@ -1643,26 +1656,27 @@ def handle_listener_on_command(args) -> int:
         entry = registry.register(
             name=name,
             topic=topic,
-            description=f'Canonical mesh listener for ai_id={ai_id}',
-            on_wake_template='',
+            description=f"Canonical mesh listener for ai_id={ai_id}",
+            on_wake_template="",
         )
     except ValueError as e:
-        return _emit(args, {'ok': False, 'error': str(e)}, f'error: {e}')
+        return _emit(args, {"ok": False, "error": str(e)}, f"error: {e}")
 
     # Write listener_active_*.json placeholder (monitor_task_id filled by `arm`)
     active_path = listener_active_path(instance_id, name)
     active_path.parent.mkdir(parents=True, exist_ok=True)
     import time as _time
+
     placeholder = {
-        'monitor_task_id': None,  # filled by `empirica listener arm <task_id>`
-        'curl_pid': None,
-        'armed_at': _time.time(),
-        'ai_id': ai_id,
-        'name': name,
-        'topic': entry.topic,
-        'mode': 'tail' if persistent_active else 'standalone',
+        "monitor_task_id": None,  # filled by `empirica listener arm <task_id>`
+        "curl_pid": None,
+        "armed_at": _time.time(),
+        "ai_id": ai_id,
+        "name": name,
+        "topic": entry.topic,
+        "mode": "tail" if persistent_active else "standalone",
     }
-    active_path.write_text(_json.dumps(placeholder, indent=2), encoding='utf-8')
+    active_path.write_text(_json.dumps(placeholder, indent=2), encoding="utf-8")
 
     # Pick the Monitor command based on detection above.
     #
@@ -1679,7 +1693,7 @@ def handle_listener_on_command(args) -> int:
     # `empirica loop listen` itself — holds the ntfy stream + handles
     # catch-up on reconnect.
     if persistent_active:
-        log_path = Path.home() / '.empirica' / 'loop_fires.log'
+        log_path = Path.home() / ".empirica" / "loop_fires.log"
         # Wake on every proposal_event for this ai_id. The listener writes
         # `"instance_id": "<exact-project-basename>"` (e.g.
         # `empirica-extension`). The trailing `"` anchor keeps the match
@@ -1692,15 +1706,11 @@ def handle_listener_on_command(args) -> int:
         # the Monitor arms, so any session new enough to reach this code
         # path already saw its project.yaml migrated to canonical form.
         grep_filter = f'"instance_id": "{ai_id}"'
-        monitor_cmd = (
-            f'tail -F -n 0 {log_path} 2>/dev/null | '
-            f'grep -E --line-buffered \'{grep_filter}\''
-        )
-        description = f'Cortex orchestration log tail for {ai_id} (persistent-service mode)'
-        status = 'persistent_service_tail_session'
+        monitor_cmd = f"tail -F -n 0 {log_path} 2>/dev/null | grep -E --line-buffered '{grep_filter}'"
+        description = f"Cortex orchestration log tail for {ai_id} (persistent-service mode)"
+        status = "persistent_service_tail_session"
         mode_note = (
-            f'persistent service active for ai_id={ai_id} — arming a '
-            f'log-tail Monitor (no duplicate ntfy subscriber)'
+            f"persistent service active for ai_id={ai_id} — arming a log-tail Monitor (no duplicate ntfy subscriber)"
         )
     else:
         # Standalone mode: this Monitor IS the listener process — no OS
@@ -1717,38 +1727,38 @@ def handle_listener_on_command(args) -> int:
         # is the original supervisor case the design assumed. Found by cortex
         # (prop_6kevxb63: SIGTERM during reconnect under Claude Code Monitor,
         # exit-144 wrapper encoding masked the underlying sig 15).
-        monitor_cmd = (
-            f'while true; do empirica loop listen --instance {ai_id}; sleep 3; done'
+        monitor_cmd = f"while true; do empirica loop listen --instance {ai_id}; sleep 3; done"
+        description = f"Cortex orchestration push listener for {ai_id} (supervised)"
+        status = "awaiting_arm"
+        mode_note = (
+            "standalone Monitor — wrapped in supervisor loop "
+            "(matches listener's relaunch-on-clean-exit design intent; "
+            "no systemd/launchd needed)"
         )
-        description = f'Cortex orchestration push listener for {ai_id} (supervised)'
-        status = 'awaiting_arm'
-        mode_note = ('standalone Monitor — wrapped in supervisor loop '
-                     '(matches listener\'s relaunch-on-clean-exit design intent; '
-                     'no systemd/launchd needed)')
 
     payload = {
-        'ok': True,
-        'ai_id': ai_id,
-        'instance_id': instance_id,
-        'name': name,
-        'topic': entry.topic,
-        'state_file': str(active_path),
-        'status': status,
-        'next_step': {
-            'tool': 'Monitor',
-            'args': {
-                'description': description,
-                'command': monitor_cmd,
-                'persistent': True,
-                'timeout_ms': 3600000,
+        "ok": True,
+        "ai_id": ai_id,
+        "instance_id": instance_id,
+        "name": name,
+        "topic": entry.topic,
+        "state_file": str(active_path),
+        "status": status,
+        "next_step": {
+            "tool": "Monitor",
+            "args": {
+                "description": description,
+                "command": monitor_cmd,
+                "persistent": True,
+                "timeout_ms": 3600000,
             },
-            'after_arm': f'empirica listener arm <monitor_task_id> --name {name}',
+            "after_arm": f"empirica listener arm <monitor_task_id> --name {name}",
         },
     }
     summary = (
         f'Listener "{name}" registered for ai_id={ai_id} (topic={entry.topic}, '
         f'{mode_note}). Arm Monitor with command "{monitor_cmd}" then run '
-        f'`empirica listener arm <task_id> --name {name}`.'
+        f"`empirica listener arm <task_id> --name {name}`."
     )
     return _emit(args, payload, summary)
 
@@ -1761,49 +1771,66 @@ def handle_listener_arm_command(args) -> int:
     task id returned by Claude Code's Monitor tool. After this, `off`
     knows what to TaskStop.
     """
-    task_id = getattr(args, 'task_id', None)
+    task_id = getattr(args, "task_id", None)
     if not task_id:
-        return _emit(args, {
-            'ok': False, 'error': 'task_id required (positional)',
-        }, 'error: task_id required')
+        return _emit(
+            args,
+            {
+                "ok": False,
+                "error": "task_id required (positional)",
+            },
+            "error: task_id required",
+        )
 
     instance_id = _require_instance_id(args)
     ai_id = _resolve_canonical_ai_id(args)
-    name = getattr(args, 'name', None) or (f'{ai_id}-inbox' if ai_id else None)
+    name = getattr(args, "name", None) or (f"{ai_id}-inbox" if ai_id else None)
     if not name:
-        return _emit(args, {
-            'ok': False,
-            'error': 'name unresolved — pass --name or --ai-id',
-        }, 'error: name unresolved')
+        return _emit(
+            args,
+            {
+                "ok": False,
+                "error": "name unresolved — pass --name or --ai-id",
+            },
+            "error: name unresolved",
+        )
 
     active_path = listener_active_path(instance_id, name)
     if not active_path.exists():
-        return _emit(args, {
-            'ok': False, 'error': (
-                f'no active state file at {active_path} — '
-                f'run `empirica listener on` first'
-            ),
-        }, 'error: no active state file (run `empirica listener on` first)')
+        return _emit(
+            args,
+            {
+                "ok": False,
+                "error": (f"no active state file at {active_path} — run `empirica listener on` first"),
+            },
+            "error: no active state file (run `empirica listener on` first)",
+        )
 
     try:
-        with open(active_path, encoding='utf-8') as f:
+        with open(active_path, encoding="utf-8") as f:
             data = _json.load(f)
     except (OSError, _json.JSONDecodeError) as e:
-        return _emit(args, {
-            'ok': False, 'error': f'state file unreadable: {e}',
-        }, f'error: state file unreadable: {e}')
+        return _emit(
+            args,
+            {
+                "ok": False,
+                "error": f"state file unreadable: {e}",
+            },
+            f"error: state file unreadable: {e}",
+        )
 
-    data['monitor_task_id'] = task_id
+    data["monitor_task_id"] = task_id
     import time as _time
-    data['armed_at'] = _time.time()
-    active_path.write_text(_json.dumps(data, indent=2), encoding='utf-8')
+
+    data["armed_at"] = _time.time()
+    active_path.write_text(_json.dumps(data, indent=2), encoding="utf-8")
 
     payload = {
-        'ok': True,
-        'instance_id': instance_id,
-        'name': name,
-        'monitor_task_id': task_id,
-        'state_file': str(active_path),
+        "ok": True,
+        "instance_id": instance_id,
+        "name": name,
+        "monitor_task_id": task_id,
+        "state_file": str(active_path),
     }
     summary = f'Listener "{name}" armed: monitor_task_id={task_id}'
     return _emit(args, payload, summary)
@@ -1834,15 +1861,20 @@ def handle_listener_off_command(args) -> int:
 
     instance_id = _require_instance_id(args)
     ai_id = _resolve_canonical_ai_id(args)
-    name = getattr(args, 'name', None) or (f'{ai_id}-inbox' if ai_id else None)
+    name = getattr(args, "name", None) or (f"{ai_id}-inbox" if ai_id else None)
     if not name:
-        return _emit(args, {
-            'ok': False,
-            'error': 'name unresolved — pass --name or --ai-id',
-        }, 'error: name unresolved')
+        return _emit(
+            args,
+            {
+                "ok": False,
+                "error": "name unresolved — pass --name or --ai-id",
+            },
+            "error: name unresolved",
+        )
 
     reaped = reap_processes(
-        walk_orphan_listener_processes(ai_id) if ai_id else [], apply=True,
+        walk_orphan_listener_processes(ai_id) if ai_id else [],
+        apply=True,
     )
 
     active_path = listener_active_path(instance_id, name)
@@ -1850,30 +1882,35 @@ def handle_listener_off_command(args) -> int:
         # Already off (or never armed). Emit unregister-only next_step
         # so the caller can still clean up the registry entry if one exists.
         payload = {
-            'ok': True,
-            'instance_id': instance_id,
-            'name': name,
-            'status': 'not_armed',
-            'reaped_orphans': reaped,
-            'next_step': {
-                'tool': None,
-                'after_stop': f'empirica listener unregister {name}',
+            "ok": True,
+            "instance_id": instance_id,
+            "name": name,
+            "status": "not_armed",
+            "reaped_orphans": reaped,
+            "next_step": {
+                "tool": None,
+                "after_stop": f"empirica listener unregister {name}",
             },
         }
         summary = (
             f'Listener "{name}" not armed (no state file). '
-            f'Run `empirica listener unregister {name}` to clear the registry entry.'
+            f"Run `empirica listener unregister {name}` to clear the registry entry."
         )
         return _emit(args, payload, summary)
 
     try:
-        with open(active_path, encoding='utf-8') as f:
+        with open(active_path, encoding="utf-8") as f:
             data = _json.load(f)
-        monitor_task_id = data.get('monitor_task_id')
+        monitor_task_id = data.get("monitor_task_id")
     except (OSError, _json.JSONDecodeError) as e:
-        return _emit(args, {
-            'ok': False, 'error': f'state file unreadable: {e}',
-        }, f'error: state file unreadable: {e}')
+        return _emit(
+            args,
+            {
+                "ok": False,
+                "error": f"state file unreadable: {e}",
+            },
+            f"error: state file unreadable: {e}",
+        )
 
     # Delete the state file now — teardown must not depend on the caller
     # following through with unregister (whose unlink tolerates absence).
@@ -1884,29 +1921,29 @@ def handle_listener_off_command(args) -> int:
         state_file_removed = False
 
     payload = {
-        'ok': True,
-        'instance_id': instance_id,
-        'name': name,
-        'monitor_task_id': monitor_task_id,
-        'state_file': str(active_path),
-        'state_file_removed': state_file_removed,
-        'reaped_orphans': reaped,
-        'next_step': {
-            'tool': 'TaskStop' if monitor_task_id else None,
-            'args': {'task_id': monitor_task_id} if monitor_task_id else None,
-            'after_stop': f'empirica listener unregister {name}',
+        "ok": True,
+        "instance_id": instance_id,
+        "name": name,
+        "monitor_task_id": monitor_task_id,
+        "state_file": str(active_path),
+        "state_file_removed": state_file_removed,
+        "reaped_orphans": reaped,
+        "next_step": {
+            "tool": "TaskStop" if monitor_task_id else None,
+            "args": {"task_id": monitor_task_id} if monitor_task_id else None,
+            "after_stop": f"empirica listener unregister {name}",
         },
     }
-    reap_note = f' Reaped {len(reaped)} orphan process(es).' if reaped else ''
+    reap_note = f" Reaped {len(reaped)} orphan process(es)." if reaped else ""
     if monitor_task_id:
         summary = (
             f'Listener "{name}" — TaskStop({monitor_task_id}), '
-            f'then run `empirica listener unregister {name}`.{reap_note}'
+            f"then run `empirica listener unregister {name}`.{reap_note}"
         )
     else:
         summary = (
             f'Listener "{name}" has placeholder task_id (never armed). '
-            f'Run `empirica listener unregister {name}` to clean up.{reap_note}'
+            f"Run `empirica listener unregister {name}` to clean up.{reap_note}"
         )
     return _emit(args, payload, summary)
 
@@ -1918,16 +1955,16 @@ def _gc_installed_service_ai_ids(home: Path) -> set[str]:
     per-file so a fleet GC stays fast.
     """
     ids: set[str] = set()
-    systemd_dir = home / '.config' / 'systemd' / 'user'
-    launchd_dir = home / 'Library' / 'LaunchAgents'
+    systemd_dir = home / ".config" / "systemd" / "user"
+    launchd_dir = home / "Library" / "LaunchAgents"
     try:
-        for unit in systemd_dir.glob('empirica-listener-*.service'):
-            ids.add(unit.stem.removeprefix('empirica-listener-'))
+        for unit in systemd_dir.glob("empirica-listener-*.service"):
+            ids.add(unit.stem.removeprefix("empirica-listener-"))
     except OSError:
         pass
     try:
-        for plist in launchd_dir.glob('com.empirica.listener.*.plist'):
-            ids.add(plist.stem.removeprefix('com.empirica.listener.'))
+        for plist in launchd_dir.glob("com.empirica.listener.*.plist"):
+            ids.add(plist.stem.removeprefix("com.empirica.listener."))
     except OSError:
         pass
     return ids
@@ -1941,57 +1978,62 @@ def _gc_legacy_topic_reason(topic: str) -> str | None:
     """
     if not topic:
         return None
-    stripped = topic.replace('ntfy:', '', 1).split('?', 1)[0]
-    if stripped == 'orchestration-events':
-        return 'legacy_topic: bare orchestration-events (retired)'
+    stripped = topic.replace("ntfy:", "", 1).split("?", 1)[0]
+    if stripped == "orchestration-events":
+        return "legacy_topic: bare orchestration-events (retired)"
     # Per-org pattern like `empirica-orchestration-events` has 2 dashes;
     # per-tenant `empirica-orchestration-events-david` has 3+. Below 3
     # dashes → pre-T16/T17 per-org form.
-    if 'orchestration-events' in stripped and stripped.count('-') < 3:
-        return f'legacy_topic: pre-tenant per-org form {stripped!r}'
+    if "orchestration-events" in stripped and stripped.count("-") < 3:
+        return f"legacy_topic: pre-tenant per-org form {stripped!r}"
     return None
 
 
 def _gc_no_service_or_health_reason(
-    ai_id: str, empirica_dir: Path, installed_ids: set[str], now: float,
+    ai_id: str,
+    empirica_dir: Path,
+    installed_ids: set[str],
+    now: float,
 ) -> str | None:
     """Return prune reason if neither a persistent service nor a fresh
     health marker is present for this ai_id."""
     if not ai_id or ai_id in installed_ids:
         return None
-    health_file = empirica_dir / f'listener_health_{ai_id}.json'
+    health_file = empirica_dir / f"listener_health_{ai_id}.json"
     if health_file.exists():
         try:
             if now - health_file.stat().st_mtime <= 300:  # 5 min
                 return None
         except OSError:
             pass
-    return (
-        f'no_service_or_health: no empirica-listener-{ai_id}.service '
-        f'and no recent health marker'
-    )
+    return f"no_service_or_health: no empirica-listener-{ai_id}.service and no recent health marker"
 
 
 def _gc_stale_reason(
-    armed_at: float, last_wake_at: float, now: float,
-    age_threshold_sec: float, age_days: int,
+    armed_at: float,
+    last_wake_at: float,
+    now: float,
+    age_threshold_sec: float,
+    age_days: int,
 ) -> str | None:
     """Return prune reason if the active file's arm/wake history is older
     than the age threshold."""
-    armed_age_sec = (now - armed_at) if armed_at else float('inf')
+    armed_age_sec = (now - armed_at) if armed_at else float("inf")
     if armed_age_sec <= age_threshold_sec:
         return None
     if last_wake_at != 0 and (now - last_wake_at) <= age_threshold_sec:
         return None
-    return (
-        f'stale: armed {int(armed_age_sec // 86400)}d ago, '
-        f'no recent wake activity (threshold {age_days}d)'
-    )
+    return f"stale: armed {int(armed_age_sec // 86400)}d ago, no recent wake activity (threshold {age_days}d)"
 
 
 def _gc_evaluate_file(
-    active_file: Path, empirica_dir: Path, installed_ids: set[str],
-    now: float, age_threshold_sec: float, age_days: int, apply: bool,
+    active_file: Path,
+    empirica_dir: Path,
+    installed_ids: set[str],
+    now: float,
+    age_threshold_sec: float,
+    age_days: int,
+    apply: bool,
 ) -> tuple[dict, bool]:
     """Evaluate one listener_active file against the three criteria.
 
@@ -1999,26 +2041,26 @@ def _gc_evaluate_file(
     payload; `was_pruned` distinguishes pruned vs kept buckets.
     """
     try:
-        data = _json.loads(active_file.read_text(encoding='utf-8'))
+        data = _json.loads(active_file.read_text(encoding="utf-8"))
     except (OSError, _json.JSONDecodeError) as e:
         # Unreadable → always-safe prune candidate.
         entry: dict = {
-            'file': str(active_file),
-            'reasons': [f'unreadable: {e}'],
-            'removed': False,
+            "file": str(active_file),
+            "reasons": [f"unreadable: {e}"],
+            "removed": False,
         }
         if apply:
             try:
                 active_file.unlink()
-                entry['removed'] = True
+                entry["removed"] = True
             except OSError as rm_err:
-                entry['error'] = str(rm_err)
+                entry["error"] = str(rm_err)
         return entry, True
 
-    ai_id = data.get('ai_id') or ''
-    topic = data.get('topic') or ''
-    armed_at = float(data.get('armed_at') or 0)
-    last_wake_at = float(data.get('last_wake_at') or 0)
+    ai_id = data.get("ai_id") or ""
+    topic = data.get("topic") or ""
+    armed_at = float(data.get("armed_at") or 0)
+    last_wake_at = float(data.get("last_wake_at") or 0)
 
     reasons: list[str] = []
     for reason in (
@@ -2031,70 +2073,67 @@ def _gc_evaluate_file(
 
     if not reasons:
         return {
-            'file': str(active_file),
-            'ai_id': ai_id,
-            'topic': topic,
-            'armed_at': armed_at,
+            "file": str(active_file),
+            "ai_id": ai_id,
+            "topic": topic,
+            "armed_at": armed_at,
         }, False
 
     entry = {
-        'file': str(active_file),
-        'ai_id': ai_id,
-        'topic': topic,
-        'armed_at': armed_at,
-        'reasons': reasons,
-        'removed': False,
+        "file": str(active_file),
+        "ai_id": ai_id,
+        "topic": topic,
+        "armed_at": armed_at,
+        "reasons": reasons,
+        "removed": False,
     }
     if apply:
         try:
             active_file.unlink()
-            entry['removed'] = True
+            entry["removed"] = True
         except OSError as e:
-            entry['error'] = str(e)
+            entry["error"] = str(e)
     return entry, True
 
 
-def _gc_render_summary(pruned: list[dict], kept: list[dict],
-                       apply: bool, age_days: int,
-                       orphan_procs: list[dict] | None = None) -> str:
+def _gc_render_summary(
+    pruned: list[dict], kept: list[dict], apply: bool, age_days: int, orphan_procs: list[dict] | None = None
+) -> str:
     """Build the human-readable summary string for GC results."""
     orphan_procs = orphan_procs or []
     lines = [
-        f'listener gc — {"APPLIED" if apply else "DRY RUN"} '
-        f'(age threshold: {age_days}d)',
-        f'  Pruned: {len(pruned)}',
-        f'  Kept:   {len(kept)}',
-        f'  Orphan processes: {len(orphan_procs)}',
+        f"listener gc — {'APPLIED' if apply else 'DRY RUN'} (age threshold: {age_days}d)",
+        f"  Pruned: {len(pruned)}",
+        f"  Kept:   {len(kept)}",
+        f"  Orphan processes: {len(orphan_procs)}",
     ]
     if pruned:
-        lines.append('')
+        lines.append("")
         for entry in pruned[:20]:
-            tag = '✓ removed' if entry.get('removed') else (
-                '(would remove)' if not apply else f'! error: {entry.get("error")}'
+            tag = (
+                "✓ removed"
+                if entry.get("removed")
+                else ("(would remove)" if not apply else f"! error: {entry.get('error')}")
             )
-            reasons = '; '.join(entry.get('reasons', []))
-            lines.append(
-                f'  - {Path(entry["file"]).name}  {tag}\n'
-                f'      reasons: {reasons}'
-            )
+            reasons = "; ".join(entry.get("reasons", []))
+            lines.append(f"  - {Path(entry['file']).name}  {tag}\n      reasons: {reasons}")
         if len(pruned) > 20:
-            lines.append(f'  … and {len(pruned) - 20} more')
+            lines.append(f"  … and {len(pruned) - 20} more")
     if orphan_procs:
-        lines.append('')
+        lines.append("")
         for proc in orphan_procs[:20]:
-            tag = '✓ reaped' if proc.get('removed') else (
-                '(would reap)' if not apply else f'! error: {proc.get("error")}'
+            tag = (
+                "✓ reaped"
+                if proc.get("removed")
+                else ("(would reap)" if not apply else f"! error: {proc.get('error')}")
             )
-            lines.append(
-                f'  - pid {proc["pid"]} [{proc["kind"]}]  {tag}\n'
-                f'      cmd: {proc["cmdline"][:100]}'
-            )
+            lines.append(f"  - pid {proc['pid']} [{proc['kind']}]  {tag}\n      cmd: {proc['cmdline'][:100]}")
         if len(orphan_procs) > 20:
-            lines.append(f'  … and {len(orphan_procs) - 20} more')
+            lines.append(f"  … and {len(orphan_procs) - 20} more")
     if not apply and (pruned or orphan_procs):
-        lines.append('')
-        lines.append('  Run with --apply to actually remove.')
-    return '\n'.join(lines)
+        lines.append("")
+        lines.append("  Run with --apply to actually remove.")
+    return "\n".join(lines)
 
 
 def handle_listener_gc_command(args) -> int:
@@ -2148,15 +2187,16 @@ def handle_listener_gc_command(args) -> int:
         walk_orphan_listener_processes,
     )
 
-    apply = bool(getattr(args, 'apply', False))
-    age_days = int(getattr(args, 'age_days', 7))
+    apply = bool(getattr(args, "apply", False))
+    age_days = int(getattr(args, "age_days", 7))
 
     home = Path.home()
-    empirica_dir = home / '.empirica'
+    empirica_dir = home / ".empirica"
     if not empirica_dir.is_dir():
         return _emit(
-            args, {'ok': True, 'dry_run': not apply, 'pruned': [], 'kept': []},
-            'No ~/.empirica/ directory — nothing to GC.',
+            args,
+            {"ok": True, "dry_run": not apply, "pruned": [], "kept": []},
+            "No ~/.empirica/ directory — nothing to GC.",
         )
 
     age_threshold_sec = age_days * 24 * 60 * 60
@@ -2165,142 +2205,152 @@ def handle_listener_gc_command(args) -> int:
 
     pruned: list[dict] = []
     kept: list[dict] = []
-    for active_file in sorted(empirica_dir.glob('listener_active_*.json')):
+    for active_file in sorted(empirica_dir.glob("listener_active_*.json")):
         entry, was_pruned = _gc_evaluate_file(
-            active_file, empirica_dir, installed_ids,
-            now, age_threshold_sec, age_days, apply,
+            active_file,
+            empirica_dir,
+            installed_ids,
+            now,
+            age_threshold_sec,
+            age_days,
+            apply,
         )
         (pruned if was_pruned else kept).append(entry)
 
     orphan_procs = reap_processes(walk_orphan_listener_processes(), apply)
 
     payload = {
-        'ok': True,
-        'dry_run': not apply,
-        'age_days': age_days,
-        'pruned_count': len(pruned),
-        'kept_count': len(kept),
-        'pruned': pruned,
-        'kept': kept,
-        'orphan_process_count': len(orphan_procs),
-        'orphan_processes': orphan_procs,
+        "ok": True,
+        "dry_run": not apply,
+        "age_days": age_days,
+        "pruned_count": len(pruned),
+        "kept_count": len(kept),
+        "pruned": pruned,
+        "kept": kept,
+        "orphan_process_count": len(orphan_procs),
+        "orphan_processes": orphan_procs,
     }
-    return _emit(args, payload, _gc_render_summary(
-        pruned, kept, apply, age_days, orphan_procs,
-    ))
+    return _emit(
+        args,
+        payload,
+        _gc_render_summary(
+            pruned,
+            kept,
+            apply,
+            age_days,
+            orphan_procs,
+        ),
+    )
 
 
 _LISTENER_DISPATCH = {
-    'register': handle_listener_register_command,
-    'unregister': handle_listener_unregister_command,
-    'pause': handle_listener_pause_command,
-    'resume': handle_listener_resume_command,
-    'record-wake': handle_listener_record_wake_command,
-    'fire': handle_listener_fire_command,
-    'install-request': handle_listener_install_request_command,
-    'list': handle_listener_list_command,
-    'status': handle_listener_status_command,
+    "register": handle_listener_register_command,
+    "unregister": handle_listener_unregister_command,
+    "pause": handle_listener_pause_command,
+    "resume": handle_listener_resume_command,
+    "record-wake": handle_listener_record_wake_command,
+    "fire": handle_listener_fire_command,
+    "install-request": handle_listener_install_request_command,
+    "list": handle_listener_list_command,
+    "status": handle_listener_status_command,
     # AI-ergonomic facade (prop_oxrhoehv4)
-    'on': handle_listener_on_command,
-    'arm': handle_listener_arm_command,
-    'off': handle_listener_off_command,
-    'gc': handle_listener_gc_command,
+    "on": handle_listener_on_command,
+    "arm": handle_listener_arm_command,
+    "off": handle_listener_off_command,
+    "gc": handle_listener_gc_command,
 }
 
 
 def handle_sentinel_group_command(args) -> int:
-    action = getattr(args, 'sentinel_action', None)
+    action = getattr(args, "sentinel_action", None)
     if not action:
-        sys.stdout.write(
-            'usage: empirica sentinel <pause|resume|status> [--instance ID] [--reason TEXT]\n'
-        )
+        sys.stdout.write("usage: empirica sentinel <pause|resume|status> [--instance ID] [--reason TEXT]\n")
         return 2
     handler = _SENTINEL_DISPATCH.get(action)
     if handler is None:
-        sys.stdout.write(f'error: unknown sentinel action: {action}\n')
+        sys.stdout.write(f"error: unknown sentinel action: {action}\n")
         return 2
     return handler(args) or 0
 
 
 def handle_loop_group_command(args) -> int:
-    action = getattr(args, 'loop_action', None)
+    action = getattr(args, "loop_action", None)
     if not action:
         sys.stdout.write(
-            'usage: empirica loop <register|unregister|pause|resume|set-interval|'
-            'heartbeat|list|status> [args...]\n'
+            "usage: empirica loop <register|unregister|pause|resume|set-interval|heartbeat|list|status> [args...]\n"
         )
         return 2
     handler = _LOOP_DISPATCH.get(action)
     if handler is None:
-        sys.stdout.write(f'error: unknown loop action: {action}\n')
+        sys.stdout.write(f"error: unknown loop action: {action}\n")
         return 2
     try:
         return handler(args) or 0
     except InstanceIdRequiredError as e:
-        sys.stdout.write(f'{e}\n')
+        sys.stdout.write(f"{e}\n")
         return 2
 
 
 def handle_listener_group_command(args) -> int:
-    action = getattr(args, 'listener_action', None)
+    action = getattr(args, "listener_action", None)
     if not action:
         sys.stdout.write(
-            'usage: empirica listener <on|arm|off|register|unregister|pause|resume|'
-            'record-wake|fire|install-request|list|status> [args...]\n'
+            "usage: empirica listener <on|arm|off|register|unregister|pause|resume|"
+            "record-wake|fire|install-request|list|status> [args...]\n"
         )
         return 2
     handler = _LISTENER_DISPATCH.get(action)
     if handler is None:
-        sys.stdout.write(f'error: unknown listener action: {action}\n')
+        sys.stdout.write(f"error: unknown listener action: {action}\n")
         return 2
     try:
         return handler(args) or 0
     except InstanceIdRequiredError as e:
-        sys.stdout.write(f'{e}\n')
+        sys.stdout.write(f"{e}\n")
         return 2
 
 
 # Keep loaders happy — these names are the canonical export surface.
 __all__ = [
-    'VALID_KIND',
-    'VALID_STATUS',
-    'handle_instance_forget_command',
-    'handle_instance_group_command',
-    'handle_instance_kill_command',
-    'handle_instance_label_command',
-    'handle_listener_arm_command',
-    'handle_listener_fire_command',
-    'handle_listener_group_command',
-    'handle_listener_install_request_command',
-    'handle_listener_list_command',
-    'handle_listener_off_command',
-    'handle_listener_on_command',
-    'handle_listener_pause_command',
-    'handle_listener_record_wake_command',
-    'handle_listener_register_command',
-    'handle_listener_resume_command',
-    'handle_listener_status_command',
-    'handle_listener_unregister_command',
-    'handle_loop_disable_command',
-    'handle_loop_enable_command',
-    'handle_loop_group_command',
-    'handle_loop_heartbeat_command',
-    'handle_loop_list_command',
-    'handle_loop_listen_command',
-    'handle_loop_pause_command',
-    'handle_loop_poke_command',
-    'handle_loop_register_command',
-    'handle_loop_resume_command',
-    'handle_loop_set_interval_command',
-    'handle_loop_should_fire_command',
-    'handle_loop_status_command',
-    'handle_loop_systemd_status_command',
-    'handle_loop_tick_command',
-    'handle_loop_unregister_command',
-    'handle_sentinel_group_command',
-    'handle_sentinel_pause_command',
-    'handle_sentinel_resume_command',
-    'handle_sentinel_status_command_cockpit',
-    'handle_status_command',
-    'handle_tui_command',
+    "VALID_KIND",
+    "VALID_STATUS",
+    "handle_instance_forget_command",
+    "handle_instance_group_command",
+    "handle_instance_kill_command",
+    "handle_instance_label_command",
+    "handle_listener_arm_command",
+    "handle_listener_fire_command",
+    "handle_listener_group_command",
+    "handle_listener_install_request_command",
+    "handle_listener_list_command",
+    "handle_listener_off_command",
+    "handle_listener_on_command",
+    "handle_listener_pause_command",
+    "handle_listener_record_wake_command",
+    "handle_listener_register_command",
+    "handle_listener_resume_command",
+    "handle_listener_status_command",
+    "handle_listener_unregister_command",
+    "handle_loop_disable_command",
+    "handle_loop_enable_command",
+    "handle_loop_group_command",
+    "handle_loop_heartbeat_command",
+    "handle_loop_list_command",
+    "handle_loop_listen_command",
+    "handle_loop_pause_command",
+    "handle_loop_poke_command",
+    "handle_loop_register_command",
+    "handle_loop_resume_command",
+    "handle_loop_set_interval_command",
+    "handle_loop_should_fire_command",
+    "handle_loop_status_command",
+    "handle_loop_systemd_status_command",
+    "handle_loop_tick_command",
+    "handle_loop_unregister_command",
+    "handle_sentinel_group_command",
+    "handle_sentinel_pause_command",
+    "handle_sentinel_resume_command",
+    "handle_sentinel_status_command_cockpit",
+    "handle_status_command",
+    "handle_tui_command",
 ]

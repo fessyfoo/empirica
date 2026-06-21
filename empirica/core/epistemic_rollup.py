@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ScoredFinding:
     """A finding scored for rollup quality."""
+
     finding: str
     score: float  # Combined score (0.0-1.0)
     agent_name: str
@@ -40,9 +41,7 @@ class ScoredFinding:
 
     def __post_init__(self):
         if not self.finding_hash:
-            self.finding_hash = hashlib.sha256(
-                self.finding.encode('utf-8')
-            ).hexdigest()[:16]
+            self.finding_hash = hashlib.sha256(self.finding.encode("utf-8")).hexdigest()[:16]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -62,6 +61,7 @@ class ScoredFinding:
 @dataclass
 class RollupResult:
     """Result of running findings through the rollup gate."""
+
     accepted: list[ScoredFinding] = field(default_factory=list)
     rejected: list[ScoredFinding] = field(default_factory=list)
     total_score: float = 0.0
@@ -202,9 +202,7 @@ class EpistemicRollupGate:
         for candidate in sorted_findings:
             is_dup = False
             for existing in kept:
-                similarity = 1.0 - novelty_score(
-                    candidate.finding, [existing.finding], self.jaccard_threshold
-                )
+                similarity = 1.0 - novelty_score(candidate.finding, [existing.finding], self.jaccard_threshold)
                 if similarity >= self.jaccard_threshold:
                     is_dup = True
                     break
@@ -222,6 +220,7 @@ class EpistemicRollupGate:
         """Semantic dedup via Qdrant (graceful degradation if unavailable)."""
         try:
             from empirica.core.qdrant.vector_store import search_similar  # pyright: ignore[reportAttributeAccessIssue]
+
             kept = []
             for f in findings:
                 results = search_similar(
@@ -350,30 +349,34 @@ def log_rollup_decision(
     logged = 0
     try:
         from empirica.data.session_database import SessionDatabase
+
         db = SessionDatabase()
         cursor = db.conn.cursor()
 
         all_findings = result.accepted + result.rejected
         for finding in all_findings:
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO rollup_logs
                 (id, session_id, budget_id, agent_name, finding_hash, finding_text,
                  score, accepted, reason, novelty, domain_relevance, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                str(uuid.uuid4()),
-                session_id,
-                budget_id,
-                finding.agent_name,
-                finding.finding_hash,
-                finding.finding[:500],
-                finding.score,
-                finding.accepted,
-                finding.reject_reason,
-                finding.novelty,
-                finding.domain_relevance,
-                time.time(),
-            ))
+            """,
+                (
+                    str(uuid.uuid4()),
+                    session_id,
+                    budget_id,
+                    finding.agent_name,
+                    finding.finding_hash,
+                    finding.finding[:500],
+                    finding.score,
+                    finding.accepted,
+                    finding.reject_reason,
+                    finding.novelty,
+                    finding.domain_relevance,
+                    time.time(),
+                ),
+            )
             logged += 1
 
         db.conn.commit()

@@ -47,6 +47,7 @@ def _active_transaction() -> dict | None:
     """Read in-flight PREFLIGHT state from the transaction file."""
     try:
         from empirica.utils.session_resolver import InstanceResolver as R
+
         tx = R.transaction_read()
         if not tx:
             return None
@@ -126,7 +127,9 @@ def _last_praxic_action(project_root: str | Path) -> dict | None:
         result = subprocess.run(
             ["git", "log", "-1", "--format=%H%x00%s%x00%aI"],
             cwd=str(project_root),
-            capture_output=True, text=True, timeout=2,
+            capture_output=True,
+            text=True,
+            timeout=2,
         )
         if result.returncode != 0 or not result.stdout.strip():
             return None
@@ -140,9 +143,7 @@ def _last_praxic_action(project_root: str | Path) -> dict | None:
         return None
 
 
-def _project_shorthand(
-    conn: sqlite3.Connection, project_id: str, project_root: str | Path
-) -> str | None:
+def _project_shorthand(conn: sqlite3.Connection, project_id: str, project_root: str | Path) -> str | None:
     """`<project_name> @ <branch>` — both best-effort."""
     try:
         cur = conn.execute("SELECT name FROM projects WHERE id = ?", (project_id,))
@@ -150,12 +151,12 @@ def _project_shorthand(
         proj_name = row["name"] if row else "unknown"
         br_result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=str(project_root), capture_output=True, text=True, timeout=2,
+            cwd=str(project_root),
+            capture_output=True,
+            text=True,
+            timeout=2,
         )
-        branch = (
-            br_result.stdout.strip()
-            if br_result.returncode == 0 else None
-        )
+        branch = br_result.stdout.strip() if br_result.returncode == 0 else None
         return f"{proj_name} @ {branch}" if branch else proj_name
     except Exception as e:
         logger.debug(f"situation: project shorthand skipped: {e}")
@@ -169,11 +170,11 @@ def _next_focus(
 ) -> str:
     """Priority cascade — recency-aware.
 
-      1. Pending/in-progress subtask of active_goal (preserves the open thread)
-      2. Most-recent unresolved unknown LINKED to active_goal (goal-scoped focus)
-      3. Most-recent unresolved unknown across project (recency-aware fallback;
-         the prior 'oldest unknown' picker surfaced stale items after compaction)
-      4. Generic prompt
+    1. Pending/in-progress subtask of active_goal (preserves the open thread)
+    2. Most-recent unresolved unknown LINKED to active_goal (goal-scoped focus)
+    3. Most-recent unresolved unknown across project (recency-aware fallback;
+       the prior 'oldest unknown' picker surfaced stale items after compaction)
+    4. Generic prompt
     """
     if active_goal:
         for sub in active_goal.get("subtasks", []):

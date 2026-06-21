@@ -32,17 +32,13 @@ def test_fresh_finding_outranks_stale_with_higher_cosine():
 
 
 def test_missing_timestamp_is_neutral_weight():
-    ranked = _apply_recency_rerank(
-        [{"text": "x", "score": 0.7, "timestamp": None}], limit=1
-    )
+    ranked = _apply_recency_rerank([{"text": "x", "score": 0.7, "timestamp": None}], limit=1)
     assert ranked[0]["recency_weight"] == 1.0
     assert ranked[0]["effective_score"] == 0.7
 
 
 def test_unparseable_timestamp_is_neutral_weight():
-    ranked = _apply_recency_rerank(
-        [{"text": "x", "score": 0.6, "timestamp": "not-a-date"}], limit=1
-    )
+    ranked = _apply_recency_rerank([{"text": "x", "score": 0.6, "timestamp": "not-a-date"}], limit=1)
     assert ranked[0]["recency_weight"] == 1.0
 
 
@@ -75,7 +71,7 @@ def test_high_impact_resists_decay_vs_low_impact_same_age():
 
 def test_calculate_time_decay_impact_lengthens_tau():
     age_90d = (datetime.now() - timedelta(days=90)).timestamp()
-    flat = FindingsDeprecationEngine.calculate_time_decay(age_90d)            # tau=30
+    flat = FindingsDeprecationEngine.calculate_time_decay(age_90d)  # tau=30
     high = FindingsDeprecationEngine.calculate_time_decay(age_90d, longevity=0.9)  # tau=84
     assert high > flat
     # longevity=0.0 gives tau=30 too (same as None/flat); tolerance covers the

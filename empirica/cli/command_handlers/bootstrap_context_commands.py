@@ -22,6 +22,7 @@ def handle_bootstrap_context_command(args) -> int:
         # Resolve via canonical chain (instance_projects → active_work)
         try:
             from empirica.utils.session_resolver import InstanceResolver as R
+
             project_path = R.project_path()
         except Exception:
             project_path = None
@@ -50,8 +51,7 @@ def handle_bootstrap_context_command(args) -> int:
         print(f"Project: {payload.get('project_name')} ({payload.get('project_id')})")
         print(f"Schema: v{payload.get('schema_version')}")
         topic = payload.get("active_topic", {})
-        print(f"Active topic: {topic.get('source', 'none')} "
-              f"(threshold={topic.get('similarity_threshold')})")
+        print(f"Active topic: {topic.get('source', 'none')} (threshold={topic.get('similarity_threshold')})")
         for circle_key, circle in [
             ("active_state", payload.get("active_state", {})),
             ("persistent_reference", payload.get("persistent_reference", {})),

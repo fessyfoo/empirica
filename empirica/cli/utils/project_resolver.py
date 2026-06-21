@@ -46,21 +46,22 @@ def normalize_git_url(url: str) -> str:
     url = url.strip()
 
     # SSH format: git@host:owner/repo.git
-    ssh_match = re.match(r'^git@([^:]+):(.+?)(?:\.git)?$', url)
+    ssh_match = re.match(r"^git@([^:]+):(.+?)(?:\.git)?$", url)
     if ssh_match:
         host, path = ssh_match.groups()
         return f"{host}/{path}"
 
     # HTTPS format: https://host/owner/repo.git
-    https_match = re.match(r'^https?://([^/]+)/(.+?)(?:\.git)?$', url)
+    https_match = re.match(r"^https?://([^/]+)/(.+?)(?:\.git)?$", url)
     if https_match:
         host, path = https_match.groups()
         return f"{host}/{path}"
 
     # Local path: /path/to/repo
-    if url.startswith('/') or url.startswith('~'):
+    if url.startswith("/") or url.startswith("~"):
         # Use just the final directory name
         import os
+
         return f"local/{os.path.basename(url.rstrip('/'))}"
 
     return url
@@ -69,10 +70,7 @@ def normalize_git_url(url: str) -> str:
 def get_current_git_repo() -> str | None:
     """Get normalized git repo URL for current directory."""
     try:
-        result = subprocess.run(
-            ['git', 'remote', 'get-url', 'origin'],
-            capture_output=True, text=True, timeout=5
-        )
+        result = subprocess.run(["git", "remote", "get-url", "origin"], capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
             return normalize_git_url(result.stdout.strip())
     except Exception:  # noqa: S110 — git remote URL lookup is best-effort
@@ -107,11 +105,12 @@ def resolve_project_by_git_repo(git_repo: str, db) -> str | None:
     """)
 
     for row in cursor.fetchall():
-        project_id = row['id']
-        repos_json = row['repos']
+        project_id = row["id"]
+        repos_json = row["repos"]
 
         try:
             import json
+
             repos = json.loads(repos_json) if repos_json else []
             for repo_url in repos:
                 if normalize_git_url(repo_url) == git_repo:
@@ -163,9 +162,10 @@ def resolve_project_id(project_id_or_name: str, db=None) -> str:
         if not resolved_id:
             try:
                 from empirica.utils.session_resolver import InstanceResolver as R
+
                 project_info = R.resolve_workspace_project(project_id_or_name)
                 if project_info:
-                    resolved_id = project_info.get('project_id') or project_info.get('id')
+                    resolved_id = project_info.get("project_id") or project_info.get("id")
             except Exception:  # noqa: S110 — workspace resolver fallback; ProjectNotFoundError raised below
                 pass
 

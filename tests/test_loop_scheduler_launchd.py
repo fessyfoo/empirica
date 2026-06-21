@@ -86,8 +86,10 @@ def test_is_launchd_available_returns_false_on_non_darwin(monkeypatch):
     """Probe must not falsely succeed on Linux even if launchctl somehow
     exists (homebrew, container weirdness)."""
     import sys
+
     monkeypatch.setattr(sys, "platform", "linux")
     from empirica.core.loop_scheduler.launchd import is_launchd_available
+
     assert is_launchd_available() is False
 
 
@@ -108,7 +110,10 @@ def fake_launchd_env(tmp_path, monkeypatch):
 
 def _fake_proc(stdout: str = "", stderr: str = "", returncode: int = 0):
     return subprocess.CompletedProcess(
-        args=[], returncode=returncode, stdout=stdout, stderr=stderr,
+        args=[],
+        returncode=returncode,
+        stdout=stdout,
+        stderr=stderr,
     )
 
 
@@ -131,7 +136,11 @@ def test_enable_writes_plist_with_program_arguments(fake_launchd_env):
         data = plistlib.load(f)
     assert data["Label"] == "com.empirica.loop.cortex.mailbox-poll"
     assert data["ProgramArguments"] == [
-        "/usr/local/bin/empirica", "loop", "tick", "cortex", "mailbox-poll",
+        "/usr/local/bin/empirica",
+        "loop",
+        "tick",
+        "cortex",
+        "mailbox-poll",
     ]
     assert data["StartInterval"] == 30
     assert data["RunAtLoad"] is False
@@ -205,6 +214,7 @@ def test_status_reports_active_when_last_exit_status_zero(fake_launchd_env):
 def test_status_reports_inactive_when_unit_missing(fake_launchd_env):
     """Loop never installed → not enabled, not active. launchctl list of
     an unknown label returns non-zero."""
+
     def fake_run(args, **kw):
         return _fake_proc(returncode=113, stderr="Could not find service")
 
@@ -245,8 +255,7 @@ def test_tick_delegates_to_systemd_tick_implementation(fake_launchd_env, monkeyp
         called.append((instance_id, name, force))
         return None  # silent (throttled or no content)
 
-    monkeypatch.setattr(SystemdLoopScheduler, "tick",
-                        staticmethod(fake_tick))
+    monkeypatch.setattr(SystemdLoopScheduler, "tick", staticmethod(fake_tick))
     LaunchdLoopScheduler.tick("cortex", "poll")
     assert called == [("cortex", "poll", False)]
 
@@ -260,6 +269,7 @@ def test_factory_returns_launchd_on_macos(monkeypatch):
     import sys
 
     import empirica.core.loop_scheduler as pkg
+
     monkeypatch.setattr(sys, "platform", "darwin")
     monkeypatch.setattr(pkg, "is_launchd_available", lambda: True)
     monkeypatch.setattr(launchd_mod, "is_launchd_available", lambda: True)
@@ -271,6 +281,7 @@ def test_factory_returns_systemd_on_linux(monkeypatch):
     import sys
 
     import empirica.core.loop_scheduler as pkg
+
     monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.setattr(pkg, "is_systemd_available", lambda: True)
     sched = pkg.get_loop_scheduler("/abs/empirica")
@@ -281,6 +292,7 @@ def test_factory_raises_when_no_supported_scheduler(monkeypatch):
     import sys
 
     import empirica.core.loop_scheduler as pkg
+
     monkeypatch.setattr(sys, "platform", "win32")
     monkeypatch.setattr(pkg, "is_systemd_available", lambda: False)
     monkeypatch.setattr(pkg, "is_launchd_available", lambda: False)

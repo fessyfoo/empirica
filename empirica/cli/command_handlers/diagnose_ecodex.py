@@ -151,31 +151,21 @@ def check_ecodex_plugin_vendored_freshness() -> CheckResult:
     """
     import hashlib
 
-    cc_empirica_hooks = (
-        Path.home() / ".claude" / "plugins" / "local" / "empirica" / "hooks"
-    )
+    cc_empirica_hooks = Path.home() / ".claude" / "plugins" / "local" / "empirica" / "hooks"
     if not cc_empirica_hooks.is_dir():
         return CheckResult(
             name="ecodex plugin vendored freshness",
             status=SKIP,
-            detail=(
-                f"CC empirica master not present at {cc_empirica_hooks} — "
-                "cannot compare drift"
-            ),
+            detail=(f"CC empirica master not present at {cc_empirica_hooks} — cannot compare drift"),
         )
     repo_root = _resolve_ecodex_repo_root()
     if repo_root is None:
         return CheckResult(
             name="ecodex plugin vendored freshness",
             status=SKIP,
-            detail=(
-                "ecodex repo root not found (set ECODEX_REPO to override) — "
-                "cannot compare drift"
-            ),
+            detail=("ecodex repo root not found (set ECODEX_REPO to override) — cannot compare drift"),
         )
-    vendored_root = (
-        repo_root / "codex-rs" / "codex-empirica-plugin" / "assets" / "hooks_scripts"
-    )
+    vendored_root = repo_root / "codex-rs" / "codex-empirica-plugin" / "assets" / "hooks_scripts"
     if not vendored_root.is_dir():
         return CheckResult(
             name="ecodex plugin vendored freshness",
@@ -297,12 +287,11 @@ def check_ecodex_plugin_writable_roots_declared() -> CheckResult:
             name="ecodex plugin writable_roots declared",
             status=FAIL,
             detail=f"writableRoots must be an array, got {type(declared).__name__}",
-            hint="Edit plugin manifest: writableRoots: [\"~/.empirica\"]",
+            hint='Edit plugin manifest: writableRoots: ["~/.empirica"]',
             data={"declared": declared},
         )
     has_empirica_home = any(
-        isinstance(entry, str) and entry.strip() in {"~/.empirica", "~/.empirica/"}
-        for entry in declared
+        isinstance(entry, str) and entry.strip() in {"~/.empirica", "~/.empirica/"} for entry in declared
     )
     if not has_empirica_home:
         return CheckResult(
@@ -314,8 +303,7 @@ def check_ecodex_plugin_writable_roots_declared() -> CheckResult:
                 "and silently fail-open via sentinel-gate.py:2808"
             ),
             hint=(
-                "Add to plugin manifest: writableRoots: [\"~/.empirica\"], "
-                "then reinstall: `./ecodex/scripts/install.sh`"
+                'Add to plugin manifest: writableRoots: ["~/.empirica"], then reinstall: `./ecodex/scripts/install.sh`'
             ),
             data={"declared": declared},
         )
@@ -377,11 +365,7 @@ def check_ecodex_plugin_hooks_feature_enabled() -> CheckResult:
             "Sentinel gate, context injection, session bind all dark."
         ),
         hint=(
-            "Add to ~/.codex/config.toml:\n\n"
-            "[features]\n"
-            "plugin_hooks = true\n"
-            "plugins = true\n\n"
-            "Then restart ecodex."
+            "Add to ~/.codex/config.toml:\n\n[features]\nplugin_hooks = true\nplugins = true\n\nThen restart ecodex."
         ),
     )
 
@@ -401,14 +385,14 @@ def check_ecodex_plugin_enabled_in_config() -> CheckResult:
         return CheckResult(
             name="ecodex plugin enabled in config",
             status=FAIL,
-            detail=f"No `[plugins.\"{_ECODEX_PLUGIN_KEY}\"]` section in config",
+            detail=f'No `[plugins."{_ECODEX_PLUGIN_KEY}"]` section in config',
             hint=f'Add to ~/.codex/config.toml:\n\n[plugins."{_ECODEX_PLUGIN_KEY}"]\nenabled = true',
         )
     # Coarse enabled check — toml parsing avoided to keep this stdlib-only
     return CheckResult(
         name="ecodex plugin enabled in config",
         status=PASS,
-        detail=f"`[plugins.\"{_ECODEX_PLUGIN_KEY}\"]` declared",
+        detail=f'`[plugins."{_ECODEX_PLUGIN_KEY}"]` declared',
     )
 
 
@@ -449,10 +433,7 @@ def check_ecodex_statusline_runtime_stdin() -> CheckResult:
             name="ecodex statusline runtime pipes session_id",
             status=SKIP,
             detail="ecodex source not found locally — check skipped",
-            hint=(
-                "Set ECODEX_REPO_ROOT to your ecodex checkout, or rerun this "
-                "check from inside the ecodex repo"
-            ),
+            hint=("Set ECODEX_REPO_ROOT to your ecodex checkout, or rerun this check from inside the ecodex repo"),
         )
     text = runtime_file.read_text()
     # Only flag stdin's Stdio::null — stderr being nulled is correct
@@ -470,7 +451,7 @@ def check_ecodex_statusline_runtime_stdin() -> CheckResult:
             ),
             hint=(
                 "Switch to .stdin(Stdio::piped()) and write "
-                "{\"session_id\":\"...\",\"cwd\":\"...\"} to child stdin. "
+                '{"session_id":"...","cwd":"..."} to child stdin. '
                 "Resolve session_id from ~/.empirica/instance_projects/tmux_<pane>.json"
             ),
             data={"file": str(runtime_file)},
@@ -580,9 +561,7 @@ def check_ecodex_translator_healthz() -> CheckResult:
             hint="See `ecodex translator listening` check",
         )
     try:
-        with urllib.request.urlopen(
-            "http://127.0.0.1:18080/healthz", timeout=2
-        ) as resp:
+        with urllib.request.urlopen("http://127.0.0.1:18080/healthz", timeout=2) as resp:
             status = resp.status
     except (urllib.error.URLError, TimeoutError) as e:
         return CheckResult(
@@ -653,9 +632,7 @@ def check_ecodex_provider_env_keys() -> CheckResult:
         elif stripped.startswith("[") and not stripped.startswith("[model_providers."):
             current_provider = None
         elif current_provider and (
-            stripped.startswith("env_key ")
-            or stripped.startswith("env_key=")
-            or stripped.startswith('env_key"')
+            stripped.startswith("env_key ") or stripped.startswith("env_key=") or stripped.startswith('env_key"')
         ):
             # env_key = "FOO_API_KEY". Match the bare field — NOT env_key_instructions.
             if "=" in stripped:
@@ -856,14 +833,23 @@ def check_empirica_proportionality_block_wired() -> CheckResult:
     # without baked-in /home/yogapad assumptions.
     try:
         import empirica
+
         empirica_root = Path(empirica.__file__).resolve().parent
         source_tree_hook = empirica_root / "plugins" / "claude-code-integration" / "hooks" / "tool-router.py"
     except (ImportError, AttributeError, ValueError):
         source_tree_hook = None
 
     bundled_hook = (
-        Path.home() / ".codex" / "plugins" / "cache" / "nubaeon" / "empirica"
-        / "0.1.0" / "hooks_scripts" / "hooks" / "tool-router.py"
+        Path.home()
+        / ".codex"
+        / "plugins"
+        / "cache"
+        / "nubaeon"
+        / "empirica"
+        / "0.1.0"
+        / "hooks_scripts"
+        / "hooks"
+        / "tool-router.py"
     )
     candidates = [p for p in [source_tree_hook, bundled_hook] if p is not None]
 
@@ -944,13 +930,13 @@ def check_ecodex_instance_isolation_key() -> CheckResult:
     missing: list[str] = []
     if plugin_cli.is_file():
         text = plugin_cli.read_text()
-        if 'EMPIRICA_INSTANCE_ID' not in text:
+        if "EMPIRICA_INSTANCE_ID" not in text:
             missing.append("plugin/empirica_cli.rs (hook subprocesses won't get the key)")
     else:
         missing.append("plugin/empirica_cli.rs (file missing)")
     if tui_chat.is_file():
         text = tui_chat.read_text()
-        if 'EMPIRICA_INSTANCE_ID' not in text:
+        if "EMPIRICA_INSTANCE_ID" not in text:
             missing.append("tui/chatwidget.rs (statusline subprocess won't get the key)")
     else:
         missing.append("tui/chatwidget.rs (file missing)")

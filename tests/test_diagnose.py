@@ -80,7 +80,10 @@ def healthy_settings(fake_claude_dir) -> Path:
             ],
             "SessionStart": [
                 {"matcher": "compact", "hooks": [{"type": "command", "command": "python3 /fake/post-compact.py"}]},
-                {"matcher": "startup|resume", "hooks": [{"type": "command", "command": "python3 /fake/session-init.py"}]},
+                {
+                    "matcher": "startup|resume",
+                    "hooks": [{"type": "command", "command": "python3 /fake/session-init.py"}],
+                },
             ],
             "SubagentStart": [
                 {"hooks": [{"type": "command", "command": "python3 /fake/subagent-start.py"}]},
@@ -206,9 +209,9 @@ class TestStatusLineConfigured:
         assert "no `statusLine`" in result.detail
 
     def test_other_plugin_owns_statusline_warns(self, fake_claude_dir):
-        (fake_claude_dir / "settings.json").write_text(json.dumps({
-            "statusLine": {"type": "command", "command": "/some/other/plugin"}
-        }))
+        (fake_claude_dir / "settings.json").write_text(
+            json.dumps({"statusLine": {"type": "command", "command": "/some/other/plugin"}})
+        )
         result = check_statusline_configured(fake_claude_dir)
         assert result.status == WARN
         assert "Another plugin" in result.hint
@@ -226,13 +229,20 @@ class TestHooksRegistered:
         assert len(result.data["found"]) == 6
 
     def test_missing_hooks_fails_with_list(self, fake_claude_dir):
-        (fake_claude_dir / "settings.json").write_text(json.dumps({
-            "hooks": {
-                "PreToolUse": [
-                    {"matcher": "Edit", "hooks": [{"type": "command", "command": "python3 /fake/sentinel-gate.py"}]},
-                ],
-            }
-        }))
+        (fake_claude_dir / "settings.json").write_text(
+            json.dumps(
+                {
+                    "hooks": {
+                        "PreToolUse": [
+                            {
+                                "matcher": "Edit",
+                                "hooks": [{"type": "command", "command": "python3 /fake/sentinel-gate.py"}],
+                            },
+                        ],
+                    }
+                }
+            )
+        )
         result = check_hooks_registered(fake_claude_dir)
         assert result.status == FAIL
         assert len(result.data["missing"]) == 5  # all but sentinel
@@ -240,13 +250,20 @@ class TestHooksRegistered:
 
     def test_post_compact_via_session_start_matcher(self, fake_claude_dir):
         """post-compact.py lives under SessionStart with matcher='compact', not its own event."""
-        (fake_claude_dir / "settings.json").write_text(json.dumps({
-            "hooks": {
-                "SessionStart": [
-                    {"matcher": "compact", "hooks": [{"type": "command", "command": "python3 /fake/post-compact.py"}]},
-                ],
-            }
-        }))
+        (fake_claude_dir / "settings.json").write_text(
+            json.dumps(
+                {
+                    "hooks": {
+                        "SessionStart": [
+                            {
+                                "matcher": "compact",
+                                "hooks": [{"type": "command", "command": "python3 /fake/post-compact.py"}],
+                            },
+                        ],
+                    }
+                }
+            )
+        )
         result = check_hooks_registered(fake_claude_dir)
         # post-compact should be found, others missing
         found_names = result.data["found"]

@@ -46,17 +46,20 @@ def build_request_body(
     """
     input_items: list[dict[str, Any]] = []
     for h in history or []:
-        input_items.append({
+        input_items.append(
+            {
+                "type": "message",
+                "role": h["role"],
+                "content": [{"type": "input_text" if h["role"] == "user" else "output_text", "text": h["text"]}],
+            }
+        )
+    input_items.append(
+        {
             "type": "message",
-            "role": h["role"],
-            "content": [{"type": "input_text" if h["role"] == "user" else "output_text",
-                          "text": h["text"]}],
-        })
-    input_items.append({
-        "type": "message",
-        "role": "user",
-        "content": [{"type": "input_text", "text": user_text}],
-    })
+            "role": "user",
+            "content": [{"type": "input_text", "text": user_text}],
+        }
+    )
 
     body: dict[str, Any] = {
         "model": model,
@@ -101,7 +104,7 @@ def stream_responses(
             if not line.startswith("data:"):
                 # Skip event: lines etc — payload `type` is canonical
                 continue
-            data = line[len("data:"):].strip()
+            data = line[len("data:") :].strip()
             if not data or data == "[DONE]":
                 continue
             try:

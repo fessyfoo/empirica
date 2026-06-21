@@ -25,7 +25,7 @@ def get_actual_cli_commands() -> set[str]:
     Returns:
         Set of command names (e.g., 'session-create', 'preflight-submit')
     """
-    cli_core_path = Path(__file__).parent.parent / 'cli' / 'cli_core.py'
+    cli_core_path = Path(__file__).parent.parent / "cli" / "cli_core.py"
 
     with open(cli_core_path) as f:
         content = f.read()
@@ -45,18 +45,18 @@ def extract_documented_commands(docs_dir: Path | None = None) -> dict[str, list[
         Dict mapping command -> list of (file, line_number) where it's referenced
     """
     if docs_dir is None:
-        docs_dir = Path(__file__).parent.parent.parent / 'docs'
+        docs_dir = Path(__file__).parent.parent.parent / "docs"
 
     documented_commands = {}
 
     # Pattern for actual command usage: `empirica <command>` or ```bash\nempirica <command>
     patterns = [
-        r'`empirica\s+([a-z][a-z0-9-]+)',  # Inline code: `empirica session-create`
-        r'^\s*empirica\s+([a-z][a-z0-9-]+)',  # Command line: empirica session-create
-        r'\$\s*empirica\s+([a-z][a-z0-9-]+)',  # Shell prompt: $ empirica session-create
+        r"`empirica\s+([a-z][a-z0-9-]+)",  # Inline code: `empirica session-create`
+        r"^\s*empirica\s+([a-z][a-z0-9-]+)",  # Command line: empirica session-create
+        r"\$\s*empirica\s+([a-z][a-z0-9-]+)",  # Shell prompt: $ empirica session-create
     ]
 
-    for md_file in docs_dir.rglob('*.md'):
+    for md_file in docs_dir.rglob("*.md"):
         try:
             with open(md_file) as f:
                 lines = f.readlines()
@@ -88,11 +88,9 @@ def find_phantom_commands() -> list[dict]:
 
     for cmd, locations in documented_commands.items():
         if cmd not in actual_commands:
-            phantoms.append({
-                'command': cmd,
-                'locations': locations,
-                'severity': 'high' if len(locations) > 5 else 'medium'
-            })
+            phantoms.append(
+                {"command": cmd, "locations": locations, "severity": "high" if len(locations) > 5 else "medium"}
+            )
 
     return phantoms
 
@@ -116,7 +114,7 @@ def find_undocumented_commands() -> list[str]:
     return undocumented
 
 
-def validate_cli_documentation(output_format: str = 'text') -> dict:
+def validate_cli_documentation(output_format: str = "text") -> dict:
     """
     Run complete CLI documentation validation
 
@@ -132,14 +130,14 @@ def validate_cli_documentation(output_format: str = 'text') -> dict:
     undocumented = find_undocumented_commands()
 
     results = {
-        'total_actual_commands': len(actual_commands),
-        'total_documented_commands': len(documented_commands),
-        'phantom_commands': phantoms,
-        'undocumented_commands': undocumented,
-        'accuracy_score': calculate_accuracy_score(actual_commands, documented_commands, phantoms)
+        "total_actual_commands": len(actual_commands),
+        "total_documented_commands": len(documented_commands),
+        "phantom_commands": phantoms,
+        "undocumented_commands": undocumented,
+        "accuracy_score": calculate_accuracy_score(actual_commands, documented_commands, phantoms),
     }
 
-    if output_format == 'json':
+    if output_format == "json":
         print(json.dumps(results, indent=2))
     else:
         print_text_report(results)
@@ -174,30 +172,31 @@ def print_text_report(results: dict):
     print(f"  • Accuracy score: {results['accuracy_score']:.1f}%")
     print()
 
-    if results['phantom_commands']:
+    if results["phantom_commands"]:
         print(f"⚠️  PHANTOM COMMANDS ({len(results['phantom_commands'])}):")
         print("   Commands in docs but NOT in CLI:")
-        for phantom in results['phantom_commands'][:10]:
+        for phantom in results["phantom_commands"][:10]:
             print(f"   • {phantom['command']} (found in {len(phantom['locations'])} locations)")
-        if len(results['phantom_commands']) > 10:
+        if len(results["phantom_commands"]) > 10:
             print(f"   ... and {len(results['phantom_commands']) - 10} more")
         print()
 
-    if results['undocumented_commands']:
+    if results["undocumented_commands"]:
         print(f"📝 UNDOCUMENTED COMMANDS ({len(results['undocumented_commands'])}):")
         print("   Commands in CLI but NOT in docs:")
-        for cmd in results['undocumented_commands'][:10]:
+        for cmd in results["undocumented_commands"][:10]:
             print(f"   • {cmd}")
-        if len(results['undocumented_commands']) > 10:
+        if len(results["undocumented_commands"]) > 10:
             print(f"   ... and {len(results['undocumented_commands']) - 10} more")
         print()
 
-    if not results['phantom_commands'] and not results['undocumented_commands']:
+    if not results["phantom_commands"] and not results["undocumented_commands"]:
         print("✅ All CLI commands are properly documented!")
         print()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
-    output_format = sys.argv[1] if len(sys.argv) > 1 else 'text'
+
+    output_format = sys.argv[1] if len(sys.argv) > 1 else "text"
     validate_cli_documentation(output_format)

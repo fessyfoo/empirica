@@ -23,11 +23,11 @@ def _is_uuid_format(value: str) -> bool:
     """Check if a string looks like a UUID (8-4-4-4-12 hex format)."""
     if not value or not isinstance(value, str):
         return False
-    uuid_pattern = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    uuid_pattern = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
     return bool(re.match(uuid_pattern, value.lower()))
 
 
-def auto_close_previous_sessions(db, ai_id, current_project_id, current_instance_id=None, output_format='json'):
+def auto_close_previous_sessions(db, ai_id, current_project_id, current_instance_id=None, output_format="json"):
     """
     Auto-close previous sessions with POSTFLIGHT for clean lifecycle.
 
@@ -47,24 +47,24 @@ def auto_close_previous_sessions(db, ai_id, current_project_id, current_instance
     from datetime import datetime
 
     cursor = db.conn.cursor()
-    result = {
-        "closed_sessions": [],
-        "warnings": []
-    }
+    result = {"closed_sessions": [], "warnings": []}
 
     # Find all active sessions for this AI (no end_time timestamp)
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT session_id, project_id, created_at, instance_id
         FROM sessions
         WHERE ai_id = ? AND end_time IS NULL
         ORDER BY created_at DESC
-    """, (ai_id,))
+    """,
+        (ai_id,),
+    )
     active_sessions = cursor.fetchall()
 
     for session in active_sessions:
-        session_id = session['session_id']
-        session_project_id = session['project_id']
-        session_instance_id = session['instance_id']
+        session_id = session["session_id"]
+        session_project_id = session["project_id"]
+        session_instance_id = session["instance_id"]
 
         # Same project: check instance_id for multi-pane support
         if session_project_id == current_project_id:
@@ -76,72 +76,94 @@ def auto_close_previous_sessions(db, ai_id, current_project_id, current_instance
             # Same project: auto-close with POSTFLIGHT
 
             # Get last CHECK or PREFLIGHT vectors for POSTFLIGHT
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT know, uncertainty, do, context, clarity, coherence,
                        signal, density, state, change, completion, impact, engagement
                 FROM reflexes
                 WHERE session_id = ? AND phase IN ('CHECK', 'PREFLIGHT')
                 ORDER BY timestamp DESC LIMIT 1
-            """, (session_id,))
+            """,
+                (session_id,),
+            )
             last_vectors = cursor.fetchone()
 
             # Create auto-POSTFLIGHT
             if last_vectors:
                 vectors = {
-                    'know': last_vectors['know'] or 0.5,
-                    'uncertainty': last_vectors['uncertainty'] or 0.3,
-                    'do': last_vectors['do'] or 0.5,
-                    'context': last_vectors['context'] or 0.5,
-                    'clarity': last_vectors['clarity'] or 0.5,
-                    'coherence': last_vectors['coherence'] or 0.5,
-                    'signal': last_vectors['signal'] or 0.5,
-                    'density': last_vectors['density'] or 0.5,
-                    'state': last_vectors['state'] or 0.5,
-                    'change': last_vectors['change'] or 0.5,
-                    'completion': 1.0,  # Session ended = complete
-                    'impact': last_vectors['impact'] or 0.5,
-                    'engagement': last_vectors['engagement'] or 0.5,
+                    "know": last_vectors["know"] or 0.5,
+                    "uncertainty": last_vectors["uncertainty"] or 0.3,
+                    "do": last_vectors["do"] or 0.5,
+                    "context": last_vectors["context"] or 0.5,
+                    "clarity": last_vectors["clarity"] or 0.5,
+                    "coherence": last_vectors["coherence"] or 0.5,
+                    "signal": last_vectors["signal"] or 0.5,
+                    "density": last_vectors["density"] or 0.5,
+                    "state": last_vectors["state"] or 0.5,
+                    "change": last_vectors["change"] or 0.5,
+                    "completion": 1.0,  # Session ended = complete
+                    "impact": last_vectors["impact"] or 0.5,
+                    "engagement": last_vectors["engagement"] or 0.5,
                 }
             else:
                 # No vectors found, use defaults
                 vectors = {
-                    'know': 0.5, 'uncertainty': 0.3, 'do': 0.5, 'context': 0.5,
-                    'clarity': 0.5, 'coherence': 0.5, 'signal': 0.5, 'density': 0.5,
-                    'state': 0.5, 'change': 0.5, 'completion': 1.0, 'impact': 0.5,
-                    'engagement': 0.5
+                    "know": 0.5,
+                    "uncertainty": 0.3,
+                    "do": 0.5,
+                    "context": 0.5,
+                    "clarity": 0.5,
+                    "coherence": 0.5,
+                    "signal": 0.5,
+                    "density": 0.5,
+                    "state": 0.5,
+                    "change": 0.5,
+                    "completion": 1.0,
+                    "impact": 0.5,
+                    "engagement": 0.5,
                 }
 
             # Insert auto-POSTFLIGHT
             timestamp = datetime.now().timestamp()
-            reflex_data = json.dumps({
-                'auto_closed': True,
-                'reason': 'New session created',
-                'vectors': vectors
-            })
+            reflex_data = json.dumps({"auto_closed": True, "reason": "New session created", "vectors": vectors})
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO reflexes (
                     session_id, phase, know, uncertainty, do, context,
                     clarity, coherence, signal, density, state, change,
                     completion, impact, engagement, reflex_data, timestamp
                 ) VALUES (?, 'POSTFLIGHT', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                session_id,
-                vectors['know'], vectors['uncertainty'], vectors['do'], vectors['context'],
-                vectors['clarity'], vectors['coherence'], vectors['signal'], vectors['density'],
-                vectors['state'], vectors['change'], vectors['completion'], vectors['impact'],
-                vectors['engagement'], reflex_data, timestamp
-            ))
+            """,
+                (
+                    session_id,
+                    vectors["know"],
+                    vectors["uncertainty"],
+                    vectors["do"],
+                    vectors["context"],
+                    vectors["clarity"],
+                    vectors["coherence"],
+                    vectors["signal"],
+                    vectors["density"],
+                    vectors["state"],
+                    vectors["change"],
+                    vectors["completion"],
+                    vectors["impact"],
+                    vectors["engagement"],
+                    reflex_data,
+                    timestamp,
+                ),
+            )
 
             # Mark session as ended
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE sessions SET end_time = ? WHERE session_id = ?
-            """, (datetime.now().isoformat(), session_id))
+            """,
+                (datetime.now().isoformat(), session_id),
+            )
 
-            result["closed_sessions"].append({
-                "session_id": session_id,
-                "project_id": session_project_id
-            })
+            result["closed_sessions"].append({"session_id": session_id, "project_id": session_project_id})
 
         else:
             # Different project: warn only
@@ -149,14 +171,16 @@ def auto_close_previous_sessions(db, ai_id, current_project_id, current_instance
                 # Get project name for nicer warning
                 cursor.execute("SELECT name FROM projects WHERE id = ?", (session_project_id,))
                 project_row = cursor.fetchone()
-                project_name = project_row['name'] if project_row else session_project_id[:8]
+                project_name = project_row["name"] if project_row else session_project_id[:8]
 
-                result["warnings"].append({
-                    "session_id": session_id,
-                    "project_id": session_project_id,
-                    "project_name": project_name,
-                    "message": f"Active session in project '{project_name}' - run 'empirica session-close' there"
-                })
+                result["warnings"].append(
+                    {
+                        "session_id": session_id,
+                        "project_id": session_project_id,
+                        "project_name": project_name,
+                        "message": f"Active session in project '{project_name}' - run 'empirica session-close' there",
+                    }
+                )
 
     db.conn.commit()
     return result
@@ -174,8 +198,8 @@ def _parse_session_config(args):
     from ..cli_utils import parse_json_safely
 
     config_data = None
-    if hasattr(args, 'config') and args.config:
-        if args.config == '-':
+    if hasattr(args, "config") and args.config:
+        if args.config == "-":
             config_data = parse_json_safely(sys.stdin.read())
         else:
             if not os.path.exists(args.config):
@@ -185,48 +209,57 @@ def _parse_session_config(args):
                 config_data = parse_json_safely(f.read())
 
     if config_data:
-        ai_id = config_data.get('ai_id')
-        user_id = config_data.get('user_id')
-        project_id = config_data.get('project_id')
-        parent_session_id = config_data.get('parent_session_id')
-        output_format = 'json'
+        ai_id = config_data.get("ai_id")
+        user_id = config_data.get("user_id")
+        project_id = config_data.get("project_id")
+        parent_session_id = config_data.get("parent_session_id")
+        output_format = "json"
 
         if not ai_id:
-            print(json.dumps({
-                "ok": False,
-                "error": "Config file must include 'ai_id' field",
-                "hint": "See /tmp/session_config_example.json for schema"
-            }))
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": "Config file must include 'ai_id' field",
+                        "hint": "See /tmp/session_config_example.json for schema",
+                    }
+                )
+            )
             sys.exit(1)
     else:
         ai_id = args.ai_id
-        user_id = getattr(args, 'user_id', None)
-        project_id = getattr(args, 'project_id', None)
-        parent_session_id = getattr(args, 'parent_session_id', None)
-        output_format = getattr(args, 'output', 'json')
+        user_id = getattr(args, "user_id", None)
+        project_id = getattr(args, "project_id", None)
+        parent_session_id = getattr(args, "parent_session_id", None)
+        output_format = getattr(args, "output", "json")
 
         if not ai_id:
-            print(json.dumps({
-                "ok": False,
-                "error": "Legacy mode requires --ai-id flag",
-                "hint": "For AI-first mode, use: empirica session-create config.json"
-            }))
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": "Legacy mode requires --ai-id flag",
+                        "hint": "For AI-first mode, use: empirica session-create config.json",
+                    }
+                )
+            )
             sys.exit(1)
 
     return {
-        'ai_id': ai_id,
-        'user_id': user_id,
-        'project_id': project_id,
-        'parent_session_id': parent_session_id,
-        'output_format': output_format,
-        'config_data': config_data,
+        "ai_id": ai_id,
+        "user_id": user_id,
+        "project_id": project_id,
+        "parent_session_id": parent_session_id,
+        "output_format": output_format,
+        "config_data": config_data,
     }
 
 
 def _resolve_subject(config_data, args):
     """Auto-detect subject from config, args, or current directory."""
     from empirica.config.project_config_loader import get_current_subject
-    subject = config_data.get('subject') if config_data else getattr(args, 'subject', None)
+
+    subject = config_data.get("subject") if config_data else getattr(args, "subject", None)
     if subject is None:
         subject = get_current_subject()
     return subject
@@ -244,19 +277,24 @@ def _handle_auto_init(args, output_format, project_id):
     """
     auto_init_performed = False
     auto_init_project_path = None
-    if not getattr(args, 'auto_init', False):
+    if not getattr(args, "auto_init", False):
         return auto_init_performed, project_id, auto_init_project_path
 
     from empirica.config.path_resolver import get_git_root
+
     git_root = get_git_root()
 
     if not git_root:
-        if output_format == 'json':
-            print(json.dumps({
-                "ok": False,
-                "error": "Cannot auto-init: Not in a git repository",
-                "hint": "Run 'git init' first, then try again"
-            }))
+        if output_format == "json":
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": "Cannot auto-init: Not in a git repository",
+                        "hint": "Run 'git init' first, then try again",
+                    }
+                )
+            )
         else:
             print("❌ Cannot auto-init: Not in a git repository")
             print("   Run 'git init' first, then try again")
@@ -267,9 +305,9 @@ def _handle_auto_init(args, output_format, project_id):
     # relying on the resolver chain that doesn't yet know about the new project.
     auto_init_project_path = str(git_root)
 
-    empirica_config = git_root / '.empirica' / 'config.yaml'
+    empirica_config = git_root / ".empirica" / "config.yaml"
     if not empirica_config.exists():
-        if output_format != 'json':
+        if output_format != "json":
             print("🔧 Auto-initializing Empirica in this repository...")
 
         try:
@@ -279,34 +317,34 @@ def _handle_auto_init(args, output_format, project_id):
 
             init_args = SimpleNamespace(
                 non_interactive=True,
-                output='json' if output_format == 'json' else 'default',
+                output="json" if output_format == "json" else "default",
                 project_name=git_root.name,
                 project_description=None,
                 enable_beads=False,
                 create_semantic_index=False,
-                force=False
+                force=False,
             )
 
             result = handle_project_init_command(init_args)
             if result is None:
-                if output_format != 'json':
+                if output_format != "json":
                     print("❌ Auto-init failed. Run 'empirica project-init' manually.")
                 sys.exit(1)
 
             auto_init_performed = True
-            project_id = result.get('project_id')
+            project_id = result.get("project_id")
 
-            if output_format != 'json':
+            if output_format != "json":
                 print(f"✅ Project auto-initialized: {git_root.name}")
                 print()
 
         except Exception as e:
-            if output_format == 'json':
-                print(json.dumps({
-                    "ok": False,
-                    "error": f"Auto-init failed: {e}",
-                    "hint": "Run 'empirica project-init' manually"
-                }))
+            if output_format == "json":
+                print(
+                    json.dumps(
+                        {"ok": False, "error": f"Auto-init failed: {e}", "hint": "Run 'empirica project-init' manually"}
+                    )
+                )
             else:
                 print(f"❌ Auto-init failed: {e}")
                 print("   Run 'empirica project-init' manually")
@@ -318,17 +356,22 @@ def _handle_auto_init(args, output_format, project_id):
 def _require_project_initialized(ai_id, output_format):
     """Fail early if project not initialized in a git repo."""
     from empirica.config.path_resolver import get_git_root
+
     git_root = get_git_root()
     if git_root:
-        empirica_config = git_root / '.empirica' / 'config.yaml'
+        empirica_config = git_root / ".empirica" / "config.yaml"
         if not empirica_config.exists():
-            if output_format == 'json':
-                print(json.dumps({
-                    "ok": False,
-                    "error": "Project not initialized",
-                    "hint": "Run 'empirica project-init' or use 'empirica session-create --auto-init'",
-                    "git_root": str(git_root)
-                }))
+            if output_format == "json":
+                print(
+                    json.dumps(
+                        {
+                            "ok": False,
+                            "error": "Project not initialized",
+                            "hint": "Run 'empirica project-init' or use 'empirica session-create --auto-init'",
+                            "git_root": str(git_root),
+                        }
+                    )
+                )
             else:
                 print(f"❌ Project not initialized in {git_root.name}")
                 print("\nOptions:")
@@ -344,7 +387,7 @@ def _resolve_folder_name_to_uuid(folder_name):
 
     if not folder_name:
         return None
-    workspace_db = os.path.join(os.path.expanduser('~'), '.empirica', 'workspace', 'workspace.db')
+    workspace_db = os.path.join(os.path.expanduser("~"), ".empirica", "workspace", "workspace.db")
     if os.path.exists(workspace_db):
         conn = sqlite3.connect(workspace_db)
         cursor = conn.cursor()
@@ -361,32 +404,33 @@ def _get_project_id_from_context(context_data):
     import os
 
     # Priority 1: Direct project_id
-    if context_data.get('project_id'):
-        pid = context_data['project_id']
+    if context_data.get("project_id"):
+        pid = context_data["project_id"]
         if _is_uuid_format(pid):
             return pid
         return _resolve_folder_name_to_uuid(pid)
 
     # Priority 2: folder_name (resolve via workspace.db)
-    if context_data.get('folder_name'):
-        resolved = _resolve_folder_name_to_uuid(context_data['folder_name'])
+    if context_data.get("folder_name"):
+        resolved = _resolve_folder_name_to_uuid(context_data["folder_name"])
         if resolved:
             return resolved
 
     # Priority 3: project_path (query sessions.db, fallback to project.yaml)
-    if context_data.get('project_path'):
-        project_path = context_data['project_path']
+    if context_data.get("project_path"):
+        project_path = context_data["project_path"]
         db_project_id = R.project_id_from_db(project_path)
         if db_project_id:
             return db_project_id
         import yaml
-        project_yaml = os.path.join(project_path, '.empirica', 'project.yaml')
+
+        project_yaml = os.path.join(project_path, ".empirica", "project.yaml")
         if os.path.exists(project_yaml):
             try:
                 with open(project_yaml) as f:
                     config = yaml.safe_load(f)
-                    if config and config.get('project_id'):
-                        return config['project_id']
+                    if config and config.get("project_id"):
+                        return config["project_id"]
             except Exception:
                 pass
 
@@ -405,8 +449,7 @@ def _resolve_from_context_files():
     _sc_instance_id = R.instance_id()
     if _sc_instance_id:
         instance_file = os.path.join(
-            os.path.expanduser('~'), '.empirica',
-            'instance_projects', f'{_sc_instance_id}.json'
+            os.path.expanduser("~"), ".empirica", "instance_projects", f"{_sc_instance_id}.json"
         )
         if os.path.exists(instance_file):
             with open(instance_file) as f:
@@ -418,11 +461,10 @@ def _resolve_from_context_files():
     # Priority 0b: TTY-specific active_work
     tty_session = R.tty_session(warn_if_stale=False)
     if tty_session:
-        claude_session_id = tty_session.get('claude_session_id')
+        claude_session_id = tty_session.get("claude_session_id")
         if claude_session_id:
             active_work_path = os.path.join(
-                os.path.expanduser('~'), '.empirica',
-                f'active_work_{claude_session_id}.json'
+                os.path.expanduser("~"), ".empirica", f"active_work_{claude_session_id}.json"
             )
             if os.path.exists(active_work_path):
                 with open(active_work_path) as f:
@@ -432,7 +474,7 @@ def _resolve_from_context_files():
                         return pid
 
     # Priority 0c: canonical active_work.json
-    canonical_path = os.path.join(os.path.expanduser('~'), '.empirica', 'active_work.json')
+    canonical_path = os.path.join(os.path.expanduser("~"), ".empirica", "active_work.json")
     if os.path.exists(canonical_path):
         with open(canonical_path) as f:
             active_work = _json.load(f)
@@ -457,13 +499,14 @@ def _resolve_from_sessions_db():
         return pid
 
     import yaml
-    project_yaml = os.path.join(context_project, '.empirica', 'project.yaml')
+
+    project_yaml = os.path.join(context_project, ".empirica", "project.yaml")
     if os.path.exists(project_yaml):
         try:
             with open(project_yaml) as f:
                 project_config = yaml.safe_load(f)
-                if project_config and project_config.get('project_id'):
-                    return project_config['project_id']
+                if project_config and project_config.get("project_id"):
+                    return project_config["project_id"]
         except Exception:
             pass
     return None
@@ -479,19 +522,16 @@ def _resolve_from_git_remote():
     from empirica.data.session_database import SessionDatabase
 
     try:
-        result = subprocess.run(
-            ['git', 'remote', 'get-url', 'origin'],
-            capture_output=True, text=True, timeout=5
-        )
+        result = subprocess.run(["git", "remote", "get-url", "origin"], capture_output=True, text=True, timeout=5)
         if result.returncode == 0:
             git_url = result.stdout.strip()
             db_temp = SessionDatabase()
             cursor = db_temp.conn.cursor()
-            cursor.execute("SELECT id FROM projects WHERE repos LIKE ?", (f'%{git_url}%',))
+            cursor.execute("SELECT id FROM projects WHERE repos LIKE ?", (f"%{git_url}%",))
             row = cursor.fetchone()
             db_temp.close()
             if row:
-                return row['id']
+                return row["id"]
     except Exception:
         pass
     return None
@@ -551,11 +591,11 @@ def _close_and_create_session(ai_id, early_project_id, subject, parent_session_i
     logger.info(f"session-create: using DB at {getattr(db, 'db_path', '?')}")
     close_result = auto_close_previous_sessions(db, ai_id, early_project_id, current_instance_id, output_format)
 
-    if close_result["closed_sessions"] and output_format != 'json':
+    if close_result["closed_sessions"] and output_format != "json":
         for closed in close_result["closed_sessions"]:
             print(f"🔄 Auto-closed previous session: {closed['session_id'][:8]}... (POSTFLIGHT submitted)")
 
-    if close_result["warnings"] and output_format != 'json':
+    if close_result["warnings"] and output_format != "json":
         for warning in close_result["warnings"]:
             print(f"⚠️  {warning['message']}")
 
@@ -564,7 +604,7 @@ def _close_and_create_session(ai_id, early_project_id, subject, parent_session_i
         components_loaded=6,
         subject=subject,
         parent_session_id=parent_session_id,
-        project_id=early_project_id
+        project_id=early_project_id,
     )
     db.conn.commit()
     db.close()
@@ -588,21 +628,17 @@ def _write_active_session_file(session_id, ai_id):
         safe_instance = instance_id.replace(":", "_").replace("%", "")
         instance_suffix = f"_{safe_instance}"
 
-    active_session_file = Path.home() / '.empirica' / f'active_session{instance_suffix}'
+    active_session_file = Path.home() / ".empirica" / f"active_session{instance_suffix}"
     active_session_file.parent.mkdir(parents=True, exist_ok=True)
 
     resolved_project_path = R.project_path()
     if not resolved_project_path:
         return {"ok": False, "error": "Cannot resolve project path. Run 'empirica project-switch <project>' first."}
 
-    active_session_data = {
-        "session_id": session_id,
-        "project_path": resolved_project_path,
-        "ai_id": ai_id
-    }
+    active_session_data = {"session_id": session_id, "project_path": resolved_project_path, "ai_id": ai_id}
     tmp_fd, tmp_path = tempfile.mkstemp(dir=str(active_session_file.parent))
     try:
-        with os.fdopen(tmp_fd, 'w') as tmp_f:
+        with os.fdopen(tmp_fd, "w") as tmp_f:
             tmp_f.write(json.dumps(active_session_data))
         os.replace(tmp_path, str(active_session_file))
     except BaseException:
@@ -629,10 +665,7 @@ def _write_tty_session(session_id, project_path_override=None):
     try:
         project_path = project_path_override or R.project_path()
         if project_path:
-            R.tty_write(
-                empirica_session_id=session_id,
-                project_path=project_path
-            )
+            R.tty_write(empirica_session_id=session_id, project_path=project_path)
     except Exception:
         pass
 
@@ -640,13 +673,14 @@ def _write_tty_session(session_id, project_path_override=None):
 def _init_auto_capture(session_id, output_format):
     """Initialize auto-capture for this session."""
     from empirica.core.issue_capture import initialize_auto_capture, install_auto_capture_hooks
+
     try:
         auto_capture = initialize_auto_capture(session_id, enable=True)
         install_auto_capture_hooks(auto_capture)
-        if output_format != 'json':
+        if output_format != "json":
             print("✅ Auto-capture enabled with logging hooks")
     except Exception as e:
-        if output_format != 'json':
+        if output_format != "json":
             print(f"⚠️  Auto-capture initialization warning: {e}")
 
 
@@ -659,12 +693,15 @@ def _link_session_to_project(session_id, project_id, output_format):
 
     db = SessionDatabase()
     cursor = db.conn.cursor()
-    cursor.execute("""
+    cursor.execute(
+        """
         UPDATE sessions SET project_id = ? WHERE session_id = ?
-    """, (project_id, session_id))
+    """,
+        (project_id, session_id),
+    )
     db.conn.commit()
 
-    if output_format != 'json':
+    if output_format != "json":
         cursor.execute("SELECT name FROM projects WHERE id = ?", (project_id,))
         row = cursor.fetchone()
         if row:
@@ -674,12 +711,13 @@ def _link_session_to_project(session_id, project_id, output_format):
     db.close()
 
 
-def _format_session_output(output_format, session_id, ai_id, user_id, project_id,
-                           parent_session_id, auto_init_performed, close_result):
+def _format_session_output(
+    output_format, session_id, ai_id, user_id, project_id, parent_session_id, auto_init_performed, close_result
+):
     """Format and print the final session creation output."""
     from empirica.data.session_database import SessionDatabase
 
-    if output_format == 'json':
+    if output_format == "json":
         result = {
             "ok": True,
             "session_id": session_id,
@@ -691,8 +729,8 @@ def _format_session_output(output_format, session_id, ai_id, user_id, project_id
             "message": "Session created successfully",
             "lifecycle": {
                 "auto_closed_sessions": close_result["closed_sessions"],
-                "cross_project_warnings": close_result["warnings"]
-            }
+                "cross_project_warnings": close_result["warnings"],
+            },
         }
         print(json.dumps(result, indent=2))
     else:
@@ -708,28 +746,28 @@ def _format_session_output(output_format, session_id, ai_id, user_id, project_id
             db.close()
 
             if "error" not in breadcrumbs:
-                project = breadcrumbs['project']
+                project = breadcrumbs["project"]
                 print(f"   Project: {project['name']}")
                 print(f"   Description: {project['description']}")
 
-                if breadcrumbs.get('findings'):
+                if breadcrumbs.get("findings"):
                     print("\n   Recent Findings (last 5):")
-                    for finding in breadcrumbs['findings'][:5]:
+                    for finding in breadcrumbs["findings"][:5]:
                         print(f"     • {finding}")
 
-                unresolved = [u for u in breadcrumbs.get('unknowns', []) if not u['is_resolved']]
+                unresolved = [u for u in breadcrumbs.get("unknowns", []) if not u["is_resolved"]]
                 if unresolved:
                     print("\n   Unresolved Unknowns:")
                     for u in unresolved[:3]:
                         print(f"     • {u['unknown']}")
 
-                if breadcrumbs.get('available_skills'):
+                if breadcrumbs.get("available_skills"):
                     print("\n   Available Skills:")
-                    for skill in breadcrumbs['available_skills'][:3]:
+                    for skill in breadcrumbs["available_skills"][:3]:
                         print(f"     • {skill['title']} ({', '.join(skill['tags'])})")
 
         print("\nNext steps:")
-        print(f"   empirica preflight --session-id {session_id} --prompt \"Your task\"")
+        print(f'   empirica preflight --session-id {session_id} --prompt "Your task"')
 
 
 def handle_session_create_command(args):
@@ -737,26 +775,26 @@ def handle_session_create_command(args):
     try:
         # Stage 1: Parse config
         cfg = _parse_session_config(args)
-        ai_id = cfg['ai_id']
-        user_id = cfg['user_id']
-        project_id = cfg['project_id']
-        parent_session_id = cfg['parent_session_id']
-        output_format = cfg['output_format']
-        config_data = cfg['config_data']
+        ai_id = cfg["ai_id"]
+        user_id = cfg["user_id"]
+        project_id = cfg["project_id"]
+        parent_session_id = cfg["parent_session_id"]
+        output_format = cfg["output_format"]
+        config_data = cfg["config_data"]
 
         # Stage 2: Resolve subject
         subject = _resolve_subject(config_data, args)
 
         # Stage 3: Show project context (human mode)
-        if output_format != 'json':
+        if output_format != "json":
             from empirica.cli.cli_utils import print_project_context
+
             print()
             print_project_context(quiet=False, verbose=False)
             print()
 
         # Stage 4: Auto-init if requested
-        auto_init_performed, project_id, auto_init_project_path = _handle_auto_init(
-            args, output_format, project_id)
+        auto_init_performed, project_id, auto_init_project_path = _handle_auto_init(args, output_format, project_id)
 
         # Stage 5: Require project initialization
         _require_project_initialized(ai_id, output_format)
@@ -766,7 +804,8 @@ def handle_session_create_command(args):
 
         # Stage 7: Close previous sessions and create new one
         session_id, close_result = _close_and_create_session(
-            ai_id, early_project_id, subject, parent_session_id, output_format)
+            ai_id, early_project_id, subject, parent_session_id, output_format
+        )
 
         # Stage 8: Write active session file
         error = _write_active_session_file(session_id, ai_id)
@@ -788,13 +827,14 @@ def handle_session_create_command(args):
         _link_session_to_project(session_id, project_id, output_format)
 
         # Stage 12: Format output
-        _format_session_output(output_format, session_id, ai_id, user_id, project_id,
-                               parent_session_id, auto_init_performed, close_result)
+        _format_session_output(
+            output_format, session_id, ai_id, user_id, project_id, parent_session_id, auto_init_performed, close_result
+        )
 
     except Exception as e:
-        if getattr(args, 'output', 'default') == 'json':
+        if getattr(args, "output", "default") == "json":
             print(json.dumps({"ok": False, "error": str(e)}, indent=2))
         else:
             print(f"❌ Failed to create session: {e}")
-        handle_cli_error(e, "Session create", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Session create", getattr(args, "verbose", False))
         sys.exit(1)

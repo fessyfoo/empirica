@@ -236,14 +236,17 @@ def migrate_client_data_to_global(source_db_path: Path) -> dict:
             source_clients = source_conn.execute("SELECT * FROM clients").fetchall()
             for client in source_clients:
                 try:
-                    target_conn.execute("""
+                    target_conn.execute(
+                        """
                         INSERT OR IGNORE INTO clients
                         (client_id, name, description, notebooklm_url, knowledge_base_urls,
                          contacts, client_type, industry, tags, created_at, updated_at,
                          created_by_ai_id, relationship_health, engagement_frequency,
                          knowledge_depth, status, last_contact_at, next_action, next_action_due)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, tuple(client))
+                    """,
+                        tuple(client),
+                    )
                     stats["clients"] += 1
                 except sqlite3.IntegrityError:
                     pass  # Already exists
@@ -255,14 +258,17 @@ def migrate_client_data_to_global(source_db_path: Path) -> dict:
             source_engagements = source_conn.execute("SELECT * FROM engagements").fetchall()
             for eng in source_engagements:
                 try:
-                    target_conn.execute("""
+                    target_conn.execute(
+                        """
                         INSERT OR IGNORE INTO engagements
                         (engagement_id, client_id, project_id, title, description,
                          engagement_type, started_at, ended_at, status, outcome,
                          outcome_notes, estimated_value, actual_value, currency,
                          created_at, created_by_ai_id)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, tuple(eng))
+                    """,
+                        tuple(eng),
+                    )
                     stats["engagements"] += 1
                 except sqlite3.IntegrityError:
                     pass
@@ -274,13 +280,16 @@ def migrate_client_data_to_global(source_db_path: Path) -> dict:
             source_interactions = source_conn.execute("SELECT * FROM client_interactions").fetchall()
             for interaction in source_interactions:
                 try:
-                    target_conn.execute("""
+                    target_conn.execute(
+                        """
                         INSERT OR IGNORE INTO client_interactions
                         (interaction_id, client_id, engagement_id, session_id,
                          interaction_type, summary, contacts_involved, ai_id,
                          occurred_at, sentiment, follow_up_required, follow_up_notes)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, tuple(interaction))
+                    """,
+                        tuple(interaction),
+                    )
                     stats["interactions"] += 1
                 except sqlite3.IntegrityError:
                     pass
@@ -292,13 +301,16 @@ def migrate_client_data_to_global(source_db_path: Path) -> dict:
             source_memory = source_conn.execute("SELECT * FROM client_memory").fetchall()
             for mem in source_memory:
                 try:
-                    target_conn.execute("""
+                    target_conn.execute(
+                        """
                         INSERT OR IGNORE INTO client_memory
                         (item_id, client_id, content, content_hash, memory_type,
                          engagement_id, session_id, confidence, impact, is_resolved,
                          resolved_by, resolved_at, tags, created_at, updated_at)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, tuple(mem))
+                    """,
+                        tuple(mem),
+                    )
                     stats["memory"] += 1
                 except sqlite3.IntegrityError:
                     pass

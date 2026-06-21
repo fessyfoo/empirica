@@ -12,13 +12,7 @@ from typing import Any
 def get_current_git_commit(repo_path: str = ".") -> str | None:
     """Get current git commit SHA"""
     try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=repo_path,
-            capture_output=True,
-            text=True,
-            check=True
-        )
+        result = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo_path, capture_output=True, text=True, check=True)
         return result.stdout.strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
         return None
@@ -43,7 +37,7 @@ def parse_file_references(text: str) -> list[dict[str, Any]]:
 
     # Pattern: filename.ext:line or filename.ext:line1-line2
     # Handles: auth.py:45, src/auth.py:45, auth.py:45-52
-    pattern = r'([\w/.-]+\.[\w]+):(\d+)(?:-(\d+))?'
+    pattern = r"([\w/.-]+\.[\w]+):(\d+)(?:-(\d+))?"
 
     for match in re.finditer(pattern, text):
         file_path = match.group(1)
@@ -73,7 +67,7 @@ def parse_doc_references(text: str) -> list[dict[str, str]]:
     refs = []
 
     # Pattern: doc files with optional anchor
-    pattern = r'([\w/.-]+\.md)(?:(#[\w-]+))?'
+    pattern = r"([\w/.-]+\.md)(?:(#[\w-]+))?"
 
     for match in re.finditer(pattern, text):
         doc_path = match.group(1)
@@ -91,15 +85,12 @@ def parse_doc_references(text: str) -> list[dict[str, str]]:
 def parse_url_references(text: str) -> list[str]:
     """Extract URLs from text"""
     # Simple URL pattern
-    pattern = r'https?://[^\s)]+|www\.[^\s)]+'
+    pattern = r"https?://[^\s)]+|www\.[^\s)]+"
     return list(set(re.findall(pattern, text)))
 
 
 def structure_finding(
-    finding_text: str,
-    commit_sha: str | None = None,
-    session_id: str | None = None,
-    check_id: str | None = None
+    finding_text: str, commit_sha: str | None = None, session_id: str | None = None, check_id: str | None = None
 ) -> dict[str, Any]:
     """
     Convert plain text finding into structured format.
@@ -121,9 +112,9 @@ def structure_finding(
         "refs": {
             "files": parse_file_references(finding_text),
             "docs": parse_doc_references(finding_text),
-            "urls": parse_url_references(finding_text)
+            "urls": parse_url_references(finding_text),
         },
-        "commit": commit_sha
+        "commit": commit_sha,
     }
 
     if session_id:
@@ -135,46 +126,29 @@ def structure_finding(
 
 
 def structure_findings_list(
-    findings: list[str],
-    commit_sha: str | None = None,
-    session_id: str | None = None,
-    check_id: str | None = None
+    findings: list[str], commit_sha: str | None = None, session_id: str | None = None, check_id: str | None = None
 ) -> list[dict[str, Any]]:
     """Structure a list of findings"""
     if commit_sha is None:
         commit_sha = get_current_git_commit()
 
-    return [
-        structure_finding(f, commit_sha, session_id, check_id)
-        for f in findings
-    ]
+    return [structure_finding(f, commit_sha, session_id, check_id) for f in findings]
 
 
 # Query helpers for future use
 
-def filter_findings_by_file(
-    findings: list[dict[str, Any]],
-    filename: str
-) -> list[dict[str, Any]]:
+
+def filter_findings_by_file(findings: list[dict[str, Any]], filename: str) -> list[dict[str, Any]]:
     """Filter structured findings by filename"""
-    return [
-        f for f in findings
-        if any(filename in ref.get("file", "")
-               for ref in f.get("refs", {}).get("files", []))
-    ]
+    return [f for f in findings if any(filename in ref.get("file", "") for ref in f.get("refs", {}).get("files", []))]
 
 
-def filter_findings_by_commit(
-    findings: list[dict[str, Any]],
-    commit_sha: str
-) -> list[dict[str, Any]]:
+def filter_findings_by_commit(findings: list[dict[str, Any]], commit_sha: str) -> list[dict[str, Any]]:
     """Filter findings by git commit"""
     return [f for f in findings if f.get("commit") == commit_sha]
 
 
-def get_file_refs_from_findings(
-    findings: list[dict[str, Any]]
-) -> list[str]:
+def get_file_refs_from_findings(findings: list[dict[str, Any]]) -> list[str]:
     """Extract all unique file references from findings"""
     files = set()
     for finding in findings:

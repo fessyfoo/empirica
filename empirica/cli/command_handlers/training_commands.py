@@ -16,8 +16,9 @@ from ..cli_utils import handle_cli_error
 logger = logging.getLogger(__name__)
 
 
-def _export_from_db(db_path, project_filter, ai_filter, min_vectors,
-                    include_artifacts, include_grounded, project_name=None):
+def _export_from_db(
+    db_path, project_filter, ai_filter, min_vectors, include_artifacts, include_grounded, project_name=None
+):
     """Export training records from a single sessions.db. Returns (records, skipped)."""
     try:
         conn = sqlite3.connect(str(db_path))
@@ -31,14 +32,15 @@ def _export_from_db(db_path, project_filter, ai_filter, min_vectors,
     skipped = 0
     for pair in pairs:
         record = _build_training_record(
-            conn, pair,
+            conn,
+            pair,
             include_artifacts=include_artifacts,
             include_grounded=include_grounded,
             min_vectors=min_vectors,
         )
         if record:
             if project_name:
-                record['_source_project'] = project_name
+                record["_source_project"] = project_name
             records.append(record)
         else:
             skipped += 1
@@ -49,7 +51,7 @@ def _export_from_db(db_path, project_filter, ai_filter, min_vectors,
 
 def _find_workspace_dbs():
     """Find all project sessions.db files via workspace.db global_projects table."""
-    workspace_db_path = Path.home() / '.empirica' / 'workspace' / 'workspace.db'
+    workspace_db_path = Path.home() / ".empirica" / "workspace" / "workspace.db"
     if not workspace_db_path.exists():
         return []
 
@@ -66,33 +68,36 @@ def _find_workspace_dbs():
 
     dbs = []
     for row in rows:
-        tpath = row['trajectory_path']
+        tpath = row["trajectory_path"]
         if not tpath:
             continue
         # trajectory_path may be /path/to/project/.empirica or /path/to/project
         tpath = Path(tpath)
         candidates = [
-            tpath / 'sessions' / 'sessions.db',
-            tpath / '.empirica' / 'sessions' / 'sessions.db',
+            tpath / "sessions" / "sessions.db",
+            tpath / ".empirica" / "sessions" / "sessions.db",
         ]
         # Also check if tpath itself ends with .empirica
-        if tpath.name == '.empirica':
-            candidates.insert(0, tpath / 'sessions' / 'sessions.db')
+        if tpath.name == ".empirica":
+            candidates.insert(0, tpath / "sessions" / "sessions.db")
 
         for candidate in candidates:
             if candidate.exists():
-                dbs.append({
-                    'project_id': row['id'],
-                    'project_name': row['name'],
-                    'db_path': candidate,
-                })
+                dbs.append(
+                    {
+                        "project_id": row["id"],
+                        "project_name": row["name"],
+                        "db_path": candidate,
+                    }
+                )
                 break
 
     return dbs
 
 
-def _training_collect_records(args, project_filter, ai_filter, min_vectors,
-                              include_artifacts, include_grounded, workspace_mode):
+def _training_collect_records(
+    args, project_filter, ai_filter, min_vectors, include_artifacts, include_grounded, workspace_mode
+):
     """Collect training records from workspace or single project.
 
     Returns (all_records, total_skipped, db_sources).
@@ -108,34 +113,45 @@ def _training_collect_records(args, project_filter, ai_filter, min_vectors,
 
         seen_dbs = set()
         for pdb in project_dbs:
-            db_key = str(pdb['db_path'])
+            db_key = str(pdb["db_path"])
             if db_key in seen_dbs:
                 continue
             seen_dbs.add(db_key)
 
             records, skipped = _export_from_db(
-                pdb['db_path'], project_filter, ai_filter,
-                min_vectors, include_artifacts, include_grounded,
-                project_name=pdb['project_name'],
+                pdb["db_path"],
+                project_filter,
+                ai_filter,
+                min_vectors,
+                include_artifacts,
+                include_grounded,
+                project_name=pdb["project_name"],
             )
             if records:
                 all_records.extend(records)
                 total_skipped += skipped
-                db_sources.append({
-                    'project': pdb['project_name'],
-                    'db_path': str(pdb['db_path']),
-                    'exported': len(records),
-                })
+                db_sources.append(
+                    {
+                        "project": pdb["project_name"],
+                        "db_path": str(pdb["db_path"]),
+                        "exported": len(records),
+                    }
+                )
     else:
         from empirica.config.path_resolver import get_session_db_path
+
         db_path = get_session_db_path()
         records, skipped = _export_from_db(
-            db_path, project_filter, ai_filter,
-            min_vectors, include_artifacts, include_grounded,
+            db_path,
+            project_filter,
+            ai_filter,
+            min_vectors,
+            include_artifacts,
+            include_grounded,
         )
         all_records = records
         total_skipped = skipped
-        db_sources = [{'db_path': str(db_path), 'exported': len(records)}]
+        db_sources = [{"db_path": str(db_path), "exported": len(records)}]
 
     return all_records, total_skipped, db_sources
 
@@ -143,41 +159,54 @@ def _training_collect_records(args, project_filter, ai_filter, min_vectors,
 def handle_training_export_command(args):
     """Handle training-export command — export epistemic transactions as JSONL."""
     try:
-        output_path = getattr(args, 'output_path', None)
-        project_filter = getattr(args, 'project_id', None)
-        ai_filter = getattr(args, 'ai_id', None)
-        min_vectors = getattr(args, 'min_vectors', 3)
-        include_artifacts = not getattr(args, 'no_artifacts', False)
-        include_grounded = not getattr(args, 'no_grounded', False)
-        workspace_mode = getattr(args, 'workspace', False)
-        output_format = getattr(args, 'output', 'human')
+        output_path = getattr(args, "output_path", None)
+        project_filter = getattr(args, "project_id", None)
+        ai_filter = getattr(args, "ai_id", None)
+        min_vectors = getattr(args, "min_vectors", 3)
+        include_artifacts = not getattr(args, "no_artifacts", False)
+        include_grounded = not getattr(args, "no_grounded", False)
+        workspace_mode = getattr(args, "workspace", False)
+        output_format = getattr(args, "output", "human")
 
         all_records, total_skipped, db_sources = _training_collect_records(
-            args, project_filter, ai_filter, min_vectors,
-            include_artifacts, include_grounded, workspace_mode
+            args, project_filter, ai_filter, min_vectors, include_artifacts, include_grounded, workspace_mode
         )
 
         if not all_records:
-            if output_format == 'json':
-                msg = "No project databases found in workspace" if workspace_mode and not db_sources else "No paired transactions found"
+            if output_format == "json":
+                msg = (
+                    "No project databases found in workspace"
+                    if workspace_mode and not db_sources
+                    else "No paired transactions found"
+                )
                 print(json.dumps({"ok": True, "exported": 0, "message": msg}))
             else:
-                msg = "No project databases found in workspace." if workspace_mode and not db_sources else "No paired PREFLIGHT/POSTFLIGHT transactions found."
+                msg = (
+                    "No project databases found in workspace."
+                    if workspace_mode and not db_sources
+                    else "No paired PREFLIGHT/POSTFLIGHT transactions found."
+                )
                 print(msg)
             return None
 
         if output_path:
             out_path = Path(output_path)
             out_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(out_path, 'w') as f:
+            with open(out_path, "w") as f:
                 for rec in all_records:
-                    f.write(json.dumps(rec, default=str) + '\n')
-            if output_format == 'json':
-                print(json.dumps({
-                    "ok": True, "exported": len(all_records),
-                    "skipped": total_skipped, "output_path": str(out_path),
-                    "sources": db_sources,
-                }))
+                    f.write(json.dumps(rec, default=str) + "\n")
+            if output_format == "json":
+                print(
+                    json.dumps(
+                        {
+                            "ok": True,
+                            "exported": len(all_records),
+                            "skipped": total_skipped,
+                            "output_path": str(out_path),
+                            "sources": db_sources,
+                        }
+                    )
+                )
             else:
                 print(f"Exported {len(all_records)} transactions to {out_path}")
                 if total_skipped:
@@ -195,7 +224,7 @@ def handle_training_export_command(args):
         return None
 
     except Exception as e:
-        handle_cli_error(e, "Training export", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Training export", getattr(args, "verbose", False))
         return None
 
 
@@ -208,16 +237,15 @@ def _get_reflexes_columns(conn):
         return set()
 
 
-def _build_select_columns(has_transaction_id, has_cascade_id, has_project_id,
-                           has_reflex_data, has_reasoning):
+def _build_select_columns(has_transaction_id, has_cascade_id, has_project_id, has_reflex_data, has_reasoning):
     """Build SQL SELECT column fragments with NULL fallbacks for missing columns."""
     return {
-        'tx': "pf.transaction_id," if has_transaction_id else "NULL as transaction_id,",
-        'cascade': "pf.cascade_id," if has_cascade_id else "NULL as cascade_id,",
-        'project_id': "pf.project_id," if has_project_id else "NULL as project_id,",
-        'pf_reflex': "pf.reflex_data as pf_reflex_data," if has_reflex_data else "NULL as pf_reflex_data,",
-        'po_reflex': "po.reflex_data as po_reflex_data," if has_reflex_data else "NULL as po_reflex_data,",
-        'po_reasoning': "po.reasoning as po_reasoning," if has_reasoning else "NULL as po_reasoning,",
+        "tx": "pf.transaction_id," if has_transaction_id else "NULL as transaction_id,",
+        "cascade": "pf.cascade_id," if has_cascade_id else "NULL as cascade_id,",
+        "project_id": "pf.project_id," if has_project_id else "NULL as project_id,",
+        "pf_reflex": "pf.reflex_data as pf_reflex_data," if has_reflex_data else "NULL as pf_reflex_data,",
+        "po_reflex": "po.reflex_data as po_reflex_data," if has_reflex_data else "NULL as po_reflex_data,",
+        "po_reasoning": "po.reasoning as po_reasoning," if has_reasoning else "NULL as po_reasoning,",
     }
 
 
@@ -255,38 +283,37 @@ def _find_transaction_pairs(conn, project_filter=None, ai_filter=None):
         logger.debug("No reflexes table found, skipping")
         return []
 
-    has_transaction_id = 'transaction_id' in columns
-    has_cascade_id = 'cascade_id' in columns
-    has_project_id = 'project_id' in columns
-    has_reasoning = 'reasoning' in columns
-    has_reflex_data = 'reflex_data' in columns
+    has_transaction_id = "transaction_id" in columns
+    has_cascade_id = "cascade_id" in columns
+    has_project_id = "project_id" in columns
+    has_reasoning = "reasoning" in columns
+    has_reflex_data = "reflex_data" in columns
 
     try:
         sess_cols = {row[1] for row in conn.execute("PRAGMA table_info(sessions)").fetchall()}
     except sqlite3.OperationalError:
         sess_cols = set()
-    has_ai_id = 'ai_id' in sess_cols
+    has_ai_id = "ai_id" in sess_cols
 
-    sel = _build_select_columns(has_transaction_id, has_cascade_id, has_project_id,
-                                has_reflex_data, has_reasoning)
+    sel = _build_select_columns(has_transaction_id, has_cascade_id, has_project_id, has_reflex_data, has_reasoning)
     join_condition = _build_join_condition(has_transaction_id, has_cascade_id)
 
     query = f"""
         SELECT
             pf.id as preflight_id, pf.session_id,
-            {sel['tx']} {sel['cascade']} pf.timestamp as preflight_ts, {sel['project_id']}
+            {sel["tx"]} {sel["cascade"]} pf.timestamp as preflight_ts, {sel["project_id"]}
             pf.engagement as pf_engagement, pf.know as pf_know, pf.do as pf_do,
             pf.context as pf_context, pf.clarity as pf_clarity, pf.coherence as pf_coherence,
             pf.signal as pf_signal, pf.density as pf_density, pf.state as pf_state,
             pf.change as pf_change, pf.completion as pf_completion, pf.impact as pf_impact,
-            pf.uncertainty as pf_uncertainty, {sel['pf_reflex']}
+            pf.uncertainty as pf_uncertainty, {sel["pf_reflex"]}
             po.id as postflight_id, po.timestamp as postflight_ts,
             po.engagement as po_engagement, po.know as po_know, po.do as po_do,
             po.context as po_context, po.clarity as po_clarity, po.coherence as po_coherence,
             po.signal as po_signal, po.density as po_density, po.state as po_state,
             po.change as po_change, po.completion as po_completion, po.impact as po_impact,
             po.uncertainty as po_uncertainty,
-            {sel['po_reflex']} {sel['po_reasoning']}
+            {sel["po_reflex"]} {sel["po_reasoning"]}
             {"s.ai_id" if has_ai_id else "NULL as ai_id"}
         FROM reflexes pf
         JOIN reflexes po ON ({join_condition})
@@ -313,7 +340,7 @@ def _find_transaction_pairs(conn, project_filter=None, ai_filter=None):
     seen_preflight = set()
     pairs = []
     for row in rows:
-        pf_id = row['preflight_id']
+        pf_id = row["preflight_id"]
         if pf_id not in seen_preflight:
             seen_preflight.add(pf_id)
             pairs.append(dict(row))
@@ -324,32 +351,58 @@ def _find_transaction_pairs(conn, project_filter=None, ai_filter=None):
 def _collect_transaction_artifacts(conn, session_id: str, start_ts, end_ts) -> dict:
     """Collect noetic artifacts within a transaction time window."""
     ARTIFACT_QUERIES = [
-        ('findings', 'project_findings',
-         'finding, impact, subject', 'ORDER BY impact DESC',
-         lambda r: {'finding': r['finding'], 'impact': r['impact'], 'subject': r['subject']}),
-        ('unknowns', 'project_unknowns',
-         'unknown, is_resolved, impact', '',
-         lambda r: {'unknown': r['unknown'], 'resolved': bool(r['is_resolved']), 'impact': r['impact']}),
-        ('dead_ends', 'project_dead_ends',
-         'approach, why_failed, impact', '',
-         lambda r: {'approach': r['approach'], 'why_failed': r['why_failed'], 'impact': r['impact']}),
-        ('mistakes', 'mistakes_made',
-         'mistake, why_wrong, prevention, root_cause_vector', '',
-         lambda r: {'mistake': r['mistake'], 'why_wrong': r['why_wrong'],
-                    'prevention': r['prevention'], 'root_cause_vector': r['root_cause_vector']}),
-        ('decisions', 'decisions_made',
-         'choice, rationale, reversibility', '',
-         lambda r: {'choice': r['choice'], 'rationale': r['rationale'],
-                    'reversibility': r['reversibility']}),
+        (
+            "findings",
+            "project_findings",
+            "finding, impact, subject",
+            "ORDER BY impact DESC",
+            lambda r: {"finding": r["finding"], "impact": r["impact"], "subject": r["subject"]},
+        ),
+        (
+            "unknowns",
+            "project_unknowns",
+            "unknown, is_resolved, impact",
+            "",
+            lambda r: {"unknown": r["unknown"], "resolved": bool(r["is_resolved"]), "impact": r["impact"]},
+        ),
+        (
+            "dead_ends",
+            "project_dead_ends",
+            "approach, why_failed, impact",
+            "",
+            lambda r: {"approach": r["approach"], "why_failed": r["why_failed"], "impact": r["impact"]},
+        ),
+        (
+            "mistakes",
+            "mistakes_made",
+            "mistake, why_wrong, prevention, root_cause_vector",
+            "",
+            lambda r: {
+                "mistake": r["mistake"],
+                "why_wrong": r["why_wrong"],
+                "prevention": r["prevention"],
+                "root_cause_vector": r["root_cause_vector"],
+            },
+        ),
+        (
+            "decisions",
+            "decisions_made",
+            "choice, rationale, reversibility",
+            "",
+            lambda r: {"choice": r["choice"], "rationale": r["rationale"], "reversibility": r["reversibility"]},
+        ),
     ]
     artifacts = {}
     for key, table, columns, order, mapper in ARTIFACT_QUERIES:
         try:
-            rows = conn.execute(f"""
+            rows = conn.execute(
+                f"""
                 SELECT {columns} FROM {table}
                 WHERE session_id = ? AND created_timestamp >= ? AND created_timestamp <= ?
                 {order} LIMIT 10
-            """, [session_id, start_ts, end_ts]).fetchall()
+            """,
+                [session_id, start_ts, end_ts],
+            ).fetchall()
             if rows:
                 artifacts[key] = [mapper(r) for r in rows]
         except sqlite3.OperationalError:
@@ -362,15 +415,27 @@ def _extract_vectors_and_delta(pair, min_vectors):
 
     Returns (preflight, postflight, delta) or (None, None, None) if insufficient data.
     """
-    VECTORS = ['know', 'do', 'context', 'clarity', 'coherence', 'signal',
-               'density', 'state', 'change', 'completion', 'impact',
-               'engagement', 'uncertainty']
+    VECTORS = [
+        "know",
+        "do",
+        "context",
+        "clarity",
+        "coherence",
+        "signal",
+        "density",
+        "state",
+        "change",
+        "completion",
+        "impact",
+        "engagement",
+        "uncertainty",
+    ]
 
     preflight = {}
     postflight = {}
     for v in VECTORS:
-        pf_val = pair.get(f'pf_{v}')
-        po_val = pair.get(f'po_{v}')
+        pf_val = pair.get(f"pf_{v}")
+        po_val = pair.get(f"po_{v}")
         if pf_val is not None:
             preflight[v] = pf_val
         if po_val is not None:
@@ -404,17 +469,19 @@ def _collect_check_decisions(conn, session_id, preflight_ts, postflight_ts):
     check_decisions = []
     for c in checks:
         check_rec = {
-            'timestamp': c['timestamp'],
-            'vectors': {
-                'know': c['know'], 'uncertainty': c['uncertainty'],
-                'completion': c['completion'], 'clarity': c['clarity'],
+            "timestamp": c["timestamp"],
+            "vectors": {
+                "know": c["know"],
+                "uncertainty": c["uncertainty"],
+                "completion": c["completion"],
+                "clarity": c["clarity"],
             },
         }
-        if c['reflex_data']:
+        if c["reflex_data"]:
             try:
-                rd = json.loads(c['reflex_data'])
-                check_rec['decision'] = rd.get('decision') or rd.get('computed_decision')
-                check_rec['gate_passed'] = rd.get('gate_passed')
+                rd = json.loads(c["reflex_data"])
+                check_rec["decision"] = rd.get("decision") or rd.get("computed_decision")
+                check_rec["gate_passed"] = rd.get("gate_passed")
             except (json.JSONDecodeError, TypeError):
                 pass
         check_decisions.append(check_rec)
@@ -437,11 +504,11 @@ def _collect_grounded_calibration(conn, session_id, postflight_ts):
         if not gv:
             return None
         grounded = {
-            'calibration_score': gv['overall_calibration_score'],
-            'grounded_coverage': gv['grounded_coverage'],
-            'evidence_count': gv['evidence_count'],
+            "calibration_score": gv["overall_calibration_score"],
+            "grounded_coverage": gv["grounded_coverage"],
+            "evidence_count": gv["evidence_count"],
         }
-        for field in ['calibration_gaps', 'sources_available']:
+        for field in ["calibration_gaps", "sources_available"]:
             raw = gv[field]
             if raw:
                 try:
@@ -460,48 +527,44 @@ def _build_training_record(conn, pair, include_artifacts=True, include_grounded=
         return None
 
     record = {
-        "session_id": pair['session_id'],
-        "ai_id": pair['ai_id'],
-        "project_id": pair.get('project_id'),
-        "transaction_id": pair.get('transaction_id'),
-        "preflight_ts": pair['preflight_ts'],
-        "postflight_ts": pair['postflight_ts'],
+        "session_id": pair["session_id"],
+        "ai_id": pair["ai_id"],
+        "project_id": pair.get("project_id"),
+        "transaction_id": pair.get("transaction_id"),
+        "preflight_ts": pair["preflight_ts"],
+        "postflight_ts": pair["postflight_ts"],
         "preflight_vectors": preflight,
         "postflight_vectors": postflight,
         "delta": delta,
     }
 
     # Parse reflex_data for phase info and notes
-    for prefix, key in [('pf_reflex_data', 'preflight_meta'), ('po_reflex_data', 'postflight_meta')]:
+    for prefix, key in [("pf_reflex_data", "preflight_meta"), ("po_reflex_data", "postflight_meta")]:
         raw = pair.get(prefix)
         if raw:
             try:
                 data = json.loads(raw)
-                record[key] = {
-                    k: data[k] for k in ['current_phase', 'notes', 'tool_call_count']
-                    if k in data
-                }
+                record[key] = {k: data[k] for k in ["current_phase", "notes", "tool_call_count"] if k in data}
             except (json.JSONDecodeError, TypeError):
                 pass
 
-    if pair.get('po_reasoning'):
-        record['postflight_reasoning'] = pair['po_reasoning']
+    if pair.get("po_reasoning"):
+        record["postflight_reasoning"] = pair["po_reasoning"]
 
-    session_id = pair['session_id']
+    session_id = pair["session_id"]
 
-    check_decisions = _collect_check_decisions(conn, session_id, pair['preflight_ts'], pair['postflight_ts'])
+    check_decisions = _collect_check_decisions(conn, session_id, pair["preflight_ts"], pair["postflight_ts"])
     if check_decisions:
-        record['check_decisions'] = check_decisions
+        record["check_decisions"] = check_decisions
 
     if include_grounded:
-        grounded = _collect_grounded_calibration(conn, session_id, pair['postflight_ts'])
+        grounded = _collect_grounded_calibration(conn, session_id, pair["postflight_ts"])
         if grounded:
-            record['grounded_calibration'] = grounded
+            record["grounded_calibration"] = grounded
 
     if include_artifacts:
-        artifacts = _collect_transaction_artifacts(conn, session_id,
-                                                    pair['preflight_ts'], pair['postflight_ts'])
+        artifacts = _collect_transaction_artifacts(conn, session_id, pair["preflight_ts"], pair["postflight_ts"])
         if artifacts:
-            record['noetic_artifacts'] = artifacts
+            record["noetic_artifacts"] = artifacts
 
     return record

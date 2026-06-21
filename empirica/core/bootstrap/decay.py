@@ -22,7 +22,7 @@ TYPE_HALF_LIFE_HOURS: Final[dict[str, float]] = {
     "decision_recent": 30 * 24,  # decision with no outcome recorded yet
     "dead_end": 14 * 24,
     "mistake": 14 * 24,
-    "goal_open": math.inf,       # in-progress / planned: status > age
+    "goal_open": math.inf,  # in-progress / planned: status > age
     "subtask_open": math.inf,
 }
 
@@ -56,6 +56,7 @@ def recency_decay(created_timestamp: float | str | None, half_life_hours: float)
     if isinstance(created_timestamp, str):
         try:
             from datetime import datetime
+
             ts = datetime.fromisoformat(created_timestamp.replace("Z", "+00:00")).timestamp()
         except (ValueError, AttributeError):
             return 1.0

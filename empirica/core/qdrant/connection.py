@@ -4,6 +4,7 @@ Qdrant connection infrastructure and embedding utilities.
 This module is OPTIONAL. Empirica core works without Qdrant.
 Set EMPIRICA_ENABLE_EMBEDDINGS=true to enable semantic search features.
 """
+
 from __future__ import annotations
 
 import logging
@@ -35,6 +36,7 @@ _qdrant_warned = False
 class CollectionDimensionMismatchError(RuntimeError):
     """Raised when an existing Qdrant collection and embeddings provider disagree."""
 
+
 def _check_qdrant_available(qdrant_url: str | None = None) -> bool:
     """Check if Qdrant is available and enabled.
 
@@ -63,11 +65,14 @@ def _check_qdrant_available(qdrant_url: str | None = None) -> bool:
 
     try:
         from qdrant_client import QdrantClient  # noqa: F401 — availability check  # pyright: ignore[reportUnusedImport]
+
         _qdrant_available = True
         return True
     except ImportError:
         if not _qdrant_warned:
-            logger.debug("qdrant-client not installed. Semantic search disabled. Install with: pip install qdrant-client")
+            logger.debug(
+                "qdrant-client not installed. Semantic search disabled. Install with: pip install qdrant-client"
+            )
             _qdrant_warned = True
         _qdrant_available = False
         return False
@@ -77,6 +82,7 @@ def _get_qdrant_imports():
     """Lazy import Qdrant dependencies."""
     from qdrant_client import QdrantClient
     from qdrant_client.models import Distance, PointStruct, VectorParams
+
     return QdrantClient, Distance, VectorParams, PointStruct
 
 
@@ -84,6 +90,7 @@ def _get_embedding_safe(text: str) -> list[float] | None:
     """Get embedding with graceful fallback."""
     try:
         from .embeddings import get_embedding
+
         return get_embedding(text)
     except Exception as e:
         logger.debug(f"Embedding failed: {e}")
@@ -94,6 +101,7 @@ def _get_embeddings_batch(texts: list[str]) -> list[list[float] | None]:
     """Batch embed multiple texts. Returns list of vectors (None for failures)."""
     try:
         from .embeddings import get_embedding_provider
+
         provider = get_embedding_provider()
         return provider.batch_embed(texts)
     except Exception as e:
@@ -105,6 +113,7 @@ def _get_vector_size() -> int:
     """Get vector size from embeddings provider. Defaults to 1024 on error (matches qwen3-embedding)."""
     try:
         from .embeddings import get_vector_size
+
         return get_vector_size()
     except Exception as e:
         logger.debug(f"Could not get vector size: {e}, defaulting to 1024")
@@ -271,7 +280,8 @@ def _get_qdrant_client(qdrant_url: str | None = None):
     default_url = "http://localhost:6333"
     try:
         import urllib.request
-        req = urllib.request.Request(f"{default_url}/collections", method='GET')
+
+        req = urllib.request.Request(f"{default_url}/collections", method="GET")
         with urllib.request.urlopen(req, timeout=1) as resp:
             if resp.status == 200:
                 return QdrantClient(url=default_url)
@@ -279,7 +289,9 @@ def _get_qdrant_client(qdrant_url: str | None = None):
         pass  # Server not available
 
     # No Qdrant server available — skip gracefully
-    logger.debug("Qdrant server not available. Start with: qdrant (the qdrant server is unrelated to the empirica MCP server)")
+    logger.debug(
+        "Qdrant server not available. Start with: qdrant (the qdrant server is unrelated to the empirica MCP server)"
+    )
     return None
 
 
@@ -312,6 +324,7 @@ def _rest_search(
     """
     try:
         import requests
+
         url = _service_url(qdrant_url=qdrant_url)
         if not url:
             return []
@@ -326,4 +339,3 @@ def _rest_search(
     except Exception as e:
         logger.debug(f"REST search failed: {e}")
         return []
-

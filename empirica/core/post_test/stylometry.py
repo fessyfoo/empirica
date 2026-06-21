@@ -43,62 +43,267 @@ _EM_DASH_PATTERN = re.compile(r"—|--")
 # Hardcoded contraction list — matches common English contractions. Match
 # pattern: case-insensitive token boundaries. Apostrophe variants (curly vs
 # straight) handled via NFKC-style normalization in compute_fingerprint.
-_CONTRACTIONS = frozenset({
-    "ain't", "aren't", "can't", "couldn't", "didn't", "doesn't", "don't",
-    "hadn't", "hasn't", "haven't", "he'd", "he'll", "he's", "i'd", "i'll",
-    "i'm", "i've", "isn't", "it'd", "it'll", "it's", "let's", "shan't",
-    "she'd", "she'll", "she's", "shouldn't", "that'd", "that's", "there's",
-    "they'd", "they'll", "they're", "they've", "wasn't", "we'd", "we'll",
-    "we're", "we've", "weren't", "what's", "where's", "who's", "won't",
-    "wouldn't", "y'all", "you'd", "you'll", "you're", "you've",
-    # Common informal contractions
-    "gonna", "wanna", "gotta", "kinda", "sorta", "lemme", "gimme", "dunno",
-})
+_CONTRACTIONS = frozenset(
+    {
+        "ain't",
+        "aren't",
+        "can't",
+        "couldn't",
+        "didn't",
+        "doesn't",
+        "don't",
+        "hadn't",
+        "hasn't",
+        "haven't",
+        "he'd",
+        "he'll",
+        "he's",
+        "i'd",
+        "i'll",
+        "i'm",
+        "i've",
+        "isn't",
+        "it'd",
+        "it'll",
+        "it's",
+        "let's",
+        "shan't",
+        "she'd",
+        "she'll",
+        "she's",
+        "shouldn't",
+        "that'd",
+        "that's",
+        "there's",
+        "they'd",
+        "they'll",
+        "they're",
+        "they've",
+        "wasn't",
+        "we'd",
+        "we'll",
+        "we're",
+        "we've",
+        "weren't",
+        "what's",
+        "where's",
+        "who's",
+        "won't",
+        "wouldn't",
+        "y'all",
+        "you'd",
+        "you'll",
+        "you're",
+        "you've",
+        # Common informal contractions
+        "gonna",
+        "wanna",
+        "gotta",
+        "kinda",
+        "sorta",
+        "lemme",
+        "gimme",
+        "dunno",
+    }
+)
 
-_FIRST_PERSON_TOKENS = frozenset({
-    "i", "me", "my", "mine", "myself",
-    "we", "us", "our", "ours", "ourselves",
-})
+_FIRST_PERSON_TOKENS = frozenset(
+    {
+        "i",
+        "me",
+        "my",
+        "mine",
+        "myself",
+        "we",
+        "us",
+        "our",
+        "ours",
+        "ourselves",
+    }
+)
 
 # Function words: pronouns, determiners, prepositions, conjunctions, modal
 # auxiliaries, common adverbs. ~150 entries — Universal POS function-word set
 # adapted for English. These are the words a stylometric signature most
 # strongly relies on (per Mosteller-Wallace, Pennebaker).
-_FUNCTION_WORDS = frozenset({
-    # Articles
-    "a", "an", "the",
-    # Pronouns (personal, possessive, reflexive, relative, demonstrative)
-    "i", "me", "my", "mine", "myself", "we", "us", "our", "ours", "ourselves",
-    "you", "your", "yours", "yourself", "yourselves",
-    "he", "him", "his", "himself", "she", "her", "hers", "herself",
-    "it", "its", "itself", "they", "them", "their", "theirs", "themselves",
-    "this", "that", "these", "those",
-    "who", "whom", "whose", "which", "what", "whoever", "whomever",
-    "whatever", "whichever",
-    # Prepositions
-    "of", "in", "on", "at", "by", "for", "with", "about", "against",
-    "between", "into", "through", "during", "before", "after", "above",
-    "below", "to", "from", "up", "down", "out", "over", "under", "again",
-    "further", "then", "once", "here", "there", "when", "where", "why",
-    "how", "all", "any", "both", "each", "few", "more", "most", "other",
-    "some", "such", "than", "too", "very", "as", "since", "until", "across",
-    "behind", "beside", "beyond", "near", "off", "onto", "toward", "upon",
-    "within", "without", "along", "among", "around",
-    # Conjunctions
-    "and", "but", "or", "nor", "so", "yet", "if", "because", "although",
-    "though", "while", "whereas", "unless", "however", "moreover",
-    "therefore", "thus", "hence", "furthermore", "nonetheless", "nevertheless",
-    # Modals & auxiliaries
-    "is", "am", "are", "was", "were", "be", "been", "being",
-    "have", "has", "had", "having",
-    "do", "does", "did", "doing", "done",
-    "will", "would", "shall", "should", "may", "might", "must",
-    "can", "could", "ought",
-    # Negation
-    "not", "no",
-    # Quantifiers / determiners
-    "every", "much", "many", "several", "either", "neither",
-})
+_FUNCTION_WORDS = frozenset(
+    {
+        # Articles
+        "a",
+        "an",
+        "the",
+        # Pronouns (personal, possessive, reflexive, relative, demonstrative)
+        "i",
+        "me",
+        "my",
+        "mine",
+        "myself",
+        "we",
+        "us",
+        "our",
+        "ours",
+        "ourselves",
+        "you",
+        "your",
+        "yours",
+        "yourself",
+        "yourselves",
+        "he",
+        "him",
+        "his",
+        "himself",
+        "she",
+        "her",
+        "hers",
+        "herself",
+        "it",
+        "its",
+        "itself",
+        "they",
+        "them",
+        "their",
+        "theirs",
+        "themselves",
+        "this",
+        "that",
+        "these",
+        "those",
+        "who",
+        "whom",
+        "whose",
+        "which",
+        "what",
+        "whoever",
+        "whomever",
+        "whatever",
+        "whichever",
+        # Prepositions
+        "of",
+        "in",
+        "on",
+        "at",
+        "by",
+        "for",
+        "with",
+        "about",
+        "against",
+        "between",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "to",
+        "from",
+        "up",
+        "down",
+        "out",
+        "over",
+        "under",
+        "again",
+        "further",
+        "then",
+        "once",
+        "here",
+        "there",
+        "when",
+        "where",
+        "why",
+        "how",
+        "all",
+        "any",
+        "both",
+        "each",
+        "few",
+        "more",
+        "most",
+        "other",
+        "some",
+        "such",
+        "than",
+        "too",
+        "very",
+        "as",
+        "since",
+        "until",
+        "across",
+        "behind",
+        "beside",
+        "beyond",
+        "near",
+        "off",
+        "onto",
+        "toward",
+        "upon",
+        "within",
+        "without",
+        "along",
+        "among",
+        "around",
+        # Conjunctions
+        "and",
+        "but",
+        "or",
+        "nor",
+        "so",
+        "yet",
+        "if",
+        "because",
+        "although",
+        "though",
+        "while",
+        "whereas",
+        "unless",
+        "however",
+        "moreover",
+        "therefore",
+        "thus",
+        "hence",
+        "furthermore",
+        "nonetheless",
+        "nevertheless",
+        # Modals & auxiliaries
+        "is",
+        "am",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "having",
+        "do",
+        "does",
+        "did",
+        "doing",
+        "done",
+        "will",
+        "would",
+        "shall",
+        "should",
+        "may",
+        "might",
+        "must",
+        "can",
+        "could",
+        "ought",
+        # Negation
+        "not",
+        "no",
+        # Quantifiers / determiners
+        "every",
+        "much",
+        "many",
+        "several",
+        "either",
+        "neither",
+    }
+)
 
 
 def _tokenize(text: str) -> list[str]:
@@ -231,9 +436,7 @@ def compute_fingerprint(text: str) -> dict[str, Any]:
     }
 
 
-def load_voice_fingerprint(
-    name: str, project_root: str | Path | None = None
-) -> dict[str, Any] | None:
+def load_voice_fingerprint(name: str, project_root: str | Path | None = None) -> dict[str, Any] | None:
     """Load a voice fingerprint JSON. Returns None if not found.
 
     Resolution order (matches existing voice loader):
@@ -242,9 +445,7 @@ def load_voice_fingerprint(
     """
     candidates: list[Path] = []
     if project_root:
-        candidates.append(
-            Path(project_root) / ".empirica" / "voice" / f"{name}.fingerprint.json"
-        )
+        candidates.append(Path(project_root) / ".empirica" / "voice" / f"{name}.fingerprint.json")
     candidates.append(Path.home() / ".empirica" / "voice" / f"{name}.fingerprint.json")
 
     for path in candidates:
@@ -261,15 +462,23 @@ def load_voice_fingerprint(
 
 
 # Markers where INCREASE indicates "formal pull" (output more academic than baseline)
-_FORMAL_PULL_INCREASES = frozenset({
-    "function_word_ratio", "avg_word_length", "type_token_mtld",
-    "sentence_length_stdev",
-})
+_FORMAL_PULL_INCREASES = frozenset(
+    {
+        "function_word_ratio",
+        "avg_word_length",
+        "type_token_mtld",
+        "sentence_length_stdev",
+    }
+)
 
 # Markers where DECREASE indicates "formal pull"
-_FORMAL_PULL_DECREASES = frozenset({
-    "contractions_ratio", "first_person_ratio", "exclamation_rate",
-})
+_FORMAL_PULL_DECREASES = frozenset(
+    {
+        "contractions_ratio",
+        "first_person_ratio",
+        "exclamation_rate",
+    }
+)
 
 
 def compute_drift(
@@ -328,7 +537,9 @@ def compute_drift(
         if exceeds_tolerance:
             if (name in _FORMAL_PULL_INCREASES and drift_abs > 0) or (name in _FORMAL_PULL_DECREASES and drift_abs < 0):
                 formal_signal += 1
-            elif (name in _FORMAL_PULL_INCREASES and drift_abs < 0) or (name in _FORMAL_PULL_DECREASES and drift_abs > 0):
+            elif (name in _FORMAL_PULL_INCREASES and drift_abs < 0) or (
+                name in _FORMAL_PULL_DECREASES and drift_abs > 0
+            ):
                 informal_signal += 1
 
     composite_drift = sum(rel_drifts) / len(rel_drifts) if rel_drifts else 0.0

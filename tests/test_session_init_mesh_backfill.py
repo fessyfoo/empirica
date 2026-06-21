@@ -20,9 +20,7 @@ from pathlib import Path
 import yaml
 
 HOOK_PATH = (
-    Path(__file__).parent.parent
-    / "empirica" / "plugins" / "claude-code-integration"
-    / "hooks" / "session-init.py"
+    Path(__file__).parent.parent / "empirica" / "plugins" / "claude-code-integration" / "hooks" / "session-init.py"
 )
 
 
@@ -72,10 +70,12 @@ def _patch_fetch(monkeypatch, result, calls: list | None = None):
 
     If `calls` is provided, each invocation appends to it (call-count assert).
     """
+
     def _fake(cortex_url, api_key):
         if calls is not None:
             calls.append((cortex_url, api_key))
         return result
+
     monkeypatch.setattr(
         "empirica.cli.command_handlers.setup_claude_code._fetch_tenant_metadata",
         _fake,
@@ -117,9 +117,13 @@ def test_idempotent_when_canonical_seat_present(tmp_path, monkeypatch, capsys):
     """Already-seated yaml → no REST call, unchanged (fast-path before network)."""
     mod = _load_hook_module()
     proj = tmp_path / "empirica"
-    _make_project_yaml(proj, {
-        "ai_id": "empirica", "canonical_seat": "empirica.david.empirica",
-    })
+    _make_project_yaml(
+        proj,
+        {
+            "ai_id": "empirica",
+            "canonical_seat": "empirica.david.empirica",
+        },
+    )
     _patch_creds(monkeypatch, {"url": "https://cortex.test", "api_key": "k"})
     calls: list = []
     _patch_fetch(monkeypatch, dict(_META), calls)
@@ -141,8 +145,8 @@ def test_second_call_is_noop_after_backfill(tmp_path, monkeypatch):
     calls: list = []
     _patch_fetch(monkeypatch, dict(_META), calls)
 
-    mod._heal_mesh_metadata_at_init(str(proj))   # writes seat
-    mod._heal_mesh_metadata_at_init(str(proj))   # should not fetch again
+    mod._heal_mesh_metadata_at_init(str(proj))  # writes seat
+    mod._heal_mesh_metadata_at_init(str(proj))  # should not fetch again
 
     assert len(calls) == 1  # only the first run reached the network
 
@@ -186,8 +190,7 @@ def test_no_op_when_fetch_lacks_prefix(tmp_path, monkeypatch):
     proj = tmp_path / "empirica"
     _make_project_yaml(proj, {"ai_id": "empirica"})
     _patch_creds(monkeypatch, {"url": "https://cortex.test", "api_key": "k"})
-    _patch_fetch(monkeypatch, {"org_id": "org-empirica", "tenant_slug": "david",
-                               "mesh_id_prefix": None})
+    _patch_fetch(monkeypatch, {"org_id": "org-empirica", "tenant_slug": "david", "mesh_id_prefix": None})
 
     mod._heal_mesh_metadata_at_init(str(proj))
 

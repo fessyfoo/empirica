@@ -1,6 +1,7 @@
 """
 Core memory operations: embed, upsert, and search for memory items and docs.
 """
+
 from __future__ import annotations
 
 from empirica.core.qdrant.collections import (
@@ -79,6 +80,7 @@ def embed_single_memory_item(
 
         # Use hash of item_id for numeric Qdrant point ID
         import hashlib
+
         point_id = int(hashlib.md5(item_id.encode()).hexdigest()[:15], 16)
 
         point = PointStruct(id=point_id, vector=vector, payload=payload)
@@ -87,6 +89,7 @@ def embed_single_memory_item(
     except Exception as e:
         # Log but don't fail - embedding is enhancement, not critical path
         import logging
+
         logging.getLogger(__name__).warning(f"Failed to embed memory item: {e}")
         return False
 
@@ -112,14 +115,18 @@ def upsert_docs(project_id: str, docs: list[dict], qdrant_url: str | None = None
         # Without chunking, a single POST of N×~1200-char prompts can exceed the
         # provider's read timeout on slower local embedders (e.g. CPU Ollama).
         import os
+
         texts = [d.get("text", "") for d in docs]
         embed_batch_size = int(os.environ.get("EMPIRICA_EMBED_BATCH_SIZE", "50"))
         vectors = []
         create_if_missing = True  # only on first batch; subsequent batches reuse the collection
         for i in range(0, len(texts), embed_batch_size):
-            batch_texts = texts[i:i + embed_batch_size]
+            batch_texts = texts[i : i + embed_batch_size]
             batch_vectors = _get_embeddings_batch_for_collection(
-                client, coll, batch_texts, create_if_missing=create_if_missing,
+                client,
+                coll,
+                batch_texts,
+                create_if_missing=create_if_missing,
             )
             vectors.extend(batch_vectors)
             create_if_missing = False
@@ -164,12 +171,13 @@ def upsert_memory(project_id: str, items: list[dict], qdrant_url: str | None = N
         # Batch embed texts (chunked to avoid API payload limits)
         import hashlib
         import os
+
         texts = [it.get("text", "") for it in items]
         # batch size tunable for slower local embedders (Intel Mac + Ollama: use 10)
         embed_batch_size = int(os.environ.get("EMPIRICA_EMBED_BATCH_SIZE", "50"))
         vectors = []
         for i in range(0, len(texts), embed_batch_size):
-            batch_texts = texts[i:i + embed_batch_size]
+            batch_texts = texts[i : i + embed_batch_size]
             batch_vectors = _get_embeddings_batch_for_collection(
                 client,
                 coll,
@@ -187,6 +195,7 @@ def upsert_memory(project_id: str, items: list[dict], qdrant_url: str | None = N
             source_files = None
             try:
                 from empirica.utils.finding_refs import parse_file_references
+
                 file_refs = parse_file_references(text)
                 if file_refs:
                     source_files = [r["file"] for r in file_refs]
@@ -217,7 +226,7 @@ def upsert_memory(project_id: str, items: list[dict], qdrant_url: str | None = N
             # Batch upserts to stay under Qdrant's payload size limit (32MB)
             batch_size = 200
             for i in range(0, len(points), batch_size):
-                batch = points[i:i + batch_size]
+                batch = points[i : i + batch_size]
                 client.upsert(collection_name=coll, points=batch)
         return len(points)
     except Exception as e:
@@ -225,8 +234,9 @@ def upsert_memory(project_id: str, items: list[dict], qdrant_url: str | None = N
         return 0
 
 
-def search(project_id: str, query_text: str, kind: str = "focused", limit: int = 5,
-           qdrant_url: str | None = None) -> dict[str, list[dict]]:
+def search(
+    project_id: str, query_text: str, kind: str = "focused", limit: int = 5, qdrant_url: str | None = None
+) -> dict[str, list[dict]]:
     """
     Semantic search over project knowledge.
 
@@ -265,7 +275,10 @@ def search(project_id: str, query_text: str, kind: str = "focused", limit: int =
         "memory": (_memory_collection, ["type", "text", "session_id", "goal_id", "timestamp", "impact"]),
         "eidetic": (_eidetic_collection, ["type", "content", "confidence", "domain", "created_at", "first_seen"]),
         "episodic": (_episodic_collection, ["type", "narrative", "session_id", "outcome", "created_at", "timestamp"]),
-        "assumptions": (_assumptions_collection, ["assumption", "confidence", "status", "domain", "created_at", "timestamp"]),
+        "assumptions": (
+            _assumptions_collection,
+            ["assumption", "confidence", "status", "domain", "created_at", "timestamp"],
+        ),
         "decisions": (_decisions_collection, ["choice", "rationale", "reversibility", "created_at", "timestamp"]),
         "goals": (_goals_collection, ["objective", "status", "scope", "created_at"]),
     }
@@ -287,9 +300,8 @@ def search(project_id: str, query_text: str, kind: str = "focused", limit: int =
     if kind == "intelligence":
         try:
             from qdrant_client.models import FieldCondition, Filter, MatchValue
-            _intelligence_filter = Filter(
-                must_not=[FieldCondition(key="type", match=MatchValue(value="code_api"))]
-            )
+
+            _intelligence_filter = Filter(must_not=[FieldCondition(key="type", match=MatchValue(value="code_api"))])
         except ImportError:
             pass
 
@@ -306,7 +318,14 @@ def search(project_id: str, query_text: str, kind: str = "focused", limit: int =
         boost = _COLLECTION_BOOST.get(kind_name, 1.0)
         query_filter = _intelligence_filter if (kind_name == "eidetic" and _intelligence_filter) else None
         results[kind_name] = _search_single_collection(
-            client, coll_fn, project_id, query_text, fields, boost, limit, query_filter,
+            client,
+            coll_fn,
+            project_id,
+            query_text,
+            fields,
+            boost,
+            limit,
+            query_filter,
         )
 
     if results:
@@ -320,7 +339,12 @@ def search(project_id: str, query_text: str, kind: str = "focused", limit: int =
                 continue
             coll_fn, fields = _SEARCH_COLLECTIONS[kind_name]
             results[kind_name] = _rest_search_collection(
-                client, coll_fn, project_id, query_text, fields, limit,
+                client,
+                coll_fn,
+                project_id,
+                query_text,
+                fields,
+                limit,
                 qdrant_url=qdrant_url,
             )
         return results
@@ -329,8 +353,7 @@ def search(project_id: str, query_text: str, kind: str = "focused", limit: int =
         return empty_result
 
 
-def _search_single_collection(client, coll_fn, project_id, query_text,
-                              fields, boost, limit, query_filter):
+def _search_single_collection(client, coll_fn, project_id, query_text, fields, boost, limit, query_filter):
     """Search a single Qdrant collection via client, returning formatted results."""
     try:
         coll_name = coll_fn(project_id)
@@ -340,11 +363,10 @@ def _search_single_collection(client, coll_fn, project_id, query_text,
         if qvec is None:
             return []
         resp = client.query_points(
-            collection_name=coll_name, query=qvec, limit=limit,
-            with_payload=True, query_filter=query_filter)
+            collection_name=coll_name, query=qvec, limit=limit, with_payload=True, query_filter=query_filter
+        )
         return [
-            {"score": (getattr(r, 'score', 0.0) or 0.0) * boost,
-             **{f: (r.payload or {}).get(f) for f in fields}}
+            {"score": (getattr(r, "score", 0.0) or 0.0) * boost, **{f: (r.payload or {}).get(f) for f in fields}}
             for r in resp.points
         ]
     except Exception as e:
@@ -352,8 +374,7 @@ def _search_single_collection(client, coll_fn, project_id, query_text,
         return []
 
 
-def _rest_search_collection(client, coll_fn, project_id, query_text, fields, limit,
-                            qdrant_url=None):
+def _rest_search_collection(client, coll_fn, project_id, query_text, fields, limit, qdrant_url=None):
     """Search a single collection via REST fallback."""
     coll_name = coll_fn(project_id)
     if client.collection_exists(coll_name):
@@ -363,9 +384,4 @@ def _rest_search_collection(client, coll_fn, project_id, query_text, fields, lim
     if qvec is None:
         return []
     raw = _rest_search(coll_name, qvec, limit, qdrant_url=qdrant_url)
-    return [
-        {"score": d.get('score', 0.0),
-         **{f: (d.get('payload') or {}).get(f) for f in fields}}
-        for d in raw
-    ]
-
+    return [{"score": d.get("score", 0.0), **{f: (d.get("payload") or {}).get(f) for f in fields}} for d in raw]

@@ -27,7 +27,6 @@ SCHEMAS = [
                     FOREIGN KEY (session_id) REFERENCES sessions(session_id)
                 )
     """,
-
     # Schema 2
     """
     CREATE TABLE IF NOT EXISTS subtasks (
@@ -47,5 +46,4 @@ SCHEMAS = [
                     FOREIGN KEY (goal_id) REFERENCES goals(id)
                 )
     """,
-
 ]

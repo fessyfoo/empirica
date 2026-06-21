@@ -15,16 +15,10 @@ from empirica.core.noetic_batch.budgets import BatchBudgets
 def project(tmp_path: Path) -> Path:
     """A small fake project tree for batch operations."""
     (tmp_path / "src").mkdir()
-    (tmp_path / "src" / "auth.py").write_text(
-        "def login():\n    pass\n\ndef logout():\n    pass\n"
-    )
-    (tmp_path / "src" / "middleware.py").write_text(
-        "from auth import login\n\n@decorator\ndef wrap():\n    pass\n"
-    )
+    (tmp_path / "src" / "auth.py").write_text("def login():\n    pass\n\ndef logout():\n    pass\n")
+    (tmp_path / "src" / "middleware.py").write_text("from auth import login\n\n@decorator\ndef wrap():\n    pass\n")
     (tmp_path / "tests").mkdir()
-    (tmp_path / "tests" / "test_auth.py").write_text(
-        "def test_login():\n    assert True\n"
-    )
+    (tmp_path / "tests" / "test_auth.py").write_text("def test_login():\n    assert True\n")
     (tmp_path / "README.md").write_text("# Project\n")
     return tmp_path
 
@@ -114,6 +108,7 @@ def test_grep_max_matches_cap(project):
 def test_grep_invalid_regex_per_op_error(project):
     """Pure-Python path catches regex errors. ripgrep returns no matches for unparseable regex."""
     import shutil
+
     has_rg = shutil.which("rg") is not None
 
     result = run_batch(
@@ -142,11 +137,13 @@ def test_grep_per_op_root_overrides_project(project, tmp_path):
     result = run_batch(
         {
             "intent": "x",
-            "greps": [{
-                "pattern": "UNIQUE_GREP_MARKER",
-                "glob": "**/*.py",
-                "root": str(other),
-            }],
+            "greps": [
+                {
+                    "pattern": "UNIQUE_GREP_MARKER",
+                    "glob": "**/*.py",
+                    "root": str(other),
+                }
+            ],
         },
         project_root=project,
     )
@@ -318,8 +315,8 @@ def test_per_op_errors_dont_fail_batch(project):
         {
             "intent": "x",
             "reads": [
-                {"path": "src/auth.py"},      # exists
-                {"path": "nonexistent.py"},   # error
+                {"path": "src/auth.py"},  # exists
+                {"path": "nonexistent.py"},  # error
             ],
         },
         project_root=project,
@@ -341,7 +338,7 @@ def test_single_op_batch_emits_warning(project):
     )
     assert result.ok
     assert result.warning is not None
-    assert 'misuse' in result.warning.lower()
+    assert "misuse" in result.warning.lower()
 
 
 def test_zero_op_batch_emits_warning(project):
@@ -374,7 +371,7 @@ def test_stderr_breadcrumb_emitted(project, capsys):
         project_root=project,
     )
     captured = capsys.readouterr()
-    assert '[noetic-batch]' in captured.err
+    assert "[noetic-batch]" in captured.err
 
 
 # =============================================================================

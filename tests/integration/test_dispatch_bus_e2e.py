@@ -30,12 +30,12 @@ from empirica.core.dispatch_bus import (
 def git_repo():
     """Create a temporary git repo and initialize it with a commit."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        subprocess.run(['git', 'init', '-q'], cwd=tmpdir, check=True)
-        subprocess.run(['git', 'config', 'user.email', 'test@test.com'], cwd=tmpdir, check=True)
-        subprocess.run(['git', 'config', 'user.name', 'Test'], cwd=tmpdir, check=True)
+        subprocess.run(["git", "init", "-q"], cwd=tmpdir, check=True)
+        subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=tmpdir, check=True)
+        subprocess.run(["git", "config", "user.name", "Test"], cwd=tmpdir, check=True)
         (Path(tmpdir) / "README.md").write_text("test")
-        subprocess.run(['git', 'add', '.'], cwd=tmpdir, check=True)
-        subprocess.run(['git', 'commit', '-q', '-m', 'init'], cwd=tmpdir, check=True)
+        subprocess.run(["git", "add", "."], cwd=tmpdir, check=True)
+        subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=tmpdir, check=True)
         yield tmpdir
 
 
@@ -83,6 +83,7 @@ def cowork_bus(git_repo, shared_registry):
 # Direct dispatch tests
 # ---------------------------------------------------------------------------
 
+
 class TestDirectDispatch:
     def test_terminal_dispatches_to_cowork(self, terminal_bus, cowork_bus):
         """Terminal sends a dispatch, cowork polls and receives it."""
@@ -126,6 +127,7 @@ class TestDirectDispatch:
 # Capability routing
 # ---------------------------------------------------------------------------
 
+
 class TestCapabilityRouting:
     def test_route_by_capability(self, terminal_bus, cowork_bus):
         """Terminal dispatches to '*' with 'gmail' capability — cowork should match."""
@@ -154,6 +156,7 @@ class TestCapabilityRouting:
 # ---------------------------------------------------------------------------
 # Request → response cycle
 # ---------------------------------------------------------------------------
+
 
 class TestRequestResponse:
     def test_full_request_response_cycle(self, terminal_bus, cowork_bus):
@@ -205,6 +208,7 @@ class TestRequestResponse:
 # Wait-for-result blocking
 # ---------------------------------------------------------------------------
 
+
 class TestWaitForResult:
     def test_wait_for_result_succeeds(self, terminal_bus, cowork_bus):
         """Terminal blocks waiting for cowork's response, gets it before timeout."""
@@ -253,6 +257,7 @@ class TestWaitForResult:
 # ---------------------------------------------------------------------------
 # Registry persistence across bus instances
 # ---------------------------------------------------------------------------
+
 
 class TestRegistryPersistence:
     def test_registry_shared_between_buses(self, terminal_bus, cowork_bus, shared_registry):

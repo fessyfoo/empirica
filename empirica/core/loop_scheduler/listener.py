@@ -84,9 +84,7 @@ _RATE_LIMIT_CATCHUP_INTERVAL_SEC = 300.0  # 5 min
 # kicks in. Default threshold (120s) is well above ntfy's keepalive cadence
 # but short enough that "no fires in N minutes" doesn't compound. Override
 # with EMPIRICA_LISTENER_STALE_THRESHOLD_SEC.
-_STALE_THRESHOLD_SEC = float(
-    os.environ.get("EMPIRICA_LISTENER_STALE_THRESHOLD_SEC", "120")
-)
+_STALE_THRESHOLD_SEC = float(os.environ.get("EMPIRICA_LISTENER_STALE_THRESHOLD_SEC", "120"))
 _WATCHDOG_CHECK_INTERVAL_SEC = 15.0
 
 
@@ -122,6 +120,7 @@ def _check_version_drift() -> tuple[str, str] | None:
         return None
     try:
         from empirica import __version__ as in_process
+
         installed = importlib.metadata.version("empirica")
         if in_process != installed:
             return (in_process, installed)
@@ -139,7 +138,9 @@ def _install_signal_handlers() -> None:
 
 
 def _build_subscribe_url(
-    ntfy_url: str, topic: str, tag_filter: str | None = None,
+    ntfy_url: str,
+    topic: str,
+    tag_filter: str | None = None,
 ) -> str:
     """ntfy's JSON-stream endpoint — one message per stdout line.
 
@@ -160,7 +161,9 @@ def _build_subscribe_url(
 
 
 def _ntfy_auth_header(
-    user: str | None, password: str | None, token: str | None,
+    user: str | None,
+    password: str | None,
+    token: str | None,
 ) -> dict[str, str]:
     """Resolve ntfy auth header by precedence: token (Bearer) > basic (user/pass).
 
@@ -174,9 +177,7 @@ def _ntfy_auth_header(
         return {"Authorization": f"Bearer {token}"}
     if not user and not password:
         return {}
-    encoded = base64.b64encode(
-        f"{user or ''}:{password or ''}".encode()
-    ).decode("ascii")
+    encoded = base64.b64encode(f"{user or ''}:{password or ''}".encode()).decode("ascii")
     return {"Authorization": f"Basic {encoded}"}
 
 
@@ -185,7 +186,8 @@ _basic_auth_header = _ntfy_auth_header
 
 
 def _open_stream(
-    url: str, headers: dict[str, str],
+    url: str,
+    headers: dict[str, str],
 ) -> subprocess.Popen:
     """Spawn curl in held-connection mode. Returns the Popen so the caller
     can iterate stdout + terminate on shutdown.
@@ -202,8 +204,11 @@ def _open_stream(
         args += ["-H", f"{k}: {v}"]
     args.append(url)
     return subprocess.Popen(
-        args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        text=True, bufsize=1,  # line-buffered
+        args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,  # line-buffered
     )
 
 
@@ -250,19 +255,25 @@ def _emit_fail_heartbeat(instance_id: str, loop_name: str, *, reason: str) -> No
     + cockpit instead of silently degrading (the 10-day-deaf failure mode).
     Writes a `degraded` health marker. Best-effort — never raises."""
     import datetime as _dt
+
     logger.error(
         "listener poll DEGRADED — instance=%s loop=%s reason=%s",
-        instance_id, loop_name, reason,
+        instance_id,
+        loop_name,
+        reason,
     )
     try:
         _listener_health_path(instance_id).write_text(
-            json.dumps({
-                "instance_id": instance_id,
-                "loop": loop_name,
-                "status": "degraded",
-                "reason": reason,
-                "ts": _dt.datetime.now(_dt.timezone.utc).isoformat(),
-            }, indent=2),
+            json.dumps(
+                {
+                    "instance_id": instance_id,
+                    "loop": loop_name,
+                    "status": "degraded",
+                    "reason": reason,
+                    "ts": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+                },
+                indent=2,
+            ),
             encoding="utf-8",
         )
     except OSError as e:
@@ -272,14 +283,18 @@ def _emit_fail_heartbeat(instance_id: str, loop_name: str, *, reason: str) -> No
 def _clear_fail_heartbeat(instance_id: str, loop_name: str) -> None:
     """Mark the listener healthy after a successful poll. Best-effort."""
     import datetime as _dt
+
     try:
         _listener_health_path(instance_id).write_text(
-            json.dumps({
-                "instance_id": instance_id,
-                "loop": loop_name,
-                "status": "ok",
-                "ts": _dt.datetime.now(_dt.timezone.utc).isoformat(),
-            }, indent=2),
+            json.dumps(
+                {
+                    "instance_id": instance_id,
+                    "loop": loop_name,
+                    "status": "ok",
+                    "ts": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+                },
+                indent=2,
+            ),
             encoding="utf-8",
         )
     except OSError as e:
@@ -287,7 +302,9 @@ def _clear_fail_heartbeat(instance_id: str, loop_name: str) -> None:
 
 
 def _emit_catchup_events(
-    instance_id: str, loop_name: str, output_stream=sys.stdout,
+    instance_id: str,
+    loop_name: str,
+    output_stream=sys.stdout,
 ) -> int:
     """Run a content-poll catch-up. Each returned event becomes a stdout
     line — one Monitor event into the running Claude session.
@@ -325,7 +342,11 @@ def _emit_catchup_events(
     # immediately, and re-raise so run_listener logs it loudly to stderr/journal.
     try:
         events = poll_and_diff(
-            instance_id, loop_name, url, key, raise_on_unreachable=True,
+            instance_id,
+            loop_name,
+            url,
+            key,
+            raise_on_unreachable=True,
         )
     except ContentPollUnreachable:
         _emit_fail_heartbeat(instance_id, loop_name, reason="cortex_unreachable")
@@ -395,6 +416,7 @@ def _rotate_fires_log_if_oversized(log_path: Path) -> None:
         if line_count <= _FIRES_LOG_MAX_LINES:
             return
         import os
+
         rotated = log_path.with_name(log_path.name + ".1")
         # Atomic rename: current -> .1 (replaces any prior .1). If this
         # raises, the live log is untouched (no partial state).
@@ -403,8 +425,7 @@ def _rotate_fires_log_if_oversized(log_path: Path) -> None:
         # inode and subsequent appends start from zero.
         log_path.touch()
         logger.debug(
-            f"loop_fires.log rotated by rename: moved {line_count} lines to "
-            f"{rotated.name}, fresh empty log started"
+            f"loop_fires.log rotated by rename: moved {line_count} lines to {rotated.name}, fresh empty log started"
         )
     except OSError as e:
         logger.debug(f"loop_fires.log rotation failed (non-fatal): {e}")
@@ -468,6 +489,7 @@ def run_listener(  # noqa: C901 — held-connection loop; clarity beats decompos
     # listeners that need cross-instance visibility (e.g., audit
     # dashboards).
     import os as _os
+
     if _os.getenv("EMPIRICA_NTFY_TAG_FILTER", "true").lower() == "false":
         tag_filter = None
     else:
@@ -479,12 +501,10 @@ def run_listener(  # noqa: C901 — held-connection loop; clarity beats decompos
             from empirica.core.loop_scheduler.content_poll import (
                 _resolve_canonical_ai_id,
             )
+
             _cfg = _gc().get_cortex_config()
             _curl, _ckey = _cfg.get("url"), _cfg.get("api_key")
-            tag_filter = (
-                _resolve_canonical_ai_id(_curl, _ckey, instance_id)
-                if _curl and _ckey else instance_id
-            )
+            tag_filter = _resolve_canonical_ai_id(_curl, _ckey, instance_id) if _curl and _ckey else instance_id
         except Exception as e:
             err_stream.write(
                 f"listener: canonical tag resolution failed ({e}); "
@@ -508,6 +528,7 @@ def run_listener(  # noqa: C901 — held-connection loop; clarity beats decompos
                 _resolve_base_topic,
                 fetch_notification_channels,
             )
+
             resolved = _resolve_base_topic(fetch_notification_channels())
             if resolved:
                 base_topic = resolved
@@ -517,12 +538,12 @@ def run_listener(  # noqa: C901 — held-connection loop; clarity beats decompos
                     f"or no prefixed channels); using {base_topic!r}\n"
                 )
         except Exception as e:
-            err_stream.write(
-                f"listener: per-org topic resolve failed, using {base_topic!r}: {e}\n"
-            )
+            err_stream.write(f"listener: per-org topic resolve failed, using {base_topic!r}: {e}\n")
     url = _build_subscribe_url(ntfy["url"], base_topic, tag_filter=tag_filter)
     headers = _ntfy_auth_header(
-        ntfy.get("user"), ntfy.get("password"), ntfy.get("token"),
+        ntfy.get("user"),
+        ntfy.get("password"),
+        ntfy.get("token"),
     )
     if not headers:
         err_stream.write(
@@ -552,8 +573,11 @@ def run_listener(  # noqa: C901 — held-connection loop; clarity beats decompos
     probe = None
     try:
         from empirica.core.loop_scheduler.liveness_probe import LivenessProbe
+
         probe = LivenessProbe(
-            ai_id=instance_id, loop_name=loop_name, _err_stream=err_stream,
+            ai_id=instance_id,
+            loop_name=loop_name,
+            _err_stream=err_stream,
         )
         probe.start()
     except Exception as e:
@@ -576,6 +600,7 @@ def run_listener(  # noqa: C901 — held-connection loop; clarity beats decompos
     heartbeat = None
     try:
         from empirica.core.loop_scheduler.heartbeat import HeartbeatEmitter
+
         heartbeat = HeartbeatEmitter(ai_id=instance_id)
         heartbeat.start()
         err_stream.write(f"listener: heartbeat emitter started for ai_id={instance_id}\n")
@@ -594,10 +619,7 @@ def run_listener(  # noqa: C901 — held-connection loop; clarity beats decompos
             # explicitly instead of treating it as a generic connect failure.
             http_status = _read_http_status(proc)
             if http_status is not None and http_status >= 400:
-                err_stream.write(
-                    f"listener: ntfy returned HTTP {http_status}; "
-                    f"draining + applying error backoff\n"
-                )
+                err_stream.write(f"listener: ntfy returned HTTP {http_status}; draining + applying error backoff\n")
                 err_stream.flush()
                 try:
                     proc.terminate()
@@ -625,9 +647,7 @@ def run_listener(  # noqa: C901 — held-connection loop; clarity beats decompos
                         try:
                             _emit_catchup_events(instance_id, loop_name, output_stream)
                         except Exception as e:
-                            err_stream.write(
-                                f"listener: rate-limit-window catch-up failed: {e}\n"
-                            )
+                            err_stream.write(f"listener: rate-limit-window catch-up failed: {e}\n")
                         sleep_for = min(
                             _RATE_LIMIT_CATCHUP_INTERVAL_SEC,
                             _RATE_LIMIT_BACKOFF_SEC - elapsed,
@@ -646,6 +666,7 @@ def run_listener(  # noqa: C901 — held-connection loop; clarity beats decompos
             # Shared with the watchdog thread; protected by GIL (single-int
             # writes/reads are atomic in CPython).
             import threading as _threading
+
             last_activity_at: list[float] = [time.time()]
             watchdog_stop = _threading.Event()
 
@@ -675,7 +696,8 @@ def run_listener(  # noqa: C901 — held-connection loop; clarity beats decompos
                         return  # one-shot — outer loop handles reconnect
 
             watchdog_thread = _threading.Thread(
-                target=_watchdog, name=f"listener-watchdog-{instance_id}",
+                target=_watchdog,
+                name=f"listener-watchdog-{instance_id}",
                 daemon=True,
             )
             watchdog_thread.start()
@@ -696,8 +718,7 @@ def run_listener(  # noqa: C901 — held-connection loop; clarity beats decompos
                     connected_ok = True
                     backoff = _RECONNECT_BASE_SEC  # reset on successful message
                     err_stream.write(
-                        f"listener: ntfy event arrived "
-                        f"(id={msg.get('id','?')[:12]}) → running catch-up\n"
+                        f"listener: ntfy event arrived (id={msg.get('id', '?')[:12]}) → running catch-up\n"
                     )
                     _emit_catchup_events(instance_id, loop_name, output_stream)
                     # Catch-up can take a few seconds; refresh activity stamp

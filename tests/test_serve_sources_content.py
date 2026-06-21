@@ -44,7 +44,8 @@ def _make_project_with_db(tmp_path: Path, project_id: str) -> Path:
     proj.mkdir()
     (proj / ".empirica").mkdir()
     (proj / ".empirica" / "project.yaml").write_text(
-        f"name: test-project\nproject_id: {project_id}\n", encoding="utf-8",
+        f"name: test-project\nproject_id: {project_id}\n",
+        encoding="utf-8",
     )
     db_dir = proj / ".empirica" / "sessions"
     db_dir.mkdir()
@@ -71,8 +72,12 @@ def _make_project_with_db(tmp_path: Path, project_id: str) -> Path:
 
 
 def _insert_source(
-    proj: Path, project_id: str, source_url: str, *,
-    title: str = "test source", source_type: str = "doc",
+    proj: Path,
+    project_id: str,
+    source_url: str,
+    *,
+    title: str = "test source",
+    source_type: str = "doc",
 ) -> str:
     """Insert one epistemic_sources row and return its id."""
     sid = str(uuid.uuid4())
@@ -94,6 +99,7 @@ def _insert_source(
 def reset_daemon_cache():
     """Clear the daemon's cached active-project resolution between tests."""
     from empirica.api import daemon_project
+
     daemon_project._cached_project = None
     yield
     daemon_project._cached_project = None
@@ -121,8 +127,11 @@ def test_url_source_returns_kind_url(tmp_path, reset_daemon_cache):
     pid = str(uuid.uuid4())
     proj = _make_project_with_db(tmp_path, pid)
     sid = _insert_source(
-        proj, pid, "https://example.com/rfc7519",
-        title="RFC 7519", source_type="url",
+        proj,
+        pid,
+        "https://example.com/rfc7519",
+        title="RFC 7519",
+        source_type="url",
     )
 
     code, body = _get_content(proj, sid)
@@ -255,8 +264,7 @@ def test_daemon_no_project_returns_503(tmp_path, reset_daemon_cache):
     assert r.status_code == 503
     detail = r.json()["detail"]
     detail_text = detail if isinstance(detail, str) else str(detail)
-    assert "not bound to a project" in detail_text.lower() or \
-           "no active project" in detail_text.lower()
+    assert "not bound to a project" in detail_text.lower() or "no active project" in detail_text.lower()
 
 
 # ── Encoding + truncation ─────────────────────────────────────────────
@@ -272,6 +280,7 @@ def test_binary_file_returns_base64(tmp_path, reset_daemon_cache):
     assert code == 200
     assert body["encoding"] == "base64"
     import base64
+
     assert base64.b64decode(body["content"]) == b"\x00\x01\x02PNG\xff\xfe"
 
 
@@ -280,6 +289,7 @@ def test_oversized_file_returns_truncation_marker(tmp_path, reset_daemon_cache, 
     proj = _make_project_with_db(tmp_path, pid)
     # Lower the cap so the test doesn't materialize 10MB
     import empirica.api.routes.artifacts as artifacts_mod
+
     monkeypatch.setattr(artifacts_mod, "_MAX_SOURCE_CONTENT_BYTES", 64)
 
     (proj / "big.txt").write_text("x" * 200)

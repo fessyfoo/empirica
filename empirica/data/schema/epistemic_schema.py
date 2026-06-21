@@ -25,7 +25,6 @@ SCHEMAS = [
                     FOREIGN KEY (cascade_id) REFERENCES cascades(cascade_id)
                 )
     """,
-
     # Schema 2
     """
     CREATE TABLE IF NOT EXISTS epistemic_snapshots (
@@ -62,7 +61,6 @@ SCHEMAS = [
                     FOREIGN KEY (previous_snapshot_id) REFERENCES epistemic_snapshots(snapshot_id)
                 )
     """,
-
     # Schema 3
     """
     CREATE TABLE IF NOT EXISTS reflexes (
@@ -98,7 +96,6 @@ SCHEMAS = [
                     FOREIGN KEY (session_id) REFERENCES sessions(session_id)
                 )
     """,
-
     # Schema 4 — scratchpad notes (note-to-self)
     #
     # Low-friction, transaction-scoped jottings captured mid-flow and reviewed
@@ -120,5 +117,4 @@ SCHEMAS = [
                     FOREIGN KEY (session_id) REFERENCES sessions(session_id)
                 )
     """,
-
 ]

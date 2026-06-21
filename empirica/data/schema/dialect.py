@@ -41,37 +41,18 @@ def adapt_schema_sql(sql: str, dialect: str) -> str:
     # 1. AUTOINCREMENT → SERIAL
     # Match: INTEGER PRIMARY KEY AUTOINCREMENT
     # Replace: SERIAL PRIMARY KEY
-    adapted = re.sub(
-        r'INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT',
-        'SERIAL PRIMARY KEY',
-        adapted,
-        flags=re.IGNORECASE
-    )
+    adapted = re.sub(r"INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT", "SERIAL PRIMARY KEY", adapted, flags=re.IGNORECASE)
 
     # 2. BOOLEAN DEFAULT 0 → BOOLEAN DEFAULT FALSE
-    adapted = re.sub(
-        r'BOOLEAN\s+DEFAULT\s+0',
-        'BOOLEAN DEFAULT FALSE',
-        adapted,
-        flags=re.IGNORECASE
-    )
+    adapted = re.sub(r"BOOLEAN\s+DEFAULT\s+0", "BOOLEAN DEFAULT FALSE", adapted, flags=re.IGNORECASE)
 
     # 3. BOOLEAN DEFAULT 1 → BOOLEAN DEFAULT TRUE
-    adapted = re.sub(
-        r'BOOLEAN\s+DEFAULT\s+1',
-        'BOOLEAN DEFAULT TRUE',
-        adapted,
-        flags=re.IGNORECASE
-    )
+    adapted = re.sub(r"BOOLEAN\s+DEFAULT\s+1", "BOOLEAN DEFAULT TRUE", adapted, flags=re.IGNORECASE)
 
     # 4. Quote reserved word 'do' as column name
     # Match: whitespace + 'do' + whitespace + REAL/TEXT/INTEGER (column definition context)
     # Avoid matching 'do_vector', 'domain', etc.
-    adapted = re.sub(
-        r'(\s+)(do)(\s+REAL)',
-        r'\1"do"\3',
-        adapted
-    )
+    adapted = re.sub(r"(\s+)(do)(\s+REAL)", r'\1"do"\3', adapted)
 
     # 5. strftime('%s', 'now') → EXTRACT(EPOCH FROM NOW())
     # SQLite uses strftime to get a UNIX-epoch float for `created_at REAL` defaults
@@ -81,10 +62,7 @@ def adapt_schema_sql(sql: str, dialect: str) -> str:
     # Without this translation, fresh project-bootstrap on a Postgres backend fails with
     # `function strftime(unknown, unknown) does not exist` mid-migration.
     adapted = re.sub(
-        r"strftime\s*\(\s*'%s'\s*,\s*'now'\s*\)",
-        "EXTRACT(EPOCH FROM NOW())",
-        adapted,
-        flags=re.IGNORECASE
+        r"strftime\s*\(\s*'%s'\s*,\s*'now'\s*\)", "EXTRACT(EPOCH FROM NOW())", adapted, flags=re.IGNORECASE
     )
 
     return adapted

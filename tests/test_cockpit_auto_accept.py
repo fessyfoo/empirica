@@ -43,15 +43,13 @@ def _mock_creds_missing(monkeypatch) -> None:
 
 def test_fetch_returns_true_when_cortex_says_enabled(monkeypatch):
     _mock_creds(monkeypatch)
-    monkeypatch.setattr(aa, "_request",
-                        lambda method, url, key, body=None: {"enabled": True})
+    monkeypatch.setattr(aa, "_request", lambda method, url, key, body=None: {"enabled": True})
     assert aa.fetch_auto_accept_mode() is True
 
 
 def test_fetch_returns_false_when_cortex_says_disabled(monkeypatch):
     _mock_creds(monkeypatch)
-    monkeypatch.setattr(aa, "_request",
-                        lambda method, url, key, body=None: {"enabled": False})
+    monkeypatch.setattr(aa, "_request", lambda method, url, key, body=None: {"enabled": False})
     assert aa.fetch_auto_accept_mode() is False
 
 
@@ -164,6 +162,7 @@ def test_force_bypasses_cache(monkeypatch):
 def test_request_handles_404_returns_none(monkeypatch):
     """The _request helper turns urllib.error.HTTPError 404 into None
     (rather than raising). Caller treats None as 'unavailable'."""
+
     def fake_urlopen(req, timeout=None):
         raise urllib.error.HTTPError(req.full_url, 404, "Not Found", {}, None)
 

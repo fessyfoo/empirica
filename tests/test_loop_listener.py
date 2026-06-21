@@ -49,7 +49,9 @@ def test_build_subscribe_url_appends_tag_filter():
     'every listener wakes' to 'only relevant listeners wake.' Requires
     cortex to publish with X-Tags including this ai_id."""
     url = _build_subscribe_url(
-        "https://ntfy.example.com", "orchestration-events", tag_filter="cortex",
+        "https://ntfy.example.com",
+        "orchestration-events",
+        tag_filter="cortex",
     )
     assert url == "https://ntfy.example.com/orchestration-events/json?tags=cortex"
 
@@ -58,7 +60,8 @@ def test_build_subscribe_url_no_tag_filter_by_default():
     """Back-compat: when no tag filter, URL matches the legacy unfiltered
     subscribe URL — listener receives every message on the topic."""
     url = _build_subscribe_url(
-        "https://ntfy.example.com", "orchestration-events",
+        "https://ntfy.example.com",
+        "orchestration-events",
     )
     assert "?tags=" not in url
 
@@ -151,15 +154,22 @@ def test_missing_credentials_exits_with_code_2(monkeypatch):
     """Without ntfy creds (token OR user+password) configured, listener
     refuses to start rather than silently no-op'ing."""
     from empirica.config.credentials_loader import get_credentials_loader
+
     loader = get_credentials_loader()
-    monkeypatch.setattr(loader, "get_ntfy_config", lambda: {
-        "url": "https://ntfy.test", "topic": "t",
-        "user": None, "password": None, "token": None,
-    })
+    monkeypatch.setattr(
+        loader,
+        "get_ntfy_config",
+        lambda: {
+            "url": "https://ntfy.test",
+            "topic": "t",
+            "user": None,
+            "password": None,
+            "token": None,
+        },
+    )
     err = io.StringIO()
     out = io.StringIO()
-    rc = run_listener("cortex", output_stream=out, err_stream=err,
-                      _initial_catchup=False)
+    rc = run_listener("cortex", output_stream=out, err_stream=err, _initial_catchup=False)
     assert rc == 2
     assert "no ntfy credentials configured" in err.getvalue()
 
@@ -168,11 +178,18 @@ def test_each_message_event_triggers_catchup(monkeypatch):
     """The contract: one ntfy 'message' event → one catch-up call. Keepalives
     don't trigger catch-up."""
     from empirica.config.credentials_loader import get_credentials_loader
+
     loader = get_credentials_loader()
-    monkeypatch.setattr(loader, "get_ntfy_config", lambda: {
-        "url": "https://ntfy.test", "topic": "t",
-        "user": "u", "password": "p",
-    })
+    monkeypatch.setattr(
+        loader,
+        "get_ntfy_config",
+        lambda: {
+            "url": "https://ntfy.test",
+            "topic": "t",
+            "user": "u",
+            "password": "p",
+        },
+    )
 
     lines = [
         json.dumps({"event": "open", "id": "0"}),
@@ -192,10 +209,16 @@ def test_each_message_event_triggers_catchup(monkeypatch):
 
     def fake_catchup(instance_id, loop_name, output_stream):
         catchup_calls.append((instance_id, loop_name))
-        output_stream.write(json.dumps({
-            "event_type": "proposal_event",
-            "instance_id": instance_id, "proposal_id": f"p{len(catchup_calls)}",
-        }) + "\n")
+        output_stream.write(
+            json.dumps(
+                {
+                    "event_type": "proposal_event",
+                    "instance_id": instance_id,
+                    "proposal_id": f"p{len(catchup_calls)}",
+                }
+            )
+            + "\n"
+        )
         return 1
 
     monkeypatch.setattr(listener_mod, "_emit_catchup_events", fake_catchup)
@@ -210,8 +233,7 @@ def test_each_message_event_triggers_catchup(monkeypatch):
 
     out = io.StringIO()
     err = io.StringIO()
-    rc = run_listener("cortex", output_stream=out, err_stream=err,
-                      _stream_factory=fake_factory, _sleep=fake_sleep)
+    rc = run_listener("cortex", output_stream=out, err_stream=err, _stream_factory=fake_factory, _sleep=fake_sleep)
     assert rc == 0
     # initial-catchup + 2 message events + 1 disconnect catchup + 1 disconnect catchup = 5
     # (Or close — depending on test stop timing. Assert lower-bound that
@@ -227,16 +249,23 @@ def test_stream_drop_triggers_catchup_then_reconnect(monkeypatch):
     (captures any missed events from the drop window) then reconnects
     with backoff. The catch-up-on-drop is the key safety property."""
     from empirica.config.credentials_loader import get_credentials_loader
+
     # Bypass version-drift exit so the post-drop reconnect path actually
     # reaches _sleep(). When the installed package version on the test
     # host differs from the in-process __version__, _check_version_drift
     # otherwise raises ListenerUpgraded and the test never sees the sleep.
     monkeypatch.setenv("EMPIRICA_LISTENER_NO_DRIFT_EXIT", "1")
     loader = get_credentials_loader()
-    monkeypatch.setattr(loader, "get_ntfy_config", lambda: {
-        "url": "https://ntfy.test", "topic": "t",
-        "user": "u", "password": "p",
-    })
+    monkeypatch.setattr(
+        loader,
+        "get_ntfy_config",
+        lambda: {
+            "url": "https://ntfy.test",
+            "topic": "t",
+            "user": "u",
+            "password": "p",
+        },
+    )
 
     def fake_factory(url, headers):
         # First call: yield one message, then EOF
@@ -245,6 +274,7 @@ def test_stream_drop_triggers_catchup_then_reconnect(monkeypatch):
             fake_factory.calls += 1
             return _FakeProc([json.dumps({"event": "message", "id": "m"})])
         return _FakeProc([])
+
     fake_factory.calls = 0
 
     catchup_count = [0]
@@ -262,8 +292,9 @@ def test_stream_drop_triggers_catchup_then_reconnect(monkeypatch):
         if len(sleeps) >= 2:
             raise ListenerStopped("test")
 
-    run_listener("cortex", output_stream=io.StringIO(), err_stream=io.StringIO(),
-                  _stream_factory=fake_factory, _sleep=fake_sleep)
+    run_listener(
+        "cortex", output_stream=io.StringIO(), err_stream=io.StringIO(), _stream_factory=fake_factory, _sleep=fake_sleep
+    )
 
     # Expected catchups: initial + msg + drop + drop = 4
     assert catchup_count[0] >= 3
@@ -275,40 +306,53 @@ def test_clean_sigterm_exit_returns_zero(monkeypatch):
     """ListenerStopped (raised from signal handler) → return 0 so systemd
     treats the stop as intentional, not a crash."""
     from empirica.config.credentials_loader import get_credentials_loader
+
     loader = get_credentials_loader()
-    monkeypatch.setattr(loader, "get_ntfy_config", lambda: {
-        "url": "https://ntfy.test", "topic": "t",
-        "user": "u", "password": "p",
-    })
+    monkeypatch.setattr(
+        loader,
+        "get_ntfy_config",
+        lambda: {
+            "url": "https://ntfy.test",
+            "topic": "t",
+            "user": "u",
+            "password": "p",
+        },
+    )
 
     def factory_that_dies(url, headers):
         raise ListenerStopped("simulated SIGTERM")
 
-    monkeypatch.setattr(listener_mod, "_emit_catchup_events",
-                        lambda *a, **kw: 0)
-    rc = run_listener("cortex", output_stream=io.StringIO(),
-                      err_stream=io.StringIO(),
-                      _stream_factory=factory_that_dies)
+    monkeypatch.setattr(listener_mod, "_emit_catchup_events", lambda *a, **kw: 0)
+    rc = run_listener(
+        "cortex", output_stream=io.StringIO(), err_stream=io.StringIO(), _stream_factory=factory_that_dies
+    )
     assert rc == 0
 
 
 def test_malformed_ntfy_line_skipped_not_crashed(monkeypatch):
     """Non-JSON garbage on the stream → log + skip. Listener stays alive."""
     from empirica.config.credentials_loader import get_credentials_loader
-    loader = get_credentials_loader()
-    monkeypatch.setattr(loader, "get_ntfy_config", lambda: {
-        "url": "https://ntfy.test", "topic": "t",
-        "user": "u", "password": "p",
-    })
 
-    lines = ["not valid json {",
-             json.dumps({"event": "message", "id": "after-garbage"})]
+    loader = get_credentials_loader()
+    monkeypatch.setattr(
+        loader,
+        "get_ntfy_config",
+        lambda: {
+            "url": "https://ntfy.test",
+            "topic": "t",
+            "user": "u",
+            "password": "p",
+        },
+    )
+
+    lines = ["not valid json {", json.dumps({"event": "message", "id": "after-garbage"})]
 
     def fake_factory(url, headers):
         if fake_factory.calls:
             return _FakeProc([])
         fake_factory.calls += 1
         return _FakeProc(lines)
+
     fake_factory.calls = 0
 
     catchup_count = [0]
@@ -327,8 +371,7 @@ def test_malformed_ntfy_line_skipped_not_crashed(monkeypatch):
             raise ListenerStopped("test")
 
     err = io.StringIO()
-    run_listener("cortex", output_stream=io.StringIO(), err_stream=err,
-                  _stream_factory=fake_factory, _sleep=fake_sleep)
+    run_listener("cortex", output_stream=io.StringIO(), err_stream=err, _stream_factory=fake_factory, _sleep=fake_sleep)
     # Listener didn't crash on bad line; processed the valid one after
     assert "skipping non-JSON line" in err.getvalue()
     # At least the valid message + initial + post-drop catchups
@@ -359,24 +402,39 @@ def test_emit_catchup_events_tees_to_loop_fires_log(monkeypatch, tmp_path):
     (tmp_path / ".empirica").mkdir(parents=True, exist_ok=True)
 
     loader = get_credentials_loader()
-    monkeypatch.setattr(loader, "get_ntfy_config", lambda: {
-        "url": "https://ntfy.test", "topic": "t",
-        "user": "u", "password": "p",
-    })
-    monkeypatch.setattr(loader, "get_cortex_config", lambda: {
-        "url": "https://cortex.test", "api_key": "k",
-    })
+    monkeypatch.setattr(
+        loader,
+        "get_ntfy_config",
+        lambda: {
+            "url": "https://ntfy.test",
+            "topic": "t",
+            "user": "u",
+            "password": "p",
+        },
+    )
+    monkeypatch.setattr(
+        loader,
+        "get_cortex_config",
+        lambda: {
+            "url": "https://cortex.test",
+            "api_key": "k",
+        },
+    )
 
     # Synthetic event from poll_and_diff
     fake_event = content_poll.ProposalEvent(
-        instance_id="empirica", loop_name="cortex-mailbox-poll",
-        proposal_id="prop_abc12345", proposal_title="Test event",
-        status="accepted", action_category="TACTICAL",
-        eco_actor="eco-phone", new_or_changed="new",
-        direction="inbox", commit_sha=None,
+        instance_id="empirica",
+        loop_name="cortex-mailbox-poll",
+        proposal_id="prop_abc12345",
+        proposal_title="Test event",
+        status="accepted",
+        action_category="TACTICAL",
+        eco_actor="eco-phone",
+        new_or_changed="new",
+        direction="inbox",
+        commit_sha=None,
     )
-    monkeypatch.setattr(content_poll, "poll_and_diff",
-                        lambda *a, **kw: [fake_event])
+    monkeypatch.setattr(content_poll, "poll_and_diff", lambda *a, **kw: [fake_event])
 
     out = io.StringIO()
     count = lm._emit_catchup_events("empirica", "cortex-mailbox-poll", output_stream=out)
@@ -415,20 +473,36 @@ def test_tee_failure_does_not_break_stdout_stream(monkeypatch, tmp_path):
     (bad_path / "loop_fires.log").mkdir()  # directory, not a file
 
     loader = get_credentials_loader()
-    monkeypatch.setattr(loader, "get_ntfy_config", lambda: {
-        "url": "x", "topic": "t", "user": "u", "password": "p",
-    })
-    monkeypatch.setattr(loader, "get_cortex_config", lambda: {
-        "url": "x", "api_key": "k",
-    })
+    monkeypatch.setattr(
+        loader,
+        "get_ntfy_config",
+        lambda: {
+            "url": "x",
+            "topic": "t",
+            "user": "u",
+            "password": "p",
+        },
+    )
+    monkeypatch.setattr(
+        loader,
+        "get_cortex_config",
+        lambda: {
+            "url": "x",
+            "api_key": "k",
+        },
+    )
 
     fake_event = content_poll.ProposalEvent(
-        instance_id="x", loop_name="cortex-mailbox-poll",
-        proposal_id="p", proposal_title="t", status="accepted",
-        action_category="TACTICAL", eco_actor="a", new_or_changed="new",
+        instance_id="x",
+        loop_name="cortex-mailbox-poll",
+        proposal_id="p",
+        proposal_title="t",
+        status="accepted",
+        action_category="TACTICAL",
+        eco_actor="a",
+        new_or_changed="new",
     )
-    monkeypatch.setattr(content_poll, "poll_and_diff",
-                        lambda *a, **kw: [fake_event])
+    monkeypatch.setattr(content_poll, "poll_and_diff", lambda *a, **kw: [fake_event])
 
     out = io.StringIO()
     # Should not raise even though tee fails
@@ -444,9 +518,12 @@ def test_tee_failure_does_not_break_stdout_stream(monkeypatch, tmp_path):
 def test_check_version_drift_returns_none_when_match(monkeypatch):
     """No drift when in-process __version__ matches dist-info version."""
     import empirica
+
     monkeypatch.setattr(empirica, "__version__", "9.9.9")
     monkeypatch.setattr(
-        listener_mod.importlib.metadata, "version", lambda _: "9.9.9",
+        listener_mod.importlib.metadata,
+        "version",
+        lambda _: "9.9.9",
     )
     assert listener_mod._check_version_drift() is None
 
@@ -454,9 +531,12 @@ def test_check_version_drift_returns_none_when_match(monkeypatch):
 def test_check_version_drift_returns_tuple_on_mismatch(monkeypatch):
     """Drift returns (in_process, installed) when pip upgraded under us."""
     import empirica
+
     monkeypatch.setattr(empirica, "__version__", "1.9.10")
     monkeypatch.setattr(
-        listener_mod.importlib.metadata, "version", lambda _: "1.9.11",
+        listener_mod.importlib.metadata,
+        "version",
+        lambda _: "1.9.11",
     )
     result = listener_mod._check_version_drift()
     assert result == ("1.9.10", "1.9.11")
@@ -464,8 +544,10 @@ def test_check_version_drift_returns_tuple_on_mismatch(monkeypatch):
 
 def test_check_version_drift_returns_none_on_metadata_error(monkeypatch):
     """Best-effort: metadata lookup failure must not crash the listener."""
+
     def boom(_):
         raise importlib_metadata_error()
+
     import importlib.metadata as md
 
     def importlib_metadata_error():
@@ -479,28 +561,42 @@ def test_listener_exits_cleanly_on_version_drift(monkeypatch):
     """When drift fires post-stream-drop, run_listener returns 0 (clean
     exit) so systemd Restart=always relaunches with the new code."""
     from empirica.config.credentials_loader import get_credentials_loader
+
     loader = get_credentials_loader()
-    monkeypatch.setattr(loader, "get_ntfy_config", lambda: {
-        "url": "https://ntfy.test", "topic": "t",
-        "user": "u", "password": "p",
-    })
+    monkeypatch.setattr(
+        loader,
+        "get_ntfy_config",
+        lambda: {
+            "url": "https://ntfy.test",
+            "topic": "t",
+            "user": "u",
+            "password": "p",
+        },
+    )
     # Simulate pip upgrade landed: dist-info says newer than in-process
     import empirica
+
     monkeypatch.setattr(empirica, "__version__", "1.9.10")
     monkeypatch.setattr(
-        listener_mod.importlib.metadata, "version", lambda _: "1.9.11",
+        listener_mod.importlib.metadata,
+        "version",
+        lambda _: "1.9.11",
     )
 
     def fake_factory(url, headers):
         return _FakeProc([])  # immediate EOF triggers drift check
 
-    monkeypatch.setattr(listener_mod, "_emit_catchup_events",
-                        lambda *a, **kw: 0)
+    monkeypatch.setattr(listener_mod, "_emit_catchup_events", lambda *a, **kw: 0)
 
     err = io.StringIO()
-    rc = run_listener("empirica", output_stream=io.StringIO(),
-                      err_stream=err, _stream_factory=fake_factory,
-                      _sleep=lambda s: None, _initial_catchup=False)
+    rc = run_listener(
+        "empirica",
+        output_stream=io.StringIO(),
+        err_stream=err,
+        _stream_factory=fake_factory,
+        _sleep=lambda s: None,
+        _initial_catchup=False,
+    )
     assert rc == 0
     assert "version drift" in err.getvalue()
     assert "1.9.10" in err.getvalue() and "1.9.11" in err.getvalue()
@@ -510,21 +606,29 @@ def test_listener_continues_reconnect_when_no_drift(monkeypatch):
     """Without drift, the listener takes the normal reconnect path
     (backoff sleep) rather than exiting."""
     from empirica.config.credentials_loader import get_credentials_loader
+
     loader = get_credentials_loader()
-    monkeypatch.setattr(loader, "get_ntfy_config", lambda: {
-        "url": "https://ntfy.test", "topic": "t",
-        "user": "u", "password": "p",
-    })
+    monkeypatch.setattr(
+        loader,
+        "get_ntfy_config",
+        lambda: {
+            "url": "https://ntfy.test",
+            "topic": "t",
+            "user": "u",
+            "password": "p",
+        },
+    )
     # Versions match — no drift
     monkeypatch.setattr(
-        listener_mod, "_check_version_drift", lambda: None,
+        listener_mod,
+        "_check_version_drift",
+        lambda: None,
     )
 
     def fake_factory(url, headers):
         return _FakeProc([])
 
-    monkeypatch.setattr(listener_mod, "_emit_catchup_events",
-                        lambda *a, **kw: 0)
+    monkeypatch.setattr(listener_mod, "_emit_catchup_events", lambda *a, **kw: 0)
 
     sleeps = []
 
@@ -533,10 +637,14 @@ def test_listener_continues_reconnect_when_no_drift(monkeypatch):
         # Stop after first backoff confirms no-drift path
         raise ListenerStopped("test")
 
-    rc = run_listener("empirica", output_stream=io.StringIO(),
-                      err_stream=io.StringIO(),
-                      _stream_factory=fake_factory, _sleep=fake_sleep,
-                      _initial_catchup=False)
+    rc = run_listener(
+        "empirica",
+        output_stream=io.StringIO(),
+        err_stream=io.StringIO(),
+        _stream_factory=fake_factory,
+        _sleep=fake_sleep,
+        _initial_catchup=False,
+    )
     assert rc == 0
     assert len(sleeps) == 1  # took the backoff path, not the drift-exit path
 
@@ -547,6 +655,7 @@ def test_drift_exit_env_bypass(monkeypatch):
     version mismatch still reports drift so supervised installs keep
     auto-relaunching on upgrade."""
     import importlib.metadata
+
     monkeypatch.setattr(importlib.metadata, "version", lambda name: "9.9.9-test")
 
     # No bypass → forced mismatch reports drift (installed = mocked value).
@@ -589,11 +698,18 @@ def test_listener_applies_rate_limit_backoff_on_429(monkeypatch):
     keep running catch-up polls within that window — NOT loop into the
     5-min auth-fail backoff that would just re-trip the rate limit."""
     from empirica.config.credentials_loader import get_credentials_loader
+
     loader = get_credentials_loader()
-    monkeypatch.setattr(loader, "get_ntfy_config", lambda: {
-        "url": "https://ntfy.test", "topic": "t",
-        "user": "u", "password": "p",
-    })
+    monkeypatch.setattr(
+        loader,
+        "get_ntfy_config",
+        lambda: {
+            "url": "https://ntfy.test",
+            "topic": "t",
+            "user": "u",
+            "password": "p",
+        },
+    )
 
     def fake_factory(url, headers):
         # Always return a 429 — simulates persistent rate limit.
@@ -629,22 +745,20 @@ def test_listener_applies_rate_limit_backoff_on_429(monkeypatch):
     out = io.StringIO()
     err = io.StringIO()
     rc = run_listener(
-        "empirica", output_stream=out, err_stream=err,
-        _stream_factory=fake_factory, _sleep=fake_sleep,
+        "empirica",
+        output_stream=out,
+        err_stream=err,
+        _stream_factory=fake_factory,
+        _sleep=fake_sleep,
         _initial_catchup=False,
     )
     assert rc == 0
     # Should have run catch-up multiple times during the backoff window
     # (every _RATE_LIMIT_CATCHUP_INTERVAL_SEC seconds).
-    assert len(catchup_calls) >= 2, (
-        f"catch-up should run multiple times during 429 backoff; "
-        f"got {len(catchup_calls)}"
-    )
+    assert len(catchup_calls) >= 2, f"catch-up should run multiple times during 429 backoff; got {len(catchup_calls)}"
     # All sleeps should be the catchup interval (or shorter cap on final),
     # NOT the 300s auth-fail backoff.
-    assert all(s <= 2.0 for s in sleep_calls), (
-        f"sleeps during 429 should be <= catch-up interval, got {sleep_calls}"
-    )
+    assert all(s <= 2.0 for s in sleep_calls), f"sleeps during 429 should be <= catch-up interval, got {sleep_calls}"
     err_text = err.getvalue()
     assert "429" in err_text
     assert "rate limit" in err_text.lower()

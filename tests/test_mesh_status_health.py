@@ -52,9 +52,7 @@ def test_tag_matches_rejects_prefix_overlap():
 
 def test_tag_matches_dot_suffix_canonical():
     """The canonical-suffix match: cmdline carries the 3-form tag."""
-    assert _tag_matches(
-        "?tags=empirica.david.empirica-cortex", ".empirica-cortex"
-    ) is True
+    assert _tag_matches("?tags=empirica.david.empirica-cortex", ".empirica-cortex") is True
 
 
 def test_tag_matches_dot_suffix_rejects_prefix_overlap():
@@ -180,13 +178,20 @@ def test_service_not_installed_returns_yellow():
 def _write_health_marker(home: Path, ai_id: str, *, status: str, age_seconds: float):
     """Write listener_health_<ai_id>.json with the given staleness."""
     import json as _json
+
     health_file = home / ".empirica" / f"listener_health_{ai_id}.json"
     health_file.parent.mkdir(parents=True, exist_ok=True)
     ts = _now_utc() - timedelta(seconds=age_seconds)
-    health_file.write_text(_json.dumps({
-        "instance_id": ai_id, "loop": "cortex-mailbox-poll",
-        "status": status, "ts": ts.isoformat(),
-    }))
+    health_file.write_text(
+        _json.dumps(
+            {
+                "instance_id": ai_id,
+                "loop": "cortex-mailbox-poll",
+                "status": status,
+                "ts": ts.isoformat(),
+            }
+        )
+    )
 
 
 def test_silent_fires_with_fresh_health_marker_returns_green(monkeypatch, tmp_path):
@@ -245,6 +250,7 @@ def test_health_freshness_helper_handles_malformed_marker(monkeypatch, tmp_path)
     from empirica.cli.command_handlers.mesh_commands import (
         _listener_health_freshness,
     )
+
     (tmp_path / ".empirica").mkdir()
     # Bad JSON
     (tmp_path / ".empirica" / "listener_health_a.json").write_text("not json {")
@@ -253,9 +259,7 @@ def test_health_freshness_helper_handles_malformed_marker(monkeypatch, tmp_path)
     (tmp_path / ".empirica" / "listener_health_b.json").write_text('{"status":"ok"}')
     assert _listener_health_freshness("b") is None
     # Bad ts
-    (tmp_path / ".empirica" / "listener_health_c.json").write_text(
-        '{"status":"ok","ts":"not a timestamp"}'
-    )
+    (tmp_path / ".empirica" / "listener_health_c.json").write_text('{"status":"ok","ts":"not a timestamp"}')
     assert _listener_health_freshness("c") is None
     # No file at all
     assert _listener_health_freshness("nonexistent") is None

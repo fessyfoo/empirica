@@ -21,6 +21,7 @@ from empirica.core.dispatch_bus import (
 # DispatchMessage serialization
 # ---------------------------------------------------------------------------
 
+
 class TestDispatchMessageSerialization:
     def test_roundtrip_basic(self):
         original = DispatchMessage(
@@ -74,14 +75,18 @@ class TestDispatchMessageSerialization:
 
     def test_is_expired_future(self):
         msg = DispatchMessage(
-            action="x", from_instance="a", to_instance="b",
+            action="x",
+            from_instance="a",
+            to_instance="b",
             deadline=time.time() + 3600,
         )
         assert not msg.is_expired()
 
     def test_is_expired_past(self):
         msg = DispatchMessage(
-            action="x", from_instance="a", to_instance="b",
+            action="x",
+            from_instance="a",
+            to_instance="b",
             deadline=time.time() - 60,
         )
         assert msg.is_expired()
@@ -125,6 +130,7 @@ class TestDispatchResultSerialization:
 # InstanceInfo
 # ---------------------------------------------------------------------------
 
+
 class TestInstanceInfo:
     def test_has_capability(self):
         info = InstanceInfo(
@@ -149,6 +155,7 @@ class TestInstanceInfo:
 # ---------------------------------------------------------------------------
 # InstanceRegistry
 # ---------------------------------------------------------------------------
+
 
 class TestInstanceRegistry:
     def _temp_registry(self):
@@ -241,6 +248,7 @@ class TestInstanceRegistry:
 # ---------------------------------------------------------------------------
 # DispatchBus (with mocked GitMessageStore)
 # ---------------------------------------------------------------------------
+
 
 class TestDispatchBus:
     def _bus(self):
@@ -361,12 +369,14 @@ class TestDispatchBus:
             payload={"key": "val"},
             correlation_id="test-corr",
         )
-        bus.store.get_inbox.return_value = [{
-            "message_id": "m-1",
-            "channel": "dispatch",
-            "body": test_dispatch.to_message_body(),
-            "type": "request",
-        }]
+        bus.store.get_inbox.return_value = [
+            {
+                "message_id": "m-1",
+                "channel": "dispatch",
+                "body": test_dispatch.to_message_body(),
+                "type": "request",
+            }
+        ]
 
         dispatches = bus.poll_inbox()
         assert len(dispatches) == 1
@@ -376,27 +386,33 @@ class TestDispatchBus:
     def test_poll_inbox_skips_expired(self):
         bus = self._bus()
         expired_dispatch = DispatchMessage(
-            action="old", from_instance="s", to_instance="terminal-1",
+            action="old",
+            from_instance="s",
+            to_instance="terminal-1",
             deadline=time.time() - 100,
         )
-        bus.store.get_inbox.return_value = [{
-            "message_id": "m-1",
-            "channel": "dispatch",
-            "body": expired_dispatch.to_message_body(),
-            "type": "request",
-        }]
+        bus.store.get_inbox.return_value = [
+            {
+                "message_id": "m-1",
+                "channel": "dispatch",
+                "body": expired_dispatch.to_message_body(),
+                "type": "request",
+            }
+        ]
 
         dispatches = bus.poll_inbox(include_expired=False)
         assert len(dispatches) == 0
 
     def test_poll_inbox_skips_malformed(self):
         bus = self._bus()
-        bus.store.get_inbox.return_value = [{
-            "message_id": "m-1",
-            "channel": "dispatch",
-            "body": "not valid json",
-            "type": "request",
-        }]
+        bus.store.get_inbox.return_value = [
+            {
+                "message_id": "m-1",
+                "channel": "dispatch",
+                "body": "not valid json",
+                "type": "request",
+            }
+        ]
         dispatches = bus.poll_inbox()
         assert len(dispatches) == 0
 
@@ -408,11 +424,13 @@ class TestDispatchBus:
             from_instance="worker",
             payload={"data": 1},
         )
-        bus.store.get_inbox.return_value = [{
-            "message_id": "r-1",
-            "body": result.to_message_body(),
-            "type": "response",
-        }]
+        bus.store.get_inbox.return_value = [
+            {
+                "message_id": "r-1",
+                "body": result.to_message_body(),
+                "type": "response",
+            }
+        ]
 
         results = bus.poll_results()
         assert len(results) == 1
@@ -435,18 +453,22 @@ class TestDispatchBus:
         bus = self._bus()
         # Only requests in the inbox, not responses
         d = DispatchMessage(action="x", from_instance="s", to_instance="terminal-1")
-        bus.store.get_inbox.return_value = [{
-            "message_id": "m-1",
-            "body": d.to_message_body(),
-            "type": "request",
-        }]
+        bus.store.get_inbox.return_value = [
+            {
+                "message_id": "m-1",
+                "body": d.to_message_body(),
+                "type": "request",
+            }
+        ]
         results = bus.poll_results()
         assert len(results) == 0
 
     def test_handle_dispatch_success(self):
         bus = self._bus()
         dispatch = DispatchMessage(
-            action="test", from_instance="s", to_instance="terminal-1",
+            action="test",
+            from_instance="s",
+            to_instance="terminal-1",
             correlation_id="c-1",
             metadata={"_message_id": "orig", "_channel": "dispatch"},
         )
@@ -461,7 +483,9 @@ class TestDispatchBus:
     def test_handle_dispatch_failure(self):
         bus = self._bus()
         dispatch = DispatchMessage(
-            action="test", from_instance="s", to_instance="terminal-1",
+            action="test",
+            from_instance="s",
+            to_instance="terminal-1",
             correlation_id="c-1",
             metadata={"_message_id": "orig", "_channel": "dispatch"},
         )
@@ -481,7 +505,9 @@ class TestDispatchBus:
     def test_handle_dispatch_missing_metadata(self):
         bus = self._bus()
         dispatch = DispatchMessage(
-            action="test", from_instance="s", to_instance="terminal-1",
+            action="test",
+            from_instance="s",
+            to_instance="terminal-1",
             # No _message_id or _channel in metadata
         )
 

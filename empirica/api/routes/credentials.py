@@ -27,16 +27,18 @@ class CredentialGrantRequest(BaseModel):
     """Extension asks the daemon for a credential grant. The actual
     credentials are returned later (after explicit user approval via
     `empirica daemon-grant <user_code>`) — never on this call."""
+
     requesting_app: str = "extension"
 
 
 class CredentialGrantRequestResponse(BaseModel):
     """Response to /grant/request — the codes the extension will use
     to drive the consent UX. Never carries credentials."""
+
     ok: bool
-    device_code: str | None = None       # secret, only this extension sees it
-    user_code: str | None = None         # human-typable, shown to user
-    expires_at: float | None = None      # epoch
+    device_code: str | None = None  # secret, only this extension sees it
+    user_code: str | None = None  # human-typable, shown to user
+    expires_at: float | None = None  # epoch
     poll_interval_sec: int | None = None
     error: str | None = None
 
@@ -49,6 +51,7 @@ class CredentialGrantPollResponse(BaseModel):
     """Response to /grant/poll. The full credentials snapshot is
     delivered exactly once, on the first poll after approval. After
     that the device_code resolves to `not_found`."""
+
     status: str  # 'pending' | 'approved' | 'denied' | 'expired' | 'not_found'
     credentials: dict | None = None
     expires_at: float | None = None
@@ -79,6 +82,7 @@ async def credentials_grant_request(
     wrong; explicit out-of-band approval is right."""
     try:
         from empirica.api import daemon_grants
+
         record = daemon_grants.create_grant(
             requesting_app=req.requesting_app or "extension",
         )
@@ -119,6 +123,7 @@ async def credentials_grant_poll(
     device_code resolves to not_found (one-shot delivery)."""
     try:
         from empirica.api import daemon_grants
+
         result = daemon_grants.poll_grant(req.device_code)
         return CredentialGrantPollResponse(
             status=result["status"],

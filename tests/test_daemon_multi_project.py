@@ -64,8 +64,7 @@ def _seed_project(root: Path, name: str, project_id: str) -> Path:
     """)
     conn.execute("INSERT INTO projects (id, name) VALUES (?, ?)", (project_id, name))
     conn.execute(
-        "INSERT INTO project_findings (id, project_id, finding, impact) "
-        "VALUES (?, ?, ?, ?)",
+        "INSERT INTO project_findings (id, project_id, finding, impact) VALUES (?, ?, ?, ?)",
         (f"f-{name}", project_id, f"finding in {name}", 0.5),
     )
     conn.commit()
@@ -78,13 +77,16 @@ def _seed_project(root: Path, name: str, project_id: str) -> Path:
 
 def test_health_includes_known_projects_from_registry(tmp_path: Path):
     registry_path = tmp_path / "registry.yaml"
-    save_registry({
-        "version": 1,
-        "projects": [
-            {"project_id": "p1", "slug": "p1", "name": "P1", "path": "/tmp/p1"},
-            {"project_id": "p2", "slug": "p2", "name": "P2", "path": "/tmp/p2"},
-        ],
-    }, registry_path)
+    save_registry(
+        {
+            "version": 1,
+            "projects": [
+                {"project_id": "p1", "slug": "p1", "name": "P1", "path": "/tmp/p1"},
+                {"project_id": "p2", "slug": "p2", "name": "P2", "path": "/tmp/p2"},
+            ],
+        },
+        registry_path,
+    )
 
     app = create_serve_app()
     with patch("empirica.api.registry.DEFAULT_REGISTRY_PATH", registry_path), TestClient(app) as client:
@@ -114,13 +116,16 @@ def test_findings_routes_by_project_id(tmp_path: Path):
     proj_b = _seed_project(tmp_path, "beta", "beta-id")
 
     registry_path = tmp_path / "registry.yaml"
-    save_registry({
-        "version": 1,
-        "projects": [
-            {"project_id": "alpha-id", "slug": "alpha", "name": "alpha", "path": str(proj_a)},
-            {"project_id": "beta-id", "slug": "beta", "name": "beta", "path": str(proj_b)},
-        ],
-    }, registry_path)
+    save_registry(
+        {
+            "version": 1,
+            "projects": [
+                {"project_id": "alpha-id", "slug": "alpha", "name": "alpha", "path": str(proj_a)},
+                {"project_id": "beta-id", "slug": "beta", "name": "beta", "path": str(proj_b)},
+            ],
+        },
+        registry_path,
+    )
 
     app = create_serve_app()
     with patch("empirica.api.registry.DEFAULT_REGISTRY_PATH", registry_path), TestClient(app) as client:
@@ -154,13 +159,15 @@ def test_findings_404_when_project_id_not_in_registry(tmp_path: Path):
 def test_findings_404_when_registry_path_stale(tmp_path: Path):
     """Registry entry points at a path that no longer has .empirica/."""
     registry_path = tmp_path / "registry.yaml"
-    save_registry({
-        "version": 1,
-        "projects": [
-            {"project_id": "stale-id", "slug": "stale", "name": "stale",
-             "path": str(tmp_path / "nonexistent")},
-        ],
-    }, registry_path)
+    save_registry(
+        {
+            "version": 1,
+            "projects": [
+                {"project_id": "stale-id", "slug": "stale", "name": "stale", "path": str(tmp_path / "nonexistent")},
+            ],
+        },
+        registry_path,
+    )
 
     app = create_serve_app()
     with patch("empirica.api.registry.DEFAULT_REGISTRY_PATH", registry_path), TestClient(app) as client:
@@ -218,10 +225,13 @@ def test_findings_no_params_uses_cached_daemon_project(tmp_path: Path):
     app = create_serve_app()
     # Patch at the import-site in routes/artifacts.py (where _resolve_project_dict
     # imports it) — patching the source module wouldn't affect already-bound names.
-    with patch(
-        "empirica.api.routes.artifacts.get_cached_daemon_project",
-        return_value=cached_project_dict,
-    ), TestClient(app) as client:
+    with (
+        patch(
+            "empirica.api.routes.artifacts.get_cached_daemon_project",
+            return_value=cached_project_dict,
+        ),
+        TestClient(app) as client,
+    ):
         r = client.get("/api/v1/findings")
         assert r.status_code == 200
         data = r.json()
@@ -232,10 +242,13 @@ def test_findings_no_params_uses_cached_daemon_project(tmp_path: Path):
 def test_findings_503_when_no_cached_project_and_no_params():
     """No cached project + no params = 503 (existing daemon-not-bound contract)."""
     app = create_serve_app()
-    with patch(
-        "empirica.api.routes.artifacts.get_cached_daemon_project",
-        return_value=None,
-    ), TestClient(app) as client:
+    with (
+        patch(
+            "empirica.api.routes.artifacts.get_cached_daemon_project",
+            return_value=None,
+        ),
+        TestClient(app) as client,
+    ):
         r = client.get("/api/v1/findings")
         assert r.status_code == 503
         assert "Daemon not bound" in r.json()["detail"]

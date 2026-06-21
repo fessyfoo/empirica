@@ -41,6 +41,7 @@ def _create_empirica_project(base: Path, name: str, *, with_open_tx: bool = Fals
 
     # Make it a real git repo so path_resolver's git_root lookup works
     import subprocess
+
     subprocess.run(["git", "init", "-q"], cwd=str(project), check=False)
 
     empirica_dir = project / ".empirica"
@@ -69,14 +70,17 @@ def _create_empirica_project(base: Path, name: str, *, with_open_tx: bool = Fals
     if with_open_tx:
         tx_file = empirica_dir / f"active_transaction{suffix}.json"
         with open(tx_file, "w") as f:
-            json.dump({
-                "transaction_id": "tx-abc",
-                "session_id": "sess-1",
-                "preflight_timestamp": 1775680000.0,
-                "status": "open",
-                "project_path": str(project),
-                "updated_at": 1775680100.0,
-            }, f)
+            json.dump(
+                {
+                    "transaction_id": "tx-abc",
+                    "session_id": "sess-1",
+                    "preflight_timestamp": 1775680000.0,
+                    "status": "open",
+                    "project_path": str(project),
+                    "updated_at": 1775680100.0,
+                },
+                f,
+            )
 
     return project
 
@@ -109,11 +113,13 @@ def fake_home(tmp_path, monkeypatch):
 
     # Force the no-suffix path for transaction file lookups
     import empirica.utils.session_resolver as sr
+
     monkeypatch.setattr(sr, "_get_instance_suffix", lambda: "")
 
     # path_resolver caches git_root at module level — reset it so each test
     # gets a fresh git root lookup against the fresh tmp_path.
     import empirica.config.path_resolver as pr
+
     monkeypatch.setattr(pr, "_git_root_cache", None)
 
     return home
@@ -166,11 +172,11 @@ class TestPathResolverGuard:
 
         # Force fresh import so cached module state doesn't bleed
         from empirica.config.path_resolver import get_session_db_path
+
         result = get_session_db_path()
 
         # Open transaction on `active` must win over CWD=harness
-        assert result == active / ".empirica" / "sessions" / "sessions.db", \
-            f"Expected active project DB, got {result}"
+        assert result == active / ".empirica" / "sessions" / "sessions.db", f"Expected active project DB, got {result}"
 
     def test_no_open_transaction_falls_through_to_cwd(self, tmp_path, fake_home, monkeypatch):
         """When there's NO open tx, the existing CWD cross-check still works (regression check)."""
@@ -183,11 +189,13 @@ class TestPathResolverGuard:
         monkeypatch.setenv("EMPIRICA_HEADLESS", "true")
 
         from empirica.config.path_resolver import get_session_db_path
+
         result = get_session_db_path()
 
         # No open tx → cross-check should fire → CWD wins
-        assert result == harness / ".empirica" / "sessions" / "sessions.db", \
+        assert result == harness / ".empirica" / "sessions" / "sessions.db", (
             f"Expected harness project DB (no tx, CWD reliable), got {result}"
+        )
 
     def test_cwd_unreliable_always_uses_context(self, two_projects, fake_home, monkeypatch):
         """When EMPIRICA_CWD_RELIABLE is unset, the cross-check never fires regardless."""
@@ -199,6 +207,7 @@ class TestPathResolverGuard:
         monkeypatch.setenv("EMPIRICA_HEADLESS", "true")
 
         from empirica.config.path_resolver import get_session_db_path
+
         result = get_session_db_path()
         assert result == active / ".empirica" / "sessions" / "sessions.db"
 
@@ -214,8 +223,7 @@ def _load_session_init():
     so the test can't drift from production logic (the 2026-05-28 regression
     slipped through precisely because this suite used to emulate the block)."""
     hook_path = (
-        Path(__file__).parent.parent
-        / "empirica" / "plugins" / "claude-code-integration" / "hooks" / "session-init.py"
+        Path(__file__).parent.parent / "empirica" / "plugins" / "claude-code-integration" / "hooks" / "session-init.py"
     )
     spec = importlib.util.spec_from_file_location("session_init_hook", hook_path)
     assert spec is not None and spec.loader is not None, f"cannot load {hook_path}"

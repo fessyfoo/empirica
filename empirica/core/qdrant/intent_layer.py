@@ -2,6 +2,7 @@
 Epistemic Intent Layer: assumptions, decisions, and intent edges.
 Forward-compatible collections (populated when CLI commands exist).
 """
+
 from __future__ import annotations
 
 from empirica.core.qdrant.collections import (
@@ -47,6 +48,7 @@ def embed_assumption(
     try:
         import hashlib
         import time as _time
+
         _, _, VectorParams, PointStruct = _get_qdrant_imports()
         client = _get_qdrant_client(qdrant_url=qdrant_url)
         if client is None:
@@ -56,6 +58,7 @@ def embed_assumption(
         if not client.collection_exists(coll):
             vector_size = _get_vector_size()
             from qdrant_client.models import Distance
+
             client.create_collection(coll, vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE))
 
         ts = timestamp or _time.time()
@@ -123,6 +126,7 @@ def embed_decision(
     try:
         import hashlib
         import time as _time
+
         _, _, VectorParams, PointStruct = _get_qdrant_imports()
         client = _get_qdrant_client(qdrant_url=qdrant_url)
         if client is None:
@@ -132,6 +136,7 @@ def embed_decision(
         if not client.collection_exists(coll):
             vector_size = _get_vector_size()
             from qdrant_client.models import Distance
+
             client.create_collection(coll, vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE))
 
         # Rich text for embedding: choice + rationale + alternatives
@@ -202,6 +207,7 @@ def embed_intent_edge(
         import hashlib
         import json as _json
         import time as _time
+
         _, _, VectorParams, PointStruct = _get_qdrant_imports()
         client = _get_qdrant_client(qdrant_url=qdrant_url)
         if client is None:
@@ -211,6 +217,7 @@ def embed_intent_edge(
         if not client.collection_exists(coll):
             vector_size = _get_vector_size()
             from qdrant_client.models import Distance
+
             client.create_collection(coll, vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE))
 
         # Rich text for semantic search over intent reasoning
@@ -253,6 +260,7 @@ def embed_intent_edge(
 
 # --- Search functions for Intent Layer artifacts ---
 
+
 def search_assumptions(
     project_id: str,
     query: str,
@@ -289,14 +297,17 @@ def search_assumptions(
         conditions = []
         if status:
             from qdrant_client.models import FieldCondition, MatchValue
+
             conditions.append(FieldCondition(key="status", match=MatchValue(value=status)))
         if entity_type:
             from qdrant_client.models import FieldCondition, MatchValue
+
             conditions.append(FieldCondition(key="entity_type", match=MatchValue(value=entity_type)))
 
         query_filter = None
         if conditions:
             from qdrant_client.models import Filter
+
             query_filter = Filter(must=conditions)
 
         results = client.query_points(
@@ -362,14 +373,17 @@ def search_decisions(
         conditions = []
         if reversibility:
             from qdrant_client.models import FieldCondition, MatchValue
+
             conditions.append(FieldCondition(key="reversibility", match=MatchValue(value=reversibility)))
         if entity_type:
             from qdrant_client.models import FieldCondition, MatchValue
+
             conditions.append(FieldCondition(key="entity_type", match=MatchValue(value=entity_type)))
 
         query_filter = None
         if conditions:
             from qdrant_client.models import Filter
+
             query_filter = Filter(must=conditions)
 
         results = client.query_points(
@@ -428,14 +442,17 @@ def search_intents(
         conditions = []
         if direction:
             from qdrant_client.models import FieldCondition, MatchValue
+
             conditions.append(FieldCondition(key="direction", match=MatchValue(value=direction)))
         if cascade_phase:
             from qdrant_client.models import FieldCondition, MatchValue
+
             conditions.append(FieldCondition(key="cascade_phase", match=MatchValue(value=cascade_phase)))
 
         query_filter = None
         if conditions:
             from qdrant_client.models import Filter
+
             query_filter = Filter(must=conditions)
 
         results = client.query_points(
@@ -467,4 +484,3 @@ def search_intents(
 # =============================================================================
 # NOETIC RAG: Decay & Cross-Layer Sync Functions
 # =============================================================================
-

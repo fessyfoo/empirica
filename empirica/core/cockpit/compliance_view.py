@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-EMPIRICA_DIR = Path.home() / '.empirica'
+EMPIRICA_DIR = Path.home() / ".empirica"
 
 # How long a compliance result stays "fresh" before the cockpit shades it
 # grey. After this it's still readable but visibly stale.
@@ -27,7 +27,7 @@ FRESH_WINDOW_S = 24 * 60 * 60  # 24h
 
 
 def _safe_suffix(text: str) -> str:
-    return text.replace('/', '-').replace('%', '')
+    return text.replace("/", "-").replace("%", "")
 
 
 def last_compliance_path(project_id: str | None) -> Path | None:
@@ -35,7 +35,7 @@ def last_compliance_path(project_id: str | None) -> Path | None:
     Returns None when project_id is empty (caller skips the read)."""
     if not project_id:
         return None
-    return EMPIRICA_DIR / f'last_compliance_{_safe_suffix(project_id)}.json'
+    return EMPIRICA_DIR / f"last_compliance_{_safe_suffix(project_id)}.json"
 
 
 def _project_id_from_path(project_path: str | None) -> str | None:
@@ -43,18 +43,19 @@ def _project_id_from_path(project_path: str | None) -> str | None:
     returns None on missing file / malformed yaml / missing key."""
     if not project_path:
         return None
-    yaml_path = Path(project_path) / '.empirica' / 'project.yaml'
+    yaml_path = Path(project_path) / ".empirica" / "project.yaml"
     if not yaml_path.exists():
         return None
     try:
         import yaml
-        with open(yaml_path, encoding='utf-8') as f:
+
+        with open(yaml_path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
     except Exception:
         return None
     if not isinstance(data, dict):
         return None
-    pid = data.get('project_id')
+    pid = data.get("project_id")
     return str(pid) if pid else None
 
 
@@ -68,11 +69,11 @@ def write_last_compliance(project_id: str, report: dict[str, Any]) -> Path | Non
         return None
     EMPIRICA_DIR.mkdir(parents=True, exist_ok=True)
     payload = {
-        '_persisted_at': datetime.now(tz=timezone.utc).isoformat(),
-        '_project_id': project_id,
+        "_persisted_at": datetime.now(tz=timezone.utc).isoformat(),
+        "_project_id": project_id,
         **report,
     }
-    with open(path, 'w', encoding='utf-8') as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, sort_keys=True)
     return path
 
@@ -102,19 +103,17 @@ def read_compliance_summary(project_path: str | None) -> dict[str, Any] | None:
         return None
 
     try:
-        with open(path, encoding='utf-8') as f:
+        with open(path, encoding="utf-8") as f:
             report = json.load(f)
     except (OSError, json.JSONDecodeError):
         return None
 
-    persisted_at_str = report.get('_persisted_at') or report.get('timestamp', '')
+    persisted_at_str = report.get("_persisted_at") or report.get("timestamp", "")
     age_seconds: float | None = None
     fresh = False
     try:
         if persisted_at_str:
-            persisted = datetime.fromisoformat(
-                persisted_at_str.replace('Z', '+00:00')
-            )
+            persisted = datetime.fromisoformat(persisted_at_str.replace("Z", "+00:00"))
             age_seconds = max(
                 0.0,
                 datetime.now(tz=timezone.utc).timestamp() - persisted.timestamp(),
@@ -123,36 +122,36 @@ def read_compliance_summary(project_path: str | None) -> dict[str, Any] | None:
     except (ValueError, TypeError):
         pass
 
-    overall = report.get('overall') or {}
+    overall = report.get("overall") or {}
     failed_checks: list[str] = []
     passed_check_names: list[str] = []
-    for check in report.get('checks', []) or []:
+    for check in report.get("checks", []) or []:
         if not isinstance(check, dict):
             continue
-        label = str(check.get('check') or check.get('name') or '?')
-        if check.get('passed', True):
+        label = str(check.get("check") or check.get("name") or "?")
+        if check.get("passed", True):
             passed_check_names.append(label)
         else:
             failed_checks.append(label)
 
     return {
-        'status': overall.get('status', 'unknown'),
-        'score': float(overall.get('score', 0.0) or 0.0),
-        'checks_passed': int(overall.get('checks_passed', 0) or 0),
-        'checks_total': int(overall.get('checks_total', 0) or 0),
-        'failed_checks': failed_checks,
-        'passed_check_names': passed_check_names,
-        'persisted_at': persisted_at_str,
-        'age_seconds': age_seconds,
-        'fresh': fresh,
-        'project_id': project_id or '',
+        "status": overall.get("status", "unknown"),
+        "score": float(overall.get("score", 0.0) or 0.0),
+        "checks_passed": int(overall.get("checks_passed", 0) or 0),
+        "checks_total": int(overall.get("checks_total", 0) or 0),
+        "failed_checks": failed_checks,
+        "passed_check_names": passed_check_names,
+        "persisted_at": persisted_at_str,
+        "age_seconds": age_seconds,
+        "fresh": fresh,
+        "project_id": project_id or "",
     }
 
 
 __all__ = [
-    'EMPIRICA_DIR',
-    'FRESH_WINDOW_S',
-    'last_compliance_path',
-    'read_compliance_summary',
-    'write_last_compliance',
+    "EMPIRICA_DIR",
+    "FRESH_WINDOW_S",
+    "last_compliance_path",
+    "read_compliance_summary",
+    "write_last_compliance",
 ]

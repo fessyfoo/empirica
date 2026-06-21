@@ -17,7 +17,6 @@ from empirica.data.connection_pool import CircuitBreaker, ConnectionPool, RetryP
 pytestmark = pytest.mark.integration
 
 
-
 class TestRetryPolicy:
     """Test exponential backoff retry policy"""
 
@@ -26,6 +25,7 @@ class TestRetryPolicy:
         policy = RetryPolicy(max_retries=3)
 
         call_count = 0
+
         def succeed():
             nonlocal call_count
             call_count += 1
@@ -40,6 +40,7 @@ class TestRetryPolicy:
         policy = RetryPolicy(max_retries=3, base_delay=0.01)
 
         call_count = 0
+
         def fail_then_succeed():
             nonlocal call_count
             call_count += 1
@@ -50,13 +51,14 @@ class TestRetryPolicy:
         result = policy.execute_with_retry(fail_then_succeed)
         assert result == "success"
         assert call_count == 3
-        assert policy.telemetry['successful_retries'] == 1
+        assert policy.telemetry["successful_retries"] == 1
 
     def test_max_retries_exhausted(self):
         """Raises error after max retries exhausted"""
         policy = RetryPolicy(max_retries=2, base_delay=0.01)
 
         call_count = 0
+
         def always_fail():
             nonlocal call_count
             call_count += 1
@@ -66,13 +68,14 @@ class TestRetryPolicy:
             policy.execute_with_retry(always_fail)
 
         assert call_count == 3  # Initial + 2 retries
-        assert policy.telemetry['failed_retries'] == 1
+        assert policy.telemetry["failed_retries"] == 1
 
     def test_non_retryable_error(self):
         """Non-retryable errors fail immediately"""
         policy = RetryPolicy(max_retries=3)
 
         call_count = 0
+
         def fail_non_retryable():
             nonlocal call_count
             call_count += 1
@@ -85,12 +88,7 @@ class TestRetryPolicy:
 
     def test_exponential_backoff_timing(self):
         """Exponential backoff delays increase"""
-        policy = RetryPolicy(
-            max_retries=3,
-            base_delay=0.01,
-            strategy=RetryStrategy.EXPONENTIAL,
-            jitter=False
-        )
+        policy = RetryPolicy(max_retries=3, base_delay=0.01, strategy=RetryStrategy.EXPONENTIAL, jitter=False)
 
         delays = []
         for attempt in range(3):
@@ -103,12 +101,7 @@ class TestRetryPolicy:
 
     def test_linear_backoff_timing(self):
         """Linear backoff increases linearly"""
-        policy = RetryPolicy(
-            max_retries=3,
-            base_delay=0.1,
-            strategy=RetryStrategy.LINEAR,
-            jitter=False
-        )
+        policy = RetryPolicy(max_retries=3, base_delay=0.1, strategy=RetryStrategy.LINEAR, jitter=False)
 
         delays = []
         for attempt in range(3):
@@ -125,11 +118,7 @@ class TestRetryPolicy:
     def test_max_delay_cap(self):
         """Delays are capped at max_delay"""
         policy = RetryPolicy(
-            max_retries=5,
-            base_delay=10.0,
-            max_delay=5.0,
-            strategy=RetryStrategy.EXPONENTIAL,
-            jitter=False
+            max_retries=5, base_delay=10.0, max_delay=5.0, strategy=RetryStrategy.EXPONENTIAL, jitter=False
         )
 
         for attempt in range(5):
@@ -189,10 +178,7 @@ class TestCircuitBreaker:
 
     def test_recovery_attempt(self):
         """Circuit attempts recovery after timeout"""
-        breaker = CircuitBreaker(
-            failure_threshold=1,
-            recovery_timeout=0.1
-        )
+        breaker = CircuitBreaker(failure_threshold=1, recovery_timeout=0.1)
 
         def fail():
             raise RuntimeError("Service error")
@@ -222,6 +208,7 @@ class TestConnectionPool:
 
     def test_get_connection(self):
         """Get connection from pool"""
+
         def create_conn():
             return object()  # Mock connection
 
@@ -233,6 +220,7 @@ class TestConnectionPool:
 
     def test_return_connection(self):
         """Return connection to pool"""
+
         def create_conn():
             return object()
 
@@ -245,6 +233,7 @@ class TestConnectionPool:
 
     def test_pool_exhaustion(self):
         """Raises error when pool exhausted"""
+
         def create_conn():
             return object()
 
@@ -261,6 +250,7 @@ class TestConnectionPool:
 
     def test_pool_reuse(self):
         """Connections are reused from pool"""
+
         def create_conn():
             return object()
 
@@ -276,7 +266,7 @@ class TestConnectionPool:
         conn_id2 = id(conn2)
 
         assert conn_id1 == conn_id2
-        assert pool.telemetry['connections_created'] == 1
+        assert pool.telemetry["connections_created"] == 1
 
 
 def test_integration_with_session_database():
@@ -291,8 +281,8 @@ def test_integration_with_session_database():
 
     # Verify telemetry available
     telemetry = db.retry_policy.get_telemetry()
-    assert 'total_attempts' in telemetry
-    assert telemetry['strategy'] == 'exponential'
+    assert "total_attempts" in telemetry
+    assert telemetry["strategy"] == "exponential"
 
 
 if __name__ == "__main__":

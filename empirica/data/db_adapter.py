@@ -110,15 +110,11 @@ class DatabaseAdapter(ABC):
     def column_exists(self, table: str, column: str) -> bool:
         """Check if a column exists in a table (dialect-aware)"""
         if self.dialect == "sqlite":
-            self.execute(
-                "SELECT COUNT(*) FROM pragma_table_info(?) WHERE name=?",
-                (table, column)
-            )
+            self.execute("SELECT COUNT(*) FROM pragma_table_info(?) WHERE name=?", (table, column))
         else:
             self.execute(
-                "SELECT COUNT(*) FROM information_schema.columns "
-                "WHERE table_name = ? AND column_name = ?",
-                (table, column)
+                "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND column_name = ?",
+                (table, column),
             )
         row = self.fetchone()
         if row is None:
@@ -129,15 +125,11 @@ class DatabaseAdapter(ABC):
     def table_exists(self, table: str) -> bool:
         """Check if a table exists (dialect-aware)"""
         if self.dialect == "sqlite":
-            self.execute(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?",
-                (table,)
-            )
+            self.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", (table,))
         else:
             self.execute(
-                "SELECT COUNT(*) FROM information_schema.tables "
-                "WHERE table_schema = 'public' AND table_name = ?",
-                (table,)
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ?",
+                (table,),
             )
         row = self.fetchone()
         if row is None:
@@ -159,6 +151,7 @@ class SQLiteAdapter(DatabaseAdapter):
 
         if db_path is None:
             from empirica.config.path_resolver import get_session_db_path
+
             db_path = str(get_session_db_path())
 
         self.db_path = Path(db_path)
@@ -168,9 +161,7 @@ class SQLiteAdapter(DatabaseAdapter):
         # isolation_level="IMMEDIATE" ensures DML statements acquire RESERVED lock
         # upfront, preventing SQLITE_BUSY when two writers try to escalate from
         # SHARED to RESERVED simultaneously. Reads are unaffected (no lock for SELECTs).
-        self._conn = sqlite3.connect(
-            str(self.db_path), timeout=30.0, isolation_level="IMMEDIATE"
-        )
+        self._conn = sqlite3.connect(str(self.db_path), timeout=30.0, isolation_level="IMMEDIATE")
         self._conn.row_factory = sqlite3.Row  # Return rows as dicts
 
         # Enable WAL mode for better concurrency
@@ -268,7 +259,7 @@ class PostgreSQLAdapter(DatabaseAdapter):
         database: str = "empirica",
         user: str = "empirica",
         password: str = "",
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize PostgreSQL adapter
@@ -285,18 +276,9 @@ class PostgreSQLAdapter(DatabaseAdapter):
             import psycopg2  # pyright: ignore[reportMissingModuleSource]
             import psycopg2.extras  # pyright: ignore[reportUnusedImport,reportMissingModuleSource] — used in execute()
         except ImportError as e:
-            raise ImportError(
-                "PostgreSQL support requires psycopg2. Install with: pip install psycopg2-binary"
-            ) from e
+            raise ImportError("PostgreSQL support requires psycopg2. Install with: pip install psycopg2-binary") from e
 
-        self._conn = psycopg2.connect(
-            host=host,
-            port=port,
-            database=database,
-            user=user,
-            password=password,
-            **kwargs
-        )
+        self._conn = psycopg2.connect(host=host, port=port, database=database, user=user, password=password, **kwargs)
         self._cursor = None
 
         logger.info(f"📊 PostgreSQL adapter initialized: {host}:{port}/{database}")

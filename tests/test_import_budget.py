@@ -34,15 +34,25 @@ import pytest
 # Heavy / expensive modules that hot paths should import lazily, never eagerly.
 # (LLM/embedding SDKs, network/server stacks, the vector store, ML + data libs,
 # the web framework.) None of these are needed just to dispatch a CLI command.
-_HEAVY = frozenset({
-    "openai", "anthropic", "voyageai",                 # embedding / LLM SDKs
-    "httpx", "uvicorn",                                # network / server
-    "git",                                             # GitPython
-    "qdrant_client",                                   # vector store
-    "torch", "transformers", "sentence_transformers",  # ML
-    "pandas", "numpy", "scipy", "sklearn",             # data / science
-    "fastapi",                                         # web framework
-})
+_HEAVY = frozenset(
+    {
+        "openai",
+        "anthropic",
+        "voyageai",  # embedding / LLM SDKs
+        "httpx",
+        "uvicorn",  # network / server
+        "git",  # GitPython
+        "qdrant_client",  # vector store
+        "torch",
+        "transformers",
+        "sentence_transformers",  # ML
+        "pandas",
+        "numpy",
+        "scipy",
+        "sklearn",  # data / science
+        "fastapi",  # web framework
+    }
+)
 
 # Per hot-path entry point: the heavy modules it is ALLOWED to pull (its genuine
 # framework). Everything else in _HEAVY is forbidden for that entry point. This
@@ -52,7 +62,7 @@ _HEAVY = frozenset({
 # needs the vector stack (httpx/qdrant_client/numpy) and is not a universal hot
 # path; its specific invariant (no openai SDK) lives in test_embeddings_no_openai_sdk.
 _BUDGET: dict[str, frozenset[str]] = {
-    "empirica.cli": frozenset(),                       # universal hot path — nothing heavy
+    "empirica.cli": frozenset(),  # universal hot path — nothing heavy
     "empirica.api.serve_app": frozenset({"fastapi"}),  # FastAPI app — fastapi is its framework
 }
 
@@ -63,11 +73,7 @@ def _modules_after(import_target: str) -> set[str]:
     Subprocess-isolated so prior imports in this test session can't mask a stray
     eager import.
     """
-    code = (
-        f"import {import_target}\n"
-        "import sys, json\n"
-        "print(json.dumps(sorted(sys.modules)))\n"
-    )
+    code = f"import {import_target}\nimport sys, json\nprint(json.dumps(sorted(sys.modules)))\n"
     proc = subprocess.run(
         [sys.executable, "-c", code],
         capture_output=True,
@@ -84,10 +90,7 @@ def _heavy_loaded(forbidden: frozenset[str], loaded: set[str]) -> list[str]:
     Matches the top module exactly or any `mod.` submodule — so forbidding
     ``git`` (GitPython) never false-matches ``empirica.core.git``.
     """
-    return sorted(
-        m for m in forbidden
-        if m in loaded or any(k == m or k.startswith(m + ".") for k in loaded)
-    )
+    return sorted(m for m in forbidden if m in loaded or any(k == m or k.startswith(m + ".") for k in loaded))
 
 
 @pytest.mark.parametrize("entry_point", sorted(_BUDGET))

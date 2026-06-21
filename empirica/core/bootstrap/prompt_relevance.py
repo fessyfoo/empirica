@@ -80,7 +80,7 @@ def format_prompt_relevance_context(artifacts: list[dict]) -> str:
         lines.append(f"- [{type_label}{score_str}] {summary}")
     lines.append(
         'Run `empirica project-search --task "<query>"` for the full list, '
-        'or anchor any new artifacts to these via --related-to.'
+        "or anchor any new artifacts to these via --related-to."
     )
     lines.append("</prior-context>")
     return "\n".join(lines)

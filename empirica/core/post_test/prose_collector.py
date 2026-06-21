@@ -26,9 +26,14 @@ logger = logging.getLogger(__name__)
 class ProseEvidenceCollector:
     """Collects deterministic evidence from prose and research artifacts."""
 
-    def __init__(self, session_id: str, project_id: str | None = None,
-                 db=None, phase: str = "combined",
-                 check_timestamp: float | None = None):
+    def __init__(
+        self,
+        session_id: str,
+        project_id: str | None = None,
+        db=None,
+        phase: str = "combined",
+        check_timestamp: float | None = None,
+    ):
         self.session_id = session_id
         self.project_id = project_id
         self.phase = phase
@@ -39,6 +44,7 @@ class ProseEvidenceCollector:
     def _get_db(self):
         if self._db is None:
             from empirica.data.session_database import SessionDatabase
+
             self._db = SessionDatabase()
             self._owns_db = True
         return self._db
@@ -124,21 +130,23 @@ class ProseEvidenceCollector:
             else:
                 clarity_score = max(0.3, 1.0 - (fre_score - 70) / 30.0)
 
-            items.append(EvidenceItem(
-                source="prose_quality",
-                metric_name="textstat_readability",
-                value=clarity_score,
-                raw_value={
-                    "flesch_reading_ease": round(fre_score, 1),
-                    "flesch_kincaid_grade": round(fk_grade, 1),
-                    "gunning_fog": round(fog_index, 1),
-                    "word_count": word_count,
-                    "sentence_count": sentence_count,
-                    "texts_analyzed": text_count,
-                },
-                quality=EvidenceQuality.OBJECTIVE,
-                supports_vectors=["clarity", "density"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="prose_quality",
+                    metric_name="textstat_readability",
+                    value=clarity_score,
+                    raw_value={
+                        "flesch_reading_ease": round(fre_score, 1),
+                        "flesch_kincaid_grade": round(fk_grade, 1),
+                        "gunning_fog": round(fog_index, 1),
+                        "word_count": word_count,
+                        "sentence_count": sentence_count,
+                        "texts_analyzed": text_count,
+                    },
+                    quality=EvidenceQuality.OBJECTIVE,
+                    supports_vectors=["clarity", "density"],
+                )
+            )
 
             # Information density: words per sentence and grade level
             # Very long sentences = low density. Very short = possibly shallow.
@@ -151,17 +159,19 @@ class ProseEvidenceCollector:
             else:
                 density_score = max(0.3, 1.0 - (avg_sentence_len - 25) / 25.0)
 
-            items.append(EvidenceItem(
-                source="prose_quality",
-                metric_name="textstat_density",
-                value=density_score,
-                raw_value={
-                    "avg_sentence_length": round(avg_sentence_len, 1),
-                    "fk_grade": round(fk_grade, 1),
-                },
-                quality=EvidenceQuality.OBJECTIVE,
-                supports_vectors=["density"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="prose_quality",
+                    metric_name="textstat_density",
+                    value=density_score,
+                    raw_value={
+                        "avg_sentence_length": round(avg_sentence_len, 1),
+                        "fk_grade": round(fk_grade, 1),
+                    },
+                    quality=EvidenceQuality.OBJECTIVE,
+                    supports_vectors=["density"],
+                )
+            )
 
         except ImportError:
             logger.debug("textstat not installed, skipping readability analysis")
@@ -179,9 +189,7 @@ class ProseEvidenceCollector:
             from proselint.tools import LintFile  # pyright: ignore[reportMissingImports]
 
             # proselint >= 0.14 uses LintFile API
-            with tempfile.NamedTemporaryFile(
-                mode='w', suffix='.md', delete=False
-            ) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
                 f.write(text)
                 tmp_path = f.name
 
@@ -198,18 +206,20 @@ class ProseEvidenceCollector:
                 # Normalize: 0 violations = 1.0, 5+ per 100 words = 0.0
                 coherence_score = max(0.0, 1.0 - (violations_per_100 / 5.0))
 
-                items.append(EvidenceItem(
-                    source="prose_quality",
-                    metric_name="proselint_violations",
-                    value=coherence_score,
-                    raw_value={
-                        "violations": violation_count,
-                        "words": word_count,
-                        "per_100_words": round(violations_per_100, 2),
-                    },
-                    quality=EvidenceQuality.OBJECTIVE,
-                    supports_vectors=["coherence", "signal"],
-                ))
+                items.append(
+                    EvidenceItem(
+                        source="prose_quality",
+                        metric_name="proselint_violations",
+                        value=coherence_score,
+                        raw_value={
+                            "violations": violation_count,
+                            "words": word_count,
+                            "per_100_words": round(violations_per_100, 2),
+                        },
+                        quality=EvidenceQuality.OBJECTIVE,
+                        supports_vectors=["coherence", "signal"],
+                    )
+                )
 
         except ImportError:
             logger.debug("proselint not installed, skipping prose lint")
@@ -235,15 +245,15 @@ class ProseEvidenceCollector:
 
         try:
             # Write combined text to temp file for vale
-            with tempfile.NamedTemporaryFile(
-                mode='w', suffix='.md', delete=False
-            ) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
                 f.write("\n\n".join(texts))
                 tmp_path = f.name
 
             result = subprocess.run(
                 ["vale", "--output", "JSON", tmp_path],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
 
             Path(tmp_path).unlink(missing_ok=True)
@@ -263,19 +273,21 @@ class ProseEvidenceCollector:
                     issues_per_100 = (total_issues / word_count) * 100
                     style_score = max(0.0, 1.0 - (issues_per_100 / 8.0))
 
-                    items.append(EvidenceItem(
-                        source="prose_quality",
-                        metric_name="vale_style_score",
-                        value=style_score,
-                        raw_value={
-                            "total_issues": total_issues,
-                            "by_severity": by_severity,
-                            "words": word_count,
-                            "per_100_words": round(issues_per_100, 2),
-                        },
-                        quality=EvidenceQuality.OBJECTIVE,
-                        supports_vectors=["clarity", "coherence"],
-                    ))
+                    items.append(
+                        EvidenceItem(
+                            source="prose_quality",
+                            metric_name="vale_style_score",
+                            value=style_score,
+                            raw_value={
+                                "total_issues": total_issues,
+                                "by_severity": by_severity,
+                                "words": word_count,
+                                "per_100_words": round(issues_per_100, 2),
+                            },
+                            quality=EvidenceQuality.OBJECTIVE,
+                            supports_vectors=["clarity", "coherence"],
+                        )
+                    )
 
         except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError) as e:
             logger.debug(f"vale analysis failed: {e}")
@@ -325,46 +337,48 @@ class ProseEvidenceCollector:
         voice_name = self._resolve_voice_name()
         if not voice_name:
             # Fingerprint-only: surface the measured markers; no drift comparison.
-            items.append(EvidenceItem(
-                source="prose_stylometry",
-                metric_name="prose_stylometry_fingerprint",
-                value=0.0,
-                raw_value={
-                    "voice_profile": None,
-                    "output_fingerprint": output_fp["markers"],
-                    "n_tokens": output_fp["n"],
-                },
-                quality=EvidenceQuality.OBJECTIVE,
-                supports_vectors=["coherence", "signal", "clarity"],
-                direction="lower_is_better",
-            ))
+            items.append(
+                EvidenceItem(
+                    source="prose_stylometry",
+                    metric_name="prose_stylometry_fingerprint",
+                    value=0.0,
+                    raw_value={
+                        "voice_profile": None,
+                        "output_fingerprint": output_fp["markers"],
+                        "n_tokens": output_fp["n"],
+                    },
+                    quality=EvidenceQuality.OBJECTIVE,
+                    supports_vectors=["coherence", "signal", "clarity"],
+                    direction="lower_is_better",
+                )
+            )
             return items
 
-        voice_fp = stylometry.load_voice_fingerprint(
-            voice_name, project_root=self._resolve_project_root()
-        )
+        voice_fp = stylometry.load_voice_fingerprint(voice_name, project_root=self._resolve_project_root())
         if voice_fp is None:
             logger.debug(f"Voice profile {voice_name!r} declared but fingerprint not found")
             return items
 
         drift = stylometry.compute_drift(output_fp, voice_fp)
 
-        items.append(EvidenceItem(
-            source="prose_stylometry",
-            metric_name="prose_stylometry_composite_drift",
-            value=drift["composite_drift"],
-            raw_value=drift["composite_drift"],
-            quality=EvidenceQuality.OBJECTIVE,
-            supports_vectors=["coherence", "signal", "clarity"],
-            metadata={
-                "voice_profile": f"{voice_name}@{voice_fp.get('version', 'unknown')}",
-                "drift_direction": drift["drift_direction"],
-                "exceeds_tolerance": drift["exceeds_tolerance"],
-                "drift_per_marker": drift["drift_per_marker"],
-                "n_tokens": output_fp["n"],
-            },
-            direction="lower_is_better",
-        ))
+        items.append(
+            EvidenceItem(
+                source="prose_stylometry",
+                metric_name="prose_stylometry_composite_drift",
+                value=drift["composite_drift"],
+                raw_value=drift["composite_drift"],
+                quality=EvidenceQuality.OBJECTIVE,
+                supports_vectors=["coherence", "signal", "clarity"],
+                metadata={
+                    "voice_profile": f"{voice_name}@{voice_fp.get('version', 'unknown')}",
+                    "drift_direction": drift["drift_direction"],
+                    "exceeds_tolerance": drift["exceeds_tolerance"],
+                    "drift_per_marker": drift["drift_per_marker"],
+                    "n_tokens": output_fp["n"],
+                },
+                direction="lower_is_better",
+            )
+        )
         return items
 
     def _resolve_voice_name(self) -> str | None:
@@ -400,6 +414,7 @@ class ProseEvidenceCollector:
         """
         try:
             from empirica.utils.session_resolver import InstanceResolver as R
+
             project_path = R.project_path()
             return str(project_path) if project_path else None
         except Exception:
@@ -419,9 +434,12 @@ class ProseEvidenceCollector:
         cursor = db.conn.cursor()
 
         # Word count of all findings logged this session
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT finding FROM project_findings WHERE session_id = ?
-        """, (self.session_id,))
+        """,
+            (self.session_id,),
+        )
         findings = cursor.fetchall()
 
         total_words = sum(len(row[0].split()) for row in findings if row[0])
@@ -431,18 +449,20 @@ class ProseEvidenceCollector:
             # Production rate: findings logged (like commits made)
             # Normalize: 1-2 = 0.3, 5 = 0.7, 10+ = 1.0
             production_score = min(1.0, finding_count / 10.0)
-            items.append(EvidenceItem(
-                source="document_metrics",
-                metric_name="finding_production",
-                value=production_score,
-                raw_value={
-                    "findings_logged": finding_count,
-                    "total_words": total_words,
-                    "avg_words_per_finding": round(total_words / finding_count, 1),
-                },
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["do", "change"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="document_metrics",
+                    metric_name="finding_production",
+                    value=production_score,
+                    raw_value={
+                        "findings_logged": finding_count,
+                        "total_words": total_words,
+                        "avg_words_per_finding": round(total_words / finding_count, 1),
+                    },
+                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                    supports_vectors=["do", "change"],
+                )
+            )
 
             # Detail depth: average words per finding (like lines per commit)
             avg_words = total_words / finding_count
@@ -454,41 +474,51 @@ class ProseEvidenceCollector:
             else:
                 depth_score = max(0.5, 1.0 - (avg_words - 80) / 120.0)
 
-            items.append(EvidenceItem(
-                source="document_metrics",
-                metric_name="finding_depth",
-                value=depth_score,
-                raw_value={"avg_words": round(avg_words, 1)},
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["state", "density"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="document_metrics",
+                    metric_name="finding_depth",
+                    value=depth_score,
+                    raw_value={"avg_words": round(avg_words, 1)},
+                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                    supports_vectors=["state", "density"],
+                )
+            )
 
         # Goal completion as document output
         # Exclude 'planned' goals — they exist but haven't been started
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, objective FROM goals
             WHERE session_id = ? AND is_completed = 1 AND status != 'planned'
-        """, (self.session_id,))
+        """,
+            (self.session_id,),
+        )
         completed_goals = cursor.fetchall()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT COUNT(*) FROM goals WHERE session_id = ? AND status != 'planned'
-        """, (self.session_id,))
+        """,
+            (self.session_id,),
+        )
         total_goals = cursor.fetchone()[0]
 
         if total_goals > 0:
             completion_ratio = len(completed_goals) / total_goals
-            items.append(EvidenceItem(
-                source="document_metrics",
-                metric_name="goal_completion_ratio",
-                value=completion_ratio,
-                raw_value={
-                    "completed": len(completed_goals),
-                    "total": total_goals,
-                },
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["completion", "do"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="document_metrics",
+                    metric_name="goal_completion_ratio",
+                    value=completion_ratio,
+                    raw_value={
+                        "completed": len(completed_goals),
+                        "total": total_goals,
+                    },
+                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                    supports_vectors=["completion", "do"],
+                )
+            )
 
         return items
 
@@ -506,15 +536,21 @@ class ProseEvidenceCollector:
         cursor = db.conn.cursor()
 
         # Sources logged this session
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT COUNT(*) FROM epistemic_sources WHERE session_id = ?
-        """, (self.session_id,))
+        """,
+            (self.session_id,),
+        )
         source_count = cursor.fetchone()[0]
 
         # Findings this session
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT COUNT(*) FROM project_findings WHERE session_id = ?
-        """, (self.session_id,))
+        """,
+            (self.session_id,),
+        )
         finding_count = cursor.fetchone()[0]
 
         if finding_count > 0 and source_count > 0:
@@ -522,28 +558,32 @@ class ProseEvidenceCollector:
             ratio = source_count / finding_count
             # Normalize: 0.5+ sources per finding = well-sourced
             source_score = min(1.0, ratio / 0.5)
-            items.append(EvidenceItem(
-                source="source_quality",
-                metric_name="source_to_finding_ratio",
-                value=source_score,
-                raw_value={
-                    "sources": source_count,
-                    "findings": finding_count,
-                    "ratio": round(ratio, 2),
-                },
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["know", "signal"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="source_quality",
+                    metric_name="source_to_finding_ratio",
+                    value=source_score,
+                    raw_value={
+                        "sources": source_count,
+                        "findings": finding_count,
+                        "ratio": round(ratio, 2),
+                    },
+                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                    supports_vectors=["know", "signal"],
+                )
+            )
         elif finding_count > 0 and source_count == 0:
             # Findings without sources — low evidence quality
-            items.append(EvidenceItem(
-                source="source_quality",
-                metric_name="source_to_finding_ratio",
-                value=0.2,
-                raw_value={"sources": 0, "findings": finding_count, "ratio": 0},
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["know", "signal"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="source_quality",
+                    metric_name="source_to_finding_ratio",
+                    value=0.2,
+                    raw_value={"sources": 0, "findings": finding_count, "ratio": 0},
+                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                    supports_vectors=["know", "signal"],
+                )
+            )
 
         return items
 
@@ -562,63 +602,81 @@ class ProseEvidenceCollector:
         cursor = db.conn.cursor()
 
         # Unknowns resolved this session
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT COUNT(*) FROM project_unknowns
             WHERE session_id = ? AND is_resolved = 1
-        """, (self.session_id,))
+        """,
+            (self.session_id,),
+        )
         resolved = cursor.fetchone()[0]
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT COUNT(*) FROM project_unknowns
             WHERE session_id = ?
-        """, (self.session_id,))
+        """,
+            (self.session_id,),
+        )
         total_unknowns = cursor.fetchone()[0]
 
         if total_unknowns > 0:
             resolution_rate = resolved / total_unknowns
-            items.append(EvidenceItem(
-                source="action_verification",
-                metric_name="unknown_resolution_rate",
-                value=resolution_rate,
-                raw_value={"resolved": resolved, "total": total_unknowns},
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["do", "completion", "impact"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="action_verification",
+                    metric_name="unknown_resolution_rate",
+                    value=resolution_rate,
+                    raw_value={"resolved": resolved, "total": total_unknowns},
+                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                    supports_vectors=["do", "completion", "impact"],
+                )
+            )
 
         # Assumptions logged (epistemic honesty metric)
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT COUNT(*) FROM assumptions WHERE session_id = ?
-        """, (self.session_id,))
+        """,
+            (self.session_id,),
+        )
         assumption_count = cursor.fetchone()[0]
 
         if assumption_count > 0:
             # Logging assumptions = epistemic honesty, similar to writing tests
             honesty_score = min(1.0, assumption_count / 3.0)
-            items.append(EvidenceItem(
-                source="action_verification",
-                metric_name="assumption_logging",
-                value=honesty_score,
-                raw_value={"assumptions_logged": assumption_count},
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["uncertainty", "know"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="action_verification",
+                    metric_name="assumption_logging",
+                    value=honesty_score,
+                    raw_value={"assumptions_logged": assumption_count},
+                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                    supports_vectors=["uncertainty", "know"],
+                )
+            )
 
         # Decisions logged (choice points documented)
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT COUNT(*) FROM decisions WHERE session_id = ?
-        """, (self.session_id,))
+        """,
+            (self.session_id,),
+        )
         decision_count = cursor.fetchone()[0]
 
         if decision_count > 0:
             decision_score = min(1.0, decision_count / 3.0)
-            items.append(EvidenceItem(
-                source="action_verification",
-                metric_name="decision_documentation",
-                value=decision_score,
-                raw_value={"decisions_logged": decision_count},
-                quality=EvidenceQuality.SEMI_OBJECTIVE,
-                supports_vectors=["context", "signal"],
-            ))
+            items.append(
+                EvidenceItem(
+                    source="action_verification",
+                    metric_name="decision_documentation",
+                    value=decision_score,
+                    raw_value={"decisions_logged": decision_count},
+                    quality=EvidenceQuality.SEMI_OBJECTIVE,
+                    supports_vectors=["context", "signal"],
+                )
+            )
 
         return items
 
@@ -631,25 +689,32 @@ class ProseEvidenceCollector:
         cursor = db.conn.cursor()
 
         # Findings text
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT finding FROM project_findings WHERE session_id = ?
-        """, (self.session_id,))
+        """,
+            (self.session_id,),
+        )
         texts.extend(row[0] for row in cursor.fetchall() if row[0])
 
         # Goal objectives and completion reasons
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT objective FROM goals WHERE session_id = ?
-        """, (self.session_id,))
+        """,
+            (self.session_id,),
+        )
         texts.extend(row[0] for row in cursor.fetchall() if row[0])
 
         # Handoff summaries
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT task_summary FROM handoff_reports WHERE session_id = ?
-        """, (self.session_id,))
+        """,
+            (self.session_id,),
+        )
         for row in cursor.fetchall():
             if row[0]:
                 texts.append(row[0])
 
         return texts
-
-

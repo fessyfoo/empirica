@@ -21,10 +21,21 @@ class ProjectRepository(BaseRepository):
 
     # Valid project types (v2.0 universal taxonomy)
     PROJECT_TYPES: ClassVar[list[str]] = [
-        'software', 'content', 'research', 'data', 'design',
-        'operations', 'strategic', 'engagement', 'legal',
+        "software",
+        "content",
+        "research",
+        "data",
+        "design",
+        "operations",
+        "strategic",
+        "engagement",
+        "legal",
         # Legacy types (backward compat)
-        'product', 'application', 'feature', 'documentation', 'infrastructure',
+        "product",
+        "application",
+        "feature",
+        "documentation",
+        "infrastructure",
     ]
 
     def create_project(
@@ -34,7 +45,7 @@ class ProjectRepository(BaseRepository):
         repos: list[str] | None = None,
         project_type: str | None = None,
         project_tags: list[str] | None = None,
-        parent_project_id: str | None = None
+        parent_project_id: str | None = None,
     ) -> str:
         """
         Create a new project for multi-repo/multi-session tracking.
@@ -55,8 +66,8 @@ class ProjectRepository(BaseRepository):
         # Validate project_type
         if project_type and project_type not in self.PROJECT_TYPES:
             logger.warning(f"Unknown project_type '{project_type}', defaulting to 'software'")
-            project_type = 'software'
-        project_type = project_type or 'software'
+            project_type = "software"
+        project_type = project_type or "software"
 
         project_data = {
             "name": name,
@@ -64,20 +75,30 @@ class ProjectRepository(BaseRepository):
             "repos": repos or [],
             "project_type": project_type,
             "project_tags": project_tags or [],
-            "parent_project_id": parent_project_id
+            "parent_project_id": parent_project_id,
         }
 
-        self._execute("""
+        self._execute(
+            """
             INSERT INTO projects (
                 id, name, description, repos, created_timestamp,
                 last_activity_timestamp, project_data,
                 project_type, project_tags, parent_project_id
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            project_id, name, description, json.dumps(repos or []),
-            time.time(), time.time(), json.dumps(project_data),
-            project_type, json.dumps(project_tags or []), parent_project_id
-        ))
+        """,
+            (
+                project_id,
+                name,
+                description,
+                json.dumps(repos or []),
+                time.time(),
+                time.time(),
+                json.dumps(project_data),
+                project_type,
+                json.dumps(project_tags or []),
+                parent_project_id,
+            ),
+        )
 
         self.commit()
         logger.info(f"📁 Project created: {name} [{project_type}] ({project_id[:8]}...)")
@@ -114,37 +135,46 @@ class ProjectRepository(BaseRepository):
         # Try as name first (primary identifier)
         project = self.get_project_by_name(project_id_or_name)
         if project:
-            return project['id']
+            return project["id"]
 
         # Fallback to UUID (backwards compatibility)
         project = self.get_project(project_id_or_name)
         if project:
-            return project['id']
+            return project["id"]
 
         return None
 
     def link_session_to_project(self, session_id: str, project_id: str):
         """Link a session to a project"""
-        self._execute("""
+        self._execute(
+            """
             UPDATE sessions SET project_id = ? WHERE session_id = ?
-        """, (project_id, session_id))
+        """,
+            (project_id, session_id),
+        )
 
         # Update project activity timestamp and session count
-        self._execute("""
+        self._execute(
+            """
             UPDATE projects
             SET last_activity_timestamp = ?,
                 total_sessions = total_sessions + 1
             WHERE id = ?
-        """, (time.time(), project_id))
+        """,
+            (time.time(), project_id),
+        )
 
         self.commit()
         logger.info(f"🔗 Session {session_id[:8]}... linked to project {project_id[:8]}...")
 
     def get_project_sessions(self, project_id: str) -> list[dict]:
         """Get all sessions for a project"""
-        cursor = self._execute("""
+        cursor = self._execute(
+            """
             SELECT * FROM sessions WHERE project_id = ? ORDER BY start_time DESC
-        """, (project_id,))
+        """,
+            (project_id,),
+        )
         return [dict(row) for row in cursor.fetchall()]
 
     def aggregate_project_learning_deltas(self, project_id: str) -> dict[str, float]:
@@ -155,9 +185,12 @@ class ProjectRepository(BaseRepository):
         computes deltas, and aggregates.
         """
         # Get all sessions for project
-        cursor = self._execute("""
+        cursor = self._execute(
+            """
             SELECT session_id FROM sessions WHERE project_id = ? ORDER BY start_time
-        """, (project_id,))
+        """,
+            (project_id,),
+        )
         session_ids = [row[0] for row in cursor.fetchall()]
 
         if not session_ids:
@@ -165,41 +198,71 @@ class ProjectRepository(BaseRepository):
 
         # Aggregate deltas across all sessions
         total_deltas = {
-            'engagement': 0.0, 'know': 0.0, 'do': 0.0, 'context': 0.0, 'clarity': 0.0,
-            'coherence': 0.0, 'signal': 0.0, 'density': 0.0, 'state': 0.0,
-            'change': 0.0, 'completion': 0.0, 'impact': 0.0, 'uncertainty': 0.0
+            "engagement": 0.0,
+            "know": 0.0,
+            "do": 0.0,
+            "context": 0.0,
+            "clarity": 0.0,
+            "coherence": 0.0,
+            "signal": 0.0,
+            "density": 0.0,
+            "state": 0.0,
+            "change": 0.0,
+            "completion": 0.0,
+            "impact": 0.0,
+            "uncertainty": 0.0,
         }
 
         for session_id in session_ids:
             # Get PREFLIGHT vectors
-            cursor = self._execute("""
+            cursor = self._execute(
+                """
                 SELECT engagement, know, do, context, clarity, coherence, signal, density,
                        state, change, completion, impact, uncertainty
                 FROM reflexes
                 WHERE session_id = ? AND phase = 'PREFLIGHT'
                 ORDER BY timestamp
                 LIMIT 1
-            """, (session_id,))
+            """,
+                (session_id,),
+            )
             preflight = cursor.fetchone()
 
             # Get POSTFLIGHT vectors
-            cursor = self._execute("""
+            cursor = self._execute(
+                """
                 SELECT engagement, know, do, context, clarity, coherence, signal, density,
                        state, change, completion, impact, uncertainty
                 FROM reflexes
                 WHERE session_id = ? AND phase = 'POSTFLIGHT'
                 ORDER BY timestamp DESC
                 LIMIT 1
-            """, (session_id,))
+            """,
+                (session_id,),
+            )
             postflight = cursor.fetchone()
 
             if preflight and postflight:
                 # Compute deltas and add to totals
-                for i, vector in enumerate(['engagement', 'know', 'do', 'context', 'clarity',
-                                            'coherence', 'signal', 'density', 'state', 'change',
-                                            'completion', 'impact', 'uncertainty']):
+                for i, vector in enumerate(
+                    [
+                        "engagement",
+                        "know",
+                        "do",
+                        "context",
+                        "clarity",
+                        "coherence",
+                        "signal",
+                        "density",
+                        "state",
+                        "change",
+                        "completion",
+                        "impact",
+                        "uncertainty",
+                    ]
+                ):
                     if preflight[i] is not None and postflight[i] is not None:
-                        total_deltas[vector] += (postflight[i] - preflight[i])
+                        total_deltas[vector] += postflight[i] - preflight[i]
 
         return total_deltas
 
@@ -209,7 +272,7 @@ class ProjectRepository(BaseRepository):
         project_summary: str,
         key_decisions: list[str] | None = None,
         patterns_discovered: list[str] | None = None,
-        remaining_work: list[str] | None = None
+        remaining_work: list[str] | None = None,
     ) -> str:
         """
         Create project-level handoff report by aggregating session handoffs.
@@ -232,29 +295,30 @@ class ProjectRepository(BaseRepository):
         # Aggregate session handoffs
         sessions_included = []
         for session in sessions:
-            sessions_included.append({
-                "session_id": session['session_id'],
-                "start_time": session['start_time'],
-                "ai_id": session['ai_id']
-            })
+            sessions_included.append(
+                {"session_id": session["session_id"], "start_time": session["start_time"], "ai_id": session["ai_id"]}
+            )
 
         # Compute total learning deltas
         total_deltas = self.aggregate_project_learning_deltas(project_id)
 
         # Get recent mistakes from project
-        cursor = self._execute("""
+        cursor = self._execute(
+            """
             SELECT mistake, cost_estimate, root_cause_vector, prevention
             FROM mistakes_made m
             JOIN sessions s ON m.session_id = s.session_id
             WHERE s.project_id = ?
             ORDER BY m.created_timestamp DESC
             LIMIT 10
-        """, (project_id,))
+        """,
+            (project_id,),
+        )
         mistakes_summary = [dict(row) for row in cursor.fetchall()]
 
         # Get repos touched
         project = self.get_project(project_id)
-        repos_touched = json.loads(project['repos']) if project and project['repos'] else []
+        repos_touched = json.loads(project["repos"]) if project and project["repos"] else []
 
         # Build handoff data
         handoff_data = {
@@ -268,25 +332,35 @@ class ProjectRepository(BaseRepository):
             "repos_touched": repos_touched,
             "next_session_bootstrap": {
                 "suggested_focus": remaining_work[0] if remaining_work else "Continue project work",
-                "context_breadcrumbs": key_decisions[-5:] if key_decisions else []
-            }
+                "context_breadcrumbs": key_decisions[-5:] if key_decisions else [],
+            },
         }
 
-        self._execute("""
+        self._execute(
+            """
             INSERT INTO project_handoffs (
                 id, project_id, created_timestamp, project_summary,
                 sessions_included, total_learning_deltas, key_decisions,
                 patterns_discovered, mistakes_summary, remaining_work,
                 repos_touched, next_session_bootstrap, handoff_data
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            handoff_id, project_id, time.time(), project_summary,
-            json.dumps(sessions_included), json.dumps(total_deltas),
-            json.dumps(key_decisions or []), json.dumps(patterns_discovered or []),
-            json.dumps(mistakes_summary), json.dumps(remaining_work or []),
-            json.dumps(repos_touched), json.dumps(handoff_data["next_session_bootstrap"]),
-            json.dumps(handoff_data)
-        ))
+        """,
+            (
+                handoff_id,
+                project_id,
+                time.time(),
+                project_summary,
+                json.dumps(sessions_included),
+                json.dumps(total_deltas),
+                json.dumps(key_decisions or []),
+                json.dumps(patterns_discovered or []),
+                json.dumps(mistakes_summary),
+                json.dumps(remaining_work or []),
+                json.dumps(repos_touched),
+                json.dumps(handoff_data["next_session_bootstrap"]),
+                json.dumps(handoff_data),
+            ),
+        )
 
         self.commit()
         logger.info(f"📋 Project handoff created: {handoff_id[:8]}...")
@@ -295,12 +369,15 @@ class ProjectRepository(BaseRepository):
 
     def get_latest_project_handoff(self, project_id: str) -> dict | None:
         """Get the most recent project handoff"""
-        cursor = self._execute("""
+        cursor = self._execute(
+            """
             SELECT * FROM project_handoffs
             WHERE project_id = ?
             ORDER BY created_timestamp DESC
             LIMIT 1
-        """, (project_id,))
+        """,
+            (project_id,),
+        )
         row = cursor.fetchone()
         return dict(row) if row else None
 
@@ -319,13 +396,16 @@ class ProjectRepository(BaseRepository):
         Returns:
             Dictionary with epistemic vectors, deltas, and reasoning, or None if no checkpoint exists
         """
-        cursor = self._execute("""
+        cursor = self._execute(
+            """
             SELECT r.* FROM reflexes r
             JOIN sessions s ON r.session_id = s.session_id
             WHERE s.project_id = ? AND s.ai_id = ? AND r.phase = 'POSTFLIGHT'
             ORDER BY r.timestamp DESC
             LIMIT 1
-        """, (project_id, ai_id))
+        """,
+            (project_id, ai_id),
+        )
 
         postflight = cursor.fetchone()
         if not postflight:
@@ -333,40 +413,43 @@ class ProjectRepository(BaseRepository):
 
         # Convert to dict
         postflight_dict = dict(postflight)
-        session_id = postflight_dict.get('session_id')
+        session_id = postflight_dict.get("session_id")
 
         # Try to find corresponding PREFLIGHT to calculate deltas
-        cursor = self._execute("""
+        cursor = self._execute(
+            """
             SELECT r.* FROM reflexes r
             WHERE r.session_id = ? AND r.phase = 'PREFLIGHT'
             ORDER BY r.timestamp ASC
             LIMIT 1
-        """, (session_id,))
+        """,
+            (session_id,),
+        )
 
         preflight = cursor.fetchone()
         preflight_dict = dict(preflight) if preflight else None
 
         # Build epistemic vectors dict from POSTFLIGHT
         vectors = {
-            'engagement': postflight_dict.get('engagement'),
-            'foundation': {
-                'know': postflight_dict.get('know'),
-                'do': postflight_dict.get('do'),
-                'context': postflight_dict.get('context')
+            "engagement": postflight_dict.get("engagement"),
+            "foundation": {
+                "know": postflight_dict.get("know"),
+                "do": postflight_dict.get("do"),
+                "context": postflight_dict.get("context"),
             },
-            'comprehension': {
-                'clarity': postflight_dict.get('clarity'),
-                'coherence': postflight_dict.get('coherence'),
-                'signal': postflight_dict.get('signal'),
-                'density': postflight_dict.get('density')
+            "comprehension": {
+                "clarity": postflight_dict.get("clarity"),
+                "coherence": postflight_dict.get("coherence"),
+                "signal": postflight_dict.get("signal"),
+                "density": postflight_dict.get("density"),
             },
-            'execution': {
-                'state': postflight_dict.get('state'),
-                'change': postflight_dict.get('change'),
-                'completion': postflight_dict.get('completion'),
-                'impact': postflight_dict.get('impact')
+            "execution": {
+                "state": postflight_dict.get("state"),
+                "change": postflight_dict.get("change"),
+                "completion": postflight_dict.get("completion"),
+                "impact": postflight_dict.get("impact"),
             },
-            'uncertainty': postflight_dict.get('uncertainty')
+            "uncertainty": postflight_dict.get("uncertainty"),
         }
 
         # Remove None values
@@ -376,42 +459,50 @@ class ProjectRepository(BaseRepository):
         deltas = None
         if preflight_dict:
             deltas = {
-                'engagement': self._calculate_delta(preflight_dict.get('engagement'), postflight_dict.get('engagement')),
-                'foundation': {
-                    'know': self._calculate_delta(preflight_dict.get('know'), postflight_dict.get('know')),
-                    'do': self._calculate_delta(preflight_dict.get('do'), postflight_dict.get('do')),
-                    'context': self._calculate_delta(preflight_dict.get('context'), postflight_dict.get('context'))
+                "engagement": self._calculate_delta(
+                    preflight_dict.get("engagement"), postflight_dict.get("engagement")
+                ),
+                "foundation": {
+                    "know": self._calculate_delta(preflight_dict.get("know"), postflight_dict.get("know")),
+                    "do": self._calculate_delta(preflight_dict.get("do"), postflight_dict.get("do")),
+                    "context": self._calculate_delta(preflight_dict.get("context"), postflight_dict.get("context")),
                 },
-                'comprehension': {
-                    'clarity': self._calculate_delta(preflight_dict.get('clarity'), postflight_dict.get('clarity')),
-                    'coherence': self._calculate_delta(preflight_dict.get('coherence'), postflight_dict.get('coherence')),
-                    'signal': self._calculate_delta(preflight_dict.get('signal'), postflight_dict.get('signal')),
-                    'density': self._calculate_delta(preflight_dict.get('density'), postflight_dict.get('density'))
+                "comprehension": {
+                    "clarity": self._calculate_delta(preflight_dict.get("clarity"), postflight_dict.get("clarity")),
+                    "coherence": self._calculate_delta(
+                        preflight_dict.get("coherence"), postflight_dict.get("coherence")
+                    ),
+                    "signal": self._calculate_delta(preflight_dict.get("signal"), postflight_dict.get("signal")),
+                    "density": self._calculate_delta(preflight_dict.get("density"), postflight_dict.get("density")),
                 },
-                'execution': {
-                    'state': self._calculate_delta(preflight_dict.get('state'), postflight_dict.get('state')),
-                    'change': self._calculate_delta(preflight_dict.get('change'), postflight_dict.get('change')),
-                    'completion': self._calculate_delta(preflight_dict.get('completion'), postflight_dict.get('completion')),
-                    'impact': self._calculate_delta(preflight_dict.get('impact'), postflight_dict.get('impact'))
+                "execution": {
+                    "state": self._calculate_delta(preflight_dict.get("state"), postflight_dict.get("state")),
+                    "change": self._calculate_delta(preflight_dict.get("change"), postflight_dict.get("change")),
+                    "completion": self._calculate_delta(
+                        preflight_dict.get("completion"), postflight_dict.get("completion")
+                    ),
+                    "impact": self._calculate_delta(preflight_dict.get("impact"), postflight_dict.get("impact")),
                 },
-                'uncertainty': self._calculate_delta(preflight_dict.get('uncertainty'), postflight_dict.get('uncertainty'))
+                "uncertainty": self._calculate_delta(
+                    preflight_dict.get("uncertainty"), postflight_dict.get("uncertainty")
+                ),
             }
             # Remove None deltas
             deltas = {k: v for k, v in deltas.items() if v is not None}
 
         result = {
-            'checkpoint_id': postflight_dict.get('id'),
-            'session_id': session_id,
-            'ai_id': ai_id,
-            'phase': 'POSTFLIGHT',
-            'vectors': vectors,
-            'reasoning': postflight_dict.get('reasoning'),
-            'evidence': postflight_dict.get('evidence'),
-            'timestamp': postflight_dict.get('timestamp')
+            "checkpoint_id": postflight_dict.get("id"),
+            "session_id": session_id,
+            "ai_id": ai_id,
+            "phase": "POSTFLIGHT",
+            "vectors": vectors,
+            "reasoning": postflight_dict.get("reasoning"),
+            "evidence": postflight_dict.get("evidence"),
+            "timestamp": postflight_dict.get("timestamp"),
         }
 
         if deltas:
-            result['deltas'] = deltas
+            result["deltas"] = deltas
 
         return result
 

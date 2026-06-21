@@ -15,11 +15,11 @@ layer normalize input through :func:`normalize_visibility` before persisting.
 
 from typing import Literal
 
-VisibilityTier = Literal['public', 'shared', 'local']
+VisibilityTier = Literal["public", "shared", "local"]
 
-VISIBILITY_TIERS: tuple[str, ...] = ('public', 'shared', 'local')
+VISIBILITY_TIERS: tuple[str, ...] = ("public", "shared", "local")
 
-DEFAULT_VISIBILITY: str = 'shared'
+DEFAULT_VISIBILITY: str = "shared"
 
 
 def normalize_visibility(value: str | None) -> str:

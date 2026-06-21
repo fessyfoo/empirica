@@ -48,36 +48,48 @@ def calculate_completeness_score(session_id: str, db) -> dict[str, Any]:
     cursor = db.conn.cursor()
 
     # Check for PREFLIGHT
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT COUNT(*) as count FROM reflexes
         WHERE session_id = ? AND phase = 'PREFLIGHT'
-    """, (session_id,))
-    has_preflight = cursor.fetchone()['count'] > 0
+    """,
+        (session_id,),
+    )
+    has_preflight = cursor.fetchone()["count"] > 0
     preflight_score = 0.20 if has_preflight else 0.0
 
     # Check for POSTFLIGHT
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT COUNT(*) as count FROM reflexes
         WHERE session_id = ? AND phase = 'POSTFLIGHT'
-    """, (session_id,))
-    has_postflight = cursor.fetchone()['count'] > 0
+    """,
+        (session_id,),
+    )
+    has_postflight = cursor.fetchone()["count"] > 0
     postflight_score = 0.20 if has_postflight else 0.0
 
     # Get session duration
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT
             (julianday(COALESCE(end_time, CURRENT_TIMESTAMP)) - julianday(start_time)) * 24 * 60 as duration_minutes
         FROM sessions WHERE session_id = ?
-    """, (session_id,))
+    """,
+        (session_id,),
+    )
     row = cursor.fetchone()
-    duration_minutes = max(0.0, row['duration_minutes'] or 0.0) if row else 0.0
+    duration_minutes = max(0.0, row["duration_minutes"] or 0.0) if row else 0.0
 
     # Count findings
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT COUNT(*) as count FROM project_findings
         WHERE session_id = ?
-    """, (session_id,))
-    findings_count = cursor.fetchone()['count']
+    """,
+        (session_id,),
+    )
+    findings_count = cursor.fetchone()["count"]
 
     # Findings score: 1 per 15min expected
     expected_findings = max(1, duration_minutes / 15.0)
@@ -85,46 +97,58 @@ def calculate_completeness_score(session_id: str, db) -> dict[str, Any]:
     findings_score = 0.20 * findings_ratio
 
     # Count unknowns
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT COUNT(*) as count FROM project_unknowns
         WHERE session_id = ?
-    """, (session_id,))
-    unknowns_count = cursor.fetchone()['count']
+    """,
+        (session_id,),
+    )
+    unknowns_count = cursor.fetchone()["count"]
     unknowns_score = 0.15 if unknowns_count > 0 else 0.0
 
     # Count mistakes
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT COUNT(*) as count FROM mistakes_made
         WHERE session_id = ?
-    """, (session_id,))
-    mistakes_count = cursor.fetchone()['count']
+    """,
+        (session_id,),
+    )
+    mistakes_count = cursor.fetchone()["count"]
     mistakes_score = 0.10 if mistakes_count > 0 else 0.0
 
     # Count epistemic sources (reference docs)
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT COUNT(*) as count FROM epistemic_sources
         WHERE session_id = ?
-    """, (session_id,))
-    sources_count = cursor.fetchone()['count']
+    """,
+        (session_id,),
+    )
+    sources_count = cursor.fetchone()["count"]
     sources_score = 0.10 if sources_count > 0 else 0.0
 
     # Count dead ends
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT COUNT(*) as count FROM project_dead_ends
         WHERE session_id = ?
-    """, (session_id,))
-    deadends_count = cursor.fetchone()['count']
+    """,
+        (session_id,),
+    )
+    deadends_count = cursor.fetchone()["count"]
     deadends_score = 0.05 if deadends_count > 0 else 0.0
 
     # Total score
     total_score = (
-        preflight_score +
-        findings_score +
-        unknowns_score +
-        mistakes_score +
-        sources_score +
-        deadends_score +
-        postflight_score
+        preflight_score
+        + findings_score
+        + unknowns_score
+        + mistakes_score
+        + sources_score
+        + deadends_score
+        + postflight_score
     )
 
     # Grade
@@ -138,26 +162,22 @@ def calculate_completeness_score(session_id: str, db) -> dict[str, Any]:
         grade = "🔴 LOW"
 
     return {
-        'score': total_score,
-        'grade': grade,
-        'components': {
-            'preflight': {'score': preflight_score, 'exists': has_preflight},
-            'findings': {'score': findings_score, 'count': findings_count, 'expected': expected_findings},
-            'unknowns': {'score': unknowns_score, 'count': unknowns_count},
-            'mistakes': {'score': mistakes_score, 'count': mistakes_count},
-            'sources': {'score': sources_score, 'count': sources_count},
-            'deadends': {'score': deadends_score, 'count': deadends_count},
-            'postflight': {'score': postflight_score, 'exists': has_postflight}
+        "score": total_score,
+        "grade": grade,
+        "components": {
+            "preflight": {"score": preflight_score, "exists": has_preflight},
+            "findings": {"score": findings_score, "count": findings_count, "expected": expected_findings},
+            "unknowns": {"score": unknowns_score, "count": unknowns_count},
+            "mistakes": {"score": mistakes_score, "count": mistakes_count},
+            "sources": {"score": sources_score, "count": sources_count},
+            "deadends": {"score": deadends_score, "count": deadends_count},
+            "postflight": {"score": postflight_score, "exists": has_postflight},
         },
-        'duration_minutes': duration_minutes
+        "duration_minutes": duration_minutes,
     }
 
 
-def get_workflow_suggestions(
-    project_id: str,
-    session_id: str | None = None,
-    db = None
-) -> dict[str, Any]:
+def get_workflow_suggestions(project_id: str, session_id: str | None = None, db=None) -> dict[str, Any]:
     """
     Get contextual workflow suggestions based on session state.
 
@@ -174,6 +194,7 @@ def get_workflow_suggestions(
     """
     if not db:
         from empirica.data.session_database import SessionDatabase
+
         db = SessionDatabase()
         should_close = True
     else:
@@ -191,69 +212,79 @@ def get_workflow_suggestions(
             query_parts = []
 
             # Check for PREFLIGHT
-            if not completeness['components']['preflight']['exists']:
+            if not completeness["components"]["preflight"]["exists"]:
                 query_parts.append("how to create PREFLIGHT assessment")
-                suggestions.append({
-                    'priority': 'HIGH',
-                    'action': 'Create PREFLIGHT assessment',
-                    'reason': 'No baseline epistemic state recorded',
-                    'guide': 'Run PREFLIGHT before starting work to establish baseline',
-                    'source': 'architecture/INTERACTIVE_CHECKLIST_TUI.md#phase-1'
-                })
+                suggestions.append(
+                    {
+                        "priority": "HIGH",
+                        "action": "Create PREFLIGHT assessment",
+                        "reason": "No baseline epistemic state recorded",
+                        "guide": "Run PREFLIGHT before starting work to establish baseline",
+                        "source": "architecture/INTERACTIVE_CHECKLIST_TUI.md#phase-1",
+                    }
+                )
 
             # Check for low completeness
-            if completeness['score'] < 0.5:
+            if completeness["score"] < 0.5:
                 query_parts.append("improve epistemic completeness low score")
 
                 # Specific suggestions based on what's missing
-                if completeness['components']['findings']['count'] == 0:
-                    suggestions.append({
-                        'priority': 'MEDIUM',
-                        'action': 'Log findings as you work',
-                        'reason': f"No findings logged in {completeness['duration_minutes']:.1f} minutes",
-                        'guide': 'Use: empirica finding-log --finding "your discovery"',
-                        'source': 'architecture/INTERACTIVE_CHECKLIST_TUI.md#phase-2'
-                    })
+                if completeness["components"]["findings"]["count"] == 0:
+                    suggestions.append(
+                        {
+                            "priority": "MEDIUM",
+                            "action": "Log findings as you work",
+                            "reason": f"No findings logged in {completeness['duration_minutes']:.1f} minutes",
+                            "guide": 'Use: empirica finding-log --finding "your discovery"',
+                            "source": "architecture/INTERACTIVE_CHECKLIST_TUI.md#phase-2",
+                        }
+                    )
 
-                if completeness['components']['unknowns']['count'] == 0 and completeness['duration_minutes'] > 30:
-                    suggestions.append({
-                        'priority': 'MEDIUM',
-                        'action': 'Track unknowns explicitly',
-                        'reason': 'Long session with no unknowns logged (uncertain areas unclear)',
-                        'guide': 'Use: empirica unknown-log --unknown "what you don\'t know"',
-                        'source': 'architecture/INTERACTIVE_CHECKLIST_TUI.md#unknowns'
-                    })
+                if completeness["components"]["unknowns"]["count"] == 0 and completeness["duration_minutes"] > 30:
+                    suggestions.append(
+                        {
+                            "priority": "MEDIUM",
+                            "action": "Track unknowns explicitly",
+                            "reason": "Long session with no unknowns logged (uncertain areas unclear)",
+                            "guide": 'Use: empirica unknown-log --unknown "what you don\'t know"',
+                            "source": "architecture/INTERACTIVE_CHECKLIST_TUI.md#unknowns",
+                        }
+                    )
 
             # Check for long session without POSTFLIGHT
-            if completeness['duration_minutes'] > 120 and not completeness['components']['postflight']['exists']:
+            if completeness["duration_minutes"] > 120 and not completeness["components"]["postflight"]["exists"]:
                 query_parts.append("long session completeness validation postflight")
-                suggestions.append({
-                    'priority': 'HIGH',
-                    'action': 'Run POSTFLIGHT assessment',
-                    'reason': f"Session running for {completeness['duration_minutes']:.1f} minutes without POSTFLIGHT",
-                    'guide': 'Run POSTFLIGHT to measure learning and validate work',
-                    'source': 'architecture/INTERACTIVE_CHECKLIST_TUI.md#phase-3'
-                })
+                suggestions.append(
+                    {
+                        "priority": "HIGH",
+                        "action": "Run POSTFLIGHT assessment",
+                        "reason": f"Session running for {completeness['duration_minutes']:.1f} minutes without POSTFLIGHT",
+                        "guide": "Run POSTFLIGHT to measure learning and validate work",
+                        "source": "architecture/INTERACTIVE_CHECKLIST_TUI.md#phase-3",
+                    }
+                )
 
         else:
             # No session - general workflow tips
-            suggestions.append({
-                'priority': 'INFO',
-                'action': 'Create session for work tracking',
-                'reason': 'No active session detected',
-                'guide': 'Use: empirica session-create --ai-id <your-ai-id>',
-                'source': 'architecture/AI_WORKFLOW_AUTOMATION.md#auto-session'
-            })
+            suggestions.append(
+                {
+                    "priority": "INFO",
+                    "action": "Create session for work tracking",
+                    "reason": "No active session detected",
+                    "guide": "Use: empirica session-create --ai-id <your-ai-id>",
+                    "source": "architecture/AI_WORKFLOW_AUTOMATION.md#auto-session",
+                }
+            )
 
         result = {
-            'completeness_score': completeness['score'] if completeness else None,
-            'grade': completeness['grade'] if completeness else None,
-            'suggestions': suggestions
+            "completeness_score": completeness["score"] if completeness else None,
+            "grade": completeness["grade"] if completeness else None,
+            "suggestions": suggestions,
         }
 
         if completeness:
-            result['components'] = completeness['components']
-            result['duration_minutes'] = completeness['duration_minutes']
+            result["components"] = completeness["components"]
+            result["duration_minutes"] = completeness["duration_minutes"]
 
         return result
 
@@ -274,27 +305,29 @@ def format_workflow_suggestions(suggestions_data: dict[str, Any]) -> str:
     """
     output = []
 
-    if suggestions_data.get('completeness_score') is not None:
-        output.append(f"\n📊 Epistemic Completeness: {suggestions_data['grade']} ({suggestions_data['completeness_score']:.0%})")
+    if suggestions_data.get("completeness_score") is not None:
+        output.append(
+            f"\n📊 Epistemic Completeness: {suggestions_data['grade']} ({suggestions_data['completeness_score']:.0%})"
+        )
         output.append("")
 
-    if suggestions_data.get('suggestions'):
+    if suggestions_data.get("suggestions"):
         output.append("💡 Workflow Suggestions:")
         output.append("")
 
-        for suggestion in suggestions_data['suggestions']:
-            priority = suggestion['priority']
-            action = suggestion['action']
-            reason = suggestion['reason']
-            guide = suggestion['guide']
+        for suggestion in suggestions_data["suggestions"]:
+            priority = suggestion["priority"]
+            action = suggestion["action"]
+            reason = suggestion["reason"]
+            guide = suggestion["guide"]
 
             # Priority emoji
-            if priority == 'HIGH':
-                emoji = '🔴'
-            elif priority == 'MEDIUM':
-                emoji = '🟡'
+            if priority == "HIGH":
+                emoji = "🔴"
+            elif priority == "MEDIUM":
+                emoji = "🟡"
             else:
-                emoji = 'ℹ️'
+                emoji = "ℹ️"
 
             output.append(f"{emoji} {action}")
             output.append(f"   Reason: {reason}")

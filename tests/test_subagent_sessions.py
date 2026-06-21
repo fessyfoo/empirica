@@ -47,9 +47,7 @@ def fresh_db(tmp_path) -> sqlite3.Connection:
 class TestSchema:
     def test_subagent_sessions_table_exists(self, fresh_db):
         cursor = fresh_db.cursor()
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='subagent_sessions'"
-        )
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='subagent_sessions'")
         assert cursor.fetchone() is not None
 
     def test_subagent_sessions_has_required_columns(self, fresh_db):
@@ -57,9 +55,16 @@ class TestSchema:
         cursor.execute("PRAGMA table_info(subagent_sessions)")
         columns = {row[1] for row in cursor.fetchall()}
         for col in [
-            "session_id", "agent_name", "parent_session_id",
-            "project_id", "instance_id", "start_time", "end_time",
-            "status", "rollup_summary", "created_at",
+            "session_id",
+            "agent_name",
+            "parent_session_id",
+            "project_id",
+            "instance_id",
+            "start_time",
+            "end_time",
+            "status",
+            "rollup_summary",
+            "created_at",
         ]:
             assert col in columns, f"missing column {col}"
 
@@ -327,9 +332,7 @@ class TestHealSessionProjectId:
 
         # Row's project_id is now correct
         cursor = session_db.conn.cursor()
-        cursor.execute(
-            "SELECT project_id FROM sessions WHERE session_id = ?", (session_id,)
-        )
+        cursor.execute("SELECT project_id FROM sessions WHERE session_id = ?", (session_id,))
         assert cursor.fetchone()[0] == "real-pid-yyy"
 
     def test_no_op_when_already_correct(self, session_db):
@@ -352,9 +355,7 @@ class TestHealSessionProjectId:
 
         # Confirm no row was inserted as a side-effect
         cursor = session_db.conn.cursor()
-        cursor.execute(
-            "SELECT COUNT(*) FROM sessions WHERE session_id = ?", ("never-created-uuid",)
-        )
+        cursor.execute("SELECT COUNT(*) FROM sessions WHERE session_id = ?", ("never-created-uuid",))
         assert cursor.fetchone()[0] == 0
 
     def test_idempotent_after_heal(self, session_db):

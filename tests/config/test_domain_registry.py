@@ -22,6 +22,7 @@ from empirica.config.domain_registry import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _write_yaml(path: Path, data: dict) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(yaml.dump(data, default_flow_style=False))
@@ -39,7 +40,8 @@ def _make_domain_yaml(
         "version": "1",
         "description": f"Test domain: {domain}",
         "applies_to_work_types": work_types or [],
-        "criticalities": criticalities or {
+        "criticalities": criticalities
+        or {
             "low": {
                 "description": "Low risk",
                 "required_checks": ["tests"],
@@ -54,8 +56,8 @@ def _make_domain_yaml(
 # Core dataclass tests
 # ---------------------------------------------------------------------------
 
-class TestDomainKey:
 
+class TestDomainKey:
     def test_frozen(self):
         key = DomainKey(work_type="code", domain="cybersec", criticality="high")
         with pytest.raises(AttributeError):
@@ -75,7 +77,6 @@ class TestDomainKey:
 
 
 class TestChecklist:
-
     def test_empty_checklist(self):
         cl = Checklist.empty()
         assert cl.required == ()
@@ -92,6 +93,7 @@ class TestChecklist:
 # ---------------------------------------------------------------------------
 # Registry loading tests
 # ---------------------------------------------------------------------------
+
 
 class TestBuiltinDomains:
     """The 4 built-in domains must load from the package."""
@@ -120,17 +122,20 @@ class TestBuiltinDomains:
 # YAML file loading
 # ---------------------------------------------------------------------------
 
-class TestYAMLLoading:
 
+class TestYAMLLoading:
     def test_single_domain_file(self, tmp_path):
-        data = _make_domain_yaml("payments", criticalities={
-            "high": {
-                "description": "PCI-DSS scope",
-                "required_checks": ["tests", "lint", "trivy_deps"],
-                "thresholds": {"coverage_min": 0.7, "check_pass_ratio": 1.0},
-                "max_iterations": 5,
+        data = _make_domain_yaml(
+            "payments",
+            criticalities={
+                "high": {
+                    "description": "PCI-DSS scope",
+                    "required_checks": ["tests", "lint", "trivy_deps"],
+                    "thresholds": {"coverage_min": 0.7, "check_pass_ratio": 1.0},
+                    "max_iterations": 5,
+                },
             },
-        })
+        )
         _write_yaml(tmp_path / "payments.yaml", data)
 
         reg = DomainRegistry(user_dir=tmp_path)
@@ -157,22 +162,25 @@ class TestYAMLLoading:
 # Precedence tests
 # ---------------------------------------------------------------------------
 
-class TestPrecedence:
 
+class TestPrecedence:
     def test_project_overrides_user(self, tmp_path):
         """Project domain file wins over user-global."""
         user_dir = tmp_path / "user"
         project_dir = tmp_path / "project"
 
         # User defines cybersec/low with max_iterations=3
-        user_data = _make_domain_yaml("cybersec", criticalities={
-            "low": {
-                "description": "User low",
-                "required_checks": ["tests"],
-                "thresholds": {"coverage_min": 0.3},
-                "max_iterations": 3,
+        user_data = _make_domain_yaml(
+            "cybersec",
+            criticalities={
+                "low": {
+                    "description": "User low",
+                    "required_checks": ["tests"],
+                    "thresholds": {"coverage_min": 0.3},
+                    "max_iterations": 3,
+                },
             },
-        })
+        )
         _write_yaml(user_dir / "cybersec.yaml", user_data)
 
         # Project overrides cybersec/low with max_iterations=10
@@ -181,14 +189,17 @@ class TestPrecedence:
         proj_data = {
             "version": "1",
             "domains": {
-                "cybersec": _make_domain_yaml("cybersec", criticalities={
-                    "low": {
-                        "description": "Project low",
-                        "required_checks": ["tests", "lint"],
-                        "thresholds": {"coverage_min": 0.5},
-                        "max_iterations": 10,
+                "cybersec": _make_domain_yaml(
+                    "cybersec",
+                    criticalities={
+                        "low": {
+                            "description": "Project low",
+                            "required_checks": ["tests", "lint"],
+                            "thresholds": {"coverage_min": 0.5},
+                            "max_iterations": 10,
+                        },
                     },
-                }),
+                ),
             },
         }
         _write_yaml(proj_empirica / "domains.yaml", proj_data)
@@ -201,14 +212,17 @@ class TestPrecedence:
     def test_user_overrides_builtin(self, tmp_path):
         """User-global domain files override built-in defaults."""
         user_dir = tmp_path / "user"
-        user_data = _make_domain_yaml("default", criticalities={
-            "medium": {
-                "description": "Custom default",
-                "required_checks": ["tests", "lint", "semgrep_basic"],
-                "thresholds": {"coverage_min": 0.6},
-                "max_iterations": 7,
+        user_data = _make_domain_yaml(
+            "default",
+            criticalities={
+                "medium": {
+                    "description": "Custom default",
+                    "required_checks": ["tests", "lint", "semgrep_basic"],
+                    "thresholds": {"coverage_min": 0.6},
+                    "max_iterations": 7,
+                },
             },
-        })
+        )
         _write_yaml(user_dir / "default.yaml", user_data)
 
         reg = DomainRegistry(user_dir=user_dir)
@@ -221,8 +235,8 @@ class TestPrecedence:
 # Fallback resolution
 # ---------------------------------------------------------------------------
 
-class TestFallbackResolution:
 
+class TestFallbackResolution:
     def test_unknown_domain_falls_back_to_default(self):
         """Unregistered domain resolves to default domain baseline."""
         reg = DomainRegistry()
@@ -233,14 +247,17 @@ class TestFallbackResolution:
     def test_unknown_criticality_falls_back_to_lower(self, tmp_path):
         """If exact criticality not found, fall to next lower."""
         user_dir = tmp_path / "user"
-        data = _make_domain_yaml("custom", criticalities={
-            "low": {
-                "description": "Only low defined",
-                "required_checks": ["tests"],
-                "thresholds": {"coverage_min": 0.3},
-                "max_iterations": 3,
+        data = _make_domain_yaml(
+            "custom",
+            criticalities={
+                "low": {
+                    "description": "Only low defined",
+                    "required_checks": ["tests"],
+                    "thresholds": {"coverage_min": 0.3},
+                    "max_iterations": 3,
+                },
             },
-        })
+        )
         _write_yaml(user_dir / "custom.yaml", data)
 
         reg = DomainRegistry(user_dir=user_dir)
@@ -265,8 +282,8 @@ class TestFallbackResolution:
 # Validation
 # ---------------------------------------------------------------------------
 
-class TestValidation:
 
+class TestValidation:
     def test_invalid_yaml_is_skipped(self, tmp_path):
         """Malformed YAML files are skipped with a warning, not crashes."""
         user_dir = tmp_path / "user"
@@ -290,8 +307,8 @@ class TestValidation:
 # work_type filtering
 # ---------------------------------------------------------------------------
 
-class TestWorkTypeFiltering:
 
+class TestWorkTypeFiltering:
     def test_applies_to_work_types_filters(self, tmp_path):
         """Domain with applies_to_work_types only matches those types."""
         user_dir = tmp_path / "user"
@@ -314,8 +331,8 @@ class TestWorkTypeFiltering:
 # List/query API
 # ---------------------------------------------------------------------------
 
-class TestListAPI:
 
+class TestListAPI:
     def test_list_domains(self):
         reg = DomainRegistry()
         domains = reg.list_domains()
@@ -324,10 +341,13 @@ class TestListAPI:
 
     def test_list_criticalities(self, tmp_path):
         user_dir = tmp_path / "user"
-        data = _make_domain_yaml("multi", criticalities={
-            "low": {"description": "L", "required_checks": [], "thresholds": {}, "max_iterations": 1},
-            "high": {"description": "H", "required_checks": ["tests"], "thresholds": {}, "max_iterations": 5},
-        })
+        data = _make_domain_yaml(
+            "multi",
+            criticalities={
+                "low": {"description": "L", "required_checks": [], "thresholds": {}, "max_iterations": 1},
+                "high": {"description": "H", "required_checks": ["tests"], "thresholds": {}, "max_iterations": 5},
+            },
+        )
         _write_yaml(user_dir / "multi.yaml", data)
 
         reg = DomainRegistry(user_dir=user_dir)

@@ -1,6 +1,7 @@
 """
 Grounded calibration: verification embedding and trajectory analysis.
 """
+
 from __future__ import annotations
 
 from empirica.core.qdrant.collections import _calibration_collection
@@ -269,4 +270,3 @@ def search_calibration_patterns(
 # These embed/search functions are ready for use when CLI commands
 # (assumption-log, decision-log, intent-forward/reverse) are implemented.
 # Until then, collections exist but are empty — zero overhead.
-

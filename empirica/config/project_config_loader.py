@@ -19,60 +19,73 @@ class ProjectConfig:
 
     # Valid project types (universal across domains)
     VALID_TYPES: ClassVar[list[str]] = [
-        'software', 'content', 'research', 'data', 'design',
-        'operations', 'strategic', 'engagement', 'legal',
+        "software",
+        "content",
+        "research",
+        "data",
+        "design",
+        "operations",
+        "strategic",
+        "engagement",
+        "legal",
         # Legacy types (backward compat with v1.x project.yaml files)
-        'product', 'application', 'feature', 'documentation', 'infrastructure',
+        "product",
+        "application",
+        "feature",
+        "documentation",
+        "infrastructure",
     ]
 
-    VALID_CLASSIFICATIONS: ClassVar[list[str]] = ['open', 'internal', 'restricted']
+    VALID_CLASSIFICATIONS: ClassVar[list[str]] = ["open", "internal", "restricted"]
 
-    VALID_STATUSES: ClassVar[list[str]] = ['active', 'dormant', 'archived']
+    VALID_STATUSES: ClassVar[list[str]] = ["active", "dormant", "archived"]
 
     def __init__(self, config_data: dict[str, Any]) -> None:
         """Initialize project config from configuration dictionary."""
         # Schema version
-        self.version = config_data.get('version', '1.0')
+        self.version = config_data.get("version", "1.0")
 
         # Core identity (v1.0)
-        self.project_id = config_data.get('project_id')
-        self.name = config_data.get('name', 'Unknown Project')
-        self.description = config_data.get('description', '')
+        self.project_id = config_data.get("project_id")
+        self.name = config_data.get("name", "Unknown Project")
+        self.description = config_data.get("description", "")
 
         # Identity enrichment (v2.0)
-        self.type = self._validated(config_data.get('type', 'software'), self.VALID_TYPES, 'software', 'type')
-        self.domain = config_data.get('domain', '')
-        self.classification = self._validated(config_data.get('classification', 'internal'), self.VALID_CLASSIFICATIONS, 'internal', 'classification')
-        self.status = self._validated(config_data.get('status', 'active'), self.VALID_STATUSES, 'active', 'status')
+        self.type = self._validated(config_data.get("type", "software"), self.VALID_TYPES, "software", "type")
+        self.domain = config_data.get("domain", "")
+        self.classification = self._validated(
+            config_data.get("classification", "internal"), self.VALID_CLASSIFICATIONS, "internal", "classification"
+        )
+        self.status = self._validated(config_data.get("status", "active"), self.VALID_STATUSES, "active", "status")
 
         # Evidence & language
-        self.evidence_profile = config_data.get('evidence_profile', 'auto')
-        self.languages = config_data.get('languages', [])
-        self.tags = config_data.get('tags', [])
+        self.evidence_profile = config_data.get("evidence_profile", "auto")
+        self.languages = config_data.get("languages", [])
+        self.tags = config_data.get("tags", [])
 
         # Provenance
-        self.created_at = config_data.get('created_at')
-        self.created_by = config_data.get('created_by')
-        self.repository = config_data.get('repository')
+        self.created_at = config_data.get("created_at")
+        self.created_by = config_data.get("created_by")
+        self.repository = config_data.get("repository")
 
         # Participant references (IDs + roles — full profiles in Workspace CRM)
-        self.contacts = config_data.get('contacts', [])
+        self.contacts = config_data.get("contacts", [])
 
         # Engagement references (IDs — lifecycle in Workspace CRM)
-        self.engagements = config_data.get('engagements', [])
+        self.engagements = config_data.get("engagements", [])
 
         # Relationship edges (typed links to other entities)
-        self.edges = config_data.get('edges', [])
+        self.edges = config_data.get("edges", [])
 
         # Existing v1.0 fields
-        self.subjects = config_data.get('subjects', {})
-        self.default_subject = config_data.get('default_subject')
-        self.auto_detect = config_data.get('auto_detect', {'enabled': True, 'method': 'path_match'})
-        self.beads = config_data.get('beads', {})
-        self.default_use_beads = self.beads.get('default_enabled', False)
+        self.subjects = config_data.get("subjects", {})
+        self.default_subject = config_data.get("default_subject")
+        self.auto_detect = config_data.get("auto_detect", {"enabled": True, "method": "path_match"})
+        self.beads = config_data.get("beads", {})
+        self.default_use_beads = self.beads.get("default_enabled", False)
 
         # Domain extension point
-        self.domain_config = config_data.get('domain_config', {})
+        self.domain_config = config_data.get("domain_config", {})
 
     @staticmethod
     def _validated(value: str, valid_set: list[str], default: str, field_name: str) -> str:
@@ -85,40 +98,40 @@ class ProjectConfig:
     def to_dict(self) -> dict[str, Any]:
         """Serialize config back to dict for yaml round-tripping."""
         d: dict[str, Any] = {
-            'version': self.version,
-            'name': self.name,
-            'description': self.description,
+            "version": self.version,
+            "name": self.name,
+            "description": self.description,
         }
         if self.project_id:
-            d['project_id'] = self.project_id
-        d['type'] = self.type
+            d["project_id"] = self.project_id
+        d["type"] = self.type
         if self.domain:
-            d['domain'] = self.domain
-        d['classification'] = self.classification
-        d['status'] = self.status
-        d['evidence_profile'] = self.evidence_profile
+            d["domain"] = self.domain
+        d["classification"] = self.classification
+        d["status"] = self.status
+        d["evidence_profile"] = self.evidence_profile
         if self.languages:
-            d['languages'] = self.languages
+            d["languages"] = self.languages
         if self.tags:
-            d['tags'] = self.tags
+            d["tags"] = self.tags
         if self.created_at:
-            d['created_at'] = self.created_at
+            d["created_at"] = self.created_at
         if self.created_by:
-            d['created_by'] = self.created_by
+            d["created_by"] = self.created_by
         if self.repository:
-            d['repository'] = self.repository
+            d["repository"] = self.repository
         if self.contacts:
-            d['contacts'] = self.contacts
+            d["contacts"] = self.contacts
         if self.engagements:
-            d['engagements'] = self.engagements
+            d["engagements"] = self.engagements
         if self.edges:
-            d['edges'] = self.edges
-        d['beads'] = self.beads if self.beads else {'default_enabled': False}
+            d["edges"] = self.edges
+        d["beads"] = self.beads if self.beads else {"default_enabled": False}
         if self.subjects:
-            d['subjects'] = self.subjects
-        d['auto_detect'] = self.auto_detect
+            d["subjects"] = self.subjects
+        d["auto_detect"] = self.auto_detect
         if self.domain_config:
-            d['domain_config'] = self.domain_config
+            d["domain_config"] = self.domain_config
         return d
 
     def get_subject_for_path(self, current_path: str) -> str | None:
@@ -131,14 +144,14 @@ class ProjectConfig:
         Returns:
             subject_id if matched, None otherwise
         """
-        if not self.auto_detect.get('enabled', True):
+        if not self.auto_detect.get("enabled", True):
             return None
 
         resolved_path = Path(current_path).resolve()
 
         # Try to match current path to subject paths
         for subject_id, subject_config in self.subjects.items():
-            for path_pattern in subject_config.get('paths', []):
+            for path_pattern in subject_config.get("paths", []):
                 # Convert to absolute path
                 subject_path = Path(path_pattern).resolve()
 
@@ -180,7 +193,7 @@ def load_project_config(project_root: Path | None = None) -> ProjectConfig | Non
     if project_root is None:
         project_root = Path.cwd()
 
-    config_path = project_root / '.empirica' / 'project.yaml'
+    config_path = project_root / ".empirica" / "project.yaml"
 
     if not config_path.exists():
         logger.debug(f"No project config found at {config_path}")
@@ -194,9 +207,10 @@ def load_project_config(project_root: Path | None = None) -> ProjectConfig | Non
         # This prevents UUID mismatch when yaml and workspace.db diverge
         try:
             from empirica.utils.session_resolver import InstanceResolver as R
+
             db_project_id = R.project_id_from_db(project_root)
             if db_project_id:
-                config_data['project_id'] = db_project_id
+                config_data["project_id"] = db_project_id
         except Exception:  # noqa: S110 — keep yaml project_id as fallback if DB unavailable
             pass
 
@@ -208,8 +222,7 @@ def load_project_config(project_root: Path | None = None) -> ProjectConfig | Non
         return None
 
 
-def get_current_subject(project_config: ProjectConfig | None = None,
-                       current_path: Path | None = None) -> str | None:
+def get_current_subject(project_config: ProjectConfig | None = None, current_path: Path | None = None) -> str | None:
     """
     Get current subject based on working directory.
 

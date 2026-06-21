@@ -22,13 +22,13 @@ def handle_workspace_search_command(args):
 
         entity_type = None
         entity_id = None
-        task = getattr(args, 'task', None)
+        task = getattr(args, "task", None)
 
         # Parse --entity TYPE/ID format
-        entity_arg = getattr(args, 'entity', None)
+        entity_arg = getattr(args, "entity", None)
         if entity_arg:
-            if '/' in entity_arg:
-                parts = entity_arg.split('/', 1)
+            if "/" in entity_arg:
+                parts = entity_arg.split("/", 1)
                 entity_type = parts[0]
                 entity_id = parts[1]
             else:
@@ -36,15 +36,19 @@ def handle_workspace_search_command(args):
                 entity_id = entity_arg
 
         if not task and not entity_type:
-            print(json.dumps({
-                "ok": False,
-                "error": "Provide --task (semantic query) and/or --entity TYPE/ID",
-            }))
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": "Provide --task (semantic query) and/or --entity TYPE/ID",
+                    }
+                )
+            )
             sys.exit(1)
 
-        project_id = getattr(args, 'project_id', None)
-        limit = getattr(args, 'limit', 20) or 20
-        output_format = getattr(args, 'output', 'json')
+        project_id = getattr(args, "project_id", None)
+        limit = getattr(args, "limit", 20) or 20
+        output_format = getattr(args, "output", "json")
 
         results = search_workspace_index(
             query_text=task,
@@ -54,13 +58,18 @@ def handle_workspace_search_command(args):
             limit=limit,
         )
 
-        if output_format == 'json':
-            print(json.dumps({
-                "ok": True,
-                "count": len(results),
-                "query": {"task": task, "entity_type": entity_type, "entity_id": entity_id},
-                "results": results,
-            }, indent=2))
+        if output_format == "json":
+            print(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "count": len(results),
+                        "query": {"task": task, "entity_type": entity_type, "entity_id": entity_id},
+                        "results": results,
+                    },
+                    indent=2,
+                )
+            )
         else:
             if not results:
                 print("No results found.")
@@ -68,16 +77,16 @@ def handle_workspace_search_command(args):
 
             print(f"\n  Workspace Search: {len(results)} results\n")
             for i, r in enumerate(results, 1):
-                score = r.get('score', 0)
-                atype = r.get('artifact_type', '?')
-                text = r.get('text', '')[:120]
-                proj = r.get('project_id', '?')[:8]
+                score = r.get("score", 0)
+                atype = r.get("artifact_type", "?")
+                text = r.get("text", "")[:120]
+                proj = r.get("project_id", "?")[:8]
                 entities = []
-                for cid in r.get('contact_ids', []):
+                for cid in r.get("contact_ids", []):
                     entities.append(f"contact/{cid}")
-                for oid in r.get('org_ids', []):
+                for oid in r.get("org_ids", []):
                     entities.append(f"org/{oid}")
-                for eid in r.get('engagement_ids', []):
+                for eid in r.get("engagement_ids", []):
                     entities.append(f"eng/{eid}")
                 entity_str = ", ".join(entities) if entities else "no entities"
 

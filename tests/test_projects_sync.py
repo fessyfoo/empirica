@@ -48,8 +48,7 @@ def _make_args(**overrides):
 def _fake_manifest(n=3):
     return {
         "projects": [
-            {"path": f"/fake/p{i}", "name": f"p{i}", "slug": f"p{i}",
-             "repo_url": f"https://x/p{i}.git"}
+            {"path": f"/fake/p{i}", "name": f"p{i}", "slug": f"p{i}", "repo_url": f"https://x/p{i}.git"}
             for i in range(n)
         ],
     }
@@ -61,10 +60,12 @@ def _fake_manifest(n=3):
 def test_dry_run_walks_filesystem_but_writes_nothing(capsys, tmp_path):
     """--dry-run: phase 1 runs, phases 2+3 skipped, nothing persisted."""
     args = _make_args(dry_run=True)
-    with patch.object(pc, "discover_projects", return_value=_fake_manifest(5)), \
-         patch.object(pc, "write_manifest") as mock_write, \
-         patch.object(pc, "_register_discovered_to_registry") as mock_reg, \
-         patch.object(pc, "_register_one_project") as mock_post:
+    with (
+        patch.object(pc, "discover_projects", return_value=_fake_manifest(5)),
+        patch.object(pc, "write_manifest") as mock_write,
+        patch.object(pc, "_register_discovered_to_registry") as mock_reg,
+        patch.object(pc, "_register_one_project") as mock_post,
+    ):
         pc.handle_projects_sync_command(args)
 
     out = capsys.readouterr()
@@ -83,9 +84,11 @@ def test_dry_run_walks_filesystem_but_writes_nothing(capsys, tmp_path):
 def test_no_write_skips_all_persistence_phases(capsys):
     """--no-write: same as dry-run — discover-only preview."""
     args = _make_args(no_write=True)
-    with patch.object(pc, "discover_projects", return_value=_fake_manifest(2)), \
-         patch.object(pc, "write_manifest") as mock_write, \
-         patch.object(pc, "_register_discovered_to_registry") as mock_reg:
+    with (
+        patch.object(pc, "discover_projects", return_value=_fake_manifest(2)),
+        patch.object(pc, "write_manifest") as mock_write,
+        patch.object(pc, "_register_discovered_to_registry") as mock_reg,
+    ):
         pc.handle_projects_sync_command(args)
 
     mock_write.assert_not_called()
@@ -99,11 +102,12 @@ def test_no_cortex_writes_registry_but_skips_cortex(capsys):
     """--no-cortex: full discover + registry upsert, no HTTP calls."""
     args = _make_args(no_cortex=True)
     reg_summary = {"added": 2, "updated": 1, "pruned": 0, "total": 3}
-    with patch.object(pc, "discover_projects", return_value=_fake_manifest(3)), \
-         patch.object(pc, "write_manifest"), \
-         patch.object(pc, "_register_discovered_to_registry",
-                      return_value=reg_summary) as mock_reg, \
-         patch.object(pc, "_resolve_cortex_config") as mock_cortex:
+    with (
+        patch.object(pc, "discover_projects", return_value=_fake_manifest(3)),
+        patch.object(pc, "write_manifest"),
+        patch.object(pc, "_register_discovered_to_registry", return_value=reg_summary) as mock_reg,
+        patch.object(pc, "_resolve_cortex_config") as mock_cortex,
+    ):
         pc.handle_projects_sync_command(args)
 
     mock_reg.assert_called_once()
@@ -123,10 +127,11 @@ def test_no_cortex_writes_registry_but_skips_cortex(capsys):
 def test_prune_flag_passes_through_to_registry(capsys):
     args = _make_args(no_cortex=True, prune=True)
     reg_summary = {"added": 0, "updated": 5, "pruned": 3, "total": 5}
-    with patch.object(pc, "discover_projects", return_value=_fake_manifest(5)), \
-         patch.object(pc, "write_manifest"), \
-         patch.object(pc, "_register_discovered_to_registry",
-                      return_value=reg_summary) as mock_reg:
+    with (
+        patch.object(pc, "discover_projects", return_value=_fake_manifest(5)),
+        patch.object(pc, "write_manifest"),
+        patch.object(pc, "_register_discovered_to_registry", return_value=reg_summary) as mock_reg,
+    ):
         pc.handle_projects_sync_command(args)
 
     mock_reg.assert_called_once()
@@ -156,17 +161,18 @@ def test_filter_includes_apply_to_cortex_post_phase(capsys):
         ],
     }
     registry_projects = discovered["projects"]
-    with patch.object(pc, "discover_projects", return_value=discovered), \
-         patch.object(pc, "write_manifest"), \
-         patch.object(pc, "_register_discovered_to_registry",
-                      return_value=reg_summary), \
-         patch.object(pc, "_resolve_cortex_config",
-                      return_value=("http://cortex.test", "ctx_test")), \
-         patch.object(pc, "_load_projects_for_register",
-                      return_value=registry_projects), \
-         patch.object(pc, "_register_one_project",
-                      return_value={"name": "x", "outcome": "registered",
-                                    "status": 200, "reason": ""}) as mock_post:
+    with (
+        patch.object(pc, "discover_projects", return_value=discovered),
+        patch.object(pc, "write_manifest"),
+        patch.object(pc, "_register_discovered_to_registry", return_value=reg_summary),
+        patch.object(pc, "_resolve_cortex_config", return_value=("http://cortex.test", "ctx_test")),
+        patch.object(pc, "_load_projects_for_register", return_value=registry_projects),
+        patch.object(
+            pc,
+            "_register_one_project",
+            return_value={"name": "x", "outcome": "registered", "status": 200, "reason": ""},
+        ) as mock_post,
+    ):
         pc.handle_projects_sync_command(args)
 
     # 2 of 4 matched filter → only those 2 POSTed
@@ -182,11 +188,12 @@ def test_registry_failure_skips_cortex_with_explicit_signal(capsys):
     """When registry upsert raises, the handler reports the failure and
     skips Cortex POST rather than charging ahead with possibly-stale data."""
     args = _make_args()
-    with patch.object(pc, "discover_projects", return_value=_fake_manifest(2)), \
-         patch.object(pc, "write_manifest"), \
-         patch.object(pc, "_register_discovered_to_registry",
-                      side_effect=RuntimeError("registry boom")), \
-         patch.object(pc, "_resolve_cortex_config") as mock_cortex:
+    with (
+        patch.object(pc, "discover_projects", return_value=_fake_manifest(2)),
+        patch.object(pc, "write_manifest"),
+        patch.object(pc, "_register_discovered_to_registry", side_effect=RuntimeError("registry boom")),
+        patch.object(pc, "_resolve_cortex_config") as mock_cortex,
+    ):
         pc.handle_projects_sync_command(args)
 
     # Cortex POST phase didn't run (registry failed first)
@@ -203,12 +210,12 @@ def test_missing_cortex_config_returns_clean_error(capsys):
     what's missing without crashing the verb."""
     args = _make_args()
     reg_summary = {"added": 1, "updated": 0, "pruned": 0, "total": 1}
-    with patch.object(pc, "discover_projects", return_value=_fake_manifest(1)), \
-         patch.object(pc, "write_manifest"), \
-         patch.object(pc, "_register_discovered_to_registry",
-                      return_value=reg_summary), \
-         patch.object(pc, "_resolve_cortex_config",
-                      return_value=(None, None)):
+    with (
+        patch.object(pc, "discover_projects", return_value=_fake_manifest(1)),
+        patch.object(pc, "write_manifest"),
+        patch.object(pc, "_register_discovered_to_registry", return_value=reg_summary),
+        patch.object(pc, "_resolve_cortex_config", return_value=(None, None)),
+    ):
         pc.handle_projects_sync_command(args)
 
     err = capsys.readouterr().err
@@ -225,17 +232,18 @@ def test_default_runs_full_pipeline(capsys):
     args = _make_args(cortex_url="http://cortex.test", api_key="ctx_test")
     reg_summary = {"added": 1, "updated": 0, "pruned": 0, "total": 1}
     manifest = _fake_manifest(1)
-    with patch.object(pc, "discover_projects", return_value=manifest), \
-         patch.object(pc, "write_manifest") as mock_write, \
-         patch.object(pc, "_register_discovered_to_registry",
-                      return_value=reg_summary) as mock_reg, \
-         patch.object(pc, "_resolve_cortex_config",
-                      return_value=("http://cortex.test", "ctx_test")), \
-         patch.object(pc, "_load_projects_for_register",
-                      return_value=manifest["projects"]), \
-         patch.object(pc, "_register_one_project",
-                      return_value={"name": "p0", "outcome": "registered",
-                                    "status": 200, "reason": ""}) as mock_post:
+    with (
+        patch.object(pc, "discover_projects", return_value=manifest),
+        patch.object(pc, "write_manifest") as mock_write,
+        patch.object(pc, "_register_discovered_to_registry", return_value=reg_summary) as mock_reg,
+        patch.object(pc, "_resolve_cortex_config", return_value=("http://cortex.test", "ctx_test")),
+        patch.object(pc, "_load_projects_for_register", return_value=manifest["projects"]),
+        patch.object(
+            pc,
+            "_register_one_project",
+            return_value={"name": "p0", "outcome": "registered", "status": 200, "reason": ""},
+        ) as mock_post,
+    ):
         pc.handle_projects_sync_command(args)
 
     mock_write.assert_called_once()
@@ -249,19 +257,16 @@ def test_default_runs_full_pipeline(capsys):
 def test_filters_dropping_everything_does_not_crash(capsys):
     """When --include/--exclude leave zero projects to POST, the handler
     reports zero registered + zero failed instead of erroring."""
-    args = _make_args(includes=["^nomatch-"],
-                      cortex_url="http://cortex.test", api_key="ctx_test")
+    args = _make_args(includes=["^nomatch-"], cortex_url="http://cortex.test", api_key="ctx_test")
     reg_summary = {"added": 1, "updated": 0, "pruned": 0, "total": 1}
-    with patch.object(pc, "discover_projects",
-                      return_value={"projects": [{"path": "/a", "name": "a", "slug": "a"}]}), \
-         patch.object(pc, "write_manifest"), \
-         patch.object(pc, "_register_discovered_to_registry",
-                      return_value=reg_summary), \
-         patch.object(pc, "_resolve_cortex_config",
-                      return_value=("http://cortex.test", "ctx_test")), \
-         patch.object(pc, "_load_projects_for_register",
-                      return_value=[{"path": "/a", "name": "a", "slug": "a"}]), \
-         patch.object(pc, "_register_one_project") as mock_post:
+    with (
+        patch.object(pc, "discover_projects", return_value={"projects": [{"path": "/a", "name": "a", "slug": "a"}]}),
+        patch.object(pc, "write_manifest"),
+        patch.object(pc, "_register_discovered_to_registry", return_value=reg_summary),
+        patch.object(pc, "_resolve_cortex_config", return_value=("http://cortex.test", "ctx_test")),
+        patch.object(pc, "_load_projects_for_register", return_value=[{"path": "/a", "name": "a", "slug": "a"}]),
+        patch.object(pc, "_register_one_project") as mock_post,
+    ):
         pc.handle_projects_sync_command(args)
 
     mock_post.assert_not_called()

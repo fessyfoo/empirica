@@ -26,9 +26,7 @@ class TestEditConfidenceAssessor:
         self.assessor = EditConfidenceAssessor()
 
         # Create temp test file
-        with tempfile.NamedTemporaryFile(
-            mode='w', suffix='.py', delete=False
-        ) as self.test_file:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as self.test_file:
             self.test_file.write("""def my_function():
     return 42
 
@@ -46,9 +44,7 @@ def another_function():
     def test_context_freshness_view_output(self):
         """Test context assessment for fresh view output."""
         assessment = self.assessor.assess(
-            file_path=self.test_file.name,
-            old_str="def my_function():",
-            context_source="view_output"
+            file_path=self.test_file.name, old_str="def my_function():", context_source="view_output"
         )
 
         assert assessment["context"] == 1.0, "view_output should have context=1.0"
@@ -56,9 +52,7 @@ def another_function():
     def test_context_freshness_memory(self):
         """Test context assessment for memory-based edits."""
         assessment = self.assessor.assess(
-            file_path=self.test_file.name,
-            old_str="def my_function():",
-            context_source="memory"
+            file_path=self.test_file.name, old_str="def my_function():", context_source="memory"
         )
 
         assert assessment["context"] == 0.3, "memory should have context=0.3 (stale)"
@@ -71,7 +65,7 @@ def another_function():
             old_str="def my_function():",
             context_source="memory",
             last_read_turn=8,
-            current_turn=10
+            current_turn=10,
         )
 
         assert assessment["context"] == 0.9, "2 turns ago should be 0.9"
@@ -82,7 +76,7 @@ def another_function():
             old_str="def my_function():",
             context_source="memory",
             last_read_turn=0,
-            current_turn=10
+            current_turn=10,
         )
 
         assert assessment2["context"] == 0.5, "10 turns ago should be 0.5"
@@ -92,9 +86,7 @@ def another_function():
     def test_whitespace_simple_from_view(self):
         """Test whitespace assessment for simple string from view."""
         assessment = self.assessor.assess(
-            file_path=self.test_file.name,
-            old_str="def my_function():",
-            context_source="view_output"
+            file_path=self.test_file.name, old_str="def my_function():", context_source="view_output"
         )
 
         assert assessment["uncertainty"] == 0.1, "Simple string from view should have low uncertainty"
@@ -102,9 +94,7 @@ def another_function():
     def test_whitespace_multiline_from_memory(self):
         """Test whitespace assessment for multi-line from memory."""
         assessment = self.assessor.assess(
-            file_path=self.test_file.name,
-            old_str="def my_function():\n    return 42",
-            context_source="memory"
+            file_path=self.test_file.name, old_str="def my_function():\n    return 42", context_source="memory"
         )
 
         assert assessment["uncertainty"] == 0.7, "Multi-line from memory should have high uncertainty"
@@ -114,7 +104,7 @@ def another_function():
         assessment = self.assessor.assess(
             file_path=self.test_file.name,
             old_str="def\tmy_function():  # tabs and spaces",
-            context_source="view_output"
+            context_source="view_output",
         )
 
         assert assessment["uncertainty"] == 0.3, "Mixed spacing should have moderate uncertainty"
@@ -124,9 +114,7 @@ def another_function():
     def test_signal_unique_match(self):
         """Test signal assessment for unique pattern."""
         assessment = self.assessor.assess(
-            file_path=self.test_file.name,
-            old_str="def my_function():",
-            context_source="view_output"
+            file_path=self.test_file.name, old_str="def my_function():", context_source="view_output"
         )
 
         assert assessment["signal"] == 0.9, "Unique match should have signal=0.9"
@@ -134,9 +122,7 @@ def another_function():
     def test_signal_no_match(self):
         """Test signal assessment for non-existent pattern."""
         assessment = self.assessor.assess(
-            file_path=self.test_file.name,
-            old_str="def nonexistent_function():",
-            context_source="view_output"
+            file_path=self.test_file.name, old_str="def nonexistent_function():", context_source="view_output"
         )
 
         assert assessment["signal"] == 0.0, "No match should have signal=0.0"
@@ -144,13 +130,13 @@ def another_function():
     def test_signal_ambiguous_match(self):
         """Test signal assessment for ambiguous pattern."""
         # Write file with duplicate patterns
-        with open(self.test_file.name, 'w') as f:
-            f.write("def func():\n    pass\n\ndef func():\n    pass\n\ndef func():\n    pass\n\ndef func():\n    pass\n")
+        with open(self.test_file.name, "w") as f:
+            f.write(
+                "def func():\n    pass\n\ndef func():\n    pass\n\ndef func():\n    pass\n\ndef func():\n    pass\n"
+            )
 
         assessment = self.assessor.assess(
-            file_path=self.test_file.name,
-            old_str="def func():",
-            context_source="view_output"
+            file_path=self.test_file.name, old_str="def func():", context_source="view_output"
         )
 
         assert assessment["signal"] == 0.4, "4+ matches should have signal=0.4"
@@ -160,9 +146,7 @@ def another_function():
     def test_clarity_no_truncation(self):
         """Test clarity assessment for normal-length string."""
         assessment = self.assessor.assess(
-            file_path=self.test_file.name,
-            old_str="def my_function():",
-            context_source="view_output"
+            file_path=self.test_file.name, old_str="def my_function():", context_source="view_output"
         )
 
         assert assessment["clarity"] == 0.9, "Normal length should have clarity=0.9"
@@ -170,9 +154,7 @@ def another_function():
     def test_clarity_with_ellipsis(self):
         """Test clarity assessment for truncated string."""
         assessment = self.assessor.assess(
-            file_path=self.test_file.name,
-            old_str="def my_function(...):",
-            context_source="view_output"
+            file_path=self.test_file.name, old_str="def my_function(...):", context_source="view_output"
         )
 
         assert assessment["clarity"] == 0.3, "Ellipsis indicates truncation, clarity=0.3"
@@ -181,11 +163,7 @@ def another_function():
         """Test clarity assessment for very long line."""
         long_str = "def my_function(" + ", ".join([f"param{i}" for i in range(50)]) + "):"
 
-        assessment = self.assessor.assess(
-            file_path=self.test_file.name,
-            old_str=long_str,
-            context_source="view_output"
-        )
+        assessment = self.assessor.assess(file_path=self.test_file.name, old_str=long_str, context_source="view_output")
 
         assert assessment["clarity"] <= 0.6, "Very long line should have clarity<=0.6"
 
@@ -194,14 +172,13 @@ def another_function():
     def test_overall_confidence_calculation(self):
         """Test overall confidence is average of components."""
         assessment = self.assessor.assess(
-            file_path=self.test_file.name,
-            old_str="def my_function():",
-            context_source="view_output"
+            file_path=self.test_file.name, old_str="def my_function():", context_source="view_output"
         )
 
         # Overall = (context + (1-uncertainty) + signal + clarity) / 4
-        expected = (assessment["context"] + (1.0 - assessment["uncertainty"]) +
-                   assessment["signal"] + assessment["clarity"]) / 4.0
+        expected = (
+            assessment["context"] + (1.0 - assessment["uncertainty"]) + assessment["signal"] + assessment["clarity"]
+        ) / 4.0
 
         assert abs(assessment["overall"] - expected) < 0.01, "Overall should be average"
 
@@ -209,13 +186,7 @@ def another_function():
 
     def test_recommend_atomic_edit_high_confidence(self):
         """Test atomic_edit recommendation for high confidence."""
-        assessment = {
-            "overall": 0.85,
-            "context": 1.0,
-            "uncertainty": 0.1,
-            "signal": 0.9,
-            "clarity": 0.9
-        }
+        assessment = {"overall": 0.85, "context": 1.0, "uncertainty": 0.1, "signal": 0.9, "clarity": 0.9}
 
         strategy, reasoning = self.assessor.recommend_strategy(assessment)
 
@@ -224,13 +195,7 @@ def another_function():
 
     def test_recommend_bash_fallback_medium_confidence(self):
         """Test bash_fallback recommendation for medium confidence."""
-        assessment = {
-            "overall": 0.60,
-            "context": 0.7,
-            "uncertainty": 0.5,
-            "signal": 0.7,
-            "clarity": 0.9
-        }
+        assessment = {"overall": 0.60, "context": 0.7, "uncertainty": 0.5, "signal": 0.7, "clarity": 0.9}
 
         strategy, _reasoning = self.assessor.recommend_strategy(assessment)
 
@@ -238,13 +203,7 @@ def another_function():
 
     def test_recommend_re_read_low_confidence(self):
         """Test re_read_first recommendation for low confidence."""
-        assessment = {
-            "overall": 0.30,
-            "context": 0.3,
-            "uncertainty": 0.7,
-            "signal": 0.3,
-            "clarity": 0.5
-        }
+        assessment = {"overall": 0.30, "context": 0.3, "uncertainty": 0.7, "signal": 0.3, "clarity": 0.5}
 
         strategy, _reasoning = self.assessor.recommend_strategy(assessment)
 
@@ -257,7 +216,7 @@ def another_function():
             "context": 0.5,  # Stale
             "uncertainty": 0.2,
             "signal": 0.9,
-            "clarity": 0.9
+            "clarity": 0.9,
         }
 
         strategy, reasoning = self.assessor.recommend_strategy(assessment)
@@ -272,7 +231,7 @@ def another_function():
             "context": 1.0,
             "uncertainty": 0.6,  # High
             "signal": 0.9,
-            "clarity": 0.9
+            "clarity": 0.9,
         }
 
         strategy, reasoning = self.assessor.recommend_strategy(assessment)
@@ -287,7 +246,7 @@ def another_function():
             "context": 1.0,
             "uncertainty": 0.2,
             "signal": 0.5,  # Ambiguous
-            "clarity": 0.9
+            "clarity": 0.9,
         }
 
         strategy, reasoning = self.assessor.recommend_strategy(assessment)

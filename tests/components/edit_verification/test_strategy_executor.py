@@ -32,9 +32,7 @@ class TestEditStrategyExecutor:
 def another_function():
     return 100
 """
-        with tempfile.NamedTemporaryFile(
-            mode='w', suffix='.py', delete=False
-        ) as self.test_file:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as self.test_file:
             self.test_file.write(self.test_content)
 
     def teardown_method(self):
@@ -50,7 +48,7 @@ def another_function():
         result = await self.executor.atomic_edit(
             file_path=self.test_file.name,
             old_str="def my_function():\n    return 42",
-            new_str="def my_function():\n    return 84"
+            new_str="def my_function():\n    return 84",
         )
 
         assert result["success"] is True
@@ -67,9 +65,7 @@ def another_function():
     async def test_atomic_edit_pattern_not_found(self):
         """Test atomic edit fails when pattern doesn't exist."""
         result = await self.executor.atomic_edit(
-            file_path=self.test_file.name,
-            old_str="def nonexistent():",
-            new_str="def new_function():"
+            file_path=self.test_file.name, old_str="def nonexistent():", new_str="def new_function():"
         )
 
         assert result["success"] is False
@@ -80,13 +76,11 @@ def another_function():
     async def test_atomic_edit_ambiguous_match(self):
         """Test atomic edit fails with multiple matches."""
         # Write file with duplicate patterns
-        with open(self.test_file.name, 'w') as f:
+        with open(self.test_file.name, "w") as f:
             f.write("def func():\n    pass\n\ndef func():\n    pass\n")
 
         result = await self.executor.atomic_edit(
-            file_path=self.test_file.name,
-            old_str="def func():",
-            new_str="def renamed():"
+            file_path=self.test_file.name, old_str="def func():", new_str="def renamed():"
         )
 
         assert result["success"] is False
@@ -97,9 +91,7 @@ def another_function():
     async def test_atomic_edit_preserves_other_content(self):
         """Test atomic edit only changes target, preserves rest."""
         result = await self.executor.atomic_edit(
-            file_path=self.test_file.name,
-            old_str="return 42",
-            new_str="return 168"
+            file_path=self.test_file.name, old_str="return 42", new_str="return 168"
         )
 
         assert result["success"] is True
@@ -118,7 +110,7 @@ def another_function():
         result = await self.executor.bash_line_replacement(
             file_path=self.test_file.name,
             old_str="def my_function():\n    return 42",
-            new_str="def my_function():\n    return 84"
+            new_str="def my_function():\n    return 84",
         )
 
         assert result["success"] is True
@@ -136,7 +128,7 @@ def another_function():
         result = await self.executor.bash_line_replacement(
             file_path=self.test_file.name,
             old_str="def  my_function",  # Extra space
-            new_str="def my_renamed_function"
+            new_str="def my_renamed_function",
         )
 
         # May fail due to pattern complexity, but demonstrates flexibility
@@ -147,9 +139,7 @@ def another_function():
     async def test_bash_fallback_not_found(self):
         """Test bash fallback fails gracefully when pattern not found."""
         result = await self.executor.bash_line_replacement(
-            file_path=self.test_file.name,
-            old_str="def totally_nonexistent():",
-            new_str="def new():"
+            file_path=self.test_file.name, old_str="def totally_nonexistent():", new_str="def new():"
         )
 
         assert result["success"] is False
@@ -162,9 +152,7 @@ def another_function():
     async def test_re_read_then_edit_success(self):
         """Test re_read_first strategy succeeds after re-reading."""
         result = await self.executor.re_read_then_edit(
-            file_path=self.test_file.name,
-            old_str="return 100",
-            new_str="return 200"
+            file_path=self.test_file.name, old_str="return 100", new_str="return 200"
         )
 
         assert result["success"] is True
@@ -179,9 +167,7 @@ def another_function():
     async def test_re_read_then_edit_not_found(self):
         """Test re_read_first fails if pattern still not found."""
         result = await self.executor.re_read_then_edit(
-            file_path=self.test_file.name,
-            old_str="def missing():",
-            new_str="def new():"
+            file_path=self.test_file.name, old_str="def missing():", new_str="def new():"
         )
 
         assert result["success"] is False
@@ -193,10 +179,7 @@ def another_function():
     async def test_execute_strategy_atomic(self):
         """Test execute_strategy dispatches to atomic_edit."""
         result = await self.executor.execute_strategy(
-            strategy="atomic_edit",
-            file_path=self.test_file.name,
-            old_str="return 42",
-            new_str="return 84"
+            strategy="atomic_edit", file_path=self.test_file.name, old_str="return 42", new_str="return 84"
         )
 
         assert result["strategy_used"] == "atomic_edit"
@@ -206,10 +189,7 @@ def another_function():
     async def test_execute_strategy_bash(self):
         """Test execute_strategy dispatches to bash_fallback."""
         result = await self.executor.execute_strategy(
-            strategy="bash_fallback",
-            file_path=self.test_file.name,
-            old_str="return 42",
-            new_str="return 84"
+            strategy="bash_fallback", file_path=self.test_file.name, old_str="return 42", new_str="return 84"
         )
 
         assert result["strategy_used"] == "bash_fallback"
@@ -219,10 +199,7 @@ def another_function():
     async def test_execute_strategy_re_read(self):
         """Test execute_strategy dispatches to re_read_first."""
         result = await self.executor.execute_strategy(
-            strategy="re_read_first",
-            file_path=self.test_file.name,
-            old_str="return 42",
-            new_str="return 84"
+            strategy="re_read_first", file_path=self.test_file.name, old_str="return 42", new_str="return 84"
         )
 
         assert "re_read" in result["strategy_used"]
@@ -232,10 +209,7 @@ def another_function():
     async def test_execute_strategy_unknown(self):
         """Test execute_strategy handles unknown strategy."""
         result = await self.executor.execute_strategy(
-            strategy="unknown_strategy",
-            file_path=self.test_file.name,
-            old_str="return 42",
-            new_str="return 84"
+            strategy="unknown_strategy", file_path=self.test_file.name, old_str="return 42", new_str="return 84"
         )
 
         assert result["success"] is False
@@ -249,7 +223,7 @@ def another_function():
         result = await self.executor.atomic_edit(
             file_path=self.test_file.name,
             old_str="def another_function():\n    return 100",
-            new_str="def another_function():\n    return 500"
+            new_str="def another_function():\n    return 500",
         )
 
         assert result["success"] is True
@@ -261,11 +235,7 @@ def another_function():
     @pytest.mark.asyncio
     async def test_edit_empty_string(self):
         """Test handling of empty strings."""
-        result = await self.executor.atomic_edit(
-            file_path=self.test_file.name,
-            old_str="",
-            new_str="# comment"
-        )
+        result = await self.executor.atomic_edit(file_path=self.test_file.name, old_str="", new_str="# comment")
 
         # Empty string matches entire file - should fail (ambiguous)
         # Or succeed with specific behavior - depends on implementation
@@ -275,9 +245,7 @@ def another_function():
     async def test_edit_nonexistent_file(self):
         """Test handling of nonexistent file."""
         result = await self.executor.atomic_edit(
-            file_path="/tmp/nonexistent_file_12345.py",
-            old_str="test",
-            new_str="new"
+            file_path="/tmp/nonexistent_file_12345.py", old_str="test", new_str="new"
         )
 
         assert result["success"] is False
@@ -291,19 +259,17 @@ def another_function():
     # Comment with émojis 🎉
     return "unicode: café"
 """
-        with open(self.test_file.name, 'w', encoding='utf-8') as f:
+        with open(self.test_file.name, "w", encoding="utf-8") as f:
             f.write(test_utf8)
 
         result = await self.executor.atomic_edit(
-            file_path=self.test_file.name,
-            old_str='return "unicode: café"',
-            new_str='return "unicode: coffee"'
+            file_path=self.test_file.name, old_str='return "unicode: café"', new_str='return "unicode: coffee"'
         )
 
         assert result["success"] is True
 
         # Verify UTF-8 preserved
-        with open(self.test_file.name, encoding='utf-8') as f:
+        with open(self.test_file.name, encoding="utf-8") as f:
             content = f.read()
             assert "émojis 🎉" in content
 

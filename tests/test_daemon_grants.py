@@ -47,6 +47,7 @@ def isolate_home(monkeypatch, tmp_path):
 def grants_module():
     """Re-import the module so any cached module-level state resets."""
     import empirica.api.daemon_grants as g
+
     return g
 
 
@@ -143,7 +144,9 @@ def test_approve_grant_past_expiry(grants_module):
     record = grants_module.create_grant(requesting_app="ext")
     # Approve called with `now` past expires_at — should fail
     result = grants_module.approve_grant(
-        record.user_code, {}, now=record.expires_at + 1,
+        record.user_code,
+        {},
+        now=record.expires_at + 1,
     )
     assert result is None
 
@@ -186,7 +189,8 @@ def test_poll_denied_delivers_once(grants_module):
 def test_poll_past_expiry_returns_expired(grants_module):
     record = grants_module.create_grant(requesting_app="ext")
     result = grants_module.poll_grant(
-        record.device_code, now=record.expires_at + 1,
+        record.device_code,
+        now=record.expires_at + 1,
     )
     assert result["status"] == "expired"
     assert not grants_module._record_path(record.device_code).exists()
@@ -230,6 +234,7 @@ def test_write_record_atomic_no_partial(grants_module, monkeypatch):
 
     # Patch os.replace to fail. The tempfile must NOT have overwritten target.
     import os as _os
+
     original_replace = _os.replace
 
     def boom(*_a, **_kw):
@@ -261,9 +266,11 @@ def test_cli_daemon_grant_approves_pending(grants_module, capsys, monkeypatch):
 
     # Stub CredentialsLoader so we don't depend on a real ~/.empirica/credentials.yaml
     fake_cortex = {"url": "https://test.example", "api_key": "ctx_abc"}
+
     class FakeLoader:
         def get_cortex_config(self):
             return fake_cortex
+
     monkeypatch.setattr(
         "empirica.config.credentials_loader.CredentialsLoader",
         FakeLoader,
@@ -289,6 +296,7 @@ def test_cli_daemon_grant_unknown_user_code(grants_module, capsys):
     from empirica.cli.command_handlers.projects_commands import (
         handle_daemon_grant_command,
     )
+
     args = SimpleNamespace(user_code="ABCD-EFGH", output="json")
     handle_daemon_grant_command(args)
     out = capsys.readouterr().out
@@ -303,6 +311,7 @@ def test_cli_daemon_deny_marks_denied(grants_module, capsys):
     from empirica.cli.command_handlers.projects_commands import (
         handle_daemon_deny_command,
     )
+
     record = grants_module.create_grant(requesting_app="ext")
     args = SimpleNamespace(user_code=record.user_code, output="json")
     handle_daemon_deny_command(args)
@@ -319,6 +328,7 @@ def test_cli_daemon_grants_list_includes_pending(grants_module, capsys):
     from empirica.cli.command_handlers.projects_commands import (
         handle_daemon_grants_list_command,
     )
+
     record = grants_module.create_grant(requesting_app="ext-x")
     args = SimpleNamespace(output="json")
     handle_daemon_grants_list_command(args)
@@ -365,7 +375,8 @@ def test_endpoint_grant_request_and_poll(grants_module):
 
     # Step 3: user approves out-of-band (state module direct, simulating CLI)
     grants_module.approve_grant(
-        user_code, {"cortex": {"url": "https://x", "api_key": "k"}},
+        user_code,
+        {"cortex": {"url": "https://x", "api_key": "k"}},
     )
 
     # Step 4: next poll delivers creds

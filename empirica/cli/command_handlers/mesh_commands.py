@@ -86,6 +86,7 @@ def _load_cortex_credentials() -> dict | None:
         return None
     try:
         import yaml
+
         with CREDENTIALS_YAML.open() as f:
             data = yaml.safe_load(f) or {}
         cortex = data.get("cortex")
@@ -113,7 +114,9 @@ def _find_listener_pids(ai_id: str) -> tuple[int | None, int | None]:
     try:
         ps_out = subprocess.run(
             ["ps", "-eo", "pid,args"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         ).stdout
     except Exception:
         return None, None
@@ -162,7 +165,7 @@ def _tag_matches(cmd: str, needle: str) -> bool:
     end = idx + len(needle)
     if end == len(cmd):
         return True
-    return cmd[end] in '&"\',; \t'
+    return cmd[end] in "&\"',; \t"
 
 
 def _last_fire_for(ai_id: str) -> tuple[datetime | None, int]:
@@ -353,6 +356,7 @@ def _gather_state(ai_id: str, cortex_configured: bool) -> MeshInstanceState:
     loops_count = 0
     try:
         from empirica.core.loop_scheduler.systemd import list_active_loops_for_instance
+
         loops_count = len(list_active_loops_for_instance(ai_id) or [])
     except Exception:
         pass
@@ -390,10 +394,12 @@ def handle_mesh_status_command(args) -> int:
             if d["last_fire_at_utc"]:
                 d["last_fire_at_utc"] = d["last_fire_at_utc"].isoformat()
             out.append(d)
-        print(json.dumps(
-            {"ok": True, "cortex_configured": cortex_configured, "instances": out},
-            indent=2,
-        ))
+        print(
+            json.dumps(
+                {"ok": True, "cortex_configured": cortex_configured, "instances": out},
+                indent=2,
+            )
+        )
         return 0
 
     if not rows:
@@ -417,7 +423,9 @@ def handle_mesh_status_command(args) -> int:
         else:
             curl_str = "n/a"
         g = glyph.get(r.health_color, "?")
-        print(f"{r.ai_id:<20} {g:<6} {svc_str:<10} {curl_str:<8} {last_str:<12} {r.fires_last_hour:>8}  {r.health_reason}")
+        print(
+            f"{r.ai_id:<20} {g:<6} {svc_str:<10} {curl_str:<8} {last_str:<12} {r.fires_last_hour:>8}  {r.health_reason}"
+        )
 
     if not cortex_configured:
         print()
@@ -472,8 +480,10 @@ def handle_mesh_diagnose_command(args) -> int:
             print(f"Fix: empirica mesh restart {ai_id}")
         elif cortex_configured and state.curl_subprocess_pid is None:
             print(f"Fix: empirica mesh restart {ai_id}  (curl subprocess died; restart re-spawns)")
-        elif (state.last_fire_at_utc
-              and (datetime.now(tz=timezone.utc) - state.last_fire_at_utc).total_seconds() > ZOMBIE_THRESHOLD_SECONDS):
+        elif (
+            state.last_fire_at_utc
+            and (datetime.now(tz=timezone.utc) - state.last_fire_at_utc).total_seconds() > ZOMBIE_THRESHOLD_SECONDS
+        ):
             print("Likely curl-zombie (TCP died silently while process stayed alive).")
             print(f"Fix: empirica mesh restart {ai_id}")
         else:
@@ -485,6 +495,7 @@ def handle_mesh_diagnose_command(args) -> int:
             aggregate_exit_code,
             render_results_human,
         )
+
         print()
         print(render_results_human(cortex_results))
         cortex_rc = aggregate_exit_code(cortex_results)
@@ -501,16 +512,14 @@ def _run_cortex_panel(ai_id: str, peer: str | None):
     cortex_block = _load_cortex_credentials()  # already-unwrapped flat dict
     if not cortex_block:
         sys.stderr.write(
-            "--cortex requested but no cortex creds in ~/.empirica/credentials.yaml; "
-            "skipping cortex-side panel.\n"
+            "--cortex requested but no cortex creds in ~/.empirica/credentials.yaml; skipping cortex-side panel.\n"
         )
         return None
     cortex_url = cortex_block.get("url")
     api_key = cortex_block.get("api_key")
     if not (cortex_url and api_key):
         sys.stderr.write(
-            "--cortex requested but credentials.yaml cortex block missing url/api_key; "
-            "skipping cortex-side panel.\n"
+            "--cortex requested but credentials.yaml cortex block missing url/api_key; skipping cortex-side panel.\n"
         )
         return None
     # ntfy block lives at top level of credentials.yaml; reload to pick it up.
@@ -523,6 +532,7 @@ def _run_cortex_panel(ai_id: str, peer: str | None):
     ntfy_password = None
     try:
         import yaml
+
         with CREDENTIALS_YAML.open() as f:
             full = yaml.safe_load(f) or {}
         ntfy_block = full.get("ntfy") or {}
@@ -533,10 +543,16 @@ def _run_cortex_panel(ai_id: str, peer: str | None):
     except Exception:
         pass
     from ._mesh_diagnose_cortex import run_cortex_checks
+
     return run_cortex_checks(
-        ai_id, cortex_url=cortex_url, api_key=api_key,
-        ntfy_url=ntfy_url, ntfy_token=ntfy_token,
-        ntfy_user=ntfy_user, ntfy_password=ntfy_password, peer=peer,
+        ai_id,
+        cortex_url=cortex_url,
+        api_key=api_key,
+        ntfy_url=ntfy_url,
+        ntfy_token=ntfy_token,
+        ntfy_user=ntfy_user,
+        ntfy_password=ntfy_password,
+        peer=peer,
     )
 
 
@@ -551,8 +567,7 @@ def _emit_diagnose_json(ai_id: str, state, cortex_results) -> int:
             "service_active": state.service_active,
             "listener_process_pid": state.listener_process_pid,
             "curl_subprocess_pid": state.curl_subprocess_pid,
-            "last_fire_at_utc": (state.last_fire_at_utc.isoformat()
-                                 if state.last_fire_at_utc else None),
+            "last_fire_at_utc": (state.last_fire_at_utc.isoformat() if state.last_fire_at_utc else None),
             "fires_last_hour": state.fires_last_hour,
             "loops_registered": state.loops_registered,
             "health_color": state.health_color,
@@ -562,6 +577,7 @@ def _emit_diagnose_json(ai_id: str, state, cortex_results) -> int:
     rc = 0 if state.health_color == "green" else 1
     if cortex_results is not None:
         from ._mesh_diagnose_cortex import aggregate_exit_code
+
         payload["cortex"] = [r.to_dict() for r in cortex_results]
         cortex_rc = aggregate_exit_code(cortex_results)
         if cortex_rc > rc:
@@ -581,7 +597,8 @@ def handle_mesh_restart_command(args) -> int:
     if svc.backend == "systemd":
         rc = subprocess.run(
             ["systemctl", "--user", "restart", f"empirica-listener-{ai_id}.service"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         if rc.returncode != 0:
             sys.stderr.write(f"systemctl restart failed: {rc.stderr}\n")
@@ -589,7 +606,8 @@ def handle_mesh_restart_command(args) -> int:
     elif svc.backend == "launchd":
         rc = subprocess.run(
             ["launchctl", "kickstart", "-k", f"gui/{__import__('os').getuid()}/com.empirica.listener.{ai_id}"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         if rc.returncode != 0:
             sys.stderr.write(f"launchctl kickstart failed: {rc.stderr}\n")
@@ -637,17 +655,16 @@ def handle_mesh_on_command(args) -> int:
             return 1
     if svc.backend == "systemd":
         subprocess.run(
-            ["systemctl", "--user", "enable", "--now",
-             f"empirica-listener-{ai_id}.service"],
-            capture_output=True, text=True, check=False,
+            ["systemctl", "--user", "enable", "--now", f"empirica-listener-{ai_id}.service"],
+            capture_output=True,
+            text=True,
+            check=False,
         )
     new_state = listener_status_for(ai_id)
     if new_state.active:
         print(f"OK -- {ai_id} listener active.")
         return 0
-    sys.stderr.write(
-        f"failed to activate; check journalctl --user -u empirica-listener-{ai_id}.service\n"
-    )
+    sys.stderr.write(f"failed to activate; check journalctl --user -u empirica-listener-{ai_id}.service\n")
     return 1
 
 
@@ -659,9 +676,10 @@ def handle_mesh_off_command(args) -> int:
         return 0
     if svc.backend == "systemd":
         subprocess.run(
-            ["systemctl", "--user", "disable", "--now",
-             f"empirica-listener-{ai_id}.service"],
-            capture_output=True, text=True, check=False,
+            ["systemctl", "--user", "disable", "--now", f"empirica-listener-{ai_id}.service"],
+            capture_output=True,
+            text=True,
+            check=False,
         )
     if getattr(args, "uninstall", False):
         try:
@@ -685,12 +703,11 @@ def handle_mesh_tail_command(args) -> int:
         sys.stderr.write("no instances to tail\n")
         return 1
     pattern = re.compile("|".join(re.escape(f'"instance_id": "{i}"') for i in instances))
-    sys.stderr.write(
-        f"tailing {LOOP_FIRES_LOG} for: {', '.join(instances)} (Ctrl-C to stop)\n"
-    )
+    sys.stderr.write(f"tailing {LOOP_FIRES_LOG} for: {', '.join(instances)} (Ctrl-C to stop)\n")
     proc = subprocess.Popen(
         ["tail", "-F", "-n", "0", str(LOOP_FIRES_LOG)],
-        stdout=subprocess.PIPE, text=True,
+        stdout=subprocess.PIPE,
+        text=True,
     )
     if proc.stdout is None:
         sys.stderr.write("tail subprocess returned no stdout\n")
@@ -727,7 +744,7 @@ def _strip_ntfy_topic_url(raw: str) -> str:
     bare topic name across credentials.yaml + listener_active markers."""
     base = raw or ""
     if base.startswith("ntfy:"):
-        base = base[len("ntfy:"):]
+        base = base[len("ntfy:") :]
     return base.split("?", 1)[0]
 
 
@@ -770,7 +787,12 @@ def _migrate_credentials_topic(canonical_base: str, apply: bool) -> dict:
         return {"checked": False, "error": f"could not read credentials.yaml: {e}"}
     ntfy_block = raw_doc.get("ntfy")
     if not isinstance(ntfy_block, dict) or "topic" not in ntfy_block:
-        return {"checked": True, "current": None, "action": "skip", "reason": "no explicit ntfy.topic set (listener resolves at runtime)"}
+        return {
+            "checked": True,
+            "current": None,
+            "action": "skip",
+            "reason": "no explicit ntfy.topic set (listener resolves at runtime)",
+        }
     current = ntfy_block.get("topic") or ""
     base = _strip_ntfy_topic_url(current)
     if not _is_retired_topic(base):
@@ -806,11 +828,13 @@ def _migrate_listener_active_markers(canonical_base: str, apply: bool) -> list[d
         try:
             data = json.loads(marker.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as e:
-            reports.append({
-                "file": str(marker),
-                "action": "error",
-                "error": f"unreadable: {e}",
-            })
+            reports.append(
+                {
+                    "file": str(marker),
+                    "action": "error",
+                    "error": f"unreadable: {e}",
+                }
+            )
             continue
         raw_topic = data.get("topic") or ""
         if not raw_topic:
@@ -836,7 +860,8 @@ def _migrate_listener_active_markers(canonical_base: str, apply: bool) -> list[d
             try:
                 data["topic"] = new_topic
                 marker.write_text(
-                    json.dumps(data, indent=2), encoding="utf-8",
+                    json.dumps(data, indent=2),
+                    encoding="utf-8",
                 )
                 entry["applied"] = True
             except OSError as e:
@@ -888,13 +913,9 @@ def handle_mesh_migrate_topics_command(args) -> int:
     creds_report = _migrate_credentials_topic(canonical_base, apply)
     marker_reports = _migrate_listener_active_markers(canonical_base, apply)
     rewrites_pending = sum(
-        1 for r in [creds_report, *marker_reports]
-        if r.get("action") == "rewrite" and not r.get("applied")
+        1 for r in [creds_report, *marker_reports] if r.get("action") == "rewrite" and not r.get("applied")
     )
-    rewrites_done = sum(
-        1 for r in [creds_report, *marker_reports]
-        if r.get("action") == "rewrite" and r.get("applied")
-    )
+    rewrites_done = sum(1 for r in [creds_report, *marker_reports] if r.get("action") == "rewrite" and r.get("applied"))
 
     payload = {
         "ok": True,
@@ -910,7 +931,11 @@ def handle_mesh_migrate_topics_command(args) -> int:
         print(json.dumps(payload, indent=2))
     else:
         _render_migrate_topics_human(
-            canonical_base, creds_report, marker_reports, apply, rewrites_pending,
+            canonical_base,
+            creds_report,
+            marker_reports,
+            apply,
+            rewrites_pending,
         )
     return 0
 
@@ -945,8 +970,11 @@ def _render_migrate_topics_marker_line(marker: dict) -> None:
 
 
 def _render_migrate_topics_human(
-    canonical_base: str, creds_report: dict, marker_reports: list[dict],
-    apply: bool, rewrites_pending: int,
+    canonical_base: str,
+    creds_report: dict,
+    marker_reports: list[dict],
+    apply: bool,
+    rewrites_pending: int,
 ) -> None:
     mode = "APPLIED" if apply else "DRY RUN"
     print(f"mesh migrate-topics — {mode}")
@@ -979,9 +1007,7 @@ _MESH_DISPATCH = {
 def handle_mesh_group_command(args) -> int:
     action = getattr(args, "mesh_action", None)
     if not action:
-        sys.stderr.write(
-            "usage: empirica mesh <status|diagnose|restart|on|off|tail|migrate-topics> [args...]\n"
-        )
+        sys.stderr.write("usage: empirica mesh <status|diagnose|restart|on|off|tail|migrate-topics> [args...]\n")
         return 2
     handler = _MESH_DISPATCH.get(action)
     if handler is None:

@@ -34,6 +34,7 @@ def test_resolve_empirica_version_returns_a_version():
 def test_resolve_empirica_version_matches_dunder_version():
     """The resolver should agree with empirica.__version__ when available."""
     from empirica import __version__
+
     assert _resolve_empirica_version() == __version__
 
 
@@ -44,6 +45,7 @@ def test_resolve_empirica_version_callable_documented_unknown_fallback():
     function is callable and returns a non-empty string. The fallback path is
     inspected in code review."""
     from empirica.cli.command_handlers import setup_claude_code
+
     assert callable(setup_claude_code._resolve_empirica_version)
     result = setup_claude_code._resolve_empirica_version()
     assert isinstance(result, str)
@@ -58,8 +60,7 @@ def test_resolve_empirica_version_callable_documented_unknown_fallback():
 def test_render_substitutes_empirica_version_placeholder(tmp_path):
     src = tmp_path / "src.md"
     src.write_text(
-        "# Header v{{ empirica_version }}\n\n"
-        "Syncs with: Empirica v{{ empirica_version }}\n",
+        "# Header v{{ empirica_version }}\n\nSyncs with: Empirica v{{ empirica_version }}\n",
         encoding="utf-8",
     )
     dst = tmp_path / "dst.md"
@@ -138,11 +139,7 @@ def test_render_does_not_substitute_in_dst_only(tmp_path):
 
 
 def _project_template_path(name: str) -> Path:
-    return (
-        Path(__file__).parent.parent
-        / "empirica" / "plugins" / "claude-code-integration"
-        / "templates" / name
-    )
+    return Path(__file__).parent.parent / "empirica" / "plugins" / "claude-code-integration" / "templates" / name
 
 
 def test_lean_template_uses_version_placeholder():
@@ -181,6 +178,7 @@ def test_real_lean_template_renders_without_placeholders_remaining(tmp_path):
     assert "{{ generated_date }}" not in text
     # And the version actually appears in the header
     from empirica import __version__
+
     assert __version__ in text
 
 
@@ -194,9 +192,7 @@ def test_cortex_off_strips_conditional_blocks(tmp_path):
     removed from the rendered output, tags-and-all."""
     src = tmp_path / "src.md"
     src.write_text(
-        "before\n"
-        "{% if cortex %}cortex-only guidance{% endif %}\n"
-        "after\n",
+        "before\n{% if cortex %}cortex-only guidance{% endif %}\nafter\n",
         encoding="utf-8",
     )
     dst = tmp_path / "out.md"
@@ -214,9 +210,7 @@ def test_cortex_on_keeps_block_content_strips_tags(tmp_path):
     stripped (so the rendered prompt reads cleanly)."""
     src = tmp_path / "src.md"
     src.write_text(
-        "before\n"
-        "{% if cortex %}cortex-only guidance{% endif %}\n"
-        "after\n",
+        "before\n{% if cortex %}cortex-only guidance{% endif %}\nafter\n",
         encoding="utf-8",
     )
     dst = tmp_path / "out.md"

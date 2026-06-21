@@ -220,9 +220,7 @@ def _enumerate_workspace_members(project_root: Path) -> list[Path]:
     return sorted(members)
 
 
-def _crate_matches_filters(
-    crate_dir: Path, project_root: Path, includes: list[str], excludes: list[str]
-) -> bool:
+def _crate_matches_filters(crate_dir: Path, project_root: Path, includes: list[str], excludes: list[str]) -> bool:
     """Return True when the crate should be walked given include/exclude rules.
 
     `includes` and `excludes` are interpreted as path prefixes relative to
@@ -370,9 +368,7 @@ def _format_human(result: AssessmentResult) -> str:
         pct = round(100 * crate.documented / crate.total, 1)
         lines.append(f"   • {crate.name}: {pct}% ({crate.documented}/{crate.total})")
     lines.append("")
-    lines.append(
-        f"Discovered: {len(result.crates)} crates, {result.files_walked} .rs files"
-    )
+    lines.append(f"Discovered: {len(result.crates)} crates, {result.files_walked} .rs files")
     lines.append("")
     lines.append("============================================================")
     return "\n".join(lines)

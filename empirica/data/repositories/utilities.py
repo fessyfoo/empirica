@@ -1,4 +1,5 @@
 """Utility repositories for token savings, command usage, and workspace stats"""
+
 import json
 import uuid
 from datetime import datetime, timezone
@@ -9,13 +10,7 @@ from .base import BaseRepository
 class TokenRepository(BaseRepository):
     """Handles token savings tracking"""
 
-    def log_token_saving(
-        self,
-        session_id: str,
-        saving_type: str,
-        tokens_saved: int,
-        evidence: str
-    ) -> str:
+    def log_token_saving(self, session_id: str, saving_type: str, tokens_saved: int, evidence: str) -> str:
         """
         Log a token saving event
 
@@ -29,14 +24,18 @@ class TokenRepository(BaseRepository):
             saving_id: UUID string
         """
         import logging
+
         logger = logging.getLogger(__name__)
 
         saving_id = str(uuid.uuid4())
-        self._execute("""
+        self._execute(
+            """
             INSERT INTO token_savings (
                 id, session_id, saving_type, tokens_saved, evidence
             ) VALUES (?, ?, ?, ?, ?)
-        """, (saving_id, session_id, saving_type, tokens_saved, evidence))
+        """,
+            (saving_id, session_id, saving_type, tokens_saved, evidence),
+        )
 
         self.commit()
         logger.info(f"💰 Token saving logged: {tokens_saved} tokens ({saving_type})")
@@ -53,12 +52,15 @@ class TokenRepository(BaseRepository):
         Returns:
             Dict with total_tokens_saved, cost_saved_usd, and breakdown by type
         """
-        cursor = self._execute("""
+        cursor = self._execute(
+            """
             SELECT saving_type, SUM(tokens_saved) as total, COUNT(*) as count
             FROM token_savings
             WHERE session_id = ?
             GROUP BY saving_type
-        """, (session_id,))
+        """,
+            (session_id,),
+        )
 
         breakdown = {}
         total = 0
@@ -66,14 +68,10 @@ class TokenRepository(BaseRepository):
             saving_type = row[0]
             tokens = row[1]
             count = row[2]
-            breakdown[saving_type] = {'tokens': tokens, 'count': count}
+            breakdown[saving_type] = {"tokens": tokens, "count": count}
             total += tokens
 
-        return {
-            'total_tokens_saved': total,
-            'cost_saved_usd': round(total * 0.00003, 4),
-            'breakdown': breakdown
-        }
+        return {"total_tokens_saved": total, "cost_saved_usd": round(total * 0.00003, 4), "breakdown": breakdown}
 
 
 class CommandRepository(BaseRepository):
@@ -85,7 +83,7 @@ class CommandRepository(BaseRepository):
         command: str,
         args: dict | None = None,
         success: bool = True,
-        error_msg: str | None = None
+        error_msg: str | None = None,
     ) -> str:
         """
         Log command usage
@@ -101,15 +99,22 @@ class CommandRepository(BaseRepository):
             usage_id: UUID string
         """
         usage_id = str(uuid.uuid4())
-        self._execute("""
+        self._execute(
+            """
             INSERT INTO command_usage (
                 id, session_id, command, args, success, error_msg, executed_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (
-            usage_id, session_id, command,
-            json.dumps(args) if args else None,
-            success, error_msg, datetime.now(timezone.utc).isoformat()
-        ))
+        """,
+            (
+                usage_id,
+                session_id,
+                command,
+                json.dumps(args) if args else None,
+                success,
+                error_msg,
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
         return usage_id
 
     def get_command_usage_stats(self, days: int = 30) -> dict:
@@ -126,7 +131,8 @@ class CommandRepository(BaseRepository):
         since_timestamp = time.time() - (days * 24 * 3600)
 
         # Most used commands
-        cursor = self._execute("""
+        cursor = self._execute(
+            """
             SELECT command_name, COUNT(*) as usage_count,
                    AVG(execution_time_ms) as avg_time_ms,
                    MAX(timestamp) as last_used
@@ -134,12 +140,15 @@ class CommandRepository(BaseRepository):
             WHERE timestamp >= ?
             GROUP BY command_name
             ORDER BY usage_count DESC
-        """, (since_timestamp,))
+        """,
+            (since_timestamp,),
+        )
 
         most_used = [dict(row) for row in cursor.fetchall()]
 
         # Rarely used (legacy candidates)
-        cursor = self._execute("""
+        cursor = self._execute(
+            """
             SELECT command_name, COUNT(*) as usage_count,
                    MAX(timestamp) as last_used,
                    (? - MAX(timestamp)) / 86400.0 as days_since_last_use
@@ -148,12 +157,15 @@ class CommandRepository(BaseRepository):
             GROUP BY command_name
             HAVING usage_count < 5
             ORDER BY usage_count ASC
-        """, (time.time(), since_timestamp))
+        """,
+            (time.time(), since_timestamp),
+        )
 
         legacy_candidates = [dict(row) for row in cursor.fetchall()]
 
         # Low success rate (broken/confusing)
-        cursor = self._execute("""
+        cursor = self._execute(
+            """
             SELECT command_name,
                    COUNT(*) as total_uses,
                    SUM(CASE WHEN success THEN 1 ELSE 0 END) as successes,
@@ -163,16 +175,18 @@ class CommandRepository(BaseRepository):
             GROUP BY command_name
             HAVING total_uses >= 10 AND success_rate < 50
             ORDER BY success_rate ASC
-        """, (since_timestamp,))
+        """,
+            (since_timestamp,),
+        )
 
         broken_commands = [dict(row) for row in cursor.fetchall()]
 
         return {
-            'period_days': days,
-            'most_used': most_used[:10],
-            'legacy_candidates': legacy_candidates,
-            'broken_commands': broken_commands,
-            'total_commands_tracked': len(most_used)
+            "period_days": days,
+            "most_used": most_used[:10],
+            "legacy_candidates": legacy_candidates,
+            "broken_commands": broken_commands,
+            "total_commands_tracked": len(most_used),
         }
 
 
@@ -218,45 +232,41 @@ class WorkspaceRepository(BaseRepository):
         projects = []
         for row in cursor.fetchall():
             project = {
-                'project_id': row[0],
-                'name': row[1],
-                'description': row[2],
-                'status': row[3],
-                'total_sessions': row[4],
-                'last_activity': row[5],
-                'epistemic_state': {
-                    'know': row[6] if row[6] is not None else 0.5,
-                    'uncertainty': row[7] if row[7] is not None else 0.5
+                "project_id": row[0],
+                "name": row[1],
+                "description": row[2],
+                "status": row[3],
+                "total_sessions": row[4],
+                "last_activity": row[5],
+                "epistemic_state": {
+                    "know": row[6] if row[6] is not None else 0.5,
+                    "uncertainty": row[7] if row[7] is not None else 0.5,
                 },
-                'findings_count': row[8],
-                'unknowns_count': row[9],
-                'dead_ends_count': row[10]
+                "findings_count": row[8],
+                "unknowns_count": row[9],
+                "dead_ends_count": row[10],
             }
 
             # Calculate health metrics
-            if project['total_sessions'] > 0:
-                dead_end_ratio = project['dead_ends_count'] / project['total_sessions']
-                project['dead_end_ratio'] = dead_end_ratio
+            if project["total_sessions"] > 0:
+                dead_end_ratio = project["dead_ends_count"] / project["total_sessions"]
+                project["dead_end_ratio"] = dead_end_ratio
 
                 # Health score (0-1): weighted by knowledge and uncertainty
-                know = project['epistemic_state']['know']
-                uncertainty = project['epistemic_state']['uncertainty']
+                know = project["epistemic_state"]["know"]
+                uncertainty = project["epistemic_state"]["uncertainty"]
                 health = (know * 0.6) + ((1 - uncertainty) * 0.4) - (dead_end_ratio * 0.2)
-                project['health_score'] = max(0.0, min(1.0, health))
+                project["health_score"] = max(0.0, min(1.0, health))
             else:
-                project['dead_end_ratio'] = 0.0
-                project['health_score'] = 0.5
+                project["dead_end_ratio"] = 0.0
+                project["health_score"] = 0.5
 
             projects.append(project)
 
         # Get workspace-level stats
         workspace_stats = self._get_workspace_aggregate_stats()
 
-        return {
-            'total_projects': len(projects),
-            'projects': projects,
-            'workspace_stats': workspace_stats
-        }
+        return {"total_projects": len(projects), "projects": projects, "workspace_stats": workspace_stats}
 
     def _get_workspace_aggregate_stats(self) -> dict:
         """Get workspace-level aggregated statistics"""
@@ -274,11 +284,11 @@ class WorkspaceRepository(BaseRepository):
 
         row = cursor.fetchone()
         return {
-            'total_projects': row[0] or 0,
-            'total_sessions': row[1] or 0,
-            'active_sessions': row[2] or 0,
-            'avg_know': round(row[3], 2) if row[3] else 0.5,
-            'avg_uncertainty': round(row[4], 2) if row[4] else 0.5
+            "total_projects": row[0] or 0,
+            "total_sessions": row[1] or 0,
+            "active_sessions": row[2] or 0,
+            "avg_know": round(row[3], 2) if row[3] else 0.5,
+            "avg_uncertainty": round(row[4], 2) if row[4] else 0.5,
         }
 
     def get_workspace_stats(self, project_ids: list[str]) -> dict:
@@ -292,43 +302,47 @@ class WorkspaceRepository(BaseRepository):
             Dict with workspace stats
         """
         if not project_ids:
-            return {
-                'total_sessions': 0,
-                'total_findings': 0,
-                'total_unknowns': 0,
-                'projects': []
-            }
+            return {"total_sessions": 0, "total_findings": 0, "total_unknowns": 0, "projects": []}
 
-        placeholders = ','.join('?' * len(project_ids))
+        placeholders = ",".join("?" * len(project_ids))
 
         # Get session count
-        cursor = self._execute(f"""
+        cursor = self._execute(
+            f"""
             SELECT COUNT(*) as count
             FROM sessions
             WHERE project_id IN ({placeholders})
-        """, tuple(project_ids))
-        total_sessions = cursor.fetchone()['count']
+        """,
+            tuple(project_ids),
+        )
+        total_sessions = cursor.fetchone()["count"]
 
         # Get findings count
-        cursor = self._execute(f"""
+        cursor = self._execute(
+            f"""
             SELECT COUNT(*) as count
             FROM project_findings
             WHERE project_id IN ({placeholders})
-        """, tuple(project_ids))
-        total_findings = cursor.fetchone()['count']
+        """,
+            tuple(project_ids),
+        )
+        total_findings = cursor.fetchone()["count"]
 
         # Get unknowns count
-        cursor = self._execute(f"""
+        cursor = self._execute(
+            f"""
             SELECT COUNT(*) as count
             FROM project_unknowns
             WHERE project_id IN ({placeholders})
             AND is_resolved = 0
-        """, tuple(project_ids))
-        total_unknowns = cursor.fetchone()['count']
+        """,
+            tuple(project_ids),
+        )
+        total_unknowns = cursor.fetchone()["count"]
 
         return {
-            'total_sessions': total_sessions,
-            'total_findings': total_findings,
-            'total_unknowns': total_unknowns,
-            'total_projects': len(project_ids)
+            "total_sessions": total_sessions,
+            "total_findings": total_findings,
+            "total_unknowns": total_unknowns,
+            "total_projects": len(project_ids),
         }

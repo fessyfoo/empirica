@@ -74,8 +74,7 @@ def attach_edges_to_payload(project_path: Path | str, payload: dict) -> None:  #
         placeholders = ",".join("?" * len(source_ids))
         try:
             cur.execute(
-                f"SELECT from_id, to_id, relation FROM artifact_edges "
-                f"WHERE from_id IN ({placeholders})",
+                f"SELECT from_id, to_id, relation FROM artifact_edges WHERE from_id IN ({placeholders})",
                 source_ids,
             )
             raw_edges = cur.fetchall()
@@ -95,8 +94,7 @@ def attach_edges_to_payload(project_path: Path | str, payload: dict) -> None:  #
                 text_col = _TYPE_TEXT_COL.get(atype, (table, "id"))[1]
                 try:
                     cur.execute(
-                        f"SELECT id, {text_col} FROM {table} "
-                        f"WHERE id IN ({ph})",
+                        f"SELECT id, {text_col} FROM {table} WHERE id IN ({ph})",
                         neighbor_ids,
                     )
                     for row in cur.fetchall():
@@ -112,12 +110,14 @@ def attach_edges_to_payload(project_path: Path | str, payload: dict) -> None:  #
         edges_by_from: dict[str, list[dict]] = {}
         for from_id, to_id, relation in raw_edges:
             meta = neighbor_meta.get(to_id, {"type": "unknown", "summary": ""})
-            edges_by_from.setdefault(from_id, []).append({
-                "id": to_id,
-                "type": meta["type"],
-                "relation": relation,
-                "summary": meta["summary"],
-            })
+            edges_by_from.setdefault(from_id, []).append(
+                {
+                    "id": to_id,
+                    "type": meta["type"],
+                    "relation": relation,
+                    "summary": meta["summary"],
+                }
+            )
 
         # 5. In-place fold into each item across all circles
         for circle_key in ("active_state", "persistent_reference", "topic_relevant_backlog"):

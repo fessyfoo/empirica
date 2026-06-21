@@ -53,6 +53,7 @@ def get_loop_scheduler(empirica_bin: str = "empirica"):
     other platforms without a supported scheduler.
     """
     import sys
+
     if sys.platform == "darwin":
         if is_launchd_available():
             return LaunchdLoopScheduler(empirica_bin)

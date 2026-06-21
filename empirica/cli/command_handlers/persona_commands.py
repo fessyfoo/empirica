@@ -18,8 +18,8 @@ def handle_persona_list_command(args):
     try:
         from empirica.core.emerged_personas import EmergedPersonaStore
 
-        output_format = getattr(args, 'output', 'human')
-        domain_filter = getattr(args, 'domain', None)
+        output_format = getattr(args, "output", "human")
+        domain_filter = getattr(args, "domain", None)
 
         store = EmergedPersonaStore()
 
@@ -28,12 +28,8 @@ def handle_persona_list_command(args):
         else:
             personas = store.list_all()
 
-        if output_format == 'json':
-            result = {
-                "ok": True,
-                "count": len(personas),
-                "personas": [p.to_dict() for p in personas]
-            }
+        if output_format == "json":
+            result = {"ok": True, "count": len(personas), "personas": [p.to_dict() for p in personas]}
             print(json.dumps(result, indent=2))
         else:
             if not personas:
@@ -47,7 +43,9 @@ def handle_persona_list_command(args):
                     print(f"  {p.persona_id[:12]}... | {p.name}")
                     print(f"    Domains: {domains}")
                     print(f"    Loops: {p.loops_to_converge} | Findings: {p.findings_count}")
-                    print(f"    Reputation: {p.reputation_score:.2f} ({p.uses_count} uses, {p.success_count} successes)")
+                    print(
+                        f"    Reputation: {p.reputation_score:.2f} ({p.uses_count} uses, {p.success_count} successes)"
+                    )
                     print()
 
         return None
@@ -64,7 +62,7 @@ def handle_persona_show_command(args):
         from empirica.core.emerged_personas import EmergedPersonaStore
 
         persona_id = args.persona_id
-        output_format = getattr(args, 'output', 'human')
+        output_format = getattr(args, "output", "human")
 
         store = EmergedPersonaStore()
         persona = store.load(persona_id)
@@ -73,7 +71,7 @@ def handle_persona_show_command(args):
             print(json.dumps({"ok": False, "error": f"Persona not found: {persona_id}"}, indent=2))
             return 1
 
-        if output_format == 'json':
+        if output_format == "json":
             result = {"ok": True, "persona": persona.to_dict()}
             print(json.dumps(result, indent=2))
         else:
@@ -129,7 +127,7 @@ def handle_persona_promote_command(args):
         from empirica.core.emerged_personas import EmergedPersonaStore
 
         persona_id = args.persona_id
-        output_format = getattr(args, 'output', 'human')
+        output_format = getattr(args, "output", "human")
 
         store = EmergedPersonaStore()
         persona = store.load(persona_id)
@@ -140,6 +138,7 @@ def handle_persona_promote_command(args):
 
         # Find MCO personas.yaml - use active context, not CWD
         from empirica.utils.session_resolver import InstanceResolver as R
+
         context_project = R.project_path()
         project_base = Path(context_project) if context_project else Path.cwd()
         mco_path = project_base / ".empirica" / "mco" / "personas.yaml"
@@ -168,8 +167,8 @@ def handle_persona_promote_command(args):
                 "type": "emerged",
                 "source_session": persona.source_session_id,
                 "extracted_at": persona.extracted_at,
-                "loops_to_converge": persona.loops_to_converge
-            }
+                "loops_to_converge": persona.loops_to_converge,
+            },
         }
 
         # Check if already exists
@@ -182,17 +181,17 @@ def handle_persona_promote_command(args):
         mco_data["personas"].append(mco_persona)
 
         # Save
-        with open(mco_path, 'w') as f:
+        with open(mco_path, "w") as f:
             yaml.dump(mco_data, f, default_flow_style=False, sort_keys=False)
 
         result = {
             "ok": True,
             "message": "Promoted persona to MCO",
             "persona_id": persona.persona_id,
-            "mco_path": str(mco_path)
+            "mco_path": str(mco_path),
         }
 
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(result, indent=2))
         else:
             print(f"Promoted persona {persona.persona_id} to MCO")
@@ -213,19 +212,14 @@ def handle_persona_find_command(args):
         from empirica.core.emerged_personas import EmergedPersonaStore
 
         task = args.task
-        limit = getattr(args, 'limit', 5)
-        output_format = getattr(args, 'output', 'human')
+        limit = getattr(args, "limit", 5)
+        output_format = getattr(args, "output", "human")
 
         store = EmergedPersonaStore()
         personas = store.find_similar(task, limit=limit)
 
-        if output_format == 'json':
-            result = {
-                "ok": True,
-                "query": task,
-                "count": len(personas),
-                "personas": [p.to_dict() for p in personas]
-            }
+        if output_format == "json":
+            result = {"ok": True, "query": task, "count": len(personas), "personas": [p.to_dict() for p in personas]}
             print(json.dumps(result, indent=2))
         else:
             if not personas:

@@ -6,7 +6,6 @@ Flow state = optimal productivity characterized by focus, capability, and progre
 """
 
 
-
 def calculate_flow_score(vectors: dict[str, float]) -> float:
     """
     Calculate flow state score (0-100) from epistemic vectors.
@@ -27,35 +26,34 @@ def calculate_flow_score(vectors: dict[str, float]) -> float:
         Flow score (0-100), or 0.0 if insufficient data
     """
     # Required vectors for flow calculation
-    required = ['engagement', 'know', 'do', 'clarity', 'uncertainty',
-                'completion', 'impact', 'coherence']
+    required = ["engagement", "know", "do", "clarity", "uncertainty", "completion", "impact", "coherence"]
 
     # Check if we have required vectors
     if not all(v in vectors for v in required):
         return 0.0
 
     # Extract vectors with defaults
-    engagement = vectors.get('engagement', 0.5)
-    know = vectors.get('know', 0.5)
-    do = vectors.get('do', 0.5)
-    clarity = vectors.get('clarity', 0.5)
-    uncertainty = vectors.get('uncertainty', 0.5)
-    completion = vectors.get('completion', 0.5)
-    impact = vectors.get('impact', 0.5)
-    coherence = vectors.get('coherence', 0.5)
+    engagement = vectors.get("engagement", 0.5)
+    know = vectors.get("know", 0.5)
+    do = vectors.get("do", 0.5)
+    clarity = vectors.get("clarity", 0.5)
+    uncertainty = vectors.get("uncertainty", 0.5)
+    completion = vectors.get("completion", 0.5)
+    impact = vectors.get("impact", 0.5)
+    coherence = vectors.get("coherence", 0.5)
 
     # Calculate flow score
     capability = (know + do) / 2.0
     confidence = 1.0 - uncertainty
 
     flow_score = (
-        engagement * 0.25 +
-        capability * 0.20 +
-        clarity * 0.15 +
-        confidence * 0.15 +
-        completion * 0.10 +
-        impact * 0.10 +
-        coherence * 0.05
+        engagement * 0.25
+        + capability * 0.20
+        + clarity * 0.15
+        + confidence * 0.15
+        + completion * 0.10
+        + impact * 0.10
+        + coherence * 0.05
     ) * 100.0
 
     return round(flow_score, 1)
@@ -97,25 +95,25 @@ def identify_flow_blockers(vectors: dict[str, float], threshold: float = 0.4) ->
     blockers = []
 
     # Check key flow factors
-    if vectors.get('engagement', 0.5) < threshold:
+    if vectors.get("engagement", 0.5) < threshold:
         blockers.append("Low engagement - task may be unclear or uninteresting")
 
-    if vectors.get('know', 0.5) < threshold:
+    if vectors.get("know", 0.5) < threshold:
         blockers.append("Low knowledge - need more context/learning")
 
-    if vectors.get('do', 0.5) < threshold:
+    if vectors.get("do", 0.5) < threshold:
         blockers.append("Low capability - missing skills or tools")
 
-    if vectors.get('clarity', 0.5) < threshold:
+    if vectors.get("clarity", 0.5) < threshold:
         blockers.append("Low clarity - goals or requirements unclear")
 
-    if vectors.get('uncertainty', 0.5) > 0.6:
+    if vectors.get("uncertainty", 0.5) > 0.6:
         blockers.append("High uncertainty - too many unknowns")
 
-    if vectors.get('completion', 0.5) < 0.3:
+    if vectors.get("completion", 0.5) < 0.3:
         blockers.append("Low completion - task just starting or stalled")
 
-    if vectors.get('impact', 0.5) < threshold:
+    if vectors.get("impact", 0.5) < threshold:
         blockers.append("Low impact - work doesn't feel meaningful")
 
     return blockers
@@ -164,32 +162,32 @@ def get_flow_triggers() -> list[dict[str, str | float]]:
             "name": "Clear goals",
             "description": "Know exactly what to accomplish",
             "vector": "clarity",
-            "threshold": 0.7
+            "threshold": 0.7,
         },
         {
             "name": "Immediate feedback",
             "description": "Progress is visible and measurable",
             "vector": "completion",
-            "threshold": 0.5
+            "threshold": 0.5,
         },
         {
             "name": "Challenge-skill balance",
             "description": "Task difficulty matches capability",
             "vector": "do",
-            "threshold": 0.6
+            "threshold": 0.6,
         },
         {
             "name": "Low distractions",
             "description": "Clear signal, minimal noise",
             "vector": "signal",
-            "threshold": 0.6
+            "threshold": 0.6,
         },
         {
             "name": "Intrinsic motivation",
             "description": "Work feels meaningful and impactful",
             "vector": "impact",
-            "threshold": 0.6
-        }
+            "threshold": 0.6,
+        },
     ]
 
 
@@ -207,9 +205,9 @@ def check_flow_triggers(vectors: dict[str, float]) -> dict[str, bool]:
     results = {}
 
     for trigger in triggers:
-        vector_name = trigger['vector']
-        threshold = trigger['threshold']
+        vector_name = trigger["vector"]
+        threshold = trigger["threshold"]
         value = vectors.get(vector_name, 0.0)
-        results[trigger['name']] = value >= threshold
+        results[trigger["name"]] = value >= threshold
 
     return results

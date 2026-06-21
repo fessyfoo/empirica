@@ -35,32 +35,35 @@ logger = logging.getLogger(__name__)
 
 class IssueSeverity(Enum):
     """Issue severity levels"""
-    BLOCKER = "blocker"      # Prevents work
-    HIGH = "high"            # Significantly impacts work
-    MEDIUM = "medium"        # Notable but workaround possible
-    LOW = "low"              # Minor or cosmetic
+
+    BLOCKER = "blocker"  # Prevents work
+    HIGH = "high"  # Significantly impacts work
+    MEDIUM = "medium"  # Notable but workaround possible
+    LOW = "low"  # Minor or cosmetic
 
 
 class IssueCategory(Enum):
     """Issue categories for classification"""
-    BUG = "bug"                        # Code defect
-    ERROR = "error"                    # Runtime error
-    WARNING = "warning"                # Potential problem
-    DEPRECATION = "deprecation"        # Deprecated API/pattern
-    TODO = "todo"                      # Incomplete work
-    PERFORMANCE = "performance"        # Performance issue
-    COMPATIBILITY = "compatibility"    # Platform/version issue
-    DESIGN = "design"                  # Architectural issue
+
+    BUG = "bug"  # Code defect
+    ERROR = "error"  # Runtime error
+    WARNING = "warning"  # Potential problem
+    DEPRECATION = "deprecation"  # Deprecated API/pattern
+    TODO = "todo"  # Incomplete work
+    PERFORMANCE = "performance"  # Performance issue
+    COMPATIBILITY = "compatibility"  # Platform/version issue
+    DESIGN = "design"  # Architectural issue
     OTHER = "other"
 
 
 class IssueStatus(Enum):
     """Issue status lifecycle"""
-    NEW = "new"                    # Just captured
+
+    NEW = "new"  # Just captured
     INVESTIGATING = "investigating"  # AI working on it
-    HANDOFF = "handoff"            # Ready for other AI
-    RESOLVED = "resolved"          # Fixed
-    WONTFIX = "wontfix"            # Intentional/acceptable
+    HANDOFF = "handoff"  # Ready for other AI
+    RESOLVED = "resolved"  # Fixed
+    WONTFIX = "wontfix"  # Intentional/acceptable
 
 
 class AutoIssueCaptureService:
@@ -95,6 +98,7 @@ class AutoIssueCaptureService:
     def _get_default_db_path() -> Path:
         """Get default database path from session DB"""
         from empirica.config.path_resolver import get_session_db_path
+
         return get_session_db_path()
 
     def _get_connection(self) -> sqlite3.Connection:
@@ -149,7 +153,7 @@ class AutoIssueCaptureService:
         severity: IssueSeverity = IssueSeverity.HIGH,
         category: IssueCategory = IssueCategory.ERROR,
         context: dict[str, Any] | None = None,
-        exc_info: Exception | None = None
+        exc_info: Exception | None = None,
     ) -> str:
         """
         Capture an error/exception without raising it.
@@ -195,7 +199,7 @@ class AutoIssueCaptureService:
             "stack_trace": stack_trace,
             "context": json.dumps(context),
             "status": IssueStatus.NEW.value,
-            "created_at": datetime.now(timezone.utc).isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
         # Store in database
@@ -208,10 +212,7 @@ class AutoIssueCaptureService:
         return issue_id
 
     def capture_assertion_failure(
-        self,
-        condition: str,
-        message: str = "",
-        severity: IssueSeverity = IssueSeverity.MEDIUM
+        self, condition: str, message: str = "", severity: IssueSeverity = IssueSeverity.MEDIUM
     ) -> str:
         """
         Capture assertion failure without interrupting flow.
@@ -221,18 +222,10 @@ class AutoIssueCaptureService:
                 auto_capture.capture_assertion_failure("expected_condition", "Why it matters")
         """
         full_message = f"Assertion failed: {condition}. {message}" if message else f"Assertion failed: {condition}"
-        return self.capture_error(
-            message=full_message,
-            severity=severity,
-            category=IssueCategory.BUG
-        )
+        return self.capture_error(message=full_message, severity=severity, category=IssueCategory.BUG)
 
     def capture_performance_issue(
-        self,
-        operation: str,
-        actual_ms: float,
-        expected_ms: float,
-        severity: IssueSeverity = IssueSeverity.MEDIUM
+        self, operation: str, actual_ms: float, expected_ms: float, severity: IssueSeverity = IssueSeverity.MEDIUM
     ) -> str:
         """
         Capture performance degradation.
@@ -243,34 +236,20 @@ class AutoIssueCaptureService:
             expected_ms: Expected/acceptable time in milliseconds
         """
         message = f"Performance issue: {operation} took {actual_ms:.1f}ms (expected <{expected_ms:.1f}ms)"
-        return self.capture_error(
-            message=message,
-            severity=severity,
-            category=IssueCategory.PERFORMANCE
-        )
+        return self.capture_error(message=message, severity=severity, category=IssueCategory.PERFORMANCE)
 
     def capture_warning(
-        self,
-        message: str,
-        category: IssueCategory = IssueCategory.WARNING,
-        context: dict[str, Any] | None = None
+        self, message: str, category: IssueCategory = IssueCategory.WARNING, context: dict[str, Any] | None = None
     ) -> str:
         """Capture a warning without raising"""
-        return self.capture_error(
-            message=message,
-            severity=IssueSeverity.LOW,
-            category=category,
-            context=context
-        )
+        return self.capture_error(message=message, severity=IssueSeverity.LOW, category=category, context=context)
 
     def capture_todo(self, description: str, priority: str = "medium") -> str:
         """Capture incomplete work for later"""
         message = f"TODO ({priority}): {description}"
         severity_map = {"high": IssueSeverity.HIGH, "medium": IssueSeverity.MEDIUM, "low": IssueSeverity.LOW}
         return self.capture_error(
-            message=message,
-            severity=severity_map.get(priority, IssueSeverity.MEDIUM),
-            category=IssueCategory.TODO
+            message=message, severity=severity_map.get(priority, IssueSeverity.MEDIUM), category=IssueCategory.TODO
         )
 
     @staticmethod
@@ -297,8 +276,16 @@ class AutoIssueCaptureService:
 
         # System prompt indicators
         system_prompt_keywords = [
-            "todo", "fixme", "hack", "refactor", "limitation", "known issue",
-            "documentation", "docstring", "comment needed", "system prompt"
+            "todo",
+            "fixme",
+            "hack",
+            "refactor",
+            "limitation",
+            "known issue",
+            "documentation",
+            "docstring",
+            "comment needed",
+            "system prompt",
         ]
 
         if any(kw in msg_lower for kw in system_prompt_keywords) or cat_lower == "todo":
@@ -306,12 +293,30 @@ class AutoIssueCaptureService:
 
         # Genuine mistakes (bugs, errors, performance, compatibility)
         genuine_keywords = [
-            "error", "exception", "timeout", "failed", "crash", "traceback",
-            "performance", "slow", "memory", "cpu", "database", "connection",
-            "bug", "defect", "regression", "broken"
+            "error",
+            "exception",
+            "timeout",
+            "failed",
+            "crash",
+            "traceback",
+            "performance",
+            "slow",
+            "memory",
+            "cpu",
+            "database",
+            "connection",
+            "bug",
+            "defect",
+            "regression",
+            "broken",
         ]
 
-        if any(kw in msg_lower for kw in genuine_keywords) or cat_lower in ["error", "bug", "performance", "compatibility"]:
+        if any(kw in msg_lower for kw in genuine_keywords) or cat_lower in [
+            "error",
+            "bug",
+            "performance",
+            "compatibility",
+        ]:
             return "genuine_mistake"
 
         # Project-specific (architecture, design, framework features)
@@ -325,9 +330,12 @@ class AutoIssueCaptureService:
             cursor = conn.cursor()
 
             # Get issue details
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT message, category FROM auto_captured_issues WHERE id = ?
-            """, (issue_id,))
+            """,
+                (issue_id,),
+            )
 
             row = cursor.fetchone()
             if not row:
@@ -337,11 +345,14 @@ class AutoIssueCaptureService:
             issue_type = self.classify_issue_type(message, category)
 
             # Update issue_category field
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE auto_captured_issues
                 SET category = ?
                 WHERE id = ?
-            """, (issue_type, issue_id))
+            """,
+                (issue_type, issue_id),
+            )
 
             conn.commit()
             conn.close()
@@ -374,23 +385,26 @@ class AutoIssueCaptureService:
             conn = self._get_connection()
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO auto_captured_issues
                 (id, session_id, severity, category, code_location, message, stack_trace, context, status, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                issue["id"],
-                issue["session_id"],
-                issue["severity"],
-                issue["category"],
-                issue["code_location"],
-                issue["message"],
-                issue["stack_trace"],
-                issue["context"],
-                issue["status"],
-                issue["created_at"],
-                issue["created_at"]
-            ))
+            """,
+                (
+                    issue["id"],
+                    issue["session_id"],
+                    issue["severity"],
+                    issue["category"],
+                    issue["code_location"],
+                    issue["message"],
+                    issue["stack_trace"],
+                    issue["context"],
+                    issue["status"],
+                    issue["created_at"],
+                    issue["created_at"],
+                ),
+            )
 
             conn.commit()
             conn.close()
@@ -398,11 +412,7 @@ class AutoIssueCaptureService:
             logger.warning(f"Failed to store issue: {e}")
 
     def list_issues(
-        self,
-        status: str | None = None,
-        category: str | None = None,
-        severity: str | None = None,
-        limit: int = 100
+        self, status: str | None = None, category: str | None = None, severity: str | None = None, limit: int = 100
     ) -> list[dict[str, Any]]:
         """
         List captured issues with optional filtering.
@@ -466,16 +476,14 @@ class AutoIssueCaptureService:
             cursor = conn.cursor()
 
             # Note: Don't filter by session_id - issues can be handed off from any session
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE auto_captured_issues
                 SET status = ?, assigned_to_ai = ?, updated_at = ?
                 WHERE id = ?
-            """, (
-                IssueStatus.HANDOFF.value,
-                assigned_to_ai,
-                datetime.now(timezone.utc).isoformat(),
-                issue_id
-            ))
+            """,
+                (IssueStatus.HANDOFF.value, assigned_to_ai, datetime.now(timezone.utc).isoformat(), issue_id),
+            )
 
             conn.commit()
             conn.close()
@@ -502,16 +510,14 @@ class AutoIssueCaptureService:
             cursor = conn.cursor()
 
             # Note: Don't filter by session_id - issues can be resolved from any session
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE auto_captured_issues
                 SET status = ?, resolution = ?, updated_at = ?
                 WHERE id = ?
-            """, (
-                IssueStatus.RESOLVED.value,
-                resolution,
-                datetime.now(timezone.utc).isoformat(),
-                issue_id
-            ))
+            """,
+                (IssueStatus.RESOLVED.value, resolution, datetime.now(timezone.utc).isoformat(), issue_id),
+            )
 
             conn.commit()
             conn.close()
@@ -532,11 +538,14 @@ class AutoIssueCaptureService:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM auto_captured_issues
                 WHERE session_id = ? AND status = ? AND assigned_to_ai = ?
                 ORDER BY created_at DESC
-            """, (self.session_id, "handoff", assigned_to_ai))
+            """,
+                (self.session_id, "handoff", assigned_to_ai),
+            )
 
             rows = cursor.fetchall()
             issues = [dict(row) for row in rows]
@@ -550,7 +559,7 @@ class AutoIssueCaptureService:
             "assigned_to_ai": assigned_to_ai,
             "export_timestamp": datetime.now(timezone.utc).isoformat(),
             "issue_count": len(issues),
-            "issues": issues
+            "issues": issues,
         }
 
     def get_stats(self) -> dict[str, Any]:
@@ -559,12 +568,15 @@ class AutoIssueCaptureService:
             conn = self._get_connection()
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT status, COUNT(*) as count
                 FROM auto_captured_issues
                 WHERE session_id = ?
                 GROUP BY status
-            """, (self.session_id,))
+            """,
+                (self.session_id,),
+            )
 
             stats = {"session_id": self.session_id}
             for row in cursor.fetchall():
@@ -592,10 +604,26 @@ class AutoCaptureLoggingHandler(logging.Handler):
 
     # Patterns that indicate an error even at WARNING level
     ERROR_PATTERNS: ClassVar[list[str]] = [
-        'failed', 'error', 'exception', 'traceback', 'attribute error',
-        'not found', 'missing', 'invalid', 'timeout', 'connection',
-        'pydantic', 'validation', 'type error', 'value error', 'key error',
-        'import error', 'module not found', 'no attribute', 'cannot', "doesn't exist"
+        "failed",
+        "error",
+        "exception",
+        "traceback",
+        "attribute error",
+        "not found",
+        "missing",
+        "invalid",
+        "timeout",
+        "connection",
+        "pydantic",
+        "validation",
+        "type error",
+        "value error",
+        "key error",
+        "import error",
+        "module not found",
+        "no attribute",
+        "cannot",
+        "doesn't exist",
     ]
 
     def __init__(self, capture_service: AutoIssueCaptureService):
@@ -633,7 +661,7 @@ class AutoCaptureLoggingHandler(logging.Handler):
             severity_map = {
                 logging.ERROR: IssueSeverity.HIGH,
                 logging.CRITICAL: IssueSeverity.BLOCKER,
-                logging.WARNING: IssueSeverity.MEDIUM
+                logging.WARNING: IssueSeverity.MEDIUM,
             }
 
             # Determine category based on exception info and message
@@ -642,19 +670,19 @@ class AutoCaptureLoggingHandler(logging.Handler):
                 exc_type = record.exc_info[0]
                 if exc_type and issubclass(exc_type, DeprecationWarning):
                     category = IssueCategory.DEPRECATION
-            elif 'pydantic' in message or 'validation' in message:
+            elif "pydantic" in message or "validation" in message:
                 category = IssueCategory.COMPATIBILITY
-            elif 'not found' in message or 'missing' in message:
+            elif "not found" in message or "missing" in message:
                 category = IssueCategory.BUG
 
             # Build context from log record
             context = {
-                'logger': record.name,
-                'module': record.module,
-                'function': record.funcName,
-                'line': record.lineno,
-                'thread': record.thread,
-                'process': record.process
+                "logger": record.name,
+                "module": record.module,
+                "function": record.funcName,
+                "line": record.lineno,
+                "thread": record.thread,
+                "process": record.process,
             }
 
             # Capture the error
@@ -663,7 +691,7 @@ class AutoCaptureLoggingHandler(logging.Handler):
                 severity=severity_map.get(record.levelno, IssueSeverity.MEDIUM),
                 category=category,
                 context=context,
-                exc_info=record.exc_info[1] if record.exc_info else None
+                exc_info=record.exc_info[1] if record.exc_info else None,
             )
         except Exception:
             # Don't let handler errors break logging
@@ -697,7 +725,7 @@ def install_auto_capture_hooks(service: AutoIssueCaptureService) -> None:
                     message=f"Uncaught {exc_type.__name__}: {exc_value}",
                     severity=IssueSeverity.BLOCKER,
                     category=IssueCategory.ERROR,
-                    exc_info=exc_value
+                    exc_info=exc_value,
                 )
             except Exception:  # noqa: S110 — capture errors must not break exception handling
                 pass

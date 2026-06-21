@@ -40,6 +40,7 @@ from empirica.core.post_test.criterion_evaluators.registry import (
 def _make_goal(*, total_subtasks: int, completed: int, is_completed: bool = False) -> Goal:
     """Build a Goal with a stubbed calculate_progress() return value."""
     import uuid
+
     goal = Goal(
         id=str(uuid.uuid4()),
         objective="test goal",
@@ -181,8 +182,10 @@ def test_dispatch_registered_but_none_apply_distinguishable_from_unregistered(
 
         def evaluate(self, ctx: CriterionContext) -> CriterionResult:  # pragma: no cover
             return CriterionResult(
-                criterion_id=ctx.criterion.id, goal_id=ctx.goal.id,
-                validation_method="x", passed=True,
+                criterion_id=ctx.criterion.id,
+                goal_id=ctx.goal.id,
+                validation_method="x",
+                passed=True,
             )
 
     register(NeverApplies())  # type: ignore[arg-type]
@@ -209,8 +212,11 @@ def test_dispatch_first_applicable_wins(isolated_registry):
 
         def evaluate(self, ctx: CriterionContext) -> CriterionResult:
             return CriterionResult(
-                criterion_id=ctx.criterion.id, goal_id=ctx.goal.id,
-                validation_method="x", passed=True, summary="first",
+                criterion_id=ctx.criterion.id,
+                goal_id=ctx.goal.id,
+                validation_method="x",
+                passed=True,
+                summary="first",
             )
 
     class SecondYes:
@@ -222,8 +228,11 @@ def test_dispatch_first_applicable_wins(isolated_registry):
 
         def evaluate(self, ctx: CriterionContext) -> CriterionResult:
             return CriterionResult(
-                criterion_id=ctx.criterion.id, goal_id=ctx.goal.id,
-                validation_method="x", passed=True, summary="second",
+                criterion_id=ctx.criterion.id,
+                goal_id=ctx.goal.id,
+                validation_method="x",
+                passed=True,
+                summary="second",
             )
 
     register(FirstNo())  # type: ignore[arg-type]
@@ -261,9 +270,7 @@ def test_dispatch_evaluator_exception_returns_skipped(isolated_registry):
 def test_builtin_completion_evaluator_is_registered():
     """SubtaskCompletionEvaluator should be registered on package import."""
     completion_evaluators = _EVALUATORS.get("completion", [])
-    assert any(
-        type(e).__name__ == "SubtaskCompletionEvaluator" for e in completion_evaluators
-    )
+    assert any(type(e).__name__ == "SubtaskCompletionEvaluator" for e in completion_evaluators)
 
 
 # ---------------------------------------------------------------------------
@@ -273,8 +280,12 @@ def test_builtin_completion_evaluator_is_registered():
 
 def test_result_to_dict_has_expected_keys():
     r = CriterionResult(
-        criterion_id="c1", goal_id="g1", validation_method="completion",
-        passed=True, value=0.9, threshold=0.8,
+        criterion_id="c1",
+        goal_id="g1",
+        validation_method="completion",
+        passed=True,
+        value=0.9,
+        threshold=0.8,
     )
     d = r.to_dict()
     assert d["criterion_id"] == "c1"
@@ -307,9 +318,7 @@ def test_evaluate_goal_criteria_empty_when_no_active_goals():
     """No active criteria → evaluated=0, no errors."""
     from empirica.core.post_test.criterion_evaluators import evaluate_goal_criteria
 
-    with patch(
-        "empirica.core.goals.repository.GoalRepository"
-    ) as MockRepo:
+    with patch("empirica.core.goals.repository.GoalRepository") as MockRepo:
         MockRepo.return_value.list_active_criteria_for_session.return_value = []
         block = evaluate_goal_criteria(
             session_id="s1",
@@ -326,9 +335,7 @@ def test_evaluate_goal_criteria_persists_is_met():
     goal = _make_goal(total_subtasks=2, completed=2)
     crit = _make_criterion(threshold=1.0)
 
-    with patch(
-        "empirica.core.goals.repository.GoalRepository"
-    ) as MockRepo:
+    with patch("empirica.core.goals.repository.GoalRepository") as MockRepo:
         MockRepo.return_value.list_active_criteria_for_session.return_value = [(goal, crit)]
         block = evaluate_goal_criteria(
             session_id="s1",
@@ -345,24 +352,26 @@ def test_evaluate_goal_criteria_persists_is_met():
 # ---------------------------------------------------------------------------
 
 
-def _make_bundle_with_metric(
-    metric_name: str, value: float, *, direction: str = "higher_is_better"
-) -> EvidenceBundle:
+def _make_bundle_with_metric(metric_name: str, value: float, *, direction: str = "higher_is_better") -> EvidenceBundle:
     bundle = EvidenceBundle(session_id="test")
-    bundle.items.append(EvidenceItem(
-        source="test",
-        metric_name=metric_name,
-        value=value,
-        raw_value=value,
-        quality=EvidenceQuality.OBJECTIVE,
-        supports_vectors=[],
-        direction=direction,
-    ))
+    bundle.items.append(
+        EvidenceItem(
+            source="test",
+            metric_name=metric_name,
+            value=value,
+            raw_value=value,
+            quality=EvidenceQuality.OBJECTIVE,
+            supports_vectors=[],
+            direction=direction,
+        )
+    )
     return bundle
 
 
 def _make_quality_gate_ctx(
-    bundle: EvidenceBundle, metric_name: str, threshold: float | None = 0.5,
+    bundle: EvidenceBundle,
+    metric_name: str,
+    threshold: float | None = 0.5,
     is_required: bool = True,
 ) -> CriterionContext:
     goal = _make_goal(total_subtasks=0, completed=0)
@@ -374,7 +383,9 @@ def _make_quality_gate_ctx(
         is_required=is_required,
     )
     return CriterionContext(
-        criterion=crit, goal=goal, evidence=bundle,
+        criterion=crit,
+        goal=goal,
+        evidence=bundle,
         session_id="test",
     )
 
@@ -438,10 +449,9 @@ def test_quality_gate_iteration_skipped_for_non_required_failing():
 def test_quality_gate_evaluator_is_registered():
     """EvidenceMetricEvaluator should be registered on package import."""
     from empirica.core.post_test.criterion_evaluators.registry import _EVALUATORS
+
     quality_evaluators = _EVALUATORS.get("quality_gate", [])
-    assert any(
-        type(e).__name__ == "EvidenceMetricEvaluator" for e in quality_evaluators
-    )
+    assert any(type(e).__name__ == "EvidenceMetricEvaluator" for e in quality_evaluators)
 
 
 # ---------------------------------------------------------------------------
@@ -466,11 +476,16 @@ def test_evidence_bundle_get_returns_raw_value_when_scalar():
 
 def test_evidence_bundle_get_falls_back_to_normalized_when_raw_non_scalar():
     bundle = EvidenceBundle(session_id="test")
-    bundle.items.append(EvidenceItem(
-        source="test", metric_name="bar", value=0.7,
-        raw_value={"complex": "dict"},  # not scalar
-        quality=EvidenceQuality.OBJECTIVE, supports_vectors=[],
-    ))
+    bundle.items.append(
+        EvidenceItem(
+            source="test",
+            metric_name="bar",
+            value=0.7,
+            raw_value={"complex": "dict"},  # not scalar
+            quality=EvidenceQuality.OBJECTIVE,
+            supports_vectors=[],
+        )
+    )
     assert bundle.get("bar") == 0.7
 
 
@@ -491,8 +506,12 @@ def test_evidence_bundle_direction_defaults_to_higher_is_better_for_missing():
 
 def test_evidence_item_default_direction_is_higher_is_better():
     item = EvidenceItem(
-        source="x", metric_name="y", value=0.5, raw_value=0.5,
-        quality=EvidenceQuality.OBJECTIVE, supports_vectors=[],
+        source="x",
+        metric_name="y",
+        value=0.5,
+        raw_value=0.5,
+        quality=EvidenceQuality.OBJECTIVE,
+        supports_vectors=[],
     )
     assert item.direction == "higher_is_better"
 
@@ -504,9 +523,7 @@ def test_evaluate_goal_criteria_iteration_needed_propagates():
     goal = _make_goal(total_subtasks=4, completed=1)
     crit = _make_criterion(threshold=1.0, required=True)
 
-    with patch(
-        "empirica.core.goals.repository.GoalRepository"
-    ) as MockRepo:
+    with patch("empirica.core.goals.repository.GoalRepository") as MockRepo:
         MockRepo.return_value.list_active_criteria_for_session.return_value = [(goal, crit)]
         block = evaluate_goal_criteria(
             session_id="s1",

@@ -34,59 +34,59 @@ from empirica.cli.command_handlers.workflow_commands import (
 class TestValidatePostflightPreconditions:
     def test_returns_true_when_session_has_project_id(self):
         # Mock SessionDatabase to return a row with project_id
-        with patch('empirica.data.session_database.SessionDatabase') as mock_db_cls:
+        with patch("empirica.data.session_database.SessionDatabase") as mock_db_cls:
             mock_db = mock_db_cls.return_value
             cursor = mock_db.conn.cursor.return_value
-            cursor.fetchone.return_value = ('valid-project-uuid',)
+            cursor.fetchone.return_value = ("valid-project-uuid",)
 
-            ok, err = _validate_postflight_preconditions('session-001')
+            ok, err = _validate_postflight_preconditions("session-001")
             assert ok is True
             assert err is None
 
     def test_returns_false_when_session_row_missing(self):
-        with patch('empirica.data.session_database.SessionDatabase') as mock_db_cls:
+        with patch("empirica.data.session_database.SessionDatabase") as mock_db_cls:
             mock_db = mock_db_cls.return_value
             cursor = mock_db.conn.cursor.return_value
             cursor.fetchone.return_value = None
 
-            ok, err = _validate_postflight_preconditions('missing-session-uuid')
+            ok, err = _validate_postflight_preconditions("missing-session-uuid")
             assert ok is False
             assert err is not None
-            assert 'not found' in err
+            assert "not found" in err
 
     def test_returns_false_when_project_id_is_null(self):
-        with patch('empirica.data.session_database.SessionDatabase') as mock_db_cls:
+        with patch("empirica.data.session_database.SessionDatabase") as mock_db_cls:
             mock_db = mock_db_cls.return_value
             cursor = mock_db.conn.cursor.return_value
             cursor.fetchone.return_value = (None,)
 
-            ok, err = _validate_postflight_preconditions('session-002')
+            ok, err = _validate_postflight_preconditions("session-002")
             assert ok is False
-            assert 'no project_id' in err
-            assert 'project-switch' in err  # actionable hint
+            assert "no project_id" in err
+            assert "project-switch" in err  # actionable hint
 
     def test_returns_false_when_project_id_is_empty_string(self):
-        with patch('empirica.data.session_database.SessionDatabase') as mock_db_cls:
+        with patch("empirica.data.session_database.SessionDatabase") as mock_db_cls:
             mock_db = mock_db_cls.return_value
             cursor = mock_db.conn.cursor.return_value
-            cursor.fetchone.return_value = ('',)
+            cursor.fetchone.return_value = ("",)
 
-            ok, err = _validate_postflight_preconditions('session-003')
+            ok, err = _validate_postflight_preconditions("session-003")
             assert ok is False
-            assert 'no project_id' in err
+            assert "no project_id" in err
 
     def test_fails_open_when_db_unavailable(self):
         # If validation itself can't run, fail-open (return ok=True with a
         # diagnostic message). Downstream soft-run wrappers handle their
         # own errors anyway. The fix should never make POSTFLIGHT *less*
         # available than it was before.
-        with patch('empirica.data.session_database.SessionDatabase') as mock_db_cls:
+        with patch("empirica.data.session_database.SessionDatabase") as mock_db_cls:
             mock_db_cls.side_effect = OSError("DB inaccessible")
 
-            ok, err = _validate_postflight_preconditions('session-004')
+            ok, err = _validate_postflight_preconditions("session-004")
             assert ok is True  # fail-open
             assert err is not None
-            assert 'skipped' in err
+            assert "skipped" in err
 
 
 # ─── _soft_run ───────────────────────────────────────────────────────────────
@@ -101,14 +101,17 @@ class TestSoftRun:
 
     def test_passes_args_and_kwargs_through(self):
         warnings = []
+
         def fn(a, b, *, c):
             return a + b + c
+
         result = _soft_run("test_stage", warnings, fn, 1, 2, c=3)
         assert result == 6
         assert warnings == []
 
     def test_catches_exception_and_appends_warning(self):
         warnings = []
+
         def boom():
             raise ValueError("explicit failure")
 
@@ -138,8 +141,10 @@ class TestSoftRun:
         # below) because library functions sometimes use sys.exit; KI
         # comes from the user.
         warnings = []
+
         def raises_ki():
             raise KeyboardInterrupt
+
         with pytest.raises(KeyboardInterrupt):
             _soft_run("bus_publish", warnings, raises_ki)
         assert warnings == []  # no warning recorded — exception escaped
@@ -151,9 +156,12 @@ class TestSoftRun:
         # straight through every `except Exception` above and kill
         # POSTFLIGHT. See #95 (pschwinger) for the repro.
         warnings = []
+
         def lib_calls_sys_exit():
             import sys
+
             sys.exit(1)
+
         result = _soft_run("cortex_sync", warnings, lib_calls_sys_exit)
         assert result is None
         assert len(warnings) == 1
@@ -166,9 +174,12 @@ class TestSoftRun:
         # sys.exit("error message") is also valid Python. Must capture
         # the code in the warning regardless of type.
         warnings = []
+
         def lib_exit_string():
             import sys
+
             sys.exit("project not found")
+
         result = _soft_run("cortex_sync", warnings, lib_exit_string)
         assert result is None
         assert "project not found" in warnings[0]["error"]
@@ -177,6 +188,7 @@ class TestSoftRun:
         # Warnings end up in result['warnings'] which is JSON-serialized.
         # Make sure no funky types leak in.
         import json
+
         warnings = []
         _soft_run("bus_publish", warnings, lambda: (_ for _ in ()).throw(RuntimeError("bad")))
         # Should serialize cleanly
@@ -203,25 +215,25 @@ class TestCortexResolveProjectId:
 
         from empirica.cli.command_handlers.workflow_commands import _cortex_resolve_project_id
 
-        with patch('empirica.data.session_database.SessionDatabase') as mock_db_cls:
+        with patch("empirica.data.session_database.SessionDatabase") as mock_db_cls:
             mock_db = mock_db_cls.return_value
             cursor = mock_db.conn.cursor.return_value
-            cursor.fetchone.return_value = ('eea1ca87-real-project-uuid',)
+            cursor.fetchone.return_value = ("eea1ca87-real-project-uuid",)
 
-            result = _cortex_resolve_project_id('session-001')
-            assert result == 'eea1ca87-real-project-uuid'
+            result = _cortex_resolve_project_id("session-001")
+            assert result == "eea1ca87-real-project-uuid"
 
     def test_returns_empty_string_on_missing_session(self):
         from unittest.mock import patch
 
         from empirica.cli.command_handlers.workflow_commands import _cortex_resolve_project_id
 
-        with patch('empirica.data.session_database.SessionDatabase') as mock_db_cls:
+        with patch("empirica.data.session_database.SessionDatabase") as mock_db_cls:
             mock_db = mock_db_cls.return_value
             cursor = mock_db.conn.cursor.return_value
             cursor.fetchone.return_value = None
 
-            result = _cortex_resolve_project_id('missing-session')
+            result = _cortex_resolve_project_id("missing-session")
             assert result == ""
 
     def test_returns_empty_string_on_null_project_id(self):
@@ -229,16 +241,17 @@ class TestCortexResolveProjectId:
 
         from empirica.cli.command_handlers.workflow_commands import _cortex_resolve_project_id
 
-        with patch('empirica.data.session_database.SessionDatabase') as mock_db_cls:
+        with patch("empirica.data.session_database.SessionDatabase") as mock_db_cls:
             mock_db = mock_db_cls.return_value
             cursor = mock_db.conn.cursor.return_value
             cursor.fetchone.return_value = (None,)
 
-            result = _cortex_resolve_project_id('session-002')
+            result = _cortex_resolve_project_id("session-002")
             assert result == ""
 
     def test_returns_empty_string_on_empty_session_id(self):
         from empirica.cli.command_handlers.workflow_commands import _cortex_resolve_project_id
+
         # No DB query attempted — short-circuit on empty input.
         assert _cortex_resolve_project_id("") == ""
         assert _cortex_resolve_project_id(None) == ""  # type: ignore[arg-type]
@@ -251,15 +264,17 @@ class TestCortexResolveProjectId:
 
         from empirica.cli.command_handlers.workflow_commands import _cortex_resolve_project_id
 
-        with patch('empirica.data.session_database.SessionDatabase') as mock_db_cls, \
-             patch('builtins.open') as mock_open, \
-             patch('empirica.cli.utils.project_resolver.resolve_project_id') as mock_rpi:
+        with (
+            patch("empirica.data.session_database.SessionDatabase") as mock_db_cls,
+            patch("builtins.open") as mock_open,
+            patch("empirica.cli.utils.project_resolver.resolve_project_id") as mock_rpi,
+        ):
             mock_db = mock_db_cls.return_value
             cursor = mock_db.conn.cursor.return_value
-            cursor.fetchone.return_value = ('canonical-uuid',)
+            cursor.fetchone.return_value = ("canonical-uuid",)
 
-            result = _cortex_resolve_project_id('session-003')
-            assert result == 'canonical-uuid'
+            result = _cortex_resolve_project_id("session-003")
+            assert result == "canonical-uuid"
             # No YAML read, no resolve_project_id call — the failure modes
             # from #95 are structurally impossible.
             mock_open.assert_not_called()
@@ -272,9 +287,9 @@ class TestCortexResolveProjectId:
 
         from empirica.cli.command_handlers.workflow_commands import _cortex_resolve_project_id
 
-        with patch('empirica.data.session_database.SessionDatabase') as mock_db_cls:
+        with patch("empirica.data.session_database.SessionDatabase") as mock_db_cls:
             mock_db_cls.side_effect = OSError("DB locked")
-            result = _cortex_resolve_project_id('session-004')
+            result = _cortex_resolve_project_id("session-004")
             assert result == ""
 
 
@@ -287,25 +302,25 @@ class TestCortexResolveProjectId:
 class TestCortexExtractTransactionGraph:
     def _build_db_with_tx(self, tmp_path):
         from empirica.data.session_database import SessionDatabase
+
         db = SessionDatabase(db_path=str(tmp_path / "graph.db"))
         return db
 
     def _patch_tx(self, monkeypatch, db, tx_id):
         from empirica.cli.command_handlers import _workflow_postflight as wp
-        monkeypatch.setattr(wp.R, "transaction_read",
-                            lambda *a, **k: {"transaction_id": tx_id})
+
+        monkeypatch.setattr(wp.R, "transaction_read", lambda *a, **k: {"transaction_id": tx_id})
         monkeypatch.setattr(wp, "_get_db_for_session", lambda _sid: db)
         return wp
 
     def test_graph_covers_full_set_with_goal_and_artifact_edges(self, tmp_path, monkeypatch):
         db = self._build_db_with_tx(tmp_path)
         PID, SID, TX, GID = "proj", "sess", "tx-graph-1", "goal-xyz"
-        fid = db.log_finding(PID, SID, "a real finding", impact=0.8,
-                             goal_id=GID, transaction_id=TX)
-        did = db.log_decision(PID, SID, choice="chose X", rationale="grounded",
-                              goal_id=GID, transaction_id=TX)
+        fid = db.log_finding(PID, SID, "a real finding", impact=0.8, goal_id=GID, transaction_id=TX)
+        did = db.log_decision(PID, SID, choice="chose X", rationale="grounded", goal_id=GID, transaction_id=TX)
         # an inter-artifact edge
         from empirica.cli.command_handlers.graph_commands import _store_edge
+
         _store_edge(db, fid, did, "supports")
 
         wp = self._patch_tx(monkeypatch, db, TX)
@@ -329,8 +344,7 @@ class TestCortexExtractTransactionGraph:
         goal_edges = [e for e in graph["edges"] if e["relation"] == "attached_to"]
         assert {e["from"] for e in goal_edges} == {fid, did}
         assert all(e["to"] == GID for e in goal_edges)
-        assert any(e["relation"] == "supports" and e["from"] == fid and e["to"] == did
-                   for e in graph["edges"])
+        assert any(e["relation"] == "supports" and e["from"] == fid and e["to"] == did for e in graph["edges"])
 
     def test_graph_empty_when_no_artifacts_in_transaction(self, tmp_path, monkeypatch):
         db = self._build_db_with_tx(tmp_path)
@@ -339,6 +353,7 @@ class TestCortexExtractTransactionGraph:
 
     def test_graph_empty_when_no_open_transaction(self, tmp_path, monkeypatch):
         from empirica.cli.command_handlers import _workflow_postflight as wp
+
         monkeypatch.setattr(wp.R, "transaction_read", lambda *a, **k: None)
         assert wp._cortex_extract_transaction_graph("sess") == {}
 
@@ -364,18 +379,21 @@ class TestCortexExtractTransactionGraph:
 class TestBeadRetirement:
     def _build_db(self, tmp_path):
         from empirica.data.session_database import SessionDatabase
+
         return SessionDatabase(db_path=str(tmp_path / "beads.db"))
 
     def test_bead_node_type_removed_from_graph_schema(self):
         """`bead` is not in NODE_REQUIRED_FIELDS or CREATION_ORDER anymore."""
         from empirica.cli.command_handlers import graph_commands as gc
-        assert 'bead' not in gc.NODE_REQUIRED_FIELDS
-        assert 'bead' not in gc.CREATION_ORDER
+
+        assert "bead" not in gc.NODE_REQUIRED_FIELDS
+        assert "bead" not in gc.CREATION_ORDER
 
     def test_bead_v0_edges_removed_from_valid_relations(self):
         """The 4 bead-courier edges are no longer accepted as valid relations."""
         from empirica.cli.command_handlers import graph_commands as gc
-        for rel in ('tracks', 'owned_by', 'about', 'worked_by'):
+
+        for rel in ("tracks", "owned_by", "about", "worked_by"):
             assert rel not in gc.VALID_RELATIONS
 
     def test_graph_extract_no_longer_ships_beads(self, tmp_path, monkeypatch):
@@ -384,16 +402,20 @@ class TestBeadRetirement:
         kept inert), but the cortex-bound extractor omits the beads table
         entirely now — protecting against cortex's stricter validation."""
         from empirica.cli.command_handlers import _workflow_postflight as wp
+
         db = self._build_db(tmp_path)
         PID, SID, TX, GID = "proj", "sess", "tx-bead", "goal-bead"
         # log_bead still callable (inert legacy path); row lands locally.
-        db.log_bead(PID, SID,
-                    coordination_state="open",
-                    beads_issue_id="bd-7",
-                    goal_id=GID, transaction_id=TX,
-                    description="should not ship to cortex")
-        monkeypatch.setattr(wp.R, "transaction_read",
-                            lambda *a, **k: {"transaction_id": TX})
+        db.log_bead(
+            PID,
+            SID,
+            coordination_state="open",
+            beads_issue_id="bd-7",
+            goal_id=GID,
+            transaction_id=TX,
+            description="should not ship to cortex",
+        )
+        monkeypatch.setattr(wp.R, "transaction_read", lambda *a, **k: {"transaction_id": TX})
         monkeypatch.setattr(wp, "_get_db_for_session", lambda _sid: db)
         graph = wp._cortex_extract_transaction_graph(SID)
 

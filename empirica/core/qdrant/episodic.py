@@ -1,6 +1,7 @@
 """
 Episodic memory: session narratives with temporal decay.
 """
+
 from __future__ import annotations
 
 from empirica.core.qdrant.collections import _episodic_collection
@@ -169,6 +170,7 @@ def search_episodic(
         )
 
         import time
+
         now = time.time()
 
         processed = []
@@ -182,22 +184,24 @@ def search_episodic(
 
             effective_score = r.score * recency if apply_recency_decay else r.score
 
-            processed.append({
-                "id": str(r.id),
-                "score": effective_score,
-                "raw_score": r.score,
-                "recency_weight": recency,
-                "narrative": r.payload.get("narrative_full") or r.payload.get("narrative"),
-                "type": r.payload.get("type"),
-                "session_id": r.payload.get("session_id"),
-                "ai_id": r.payload.get("ai_id"),
-                "goal_id": r.payload.get("goal_id"),
-                "learning_delta": r.payload.get("learning_delta", {}),
-                "outcome": r.payload.get("outcome"),
-                "key_moments": r.payload.get("key_moments", []),
-                "tags": r.payload.get("tags", []),
-                "timestamp": timestamp,
-            })
+            processed.append(
+                {
+                    "id": str(r.id),
+                    "score": effective_score,
+                    "raw_score": r.score,
+                    "recency_weight": recency,
+                    "narrative": r.payload.get("narrative_full") or r.payload.get("narrative"),
+                    "type": r.payload.get("type"),
+                    "session_id": r.payload.get("session_id"),
+                    "ai_id": r.payload.get("ai_id"),
+                    "goal_id": r.payload.get("goal_id"),
+                    "learning_delta": r.payload.get("learning_delta", {}),
+                    "outcome": r.payload.get("outcome"),
+                    "key_moments": r.payload.get("key_moments", []),
+                    "tags": r.payload.get("tags", []),
+                    "timestamp": timestamp,
+                }
+            )
 
         # Sort by effective score and limit
         processed.sort(key=lambda x: x["score"], reverse=True)

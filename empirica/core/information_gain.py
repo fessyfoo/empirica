@@ -126,23 +126,16 @@ def should_spawn_more(
 
     # Hard stop: stale investigation
     if rounds_without_novel >= stale_rounds:
-        logger.info(
-            f"Stop spawning: {rounds_without_novel} rounds without novel findings "
-            f"(threshold: {stale_rounds})"
-        )
+        logger.info(f"Stop spawning: {rounds_without_novel} rounds without novel findings (threshold: {stale_rounds})")
         return False
 
     # Gain threshold
     if gain_estimate < min_gain:
-        logger.info(
-            f"Stop spawning: expected gain {gain_estimate:.3f} below "
-            f"threshold {min_gain:.3f}"
-        )
+        logger.info(f"Stop spawning: expected gain {gain_estimate:.3f} below threshold {min_gain:.3f}")
         return False
 
     logger.debug(
-        f"Continue spawning: budget={budget_remaining}, gain={gain_estimate:.3f}, "
-        f"stale_rounds={rounds_without_novel}"
+        f"Continue spawning: budget={budget_remaining}, gain={gain_estimate:.3f}, stale_rounds={rounds_without_novel}"
     )
     return True
 
@@ -193,11 +186,34 @@ def novelty_score(
 def _tokenize(text: str) -> set:
     """Tokenize text into word set for Jaccard comparison."""
     import re
-    words = set(re.findall(r'\b\w{3,}\b', text.lower()))
+
+    words = set(re.findall(r"\b\w{3,}\b", text.lower()))
     # Remove very common words
     stop_words = {
-        'the', 'and', 'for', 'that', 'this', 'with', 'from', 'are', 'was',
-        'were', 'been', 'have', 'has', 'had', 'not', 'but', 'can', 'will',
-        'should', 'would', 'could', 'which', 'there', 'their', 'about',
+        "the",
+        "and",
+        "for",
+        "that",
+        "this",
+        "with",
+        "from",
+        "are",
+        "was",
+        "were",
+        "been",
+        "have",
+        "has",
+        "had",
+        "not",
+        "but",
+        "can",
+        "will",
+        "should",
+        "would",
+        "could",
+        "which",
+        "there",
+        "their",
+        "about",
     }
     return words - stop_words

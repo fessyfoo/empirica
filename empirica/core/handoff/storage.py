@@ -34,7 +34,7 @@ class GitHandoffStorage:
         self.repo_path = Path(repo_path) if repo_path else Path.cwd()
 
         # Verify git repo
-        if not (self.repo_path / '.git').exists():
+        if not (self.repo_path / ".git").exists():
             logger.warning(f"Not a git repository: {self.repo_path}")
 
     def store_handoff(self, session_id: str, report: dict) -> str:
@@ -51,34 +51,34 @@ class GitHandoffStorage:
         try:
             # Store compressed JSON as primary note
             note_ref = f"empirica/handoff/{session_id}"
-            compressed = report['compressed_json']
+            compressed = report["compressed_json"]
 
             result = subprocess.run(
-                ['git', 'notes', '--ref', note_ref, 'add', '-f', '-m', compressed, 'HEAD'],
+                ["git", "notes", "--ref", note_ref, "add", "-f", "-m", compressed, "HEAD"],
                 capture_output=True,
                 timeout=5,
                 cwd=str(self.repo_path),
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:
                 # If no commits yet, create an empty commit
-                if 'No commits yet' in result.stderr or 'HEAD' in result.stderr:
+                if "No commits yet" in result.stderr or "HEAD" in result.stderr:
                     logger.debug("Creating initial commit for git notes...")
                     subprocess.run(
-                        ['git', 'commit', '--allow-empty', '-m', 'Initial commit for Empirica handoff reports'],
+                        ["git", "commit", "--allow-empty", "-m", "Initial commit for Empirica handoff reports"],
                         capture_output=True,
                         timeout=5,
                         cwd=str(self.repo_path),
-                        text=True
+                        text=True,
                     )
                     # Retry
                     result = subprocess.run(
-                        ['git', 'notes', '--ref', note_ref, 'add', '-f', '-m', compressed, 'HEAD'],
+                        ["git", "notes", "--ref", note_ref, "add", "-f", "-m", compressed, "HEAD"],
                         capture_output=True,
                         timeout=5,
                         cwd=str(self.repo_path),
-                        text=True
+                        text=True,
                     )
 
                 if result.returncode != 0:
@@ -86,29 +86,25 @@ class GitHandoffStorage:
 
             # Store full markdown as separate note (for human reading)
             markdown_ref = f"empirica/handoff/{session_id}/markdown"
-            markdown = report['markdown']
+            markdown = report["markdown"]
 
             subprocess.run(
-                ['git', 'notes', '--ref', markdown_ref, 'add', '-f', '-m', markdown, 'HEAD'],
+                ["git", "notes", "--ref", markdown_ref, "add", "-f", "-m", markdown, "HEAD"],
                 capture_output=True,
                 timeout=5,
                 cwd=str(self.repo_path),
-                text=True
+                text=True,
             )
 
             logger.info(f"📝 Stored handoff in git notes: {note_ref}")
 
-            return self._get_note_sha(note_ref) or 'stored'
+            return self._get_note_sha(note_ref) or "stored"
 
         except Exception as e:
             logger.error(f"Failed to store handoff in git: {e}")
             raise
 
-    def load_handoff(
-        self,
-        session_id: str,
-        format: str = 'json'
-    ) -> dict | None:
+    def load_handoff(self, session_id: str, format: str = "json") -> dict | None:
         """
         Load handoff report from git notes
 
@@ -121,24 +117,24 @@ class GitHandoffStorage:
         """
         try:
             note_ref = f"empirica/handoff/{session_id}"
-            if format == 'markdown':
-                note_ref += '/markdown'
+            if format == "markdown":
+                note_ref += "/markdown"
 
             result = subprocess.run(
-                ['git', 'notes', '--ref', note_ref, 'show', 'HEAD'],
+                ["git", "notes", "--ref", note_ref, "show", "HEAD"],
                 capture_output=True,
                 timeout=2,
                 cwd=str(self.repo_path),
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:
                 return None
 
-            if format == 'json':
+            if format == "json":
                 return json.loads(result.stdout)
             else:
-                return {'markdown': result.stdout}
+                return {"markdown": result.stdout}
 
         except Exception as e:
             logger.debug(f"Failed to load handoff from git: {e}")
@@ -157,11 +153,11 @@ class GitHandoffStorage:
         try:
             # Use for-each-ref to find all handoff note refs
             result = subprocess.run(
-                ['git', 'for-each-ref', '--format=%(refname)', 'refs/notes/empirica/handoff/'],
+                ["git", "for-each-ref", "--format=%(refname)", "refs/notes/empirica/handoff/"],
                 capture_output=True,
                 timeout=5,
                 cwd=str(self.repo_path),
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:
@@ -175,12 +171,12 @@ class GitHandoffStorage:
                 if not line:
                     continue
                 # Extract session ID (UUID after handoff/)
-                parts = line.split('refs/notes/empirica/handoff/')
+                parts = line.split("refs/notes/empirica/handoff/")
                 if len(parts) > 1:
                     # Take first part before any slash (handles /markdown suffix)
-                    session_id = parts[1].split('/')[0]
+                    session_id = parts[1].split("/")[0]
                     # Validate it looks like a UUID (36 chars with dashes)
-                    if len(session_id) == 36 and session_id.count('-') == 4:
+                    if len(session_id) == 36 and session_id.count("-") == 4:
                         session_ids.add(session_id)
 
             return sorted(session_ids)
@@ -193,11 +189,11 @@ class GitHandoffStorage:
         """Get SHA of note"""
         try:
             result = subprocess.run(
-                ['git', 'rev-parse', f"refs/notes/{note_ref}"],
+                ["git", "rev-parse", f"refs/notes/{note_ref}"],
                 capture_output=True,
                 timeout=2,
                 cwd=str(self.repo_path),
-                text=True
+                text=True,
             )
 
             if result.returncode == 0:
@@ -220,6 +216,7 @@ class DatabaseHandoffStorage:
         """
         if db_path is None:
             from empirica.config.path_resolver import get_session_db_path
+
             db_path = get_session_db_path()
 
         self.db_path = Path(db_path)
@@ -288,7 +285,8 @@ class DatabaseHandoffStorage:
         cursor = self.conn.cursor()
 
         try:
-            cursor.execute('''
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO handoff_reports
                 (session_id, ai_id, timestamp, task_summary, duration_seconds,
                  epistemic_deltas, key_findings, knowledge_gaps_filled,
@@ -296,26 +294,28 @@ class DatabaseHandoffStorage:
                  recommended_next_steps, artifacts_created, calibration_status,
                  overall_confidence_delta, compressed_json, markdown_report, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                session_id,
-                report['ai_id'],
-                report['timestamp'],
-                report['task_summary'],
-                report['duration_seconds'],
-                json.dumps(report['epistemic_deltas']),
-                json.dumps(report['key_findings']),
-                json.dumps(report['knowledge_gaps_filled']),
-                json.dumps(report['remaining_unknowns']),
-                json.dumps(report['noetic_tools']),
-                report['next_session_context'],
-                json.dumps(report['recommended_next_steps']),
-                json.dumps(report['artifacts_created']),
-                report['calibration_status'],
-                report['overall_confidence_delta'],
-                report['compressed_json'],
-                report['markdown'],
-                datetime.now().timestamp()
-            ))
+            """,
+                (
+                    session_id,
+                    report["ai_id"],
+                    report["timestamp"],
+                    report["task_summary"],
+                    report["duration_seconds"],
+                    json.dumps(report["epistemic_deltas"]),
+                    json.dumps(report["key_findings"]),
+                    json.dumps(report["knowledge_gaps_filled"]),
+                    json.dumps(report["remaining_unknowns"]),
+                    json.dumps(report["noetic_tools"]),
+                    report["next_session_context"],
+                    json.dumps(report["recommended_next_steps"]),
+                    json.dumps(report["artifacts_created"]),
+                    report["calibration_status"],
+                    report["overall_confidence_delta"],
+                    report["compressed_json"],
+                    report["markdown"],
+                    datetime.now().timestamp(),
+                ),
+            )
 
             self.conn.commit()
             logger.info(f"💾 Stored handoff in database: {session_id[:8]}...")
@@ -335,9 +335,12 @@ class DatabaseHandoffStorage:
             Handoff report dict or None if not found
         """
         cursor = self.conn.cursor()
-        cursor.execute('''
+        cursor.execute(
+            """
             SELECT * FROM handoff_reports WHERE session_id = ?
-        ''', (session_id,))
+        """,
+            (session_id,),
+        )
 
         row = cursor.fetchone()
         if not row:
@@ -345,12 +348,7 @@ class DatabaseHandoffStorage:
 
         return self._row_to_dict(row)
 
-    def query_handoffs(
-        self,
-        ai_id: str | None = None,
-        since: str | None = None,
-        limit: int = 10
-    ) -> list[dict]:
+    def query_handoffs(self, ai_id: str | None = None, since: str | None = None, limit: int = 10) -> list[dict]:
         """
         Query handoff reports by AI or date
 
@@ -384,24 +382,26 @@ class DatabaseHandoffStorage:
     def _row_to_dict(self, row: sqlite3.Row) -> dict:
         """Convert database row to dict"""
         return {
-            'session_id': row['session_id'],
-            'ai_id': row['ai_id'],
-            'timestamp': row['timestamp'],
-            'task_summary': row['task_summary'],
-            'duration_seconds': row['duration_seconds'],
-            'epistemic_deltas': json.loads(row['epistemic_deltas']) if row['epistemic_deltas'] else {},
-            'key_findings': json.loads(row['key_findings']) if row['key_findings'] else [],
-            'knowledge_gaps_filled': json.loads(row['knowledge_gaps_filled']) if row['knowledge_gaps_filled'] else [],
-            'remaining_unknowns': json.loads(row['remaining_unknowns']) if row['remaining_unknowns'] else [],
-            'noetic_tools': json.loads(row['noetic_tools']) if row['noetic_tools'] else [],
-            'next_session_context': row['next_session_context'],
-            'recommended_next_steps': json.loads(row['recommended_next_steps']) if row['recommended_next_steps'] else [],
-            'artifacts_created': json.loads(row['artifacts_created']) if row['artifacts_created'] else [],
-            'calibration_status': row['calibration_status'],
-            'overall_confidence_delta': row['overall_confidence_delta'],
-            'compressed_json': row['compressed_json'],
-            'markdown': row['markdown_report'],
-            'created_at': row['created_at']
+            "session_id": row["session_id"],
+            "ai_id": row["ai_id"],
+            "timestamp": row["timestamp"],
+            "task_summary": row["task_summary"],
+            "duration_seconds": row["duration_seconds"],
+            "epistemic_deltas": json.loads(row["epistemic_deltas"]) if row["epistemic_deltas"] else {},
+            "key_findings": json.loads(row["key_findings"]) if row["key_findings"] else [],
+            "knowledge_gaps_filled": json.loads(row["knowledge_gaps_filled"]) if row["knowledge_gaps_filled"] else [],
+            "remaining_unknowns": json.loads(row["remaining_unknowns"]) if row["remaining_unknowns"] else [],
+            "noetic_tools": json.loads(row["noetic_tools"]) if row["noetic_tools"] else [],
+            "next_session_context": row["next_session_context"],
+            "recommended_next_steps": json.loads(row["recommended_next_steps"])
+            if row["recommended_next_steps"]
+            else [],
+            "artifacts_created": json.loads(row["artifacts_created"]) if row["artifacts_created"] else [],
+            "calibration_status": row["calibration_status"],
+            "overall_confidence_delta": row["overall_confidence_delta"],
+            "compressed_json": row["compressed_json"],
+            "markdown": row["markdown_report"],
+            "created_at": row["created_at"],
         }
 
     def list_handoffs(self) -> list[str]:
@@ -412,9 +412,7 @@ class DatabaseHandoffStorage:
             List of session IDs
         """
         cursor = self.conn.cursor()
-        cursor.execute(
-            "SELECT session_id FROM handoff_reports ORDER BY created_at DESC"
-        )
+        cursor.execute("SELECT session_id FROM handoff_reports ORDER BY created_at DESC")
 
         return [row[0] for row in cursor.fetchall()]
 
@@ -458,16 +456,12 @@ class HybridHandoffStorage:
                 'fully_synced': bool
             }
         """
-        result = {
-            'git_stored': False,
-            'db_stored': False,
-            'fully_synced': False
-        }
+        result = {"git_stored": False, "db_stored": False, "fully_synced": False}
 
         # Store in git notes
         try:
             self.git_storage.store_handoff(session_id, report)
-            result['git_stored'] = True
+            result["git_stored"] = True
             logger.info(f"✅ Git notes storage: {session_id[:8]}...")
         except Exception as e:
             logger.error(f"❌ Git notes storage failed: {e}")
@@ -475,28 +469,22 @@ class HybridHandoffStorage:
         # Store in database
         try:
             self.db_storage.store_handoff(session_id, report)
-            result['db_stored'] = True
+            result["db_stored"] = True
             logger.info(f"✅ Database storage: {session_id[:8]}...")
         except Exception as e:
             logger.error(f"❌ Database storage failed: {e}")
 
         # Check sync status
-        result['fully_synced'] = result['git_stored'] and result['db_stored']
+        result["fully_synced"] = result["git_stored"] and result["db_stored"]
 
-        if not result['fully_synced']:
+        if not result["fully_synced"]:
             logger.warning(
-                f"⚠️ Partial storage for {session_id[:8]}... "
-                f"(git={result['git_stored']}, db={result['db_stored']})"
+                f"⚠️ Partial storage for {session_id[:8]}... (git={result['git_stored']}, db={result['db_stored']})"
             )
 
         return result
 
-    def load_handoff(
-        self,
-        session_id: str,
-        format: str = 'json',
-        prefer: str = 'database'
-    ) -> dict | None:
+    def load_handoff(self, session_id: str, format: str = "json", prefer: str = "database") -> dict | None:
         """
         Load handoff from preferred storage, fallback to alternative
 
@@ -508,7 +496,7 @@ class HybridHandoffStorage:
         Returns:
             Handoff report dict or None if not found
         """
-        if prefer == 'database':
+        if prefer == "database":
             # Try database first (faster)
             handoff = self.db_storage.load_handoff(session_id)
             if handoff:
@@ -535,11 +523,7 @@ class HybridHandoffStorage:
             return handoff
 
     def query_handoffs(
-        self,
-        ai_id: str | None = None,
-        since: str | None = None,
-        limit: int = 5,
-        include_git: bool = True
+        self, ai_id: str | None = None, since: str | None = None, limit: int = 5, include_git: bool = True
     ) -> list[dict]:
         """
         Query handoffs with filters (merges database + git notes)
@@ -555,7 +539,7 @@ class HybridHandoffStorage:
         """
         # Get database results (indexed, fast)
         db_results = self.db_storage.query_handoffs(ai_id, since, limit * 2)  # Over-fetch for merge
-        db_session_ids = {h['session_id'] for h in db_results}
+        db_session_ids = {h["session_id"] for h in db_results}
 
         # Merge git notes not in database (for cross-repo portability)
         if include_git:
@@ -565,18 +549,18 @@ class HybridHandoffStorage:
                     handoff = self.git_storage.load_handoff(session_id)
                     if handoff:
                         # Apply filters
-                        if ai_id and handoff.get('ai') != ai_id and handoff.get('ai_id') != ai_id:
+                        if ai_id and handoff.get("ai") != ai_id and handoff.get("ai_id") != ai_id:
                             continue
-                        if since and handoff.get('ts', '') < since and handoff.get('timestamp', '') < since:
+                        if since and handoff.get("ts", "") < since and handoff.get("timestamp", "") < since:
                             continue
                         db_results.append(handoff)
                         logger.debug(f"📝 Merged from git notes: {session_id[:8]}...")
 
         # Sort by timestamp descending and apply limit
-        db_results.sort(key=lambda h: h.get('timestamp') or h.get('ts') or '', reverse=True)
+        db_results.sort(key=lambda h: h.get("timestamp") or h.get("ts") or "", reverse=True)
         return db_results[:limit]
 
-    def list_handoffs(self, source: str = 'database') -> list[str]:
+    def list_handoffs(self, source: str = "database") -> list[str]:
         """
         List all handoff session IDs
 
@@ -586,9 +570,9 @@ class HybridHandoffStorage:
         Returns:
             List of session IDs
         """
-        if source == 'database':
+        if source == "database":
             return self.db_storage.list_handoffs()
-        elif source == 'git':
+        elif source == "git":
             return self.git_storage.list_handoffs()
         else:  # both
             db_ids = set(self.db_storage.list_handoffs())
@@ -610,7 +594,7 @@ class HybridHandoffStorage:
         db_handoff = self.db_storage.load_handoff(session_id)
 
         return {
-            'in_git': git_handoff is not None,
-            'in_database': db_handoff is not None,
-            'synced': git_handoff is not None and db_handoff is not None
+            "in_git": git_handoff is not None,
+            "in_database": db_handoff is not None,
+            "synced": git_handoff is not None and db_handoff is not None,
         }

@@ -26,10 +26,10 @@ from .ai_identity import AIIdentity, IdentityManager
 from .signature import create_eep1_payload, sign_assessment, verify_eep1_payload, verify_signature
 
 __all__ = [
-    'AIIdentity',
-    'IdentityManager',
-    'create_eep1_payload',
-    'sign_assessment',
-    'verify_eep1_payload',
-    'verify_signature'
+    "AIIdentity",
+    "IdentityManager",
+    "create_eep1_payload",
+    "sign_assessment",
+    "verify_eep1_payload",
+    "verify_signature",
 ]

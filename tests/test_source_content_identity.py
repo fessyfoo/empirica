@@ -95,10 +95,7 @@ def test_migration_050_creates_hash_index(tmp_path):
     migration_050_source_content_identity(conn.cursor())
     conn.commit()
     cursor = conn.cursor()
-    cursor.execute(
-        "SELECT name FROM sqlite_master WHERE type='index' "
-        "AND name='idx_epistemic_sources_content_hash'"
-    )
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_epistemic_sources_content_hash'")
     assert cursor.fetchone() is not None
     conn.close()
 
@@ -109,9 +106,7 @@ def test_migration_050_creates_hash_index(tmp_path):
 def test_fresh_schema_includes_identity_columns():
     from empirica.data.schema.projects_schema import SCHEMAS
 
-    sources_ddl = next(
-        (ddl for ddl in SCHEMAS if "epistemic_sources" in ddl), None
-    )
+    sources_ddl = next((ddl for ddl in SCHEMAS if "epistemic_sources" in ddl), None)
     assert sources_ddl is not None
     for col in _IDENTITY_COLS:
         assert col in sources_ddl, f"{col} missing from fresh-DB DDL"
@@ -244,9 +239,9 @@ def _run_handler(args, capsys):
     from empirica.cli.command_handlers.artifact_log_commands import (
         handle_source_add_command,
     )
+
     with patch(
-        "empirica.cli.command_handlers.artifact_log_commands."
-        "_source_persist_git_and_qdrant",
+        "empirica.cli.command_handlers.artifact_log_commands._source_persist_git_and_qdrant",
         return_value=(False, False),
     ):
         rc = handle_source_add_command(args)
@@ -258,8 +253,7 @@ def _read_identity(db_path, source_id):
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT content_hash, size_bytes, canonical_path, mime_type "
-        "FROM epistemic_sources WHERE id = ?",
+        "SELECT content_hash, size_bytes, canonical_path, mime_type FROM epistemic_sources WHERE id = ?",
         (source_id,),
     )
     row = cursor.fetchone()
@@ -282,7 +276,8 @@ def test_handler_persists_identity_for_file(fake_db, tmp_path, capsys):
 
 def test_handler_url_only_source_has_null_identity(fake_db, capsys):
     out = _run_handler(
-        _make_args(url="https://example.com/spec.html"), capsys,
+        _make_args(url="https://example.com/spec.html"),
+        capsys,
     )
     row = _read_identity(fake_db, out["source_id"])
     assert row == (None, None, None, None)

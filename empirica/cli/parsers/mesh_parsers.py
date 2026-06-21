@@ -6,8 +6,7 @@ from __future__ import annotations
 def add_mesh_parsers(subparsers) -> None:
     mesh_root = subparsers.add_parser(
         "mesh",
-        help="Unified mesh diagnostic + control surface across listener "
-             "instances and (optional) cortex bridge",
+        help="Unified mesh diagnostic + control surface across listener instances and (optional) cortex bridge",
         description=(
             "Consolidates per-instance listener service management, "
             "health diagnostics, and zombie detection. Reports two layers: "
@@ -24,11 +23,14 @@ def add_mesh_parsers(subparsers) -> None:
         help="Show health table across mesh instances (green/yellow/red + reason)",
     )
     status.add_argument(
-        "instance", nargs="?",
+        "instance",
+        nargs="?",
         help="ai_id (default: enumerate all installed listener services)",
     )
     status.add_argument(
-        "--output", choices=["human", "json"], default="human",
+        "--output",
+        choices=["human", "json"],
+        default="human",
     )
 
     # diagnose
@@ -38,21 +40,25 @@ def add_mesh_parsers(subparsers) -> None:
     )
     diag.add_argument("instance", help="ai_id to diagnose")
     diag.add_argument(
-        "--cortex", action="store_true",
+        "--cortex",
+        action="store_true",
         help="Also run cortex-side participation checks (identity + channels "
-             "endpoint + listener subscription URL + ntfy ACL probe + mesh "
-             "agreements). Cross-correlates the local view with cortex's view "
-             "of this practitioner so silent-failure classes (label mismatch, "
-             "topic drift, ACL 403, silent strand) surface at one verb.",
+        "endpoint + listener subscription URL + ntfy ACL probe + mesh "
+        "agreements). Cross-correlates the local view with cortex's view "
+        "of this practitioner so silent-failure classes (label mismatch, "
+        "topic drift, ACL 403, silent strand) surface at one verb.",
     )
     diag.add_argument(
-        "--peer", metavar="CANONICAL",
+        "--peer",
+        metavar="CANONICAL",
         help="With --cortex, also probe mesh_sharing_agreement with this peer "
-             "(canonical 3-form like 'empirica.philipp.empirica-autonomy'). "
-             "Fails if the agreement row is missing.",
+        "(canonical 3-form like 'empirica.philipp.empirica-autonomy'). "
+        "Fails if the agreement row is missing.",
     )
     diag.add_argument(
-        "--output", choices=["human", "json"], default="human",
+        "--output",
+        choices=["human", "json"],
+        default="human",
     )
 
     # restart
@@ -76,7 +82,8 @@ def add_mesh_parsers(subparsers) -> None:
     )
     off.add_argument("instance", help="ai_id to bring offline")
     off.add_argument(
-        "--uninstall", action="store_true",
+        "--uninstall",
+        action="store_true",
         help="Also remove the systemd/launchd unit (default: stop only)",
     )
 
@@ -86,7 +93,8 @@ def add_mesh_parsers(subparsers) -> None:
         help="Live tail loop_fires.log filtered by instance(s)",
     )
     tail.add_argument(
-        "instance", nargs="?",
+        "instance",
+        nargs="?",
         help="ai_id (default: tail all installed instances)",
     )
 
@@ -94,7 +102,7 @@ def add_mesh_parsers(subparsers) -> None:
     migrate = mesh_subs.add_parser(
         "migrate-topics",
         help="Migrate legacy per-practice + retired bare ntfy topics to "
-             "the per-tenant canonical (closes SER canonical-channel model)",
+        "the per-tenant canonical (closes SER canonical-channel model)",
         description=(
             "Inspects ~/.empirica/credentials.yaml `ntfy.topic` and every "
             "`~/.empirica/listener_active_*.json` topic, detects retired "
@@ -107,12 +115,14 @@ def add_mesh_parsers(subparsers) -> None:
         ),
     )
     migrate.add_argument(
-        "--apply", action="store_true",
-        help="Actually rewrite credentials.yaml + listener_active markers "
-             "(default: dry-run reports what would change)",
+        "--apply",
+        action="store_true",
+        help="Actually rewrite credentials.yaml + listener_active markers (default: dry-run reports what would change)",
     )
     migrate.add_argument(
-        "--output", choices=["human", "json"], default="human",
+        "--output",
+        choices=["human", "json"],
+        default="human",
     )
 
 

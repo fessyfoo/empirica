@@ -8,9 +8,9 @@ from .session_database import SessionDatabase
 from .snapshot_provider import EpistemicSnapshotProvider
 
 __all__ = [
-    'ContextSummary',
-    'EpistemicSnapshotProvider',
-    'EpistemicStateSnapshot',
-    'SessionDatabase',
-    'create_snapshot'
+    "ContextSummary",
+    "EpistemicSnapshotProvider",
+    "EpistemicStateSnapshot",
+    "SessionDatabase",
+    "create_snapshot",
 ]

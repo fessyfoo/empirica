@@ -5,82 +5,50 @@ def add_release_parsers(subparsers):
     """Add release command parsers"""
     # Release readiness check
     release_parser = subparsers.add_parser(
-        'release-ready',
-        help='Epistemic release assessment - verifies version sync, architecture health, security, and documentation'
+        "release-ready",
+        help="Epistemic release assessment - verifies version sync, architecture health, security, and documentation",
     )
-    release_parser.add_argument(
-        '--project-root',
-        help='Root directory of the project (default: current directory)'
-    )
-    release_parser.add_argument(
-        '--quick',
-        action='store_true',
-        help='Quick check (skip architecture assessment)'
-    )
-    release_parser.add_argument(
-        '--output',
-        choices=['human', 'json'],
-        default='human',
-        help='Output format'
-    )
+    release_parser.add_argument("--project-root", help="Root directory of the project (default: current directory)")
+    release_parser.add_argument("--quick", action="store_true", help="Quick check (skip architecture assessment)")
+    release_parser.add_argument("--output", choices=["human", "json"], default="human", help="Output format")
 
     # Docs assessment
     docs_parser = subparsers.add_parser(
-        'docs-assess',
-        help='Epistemic documentation assessment - measures docs coverage against actual features'
+        "docs-assess", help="Epistemic documentation assessment - measures docs coverage against actual features"
+    )
+    docs_parser.add_argument("--project-root", help="Root directory of the project (default: current directory)")
+    docs_parser.add_argument("--verbose", action="store_true", help="Show detailed undocumented items")
+    docs_parser.add_argument(
+        "--summary-only", action="store_true", help="Lightweight summary (~50 tokens) for bootstrap context"
+    )
+    docs_parser.add_argument("--output", choices=["human", "json"], default="human", help="Output format")
+    docs_parser.add_argument(
+        "--check-docstrings",
+        action="store_true",
+        help="Check Python code for missing docstrings (functions, classes, modules)",
     )
     docs_parser.add_argument(
-        '--project-root',
-        help='Root directory of the project (default: current directory)'
+        "--turtle", action="store_true", help="Epistemic recursive mode: iterate between code and docs to surface gaps"
     )
     docs_parser.add_argument(
-        '--verbose',
-        action='store_true',
-        help='Show detailed undocumented items'
+        "--check-staleness",
+        action="store_true",
+        help="Detect stale docs by cross-referencing with recent findings, dead-ends, and mistakes",
     )
     docs_parser.add_argument(
-        '--summary-only',
-        action='store_true',
-        help='Lightweight summary (~50 tokens) for bootstrap context'
-    )
-    docs_parser.add_argument(
-        '--output',
-        choices=['human', 'json'],
-        default='human',
-        help='Output format'
-    )
-    docs_parser.add_argument(
-        '--check-docstrings',
-        action='store_true',
-        help='Check Python code for missing docstrings (functions, classes, modules)'
-    )
-    docs_parser.add_argument(
-        '--turtle',
-        action='store_true',
-        help='Epistemic recursive mode: iterate between code and docs to surface gaps'
-    )
-    docs_parser.add_argument(
-        '--check-staleness',
-        action='store_true',
-        help='Detect stale docs by cross-referencing with recent findings, dead-ends, and mistakes'
-    )
-    docs_parser.add_argument(
-        '--staleness-threshold',
+        "--staleness-threshold",
         type=float,
         default=0.7,
-        help='Minimum similarity threshold for staleness detection (default: 0.7)'
+        help="Minimum similarity threshold for staleness detection (default: 0.7)",
     )
     docs_parser.add_argument(
-        '--staleness-days',
-        type=int,
-        default=30,
-        help='Look back N days for memory items (default: 30)'
+        "--staleness-days", type=int, default=30, help="Look back N days for memory items (default: 30)"
     )
 
     # Bootstrap context — three-circle artifact graph injection
     bootstrap_parser = subparsers.add_parser(
-        'bootstrap-context',
-        help='Emit the bootstrap context payload (schema v2) — three-circle artifact graph',
+        "bootstrap-context",
+        help="Emit the bootstrap context payload (schema v2) — three-circle artifact graph",
         description=(
             "Three-circle surfacing model: active_state (recency-decayed), "
             "persistent_reference (no decay), topic_relevant_backlog "
@@ -90,32 +58,32 @@ def add_release_parsers(subparsers):
         ),
     )
     bootstrap_parser.add_argument(
-        '--project-path',
+        "--project-path",
         default=None,
-        help='Project root (default: resolve via InstanceResolver canonical chain).',
+        help="Project root (default: resolve via InstanceResolver canonical chain).",
     )
     bootstrap_parser.add_argument(
-        '--session-id',
+        "--session-id",
         default=None,
-        help='Active session UUID (informational; queries scope by project_id).',
+        help="Active session UUID (informational; queries scope by project_id).",
     )
     bootstrap_parser.add_argument(
-        '--similarity-threshold',
+        "--similarity-threshold",
         type=float,
         default=0.65,
-        help='Cosine threshold for circle 3 topic-relevance pull (default: 0.65).',
+        help="Cosine threshold for circle 3 topic-relevance pull (default: 0.65).",
     )
     bootstrap_parser.add_argument(
-        '--output',
-        choices=['human', 'json'],
-        default='json',
-        help='Output format (default: json — what hooks/MCP consume).',
+        "--output",
+        choices=["human", "json"],
+        default="json",
+        help="Output format (default: json — what hooks/MCP consume).",
     )
 
     # Practice context — Ambassador addressbook (Lane 2 of cortex prop_7r5tihxyqr)
     practice_context_parser = subparsers.add_parser(
-        'practice-context',
-        help='Ambassador addressbook — project roster as per-practitioner rows with substrate',
+        "practice-context",
+        help="Ambassador addressbook — project roster as per-practitioner rows with substrate",
         description=(
             "Pulls /v1/users/me/roster from cortex and projects each "
             "(tenant, project) seat as a practitioner row with substrate "
@@ -126,37 +94,37 @@ def add_release_parsers(subparsers):
         ),
     )
     practice_context_parser.add_argument(
-        '--cortex-url',
+        "--cortex-url",
         default=None,
-        help='Cortex base URL override (else env CORTEX_URL or ~/.empirica/credentials.yaml).',
+        help="Cortex base URL override (else env CORTEX_URL or ~/.empirica/credentials.yaml).",
     )
     practice_context_parser.add_argument(
-        '--api-key',
+        "--api-key",
         default=None,
-        help='Cortex API key override (else env CORTEX_API_KEY or credentials.yaml).',
+        help="Cortex API key override (else env CORTEX_API_KEY or credentials.yaml).",
     )
     practice_context_parser.add_argument(
-        '--ai-id',
+        "--ai-id",
         default=None,
-        help='Filter to a single ai_id (default: all).',
+        help="Filter to a single ai_id (default: all).",
     )
     practice_context_parser.add_argument(
-        '--timeout',
+        "--timeout",
         type=float,
         default=10.0,
-        help='HTTP timeout in seconds (default: 10).',
+        help="HTTP timeout in seconds (default: 10).",
     )
     practice_context_parser.add_argument(
-        '--output',
-        choices=['human', 'json'],
-        default='human',
-        help='Output format (default: human table; json for autonomy / scripting).',
+        "--output",
+        choices=["human", "json"],
+        default="human",
+        help="Output format (default: human table; json for autonomy / scripting).",
     )
 
     # Mesh sharing agreements mirror — cortex authoritative, empirica mirrors
     mesh_agr_parser = subparsers.add_parser(
-        'mesh-agreements',
-        help='Mesh sharing agreement mirror — sync / list cortex agreements locally',
+        "mesh-agreements",
+        help="Mesh sharing agreement mirror — sync / list cortex agreements locally",
         description=(
             "Empirica's derived-state mirror of cortex's authoritative "
             "mesh_sharing_agreements table. Stored as entity_type="
@@ -164,31 +132,30 @@ def add_release_parsers(subparsers):
             "See docs/architecture/MESH_SHARING_AGREEMENTS.md."
         ),
     )
-    mesh_agr_sub = mesh_agr_parser.add_subparsers(dest='action', required=True)
+    mesh_agr_sub = mesh_agr_parser.add_subparsers(dest="action", required=True)
 
     mesh_agr_sync = mesh_agr_sub.add_parser(
-        'sync',
-        help='Pull GET /v1/orgs/me/mesh_sharing_agreements; upsert into entity_registry',
+        "sync",
+        help="Pull GET /v1/orgs/me/mesh_sharing_agreements; upsert into entity_registry",
     )
-    mesh_agr_sync.add_argument('--cortex-url', default=None,
-                               help='Cortex base URL override.')
-    mesh_agr_sync.add_argument('--api-key', default=None,
-                               help='Cortex API key override.')
-    mesh_agr_sync.add_argument('--output', choices=['human', 'json'], default='human')
+    mesh_agr_sync.add_argument("--cortex-url", default=None, help="Cortex base URL override.")
+    mesh_agr_sync.add_argument("--api-key", default=None, help="Cortex API key override.")
+    mesh_agr_sync.add_argument("--output", choices=["human", "json"], default="human")
 
     mesh_agr_list = mesh_agr_sub.add_parser(
-        'list', help='List mirrored mesh sharing agreements',
+        "list",
+        help="List mirrored mesh sharing agreements",
     )
-    mesh_agr_list.add_argument('--status',
-                               choices=['active', 'proposed', 'suspended', 'revoked', 'all'],
-                               default='active')
-    mesh_agr_list.add_argument('--limit', type=int, default=100)
-    mesh_agr_list.add_argument('--output', choices=['human', 'json'], default='human')
+    mesh_agr_list.add_argument(
+        "--status", choices=["active", "proposed", "suspended", "revoked", "all"], default="active"
+    )
+    mesh_agr_list.add_argument("--limit", type=int, default=100)
+    mesh_agr_list.add_argument("--output", choices=["human", "json"], default="human")
 
     # Docs link check — broken-link integrity for tech docs
     link_parser = subparsers.add_parser(
-        'docs-link-check',
-        help='Verify markdown internal links — finds broken relative paths in tech docs',
+        "docs-link-check",
+        help="Verify markdown internal links — finds broken relative paths in tech docs",
         description=(
             "Walks the project (or --root) for *.md files outside SKIP_DIRS "
             "(.git, .venv, node_modules, _archive, etc.), extracts markdown links, "
@@ -199,93 +166,69 @@ def add_release_parsers(subparsers):
         ),
     )
     link_parser.add_argument(
-        '--root',
+        "--root",
         default=None,
-        help='Project root to scan (default: current directory).',
+        help="Project root to scan (default: current directory).",
     )
     link_parser.add_argument(
-        '--exclude',
-        action='append',
+        "--exclude",
+        action="append",
         default=None,
-        help='Additional directory names to skip (repeatable). On top of the default skip set.',
+        help="Additional directory names to skip (repeatable). On top of the default skip set.",
     )
     link_parser.add_argument(
-        '--output',
-        choices=['human', 'json'],
-        default='human',
-        help='Output format. JSON shape: {scanned_files, broken_total, passed, tiers}.',
+        "--output",
+        choices=["human", "json"],
+        default="human",
+        help="Output format. JSON shape: {scanned_files, broken_total, passed, tiers}.",
     )
 
     # Docs explain - focused information retrieval
     explain_parser = subparsers.add_parser(
-        'docs-explain',
-        help='Get focused explanation of Empirica topics - inverts docs-assess'
+        "docs-explain", help="Get focused explanation of Empirica topics - inverts docs-assess"
     )
+    explain_parser.add_argument("--topic", help='Topic to explain (e.g., "vectors", "sessions", "goals")')
+    explain_parser.add_argument("--question", help='Question to answer (e.g., "How do I start a session?")')
     explain_parser.add_argument(
-        '--topic',
-        help='Topic to explain (e.g., "vectors", "sessions", "goals")'
+        "--audience", choices=["user", "developer", "ai", "all"], default="all", help="Target audience for explanation"
     )
+    explain_parser.add_argument("--project-root", help="Root directory of the project (default: current directory)")
     explain_parser.add_argument(
-        '--question',
-        help='Question to answer (e.g., "How do I start a session?")'
+        "--project-id", help="Project ID for Qdrant semantic search (auto-detected if not specified)"
     )
-    explain_parser.add_argument(
-        '--audience',
-        choices=['user', 'developer', 'ai', 'all'],
-        default='all',
-        help='Target audience for explanation'
-    )
-    explain_parser.add_argument(
-        '--project-root',
-        help='Root directory of the project (default: current directory)'
-    )
-    explain_parser.add_argument(
-        '--project-id',
-        help='Project ID for Qdrant semantic search (auto-detected if not specified)'
-    )
-    explain_parser.add_argument(
-        '--output',
-        choices=['human', 'json'],
-        default='human',
-        help='Output format'
-    )
+    explain_parser.add_argument("--output", choices=["human", "json"], default="human", help="Output format")
 
     # Rust-aware docs assessment — counts pub items + /// docs in
     # Cargo.toml workspace member crates. Use this for Rust projects
     # where docs-assess (Python-focused) and docpistemic (Python-biased
     # discovery) mishandle the surface.
     rust_docs_parser = subparsers.add_parser(
-        'rust-docs-assess',
-        help='Rust-aware documentation coverage — pub items + /// docs in workspace crates'
+        "rust-docs-assess", help="Rust-aware documentation coverage — pub items + /// docs in workspace crates"
     )
+    rust_docs_parser.add_argument("--project-root", help="Root directory of the project (default: current directory)")
     rust_docs_parser.add_argument(
-        '--project-root',
-        help='Root directory of the project (default: current directory)'
-    )
-    rust_docs_parser.add_argument(
-        '--include',
-        action='append',
+        "--include",
+        action="append",
         default=[],
-        help='Path prefix to include (relative to project_root). Can repeat. '
-             'When set, only matching crates are walked. Combines with '
-             '.empirica/rust_docs.toml [rust_docs] include list.'
+        help="Path prefix to include (relative to project_root). Can repeat. "
+        "When set, only matching crates are walked. Combines with "
+        ".empirica/rust_docs.toml [rust_docs] include list.",
     )
     rust_docs_parser.add_argument(
-        '--exclude',
-        action='append',
+        "--exclude",
+        action="append",
         default=[],
-        help='Path prefix to skip. Can repeat. Combines with config exclude list. '
-             'Excludes win over includes — safety bias is to skip.'
+        help="Path prefix to skip. Can repeat. Combines with config exclude list. "
+        "Excludes win over includes — safety bias is to skip.",
     )
     rust_docs_parser.add_argument(
-        '--strict',
-        action='store_true',
-        help='Only /// outer doc comments count; reject #[doc=...] attribute form. '
-             'More conservative, more honest.'
+        "--strict",
+        action="store_true",
+        help="Only /// outer doc comments count; reject #[doc=...] attribute form. More conservative, more honest.",
     )
     rust_docs_parser.add_argument(
-        '--output',
-        choices=['human', 'json'],
-        default='human',
-        help='Output format. JSON shape compatible with docpistemic for compliance-report.'
+        "--output",
+        choices=["human", "json"],
+        default="human",
+        help="Output format. JSON shape compatible with docpistemic for compliance-report.",
     )

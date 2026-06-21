@@ -17,24 +17,14 @@ class TestTokenMeasurement:
     @pytest.fixture
     def metrics(self, tmp_path):
         """Create metrics instance"""
-        return TokenEfficiencyMetrics(
-            session_id="test-session",
-            storage_dir=str(tmp_path / ".empirica/metrics")
-        )
+        return TokenEfficiencyMetrics(session_id="test-session", storage_dir=str(tmp_path / ".empirica/metrics"))
 
     def test_measure_context_load(self, metrics):
         """Test measuring context load"""
-        content = json.dumps({
-            "session_id": "test",
-            "vectors": {"know": 0.8, "do": 0.9},
-            "phase": "PREFLIGHT"
-        })
+        content = json.dumps({"session_id": "test", "vectors": {"know": 0.8, "do": 0.9}, "phase": "PREFLIGHT"})
 
         measurement = metrics.measure_context_load(
-            phase="PREFLIGHT",
-            method="git",
-            content=content,
-            content_type="checkpoint"
+            phase="PREFLIGHT", method="git", content=content, content_type="checkpoint"
         )
 
         assert isinstance(measurement, TokenMeasurement)
@@ -46,18 +36,10 @@ class TestTokenMeasurement:
     def test_multiple_measurements(self, metrics):
         """Test recording multiple measurements"""
         # Add PREFLIGHT measurement
-        metrics.measure_context_load(
-            phase="PREFLIGHT",
-            method="git",
-            content="test content " * 100
-        )
+        metrics.measure_context_load(phase="PREFLIGHT", method="git", content="test content " * 100)
 
         # Add CHECK measurement
-        metrics.measure_context_load(
-            phase="CHECK",
-            method="git",
-            content="check content " * 50
-        )
+        metrics.measure_context_load(phase="CHECK", method="git", content="check content " * 50)
 
         assert len(metrics.measurements) == 2
 
@@ -67,10 +49,7 @@ class TestTokenCounting:
 
     @pytest.fixture
     def metrics(self, tmp_path):
-        return TokenEfficiencyMetrics(
-            session_id="test-session",
-            storage_dir=str(tmp_path / ".empirica/metrics")
-        )
+        return TokenEfficiencyMetrics(session_id="test-session", storage_dir=str(tmp_path / ".empirica/metrics"))
 
     def test_token_counting_approximation(self, metrics):
         """Test simple token counting approximation"""
@@ -87,11 +66,7 @@ class TestTokenCounting:
 
     def test_token_counting_json(self, metrics):
         """Test token counting for JSON content"""
-        checkpoint = {
-            "session_id": "test",
-            "phase": "PREFLIGHT",
-            "vectors": {"know": 0.8, "do": 0.9}
-        }
+        checkpoint = {"session_id": "test", "phase": "PREFLIGHT", "vectors": {"know": 0.8, "do": 0.9}}
 
         json_text = json.dumps(checkpoint)
         count = metrics._count_tokens(json_text)
@@ -107,10 +82,7 @@ class TestPhaseAggregation:
     @pytest.fixture
     def metrics_with_data(self, tmp_path):
         """Create metrics with sample measurements"""
-        metrics = TokenEfficiencyMetrics(
-            session_id="test-session",
-            storage_dir=str(tmp_path / ".empirica/metrics")
-        )
+        metrics = TokenEfficiencyMetrics(session_id="test-session", storage_dir=str(tmp_path / ".empirica/metrics"))
 
         # Add measurements
         metrics.measure_context_load("PREFLIGHT", "git", "content " * 100)
@@ -147,16 +119,13 @@ class TestEfficiencyComparison:
     @pytest.fixture
     def metrics(self, tmp_path):
         """Create metrics with git-based measurements"""
-        metrics = TokenEfficiencyMetrics(
-            session_id="test-session",
-            storage_dir=str(tmp_path / ".empirica/metrics")
-        )
+        metrics = TokenEfficiencyMetrics(session_id="test-session", storage_dir=str(tmp_path / ".empirica/metrics"))
 
         # Simulate git-based context loads (compressed)
         metrics.measure_context_load("PREFLIGHT", "git", "x " * 250)  # ~450 tokens
-        metrics.measure_context_load("CHECK", "git", "x " * 220)      # ~400 tokens
-        metrics.measure_context_load("ACT", "git", "x " * 280)        # ~500 tokens
-        metrics.measure_context_load("POSTFLIGHT", "git", "x " * 470) # ~850 tokens
+        metrics.measure_context_load("CHECK", "git", "x " * 220)  # ~400 tokens
+        metrics.measure_context_load("ACT", "git", "x " * 280)  # ~500 tokens
+        metrics.measure_context_load("POSTFLIGHT", "git", "x " * 470)  # ~850 tokens
 
         return metrics
 
@@ -229,10 +198,7 @@ class TestReportExport:
     @pytest.fixture
     def metrics_with_data(self, tmp_path):
         """Create metrics with sample data"""
-        metrics = TokenEfficiencyMetrics(
-            session_id="test-session",
-            storage_dir=str(tmp_path / ".empirica/metrics")
-        )
+        metrics = TokenEfficiencyMetrics(session_id="test-session", storage_dir=str(tmp_path / ".empirica/metrics"))
 
         metrics.measure_context_load("PREFLIGHT", "git", "x " * 250)
         metrics.measure_context_load("CHECK", "git", "x " * 220)
@@ -273,10 +239,7 @@ class TestReportExport:
         """Test exporting report to file"""
         output_path = tmp_path / "report.json"
 
-        metrics_with_data.export_report(
-            format="json",
-            output_path=str(output_path)
-        )
+        metrics_with_data.export_report(format="json", output_path=str(output_path))
 
         # Verify file was created
         assert output_path.exists()
@@ -293,10 +256,7 @@ class TestPersistence:
 
     @pytest.fixture
     def metrics(self, tmp_path):
-        return TokenEfficiencyMetrics(
-            session_id="test-session",
-            storage_dir=str(tmp_path / ".empirica/metrics")
-        )
+        return TokenEfficiencyMetrics(session_id="test-session", storage_dir=str(tmp_path / ".empirica/metrics"))
 
     def test_save_measurements(self, metrics, tmp_path):
         """Test saving measurements to disk"""
@@ -323,10 +283,7 @@ class TestPersistence:
         metrics.save_measurements()
 
         # Create new metrics instance
-        new_metrics = TokenEfficiencyMetrics(
-            session_id="test-session",
-            storage_dir=str(tmp_path / ".empirica/metrics")
-        )
+        new_metrics = TokenEfficiencyMetrics(session_id="test-session", storage_dir=str(tmp_path / ".empirica/metrics"))
 
         # Load measurements
         success = new_metrics.load_measurements()
@@ -338,8 +295,7 @@ class TestPersistence:
     def test_load_measurements_returns_false_when_not_found(self, tmp_path):
         """Test load returns False when file doesn't exist"""
         metrics = TokenEfficiencyMetrics(
-            session_id="nonexistent-session",
-            storage_dir=str(tmp_path / ".empirica/metrics")
+            session_id="nonexistent-session", storage_dir=str(tmp_path / ".empirica/metrics")
         )
 
         success = metrics.load_measurements()
@@ -353,10 +309,7 @@ class TestBaselineData:
 
     def test_baseline_tokens_defined(self, tmp_path):
         """Test that baseline tokens are properly defined"""
-        metrics = TokenEfficiencyMetrics(
-            session_id="test-session",
-            storage_dir=str(tmp_path / ".empirica/metrics")
-        )
+        metrics = TokenEfficiencyMetrics(session_id="test-session", storage_dir=str(tmp_path / ".empirica/metrics"))
 
         # Verify baseline tokens for all phases
         assert metrics.baseline_tokens["PREFLIGHT"] == 6500
@@ -366,10 +319,7 @@ class TestBaselineData:
 
     def test_target_tokens_defined(self, tmp_path):
         """Test that target tokens are properly defined"""
-        metrics = TokenEfficiencyMetrics(
-            session_id="test-session",
-            storage_dir=str(tmp_path / ".empirica/metrics")
-        )
+        metrics = TokenEfficiencyMetrics(session_id="test-session", storage_dir=str(tmp_path / ".empirica/metrics"))
 
         # Verify target tokens for all phases
         assert metrics.target_tokens["PREFLIGHT"] == 450

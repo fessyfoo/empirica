@@ -40,11 +40,7 @@ class SessionSync:
         """Check if we're in a git repository"""
         try:
             result = subprocess.run(
-                ['git', 'rev-parse', '--git-dir'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                timeout=5
+                ["git", "rev-parse", "--git-dir"], cwd=self.workspace_root, capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -57,11 +53,7 @@ class SessionSync:
 
         try:
             result = subprocess.run(
-                ['git', 'remote', '-v'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                timeout=5
+                ["git", "remote", "-v"], cwd=self.workspace_root, capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0 and len(result.stdout.strip()) > 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -85,20 +77,16 @@ class SessionSync:
             if notes_only:
                 # Fetch only notes (empirica namespace)
                 result = subprocess.run(
-                    ['git', 'fetch', 'origin', 'refs/notes/empirica/*:refs/notes/empirica/*'],
+                    ["git", "fetch", "origin", "refs/notes/empirica/*:refs/notes/empirica/*"],
                     cwd=self.workspace_root,
                     capture_output=True,
                     text=True,
-                    timeout=30
+                    timeout=30,
                 )
             else:
                 # Full pull
                 result = subprocess.run(
-                    ['git', 'pull'],
-                    cwd=self.workspace_root,
-                    capture_output=True,
-                    text=True,
-                    timeout=30
+                    ["git", "pull"], cwd=self.workspace_root, capture_output=True, text=True, timeout=30
                 )
 
             if result.returncode == 0:
@@ -133,20 +121,16 @@ class SessionSync:
             if notes_only:
                 # Push only notes (empirica namespace)
                 result = subprocess.run(
-                    ['git', 'push', 'origin', 'refs/notes/empirica/*'],
+                    ["git", "push", "origin", "refs/notes/empirica/*"],
                     cwd=self.workspace_root,
                     capture_output=True,
                     text=True,
-                    timeout=30
+                    timeout=30,
                 )
             else:
                 # Full push
                 result = subprocess.run(
-                    ['git', 'push'],
-                    cwd=self.workspace_root,
-                    capture_output=True,
-                    text=True,
-                    timeout=30
+                    ["git", "push"], cwd=self.workspace_root, capture_output=True, text=True, timeout=30
                 )
 
             if result.returncode == 0:
@@ -170,17 +154,12 @@ class SessionSync:
         Returns:
             Dict: Sync status
         """
-        result = {
-            'pulled': False,
-            'new_checkpoints': False,
-            'new_goals': False,
-            'conflicts': False
-        }
+        result = {"pulled": False, "new_checkpoints": False, "new_goals": False, "conflicts": False}
 
         if self.pull_latest(notes_only=True):
-            result['pulled'] = True
-            result['new_checkpoints'] = True
-            result['new_goals'] = True
+            result["pulled"] = True
+            result["new_checkpoints"] = True
+            result["new_goals"] = True
 
         return result
 

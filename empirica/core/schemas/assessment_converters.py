@@ -36,48 +36,45 @@ def convert_old_to_new(old_assessment):
         """Convert OLD VectorState to NEW VectorAssessment."""
         # Convert investigation_priority from Optional[str] to int
         inv_priority = 0
-        if hasattr(vector_state, 'investigation_priority') and vector_state.investigation_priority:
-            priority_map = {'low': 2, 'medium': 5, 'high': 8, 'critical': 10}
+        if hasattr(vector_state, "investigation_priority") and vector_state.investigation_priority:
+            priority_map = {"low": 2, "medium": 5, "high": 8, "critical": 10}
             inv_priority = priority_map.get(vector_state.investigation_priority.lower(), 0)
 
         return VectorAssessment(
             score=vector_state.score,
             rationale=vector_state.rationale,  # OLD uses 'rationale' not 'reasoning'
-            evidence=vector_state.evidence if hasattr(vector_state, 'evidence') else None,
-            warrants_investigation=vector_state.warrants_investigation if hasattr(vector_state, 'warrants_investigation') else False,
-            investigation_priority=inv_priority
+            evidence=vector_state.evidence if hasattr(vector_state, "evidence") else None,
+            warrants_investigation=vector_state.warrants_investigation
+            if hasattr(vector_state, "warrants_investigation")
+            else False,
+            investigation_priority=inv_priority,
         )
 
     # Convert all 13 vectors
     return EpistemicAssessmentSchema(
         # Gate
         engagement=convert_vector(old_assessment.engagement, "engagement"),
-
         # Foundation (Tier 0)
         foundation_know=convert_vector(old_assessment.know, "know"),
         foundation_do=convert_vector(old_assessment.do, "do"),
         foundation_context=convert_vector(old_assessment.context, "context"),
-
         # Comprehension (Tier 1)
         comprehension_clarity=convert_vector(old_assessment.clarity, "clarity"),
         comprehension_coherence=convert_vector(old_assessment.coherence, "coherence"),
         comprehension_signal=convert_vector(old_assessment.signal, "signal"),
         comprehension_density=convert_vector(old_assessment.density, "density"),
-
         # Execution (Tier 2)
         execution_state=convert_vector(old_assessment.state, "state"),
         execution_change=convert_vector(old_assessment.change, "change"),
         execution_completion=convert_vector(old_assessment.completion, "completion"),
         execution_impact=convert_vector(old_assessment.impact, "impact"),
-
         # Uncertainty
         uncertainty=convert_vector(old_assessment.uncertainty, "uncertainty"),
-
         # Metadata - NEW schema doesn't store these in the same way
         # EpistemicAssessmentSchema only has phase, round_num, investigation_count
-        phase=_convert_phase_to_enum(old_assessment.task) if hasattr(old_assessment, 'task') else None,
+        phase=_convert_phase_to_enum(old_assessment.task) if hasattr(old_assessment, "task") else None,
         round_num=0,
-        investigation_count=0
+        investigation_count=0,
     )
 
 
@@ -110,13 +107,13 @@ def convert_new_to_old(new_assessment):
         inv_priority_str = None
         if vector_assessment.investigation_priority > 0:
             if vector_assessment.investigation_priority >= 9:
-                inv_priority_str = 'critical'
+                inv_priority_str = "critical"
             elif vector_assessment.investigation_priority >= 6:
-                inv_priority_str = 'high'
+                inv_priority_str = "high"
             elif vector_assessment.investigation_priority >= 3:
-                inv_priority_str = 'medium'
+                inv_priority_str = "medium"
             else:
-                inv_priority_str = 'low'
+                inv_priority_str = "low"
 
         return VectorState(
             score=vector_assessment.score,
@@ -124,29 +121,35 @@ def convert_new_to_old(new_assessment):
             evidence=vector_assessment.evidence,  # Preserve if present
             warrants_investigation=vector_assessment.warrants_investigation,
             investigation_priority=inv_priority_str,
-            investigation_reason=None  # NEW doesn't have this field
+            investigation_reason=None,  # NEW doesn't have this field
         )
 
     # Calculate tier confidences first
-    foundation_confidence = _calculate_tier_confidence([
-        new_assessment.foundation_know.score,
-        new_assessment.foundation_do.score,
-        new_assessment.foundation_context.score
-    ])
+    foundation_confidence = _calculate_tier_confidence(
+        [
+            new_assessment.foundation_know.score,
+            new_assessment.foundation_do.score,
+            new_assessment.foundation_context.score,
+        ]
+    )
 
-    comprehension_confidence = _calculate_tier_confidence([
-        new_assessment.comprehension_clarity.score,
-        new_assessment.comprehension_coherence.score,
-        new_assessment.comprehension_signal.score,
-        new_assessment.comprehension_density.score
-    ])
+    comprehension_confidence = _calculate_tier_confidence(
+        [
+            new_assessment.comprehension_clarity.score,
+            new_assessment.comprehension_coherence.score,
+            new_assessment.comprehension_signal.score,
+            new_assessment.comprehension_density.score,
+        ]
+    )
 
-    execution_confidence = _calculate_tier_confidence([
-        new_assessment.execution_state.score,
-        new_assessment.execution_change.score,
-        new_assessment.execution_completion.score,
-        new_assessment.execution_impact.score
-    ])
+    execution_confidence = _calculate_tier_confidence(
+        [
+            new_assessment.execution_state.score,
+            new_assessment.execution_change.score,
+            new_assessment.execution_completion.score,
+            new_assessment.execution_impact.score,
+        ]
+    )
 
     # Calculate overall using NEW schema method
     tier_confidences = new_assessment.calculate_tier_confidences()
@@ -156,40 +159,33 @@ def convert_new_to_old(new_assessment):
         # Gate
         engagement=convert_vector(new_assessment.engagement),
         engagement_gate_passed=new_assessment.engagement.score >= 0.6,  # Standard threshold
-
         # Foundation (Tier 0)
         know=convert_vector(new_assessment.foundation_know),
         do=convert_vector(new_assessment.foundation_do),
         context=convert_vector(new_assessment.foundation_context),
         foundation_confidence=foundation_confidence,
-
         # Comprehension (Tier 1)
         clarity=convert_vector(new_assessment.comprehension_clarity),
         coherence=convert_vector(new_assessment.comprehension_coherence),
         signal=convert_vector(new_assessment.comprehension_signal),
         density=convert_vector(new_assessment.comprehension_density),
         comprehension_confidence=comprehension_confidence,
-
         # Execution (Tier 2)
         state=convert_vector(new_assessment.execution_state),
         change=convert_vector(new_assessment.execution_change),
         completion=convert_vector(new_assessment.execution_completion),
         impact=convert_vector(new_assessment.execution_impact),
         execution_confidence=execution_confidence,
-
         # Uncertainty
         uncertainty=convert_vector(new_assessment.uncertainty),
-
         # Overall confidence (from NEW schema calculation)
         overall_confidence=tier_confidences["overall_confidence"],
-
         # Recommended action
         recommended_action=_convert_action_to_old(new_assessment.determine_action()),
-
         # Metadata (OLD has different fields)
         assessment_id=f"converted_{new_assessment.phase.value}_{new_assessment.round_num}",
         task="",  # OLD format, minimal info
-        timestamp=""  # Will be set by __post_init__
+        timestamp="",  # Will be set by __post_init__
     )
 
 
@@ -206,17 +202,17 @@ def _convert_phase_to_enum(task_str):
         return CascadePhase.PREFLIGHT
 
     task_lower = task_str.lower()
-    if 'preflight' in task_lower:
+    if "preflight" in task_lower:
         return CascadePhase.PREFLIGHT
-    elif 'think' in task_lower:
+    elif "think" in task_lower:
         return CascadePhase.THINK
-    elif 'investigate' in task_lower:
+    elif "investigate" in task_lower:
         return CascadePhase.INVESTIGATE
-    elif 'check' in task_lower:
+    elif "check" in task_lower:
         return CascadePhase.CHECK
-    elif 'act' in task_lower:
+    elif "act" in task_lower:
         return CascadePhase.ACT
-    elif 'postflight' in task_lower:
+    elif "postflight" in task_lower:
         return CascadePhase.POSTFLIGHT
     else:
         return CascadePhase.PREFLIGHT  # Default
@@ -229,31 +225,33 @@ def _convert_action(old_action):
 
     # OLD Action enum values
     action_str = str(old_action).upper()
-    if 'INVESTIGATE' in action_str:
-        return 'investigate'
-    elif 'PROCEED' in action_str or 'ACT' in action_str:
-        return 'proceed'
+    if "INVESTIGATE" in action_str:
+        return "investigate"
+    elif "PROCEED" in action_str or "ACT" in action_str:
+        return "proceed"
     else:
-        return 'investigate'  # Default to investigate
+        return "investigate"  # Default to investigate
 
 
 def _convert_action_to_old(new_action: str | None):
     """Convert NEW action string to OLD Action enum."""
     if new_action is None:
         from empirica.core.canonical.reflex_frame import Action
+
         return Action.INVESTIGATE
 
     from empirica.core.canonical.reflex_frame import Action
 
-    if new_action.lower() in ['investigate', 'investigate_more']:
+    if new_action.lower() in ["investigate", "investigate_more"]:
         return Action.INVESTIGATE
-    elif new_action.lower() in ['proceed', 'act', 'ready']:
+    elif new_action.lower() in ["proceed", "act", "ready"]:
         return Action.PROCEED
     else:
         return Action.INVESTIGATE  # Default
 
 
 # Utility functions for validation
+
 
 def validate_conversion_old_to_new(old_assessment) -> bool:
     """

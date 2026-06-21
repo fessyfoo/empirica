@@ -19,8 +19,7 @@ import yaml
 
 # session-init.py isn't a package import; load it as a module
 HOOK_PATH = (
-    Path(__file__).parent.parent
-    / "empirica" / "plugins" / "claude-code-integration" / "hooks" / "session-init.py"
+    Path(__file__).parent.parent / "empirica" / "plugins" / "claude-code-integration" / "hooks" / "session-init.py"
 )
 _spec = importlib.util.spec_from_file_location("session_init_for_heal_test", HOOK_PATH)
 assert _spec is not None and _spec.loader is not None
@@ -141,13 +140,16 @@ def test_preserves_other_yaml_keys(tmp_path):
     """Heal only touches ai_id — other keys preserved in order."""
     project = tmp_path / "empirica-extension"
     yml = project / ".empirica" / "project.yaml"
-    _write_yaml(yml, {
-        "version": "2.0",
-        "name": "extension",
-        "ai_id": "extension",
-        "tags": ["mesh", "ui"],
-        "domain": "ai/ui",
-    })
+    _write_yaml(
+        yml,
+        {
+            "version": "2.0",
+            "name": "extension",
+            "ai_id": "extension",
+            "tags": ["mesh", "ui"],
+            "domain": "ai/ui",
+        },
+    )
 
     _heal(str(project))
 

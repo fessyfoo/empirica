@@ -53,11 +53,7 @@ class GitFindingStore:
         """Check if we're in a git repository"""
         try:
             result = subprocess.run(
-                ['git', 'rev-parse', '--git-dir'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                timeout=5
+                ["git", "rev-parse", "--git-dir"], cwd=self.workspace_root, capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -69,11 +65,7 @@ class GitFindingStore:
             return False
         try:
             result = subprocess.run(
-                ['git', 'rev-parse', 'HEAD'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                timeout=5
+                ["git", "rev-parse", "HEAD"], cwd=self.workspace_root, capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -90,7 +82,7 @@ class GitFindingStore:
         goal_id: str | None = None,
         subtask_id: str | None = None,
         subject: str | None = None,
-        finding_data: dict[str, Any] | None = None
+        finding_data: dict[str, Any] | None = None,
     ) -> bool:
         """
         Store finding in git notes
@@ -121,17 +113,17 @@ class GitFindingStore:
         try:
             # Build finding payload
             payload = {
-                'finding_id': finding_id,
-                'project_id': project_id,
-                'session_id': session_id,
-                'ai_id': ai_id,
-                'created_at': datetime.now(timezone.utc).isoformat(),
-                'finding': finding,
-                'impact': impact,
-                'goal_id': goal_id,
-                'subtask_id': subtask_id,
-                'subject': subject,
-                'finding_data': finding_data or {'finding': finding, 'impact': impact}
+                "finding_id": finding_id,
+                "project_id": project_id,
+                "session_id": session_id,
+                "ai_id": ai_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "finding": finding,
+                "impact": impact,
+                "goal_id": goal_id,
+                "subtask_id": subtask_id,
+                "subject": subject,
+                "finding_data": finding_data or {"finding": finding, "impact": impact},
             }
 
             # Serialize
@@ -139,22 +131,18 @@ class GitFindingStore:
 
             # Get current commit
             result = subprocess.run(
-                ['git', 'rev-parse', 'HEAD'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                check=True
+                ["git", "rev-parse", "HEAD"], cwd=self.workspace_root, capture_output=True, text=True, check=True
             )
             commit_hash = result.stdout.strip()
 
             # Store in git notes (refs/notes/empirica/findings/<finding-id>)
-            note_ref = f'empirica/findings/{finding_id}'
+            note_ref = f"empirica/findings/{finding_id}"
             subprocess.run(
-                ['git', 'notes', f'--ref={note_ref}', 'add', '-f', '-m', payload_json, commit_hash],
+                ["git", "notes", f"--ref={note_ref}", "add", "-f", "-m", payload_json, commit_hash],
                 cwd=self.workspace_root,
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             )
 
             logger.info(f"✓ Stored finding {finding_id[:8]} in git notes (impact={impact})")
@@ -181,14 +169,11 @@ class GitFindingStore:
             return None
 
         try:
-            note_ref = f'empirica/findings/{finding_id}'
+            note_ref = f"empirica/findings/{finding_id}"
 
             # List which commit has the note (notes can be on any commit, not just HEAD)
             result = subprocess.run(
-                ['git', 'notes', f'--ref={note_ref}', 'list'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True
+                ["git", "notes", f"--ref={note_ref}", "list"], cwd=self.workspace_root, capture_output=True, text=True
             )
 
             if result.returncode != 0 or not result.stdout.strip():
@@ -202,10 +187,10 @@ class GitFindingStore:
 
             # Load note from the commit it's actually attached to
             result = subprocess.run(
-                ['git', 'notes', f'--ref={note_ref}', 'show', commit_hash],
+                ["git", "notes", f"--ref={note_ref}", "show", commit_hash],
                 cwd=self.workspace_root,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:
@@ -222,7 +207,7 @@ class GitFindingStore:
         project_id: str | None = None,
         session_id: str | None = None,
         ai_id: str | None = None,
-        min_impact: float | None = None
+        min_impact: float | None = None,
     ) -> list[dict[str, Any]]:
         """
         Discover findings from git notes
@@ -242,10 +227,10 @@ class GitFindingStore:
         try:
             # List all finding note refs
             result = subprocess.run(
-                ['git', 'for-each-ref', 'refs/notes/empirica/findings/'],
+                ["git", "for-each-ref", "refs/notes/empirica/findings/"],
                 cwd=self.workspace_root,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:
@@ -253,38 +238,38 @@ class GitFindingStore:
 
             findings = []
 
-            for line in result.stdout.strip().split('\n'):
+            for line in result.stdout.strip().split("\n"):
                 if not line:
                     continue
 
-                parts = line.split('\t')
+                parts = line.split("\t")
                 if len(parts) < 2:
                     continue
 
                 ref = parts[1]
-                if not ref.startswith('refs/notes/empirica/findings/'):
+                if not ref.startswith("refs/notes/empirica/findings/"):
                     continue
 
-                finding_id = ref.split('/')[-1]
+                finding_id = ref.split("/")[-1]
                 finding_data = self.load_finding(finding_id)
 
                 if not finding_data:
                     continue
 
                 # Apply filters
-                if project_id and finding_data.get('project_id') != project_id:
+                if project_id and finding_data.get("project_id") != project_id:
                     continue
-                if session_id and finding_data.get('session_id') != session_id:
+                if session_id and finding_data.get("session_id") != session_id:
                     continue
-                if ai_id and finding_data.get('ai_id') != ai_id:
+                if ai_id and finding_data.get("ai_id") != ai_id:
                     continue
-                if min_impact and (finding_data.get('impact') or 0) < min_impact:
+                if min_impact and (finding_data.get("impact") or 0) < min_impact:
                     continue
 
                 findings.append(finding_data)
 
             # Sort by impact (highest first)
-            findings.sort(key=lambda f: f.get('impact') or 0, reverse=True)
+            findings.sort(key=lambda f: f.get("impact") or 0, reverse=True)
 
             return findings
 
@@ -299,15 +284,15 @@ class GitFindingStore:
 
         try:
             result = subprocess.run(
-                ['git', 'for-each-ref', '--count', 'refs/notes/empirica/findings/'],
+                ["git", "for-each-ref", "--count", "refs/notes/empirica/findings/"],
                 cwd=self.workspace_root,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             # Count lines in output
             if result.returncode == 0 and result.stdout.strip():
-                return len(result.stdout.strip().split('\n'))
+                return len(result.stdout.strip().split("\n"))
             return 0
 
         except Exception:

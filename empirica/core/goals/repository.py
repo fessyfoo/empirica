@@ -104,64 +104,58 @@ class GoalRepository:
             project_id = None
             if session_id:
                 row = self.db.conn.execute(
-                    "SELECT project_id FROM sessions WHERE session_id = ?",
-                    (session_id,)
+                    "SELECT project_id FROM sessions WHERE session_id = ?", (session_id,)
                 ).fetchone()
                 if row:
                     project_id = row[0]
 
             # Insert main goal record
-            self.db.conn.execute("""
+            self.db.conn.execute(
+                """
                 INSERT OR REPLACE INTO goals
                 (id, session_id, objective, description, scope, estimated_complexity,
                  created_timestamp, completed_timestamp, is_completed, goal_data, project_id, transaction_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                goal.id,
-                session_id,
-                goal.objective,
-                goal.description,
-                json.dumps(goal.scope.to_dict()),
-                goal.estimated_complexity,
-                goal.created_timestamp,
-                goal.completed_timestamp,
-                goal.is_completed,
-                goal_data,
-                project_id,
-                transaction_id
-            ))
+            """,
+                (
+                    goal.id,
+                    session_id,
+                    goal.objective,
+                    goal.description,
+                    json.dumps(goal.scope.to_dict()),
+                    goal.estimated_complexity,
+                    goal.created_timestamp,
+                    goal.completed_timestamp,
+                    goal.is_completed,
+                    goal_data,
+                    project_id,
+                    transaction_id,
+                ),
+            )
 
             # Insert success criteria (delete old ones first)
             self.db.conn.execute("DELETE FROM success_criteria WHERE goal_id = ?", (goal.id,))
             for sc in goal.success_criteria:
-                self.db.conn.execute("""
+                self.db.conn.execute(
+                    """
                     INSERT INTO success_criteria
                     (id, goal_id, description, validation_method, threshold, is_required, is_met)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    sc.id,
-                    goal.id,
-                    sc.description,
-                    sc.validation_method,
-                    sc.threshold,
-                    sc.is_required,
-                    sc.is_met
-                ))
+                """,
+                    (sc.id, goal.id, sc.description, sc.validation_method, sc.threshold, sc.is_required, sc.is_met),
+                )
 
             # Insert dependencies (delete old ones first)
             self.db.conn.execute("DELETE FROM goal_dependencies WHERE goal_id = ?", (goal.id,))
             for dep in goal.dependencies:
-                self.db.conn.execute("""
+                self.db.conn.execute(
+                    """
                     INSERT INTO goal_dependencies
                     (id, goal_id, depends_on_goal_id, dependency_type, description)
                     VALUES (?, ?, ?, ?, ?)
-                """, (
-                    dep.id,
-                    goal.id,
-                    dep.goal_id,
-                    dep.dependency_type.value,
-                    dep.description
-                ))
+                """,
+                    (dep.id, goal.id, dep.goal_id, dep.dependency_type.value, dep.description),
+                )
 
             self.db.conn.commit()
             logger.info(f"Saved goal {goal.id}: {goal.objective[:50]}...")
@@ -184,10 +178,7 @@ class GoalRepository:
         """
         try:
             # First try exact match
-            cursor = self.db.conn.execute(
-                "SELECT goal_data FROM goals WHERE id = ?",
-                (goal_id,)
-            )
+            cursor = self.db.conn.execute("SELECT goal_data FROM goals WHERE id = ?", (goal_id,))
             row = cursor.fetchone()
 
             if row:
@@ -195,10 +186,7 @@ class GoalRepository:
                 return Goal.from_dict(goal_dict)
 
             # Fallback: prefix match for short IDs (like git short hashes)
-            cursor = self.db.conn.execute(
-                "SELECT goal_data FROM goals WHERE id LIKE ?",
-                (f"{goal_id}%",)
-            )
+            cursor = self.db.conn.execute("SELECT goal_data FROM goals WHERE id LIKE ?", (f"{goal_id}%",))
             rows = cursor.fetchall()
 
             if len(rows) == 1:
@@ -228,8 +216,7 @@ class GoalRepository:
         """
         try:
             cursor = self.db.conn.execute(
-                "SELECT goal_data FROM goals WHERE session_id = ? ORDER BY created_timestamp",
-                (session_id,)
+                "SELECT goal_data FROM goals WHERE session_id = ? ORDER BY created_timestamp", (session_id,)
             )
 
             goals = []
@@ -259,8 +246,7 @@ class GoalRepository:
         """
         try:
             cursor = self.db.conn.execute(
-                "SELECT goal_data FROM goals WHERE transaction_id = ? ORDER BY created_timestamp",
-                (transaction_id,)
+                "SELECT goal_data FROM goals WHERE transaction_id = ? ORDER BY created_timestamp", (transaction_id,)
             )
 
             goals = []
@@ -275,10 +261,7 @@ class GoalRepository:
             return []
 
     def query_goals_by_transaction(
-        self,
-        transaction_id: str,
-        is_completed: bool | None = None,
-        project_id: str | None = None
+        self, transaction_id: str, is_completed: bool | None = None, project_id: str | None = None
     ) -> list[Goal]:
         """
         Query goals filtered by transaction with optional secondary filters.
@@ -306,8 +289,7 @@ class GoalRepository:
 
             where_clause = " AND ".join(conditions)
             cursor = self.db.conn.execute(
-                f"SELECT goal_data FROM goals WHERE {where_clause} ORDER BY created_timestamp",
-                tuple(params)
+                f"SELECT goal_data FROM goals WHERE {where_clause} ORDER BY created_timestamp", tuple(params)
             )
 
             goals = []
@@ -331,13 +313,16 @@ class GoalRepository:
         from .types import Goal
 
         try:
-            cursor = self.db.conn.execute("""
+            cursor = self.db.conn.execute(
+                """
                 SELECT goal_data FROM goals
                 WHERE session_id = ?
                   AND is_completed = 0
                   AND COALESCE(status, 'in_progress') != 'planned'
                 ORDER BY created_timestamp
-            """, (session_id,))
+            """,
+                (session_id,),
+            )
             rows = cursor.fetchall()
         except Exception as e:
             logger.error(f"Error listing active criteria for session {session_id}: {e}")
@@ -379,11 +364,14 @@ class GoalRepository:
 
         crit_id = str(uuid.uuid4())
         try:
-            self.db.conn.execute("""
+            self.db.conn.execute(
+                """
                 INSERT INTO success_criteria
                 (id, goal_id, description, validation_method, threshold, is_required, is_met)
                 VALUES (?, ?, ?, ?, ?, ?, 0)
-            """, (crit_id, goal.id, description, validation_method, threshold, is_required))
+            """,
+                (crit_id, goal.id, description, validation_method, threshold, is_required),
+            )
 
             new_sc = SuccessCriterion(
                 id=crit_id,
@@ -464,14 +452,18 @@ class GoalRepository:
         """
         try:
             import time
+
             timestamp = time.time() if is_completed else None
 
-            status = 'completed' if is_completed else 'in_progress'
-            self.db.conn.execute("""
+            status = "completed" if is_completed else "in_progress"
+            self.db.conn.execute(
+                """
                 UPDATE goals
                 SET is_completed = ?, completed_timestamp = ?, status = ?
                 WHERE id = ?
-            """, (is_completed, timestamp, status, goal_id))
+            """,
+                (is_completed, timestamp, status, goal_id),
+            )
 
             # Also update the goal_data JSON
             goal = self.get_goal(goal_id)
@@ -480,10 +472,7 @@ class GoalRepository:
                 goal.completed_timestamp = timestamp
                 goal_data = json.dumps(goal.to_dict())
 
-                self.db.conn.execute(
-                    "UPDATE goals SET goal_data = ? WHERE id = ?",
-                    (goal_data, goal_id)
-                )
+                self.db.conn.execute("UPDATE goals SET goal_data = ? WHERE id = ?", (goal_data, goal_id))
 
             self.db.conn.commit()
             logger.info(f"Updated goal {goal_id} completion: {is_completed}")
@@ -495,10 +484,7 @@ class GoalRepository:
             return False
 
     def query_goals(
-        self,
-        session_id: str | None = None,
-        is_completed: bool | None = None,
-        scope: ScopeVector | None = None
+        self, session_id: str | None = None, is_completed: bool | None = None, scope: ScopeVector | None = None
     ) -> list[Goal]:
         """
         Query goals with filters
@@ -561,12 +547,16 @@ class GoalRepository:
             Number of goals marked stale
         """
         import time
+
         try:
             # Find all in_progress goals for this session
-            cursor = self.db.conn.execute("""
+            cursor = self.db.conn.execute(
+                """
                 SELECT id, goal_data FROM goals
                 WHERE session_id = ? AND is_completed = 0
-            """, (session_id,))
+            """,
+                (session_id,),
+            )
 
             count = 0
             for row in cursor.fetchall():
@@ -574,16 +564,19 @@ class GoalRepository:
                 goal_data = json.loads(row[1]) if row[1] else {}
 
                 # Add stale metadata to goal_data
-                if 'metadata' not in goal_data:
-                    goal_data['metadata'] = {}
-                goal_data['metadata']['stale_since'] = time.time()
-                goal_data['metadata']['stale_reason'] = stale_reason
+                if "metadata" not in goal_data:
+                    goal_data["metadata"] = {}
+                goal_data["metadata"]["stale_since"] = time.time()
+                goal_data["metadata"]["stale_reason"] = stale_reason
 
-                self.db.conn.execute("""
+                self.db.conn.execute(
+                    """
                     UPDATE goals
                     SET goal_data = ?
                     WHERE id = ?
-                """, (json.dumps(goal_data), goal_id))
+                """,
+                    (json.dumps(goal_data), goal_id),
+                )
                 count += 1
 
             self.db.conn.commit()
@@ -607,38 +600,46 @@ class GoalRepository:
         """
         try:
             if session_id:
-                cursor = self.db.conn.execute("""
+                cursor = self.db.conn.execute(
+                    """
                     SELECT id, objective, scope, goal_data, created_timestamp
                     FROM goals
                     WHERE session_id = ? AND is_completed = 0
                     ORDER BY created_timestamp DESC
-                """, (session_id,))
+                """,
+                    (session_id,),
+                )
             elif project_id:
-                cursor = self.db.conn.execute("""
+                cursor = self.db.conn.execute(
+                    """
                     SELECT g.id, g.objective, g.scope, g.goal_data, g.created_timestamp
                     FROM goals g
                     JOIN sessions s ON g.session_id = s.session_id
                     WHERE s.project_id = ? AND g.is_completed = 0
                     ORDER BY g.created_timestamp DESC
-                """, (project_id,))
+                """,
+                    (project_id,),
+                )
             else:
                 return []
 
             stale_goals = []
             for row in cursor.fetchall():
                 goal_data = json.loads(row[3]) if row[3] else {}
-                metadata = goal_data.get('metadata', {})
+                metadata = goal_data.get("metadata", {})
 
                 # Only include goals that have stale metadata
-                if metadata.get('stale_since'):
-                    stale_goals.append({
-                        'goal_id': row[0],
-                        'objective': row[1],
-                        'scope': json.loads(row[2]) if row[2] else {},
-                        'stale_since': metadata.get('stale_since'),
-                        'stale_reason': metadata.get('stale_reason'),
-                        'created_timestamp': row[4]
-                    })
+                if metadata.get("stale_since"):
+                    stale_goals.append(
+                        {
+                            "goal_id": row[0],
+                            "objective": row[1],
+                            "scope": json.loads(row[2]) if row[2] else {},
+                            "stale_since": metadata.get("stale_since"),
+                            "stale_reason": metadata.get("stale_reason"),
+                            "created_timestamp": row[4],
+                        }
+                    )
 
             return stale_goals
 
@@ -656,31 +657,38 @@ class GoalRepository:
             True if refreshed, False if goal not found or not stale
         """
         import time
+
         try:
-            cursor = self.db.conn.execute("""
+            cursor = self.db.conn.execute(
+                """
                 SELECT goal_data FROM goals WHERE id = ? AND is_completed = 0
-            """, (goal_id,))
+            """,
+                (goal_id,),
+            )
             row = cursor.fetchone()
 
             if not row:
                 return False
 
             goal_data = json.loads(row[0]) if row[0] else {}
-            metadata = goal_data.get('metadata', {})
+            metadata = goal_data.get("metadata", {})
 
             # Check if goal was stale
-            if not metadata.get('stale_since'):
+            if not metadata.get("stale_since"):
                 return False
 
             # Clear stale flag and add refresh timestamp
-            metadata['refreshed_at'] = time.time()
-            metadata.pop('stale_since', None)
-            metadata.pop('stale_reason', None)
-            goal_data['metadata'] = metadata
+            metadata["refreshed_at"] = time.time()
+            metadata.pop("stale_since", None)
+            metadata.pop("stale_reason", None)
+            goal_data["metadata"] = metadata
 
-            self.db.conn.execute("""
+            self.db.conn.execute(
+                """
                 UPDATE goals SET goal_data = ? WHERE id = ?
-            """, (json.dumps(goal_data), goal_id))
+            """,
+                (json.dumps(goal_data), goal_id),
+            )
 
             self.db.conn.commit()
             logger.info(f"Refreshed goal {goal_id[:8]}...")

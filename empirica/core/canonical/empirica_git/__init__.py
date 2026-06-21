@@ -23,13 +23,13 @@ from .sentinel_hooks import SentinelDecision, SentinelHooks, SentinelState, Turt
 from .session_sync import SessionSync
 
 __all__ = [
-    'CheckpointManager',
-    'GitGoalStore',
-    'GitMessageStore',
-    'SentinelDecision',
-    'SentinelHooks',
-    'SentinelState',
-    'SessionSync',
-    'TurtleStatus',
-    'auto_checkpoint'
+    "CheckpointManager",
+    "GitGoalStore",
+    "GitMessageStore",
+    "SentinelDecision",
+    "SentinelHooks",
+    "SentinelState",
+    "SessionSync",
+    "TurtleStatus",
+    "auto_checkpoint",
 ]

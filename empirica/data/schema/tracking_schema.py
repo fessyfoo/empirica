@@ -34,7 +34,6 @@ SCHEMAS = [
                     FOREIGN KEY (project_id) REFERENCES projects(id)
                 )
     """,
-
     # Schema 2: Investigation branches for parallel exploration
     """
     CREATE TABLE IF NOT EXISTS investigation_branches (
@@ -71,7 +70,6 @@ SCHEMAS = [
                     FOREIGN KEY (session_id) REFERENCES sessions(session_id)
                 )
     """,
-
     # Schema 3: Merge decisions when consolidating branches
     """
     CREATE TABLE IF NOT EXISTS merge_decisions (
@@ -95,7 +93,6 @@ SCHEMAS = [
                     FOREIGN KEY (winning_branch_id) REFERENCES investigation_branches(id)
                 )
     """,
-
     # Schema 4: Token savings tracking
     """
     CREATE TABLE IF NOT EXISTS token_savings (
@@ -109,7 +106,6 @@ SCHEMAS = [
                     FOREIGN KEY (session_id) REFERENCES sessions(session_id)
                 )
     """,
-
     # Schema 5: AI suggestions for earned autonomy
     # Tracks suggestions made by AI, their domain, confidence, and review status
     # Used for calculating domain-specific trust and graduated autonomy
@@ -142,5 +138,4 @@ SCHEMAS = [
                     FOREIGN KEY (project_id) REFERENCES projects(id)
                 )
     """,
-
 ]

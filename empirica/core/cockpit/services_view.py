@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-EMPIRICA_DIR = Path.home() / '.empirica'
+EMPIRICA_DIR = Path.home() / ".empirica"
 
 # A scanner snapshot stays "fresh" for 24h; after that the cockpit
 # shades it grey but the value is still readable.
@@ -31,7 +31,7 @@ FRESH_WINDOW_S = 24 * 60 * 60
 
 
 def _safe_suffix(text: str) -> str:
-    return text.replace('/', '-').replace('%', '')
+    return text.replace("/", "-").replace("%", "")
 
 
 def last_scan_path(project_id: str | None) -> Path | None:
@@ -39,7 +39,7 @@ def last_scan_path(project_id: str | None) -> Path | None:
     Returns None when project_id is empty (caller skips the read)."""
     if not project_id:
         return None
-    return EMPIRICA_DIR / f'last_scan_{_safe_suffix(project_id)}.json'
+    return EMPIRICA_DIR / f"last_scan_{_safe_suffix(project_id)}.json"
 
 
 def _project_id_from_path(project_path: str | None) -> str | None:
@@ -49,18 +49,19 @@ def _project_id_from_path(project_path: str | None) -> str | None:
     keep the two views independent."""
     if not project_path:
         return None
-    yaml_path = Path(project_path) / '.empirica' / 'project.yaml'
+    yaml_path = Path(project_path) / ".empirica" / "project.yaml"
     if not yaml_path.exists():
         return None
     try:
         import yaml
-        with open(yaml_path, encoding='utf-8') as f:
+
+        with open(yaml_path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
     except Exception:
         return None
     if not isinstance(data, dict):
         return None
-    pid = data.get('project_id')
+    pid = data.get("project_id")
     return str(pid) if pid else None
 
 
@@ -98,20 +99,21 @@ def read_services_summary(project_path: str | None) -> dict[str, Any] | None:
         return None
 
     try:
-        with open(path, encoding='utf-8') as f:
+        with open(path, encoding="utf-8") as f:
             scan = json.load(f)
     except (OSError, json.JSONDecodeError):
         return None
 
-    started_at = scan.get('started_at')
-    started_at_iso = ''
+    started_at = scan.get("started_at")
+    started_at_iso = ""
     age_seconds: float | None = None
     fresh = False
     if isinstance(started_at, (int, float)):
         try:
             started_at_iso = datetime.fromtimestamp(
-                started_at, tz=timezone.utc,
-            ).isoformat(timespec='seconds')
+                started_at,
+                tz=timezone.utc,
+            ).isoformat(timespec="seconds")
             age_seconds = max(
                 0.0,
                 datetime.now(tz=timezone.utc).timestamp() - float(started_at),
@@ -120,36 +122,36 @@ def read_services_summary(project_path: str | None) -> dict[str, Any] | None:
         except (ValueError, OSError):
             pass
 
-    snap = scan.get('snapshot') or {}
-    processes = snap.get('processes') or []
-    network = snap.get('network') or {}
-    scheduled = snap.get('scheduled') or {}
-    filesystem = snap.get('filesystem') or {}
-    process_env = snap.get('process_env') or {}
-    coverage = snap.get('coverage') or {}
-    proc_cov = coverage.get('processes') or {}
+    snap = scan.get("snapshot") or {}
+    processes = snap.get("processes") or []
+    network = snap.get("network") or {}
+    scheduled = snap.get("scheduled") or {}
+    filesystem = snap.get("filesystem") or {}
+    process_env = snap.get("process_env") or {}
+    coverage = snap.get("coverage") or {}
+    proc_cov = coverage.get("processes") or {}
 
     return {
-        'scan_id': scan.get('scan_id', ''),
-        'started_at_iso': started_at_iso,
-        'age_seconds': age_seconds,
-        'fresh': fresh,
-        'host': scan.get('host', ''),
-        'process_count': len(processes),
-        'listening_ports_count': len(network.get('listening_ports') or []),
-        'mcp_servers_count': len(filesystem.get('mcp_registered_servers') or []),
-        'plugin_manifests_count': len(filesystem.get('plugin_manifest_paths') or []),
-        'cron_entries_count': len(scheduled.get('cron_entries') or []),
-        'integrity_ratio': float(proc_cov.get('ratio', 0.0) or 0.0),
-        'env_var_names_count': len(process_env.get('var_names_only') or []),
-        'errors_count': len(scan.get('errors') or []),
-        'project_id': project_id or '',
+        "scan_id": scan.get("scan_id", ""),
+        "started_at_iso": started_at_iso,
+        "age_seconds": age_seconds,
+        "fresh": fresh,
+        "host": scan.get("host", ""),
+        "process_count": len(processes),
+        "listening_ports_count": len(network.get("listening_ports") or []),
+        "mcp_servers_count": len(filesystem.get("mcp_registered_servers") or []),
+        "plugin_manifests_count": len(filesystem.get("plugin_manifest_paths") or []),
+        "cron_entries_count": len(scheduled.get("cron_entries") or []),
+        "integrity_ratio": float(proc_cov.get("ratio", 0.0) or 0.0),
+        "env_var_names_count": len(process_env.get("var_names_only") or []),
+        "errors_count": len(scan.get("errors") or []),
+        "project_id": project_id or "",
     }
 
 
 __all__ = [
-    'EMPIRICA_DIR',
-    'FRESH_WINDOW_S',
-    'last_scan_path',
-    'read_services_summary',
+    "EMPIRICA_DIR",
+    "FRESH_WINDOW_S",
+    "last_scan_path",
+    "read_services_summary",
 ]

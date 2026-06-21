@@ -1,6 +1,7 @@
 """
 CLI command handlers for epistemic trajectory queries.
 """
+
 import json
 import sys
 
@@ -19,16 +20,13 @@ def handle_epistemics_search_command(args):
     try:
         project_id = args.project_id
         query = args.query or ""
-        min_learning = getattr(args, 'min_learning', None)
-        calibration = getattr(args, 'calibration', None)
-        limit = getattr(args, 'limit', 5)
-        output_format = getattr(args, 'output', 'json')
+        min_learning = getattr(args, "min_learning", None)
+        calibration = getattr(args, "calibration", None)
+        limit = getattr(args, "limit", 5)
+        output_format = getattr(args, "output", "json")
 
         if not project_id:
-            print(json.dumps({
-                "ok": False,
-                "error": "project_id is required"
-            }))
+            print(json.dumps({"ok": False, "error": "project_id is required"}))
             sys.exit(1)
 
         # Search trajectories
@@ -37,20 +35,22 @@ def handle_epistemics_search_command(args):
             query=query,
             min_learning_delta=min_learning,
             calibration_quality=calibration,
-            limit=limit
+            limit=limit,
         )
 
-        if output_format == 'json':
-            print(json.dumps({
-                "ok": True,
-                "results": results,
-                "count": len(results),
-                "query": query,
-                "filters": {
-                    "min_learning_delta": min_learning,
-                    "calibration_quality": calibration
-                }
-            }, indent=2))
+        if output_format == "json":
+            print(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "results": results,
+                        "count": len(results),
+                        "query": query,
+                        "filters": {"min_learning_delta": min_learning, "calibration_quality": calibration},
+                    },
+                    indent=2,
+                )
+            )
         else:
             # Human-readable format
             print("\n🧠 Epistemic Trajectory Search Results")
@@ -63,13 +63,13 @@ def handle_epistemics_search_command(args):
             print(f"\nFound {len(results)} trajectories:\n")
 
             for i, traj in enumerate(results, 1):
-                score = traj.get('score', 0.0)
-                session_id = traj.get('session_id', 'unknown')
-                task = traj.get('task_description', 'No description')[:60]
-                deltas = traj.get('deltas', {})
-                know_delta = deltas.get('know', 0.0)
-                uncertainty_delta = deltas.get('uncertainty', 0.0)
-                calibration_acc = traj.get('calibration_accuracy', 'unknown')
+                score = traj.get("score", 0.0)
+                session_id = traj.get("session_id", "unknown")
+                task = traj.get("task_description", "No description")[:60]
+                deltas = traj.get("deltas", {})
+                know_delta = deltas.get("know", 0.0)
+                uncertainty_delta = deltas.get("uncertainty", 0.0)
+                calibration_acc = traj.get("calibration_accuracy", "unknown")
 
                 print(f"{i}. Session: {session_id[:8]}...")
                 print(f"   Score: {score:.3f}")
@@ -79,10 +79,7 @@ def handle_epistemics_search_command(args):
                 print()
 
     except Exception as e:
-        print(json.dumps({
-            "ok": False,
-            "error": str(e)
-        }))
+        print(json.dumps({"ok": False, "error": str(e)}))
         sys.exit(1)
 
 
@@ -95,21 +92,26 @@ def handle_epistemics_stats_command(args):
         empirica epistemics-show --session-id <UUID> --phase PREFLIGHT
     """
     try:
-        session_id = getattr(args, 'session_id', None)
-        phase_filter = getattr(args, 'phase', None)
-        output_format = getattr(args, 'output', 'json')
+        session_id = getattr(args, "session_id", None)
+        phase_filter = getattr(args, "phase", None)
+        output_format = getattr(args, "output", "json")
 
         # UNIFIED: Auto-derive session_id if not provided
         if not session_id:
             from empirica.utils.session_resolver import InstanceResolver as R
+
             session_id = R.session_id()
 
         if not session_id:
-            print(json.dumps({
-                "ok": False,
-                "error": "No active transaction and --session-id not provided",
-                "hint": "Either run PREFLIGHT first, or provide --session-id explicitly"
-            }))
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": "No active transaction and --session-id not provided",
+                        "hint": "Either run PREFLIGHT first, or provide --session-id explicitly",
+                    }
+                )
+            )
             sys.exit(1)
 
         # Get reflexes from database
@@ -121,71 +123,81 @@ def handle_epistemics_stats_command(args):
         session_row = cursor.fetchone()
 
         if not session_row:
-            print(json.dumps({
-                "ok": False,
-                "error": f"Session {session_id} not found"
-            }))
+            print(json.dumps({"ok": False, "error": f"Session {session_id} not found"}))
             db.close()
             sys.exit(1)
 
-        project_id = session_row['project_id']
-        ai_id = session_row['ai_id']
+        project_id = session_row["project_id"]
+        ai_id = session_row["ai_id"]
 
         # Get reflexes with optional phase filter
         if phase_filter:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT phase, engagement, know, do, context, clarity, coherence,
                        signal, density, state, change, completion, impact, uncertainty,
                        reasoning, timestamp
                 FROM reflexes
                 WHERE session_id = ? AND phase = ?
                 ORDER BY timestamp ASC
-            """, (session_id, phase_filter))
+            """,
+                (session_id, phase_filter),
+            )
         else:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT phase, engagement, know, do, context, clarity, coherence,
                        signal, density, state, change, completion, impact, uncertainty,
                        reasoning, timestamp
                 FROM reflexes
                 WHERE session_id = ?
                 ORDER BY timestamp ASC
-            """, (session_id,))
+            """,
+                (session_id,),
+            )
 
         reflexes = []
         for row in cursor.fetchall():
-            reflexes.append({
-                "phase": row['phase'],
-                "vectors": {
-                    "engagement": row['engagement'],
-                    "know": row['know'],
-                    "do": row['do'],
-                    "context": row['context'],
-                    "clarity": row['clarity'],
-                    "coherence": row['coherence'],
-                    "signal": row['signal'],
-                    "density": row['density'],
-                    "state": row['state'],
-                    "change": row['change'],
-                    "completion": row['completion'],
-                    "impact": row['impact'],
-                    "uncertainty": row['uncertainty']
-                },
-                "reasoning": row['reasoning'],
-                "timestamp": row['timestamp']
-            })
+            reflexes.append(
+                {
+                    "phase": row["phase"],
+                    "vectors": {
+                        "engagement": row["engagement"],
+                        "know": row["know"],
+                        "do": row["do"],
+                        "context": row["context"],
+                        "clarity": row["clarity"],
+                        "coherence": row["coherence"],
+                        "signal": row["signal"],
+                        "density": row["density"],
+                        "state": row["state"],
+                        "change": row["change"],
+                        "completion": row["completion"],
+                        "impact": row["impact"],
+                        "uncertainty": row["uncertainty"],
+                    },
+                    "reasoning": row["reasoning"],
+                    "timestamp": row["timestamp"],
+                }
+            )
 
         db.close()
 
-        if output_format == 'json':
-            print(json.dumps({
-                "ok": True,
-                "session_id": session_id,
-                "project_id": project_id,
-                "ai_id": ai_id,
-                "count": len(reflexes),
-                "phase_filter": phase_filter,
-                "trajectories": reflexes
-            }, indent=2))
+        if output_format == "json":
+            print(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "session_id": session_id,
+                        "project_id": project_id,
+                        "ai_id": ai_id,
+                        "count": len(reflexes),
+                        "phase_filter": phase_filter,
+                        "trajectories": reflexes,
+                    },
+                    indent=2,
+                )
+            )
         else:
             print(f"\n📊 Epistemic Trajectory for Session: {session_id}")
             print(f"{'=' * 70}")
@@ -198,18 +210,15 @@ def handle_epistemics_stats_command(args):
             for i, reflex in enumerate(reflexes, 1):
                 print(f"{i}. Phase: {reflex['phase']}")
                 print(f"   Time: {reflex['timestamp']}")
-                vectors = reflex['vectors']
+                vectors = reflex["vectors"]
                 print(f"   Know: {vectors['know']:.2f}, Uncertainty: {vectors['uncertainty']:.2f}")
                 print(f"   Context: {vectors['context']:.2f}, Completion: {vectors['completion']:.2f}")
-                if reflex['reasoning']:
+                if reflex["reasoning"]:
                     print(f"   Reasoning: {reflex['reasoning'][:80]}...")
                 print()
 
     except Exception as e:
-        print(json.dumps({
-            "ok": False,
-            "error": str(e)
-        }))
+        print(json.dumps({"ok": False, "error": str(e)}))
         sys.exit(1)
 
 
@@ -224,20 +233,25 @@ def handle_epistemics_list_command(args):
         from empirica.cli.cli_utils import handle_cli_error
         from empirica.data.session_database import SessionDatabase
 
-        session_id = getattr(args, 'session_id', None)
-        output_format = getattr(args, 'output', 'json')
+        session_id = getattr(args, "session_id", None)
+        output_format = getattr(args, "output", "json")
 
         # UNIFIED: Auto-derive session_id if not provided
         if not session_id:
             from empirica.utils.session_resolver import InstanceResolver as R
+
             session_id = R.session_id()
 
         if not session_id:
-            print(json.dumps({
-                "ok": False,
-                "error": "No active transaction and --session-id not provided",
-                "hint": "Either run PREFLIGHT first, or provide --session-id explicitly"
-            }))
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": "No active transaction and --session-id not provided",
+                        "hint": "Either run PREFLIGHT first, or provide --session-id explicitly",
+                    }
+                )
+            )
             sys.exit(1)
 
         # Get trajectories directly from database
@@ -249,60 +263,67 @@ def handle_epistemics_list_command(args):
         session_row = cursor.fetchone()
 
         if not session_row:
-            print(json.dumps({
-                "ok": False,
-                "error": f"Session {session_id} not found"
-            }))
+            print(json.dumps({"ok": False, "error": f"Session {session_id} not found"}))
             db.close()
             sys.exit(1)
 
-        project_id = session_row['project_id']
-        ai_id = session_row['ai_id']
+        project_id = session_row["project_id"]
+        ai_id = session_row["ai_id"]
 
         # Get all reflexes for this session
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT phase, engagement, know, do, context, clarity, coherence,
                    signal, density, state, change, completion, impact, uncertainty,
                    reasoning, timestamp
             FROM reflexes
             WHERE session_id = ?
             ORDER BY timestamp ASC
-        """, (session_id,))
+        """,
+            (session_id,),
+        )
 
         reflexes = []
         for row in cursor.fetchall():
-            reflexes.append({
-                "phase": row['phase'],
-                "vectors": {
-                    "engagement": row['engagement'],
-                    "know": row['know'],
-                    "do": row['do'],
-                    "context": row['context'],
-                    "clarity": row['clarity'],
-                    "coherence": row['coherence'],
-                    "signal": row['signal'],
-                    "density": row['density'],
-                    "state": row['state'],
-                    "change": row['change'],
-                    "completion": row['completion'],
-                    "impact": row['impact'],
-                    "uncertainty": row['uncertainty']
-                },
-                "reasoning": row['reasoning'],
-                "timestamp": row['timestamp']
-            })
+            reflexes.append(
+                {
+                    "phase": row["phase"],
+                    "vectors": {
+                        "engagement": row["engagement"],
+                        "know": row["know"],
+                        "do": row["do"],
+                        "context": row["context"],
+                        "clarity": row["clarity"],
+                        "coherence": row["coherence"],
+                        "signal": row["signal"],
+                        "density": row["density"],
+                        "state": row["state"],
+                        "change": row["change"],
+                        "completion": row["completion"],
+                        "impact": row["impact"],
+                        "uncertainty": row["uncertainty"],
+                    },
+                    "reasoning": row["reasoning"],
+                    "timestamp": row["timestamp"],
+                }
+            )
 
         db.close()
 
-        if output_format == 'json':
-            print(json.dumps({
-                "ok": True,
-                "session_id": session_id,
-                "project_id": project_id,
-                "ai_id": ai_id,
-                "count": len(reflexes),
-                "trajectories": reflexes
-            }, indent=2))
+        if output_format == "json":
+            print(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "session_id": session_id,
+                        "project_id": project_id,
+                        "ai_id": ai_id,
+                        "count": len(reflexes),
+                        "trajectories": reflexes,
+                    },
+                    indent=2,
+                )
+            )
         else:
             print(f"📊 Epistemic Trajectories for Session: {session_id}")
             print(f"   Project: {project_id}")
@@ -311,12 +332,12 @@ def handle_epistemics_list_command(args):
             for t in reflexes:
                 print(f"   Phase: {t['phase']}")
                 print(f"   Time: {t['timestamp']}")
-                vectors = t.get('vectors', {})
+                vectors = t.get("vectors", {})
                 if vectors:
                     print(f"   Know: {vectors.get('know', 'N/A')}, Uncertainty: {vectors.get('uncertainty', 'N/A')}")
                 print()
 
     except Exception as e:
         from empirica.cli.cli_utils import handle_cli_error
-        handle_cli_error(e, "List epistemics", getattr(args, 'verbose', False))
 
+        handle_cli_error(e, "List epistemics", getattr(args, "verbose", False))

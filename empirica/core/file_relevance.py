@@ -84,8 +84,7 @@ def get_file_relevant_artifacts(
 
     try:
         for table, id_col, primary, type_label, secondary, ts_col in _ARTIFACT_TABLES:
-            rows = _query_table(cur, table, id_col, primary, secondary,
-                                ts_col, project_id, needles, per_table_cap)
+            rows = _query_table(cur, table, id_col, primary, secondary, ts_col, project_id, needles, per_table_cap)
             for row in rows:
                 summary = ""
                 for value in row[1:-1]:
@@ -93,13 +92,15 @@ def get_file_relevant_artifacts(
                         summary = str(value)[:120]
                         break
                 created_at = _to_iso(row[-1])
-                out.append({
-                    "id": row[0],
-                    "type": type_label,
-                    "summary": summary,
-                    "created_at": created_at,
-                    "_ts": row[-1] or 0,
-                })
+                out.append(
+                    {
+                        "id": row[0],
+                        "type": type_label,
+                        "summary": summary,
+                        "created_at": created_at,
+                        "_ts": row[-1] or 0,
+                    }
+                )
     finally:
         conn.close()
 
@@ -131,7 +132,7 @@ def format_relevance_nudge(artifacts: list[dict]) -> str:
     summary = ", ".join(parts)
     return (
         f"FILE-RELEVANCE: {summary} reference this file. "
-        f"Run `empirica project-search --task \"<file>\"` "
+        f'Run `empirica project-search --task "<file>"` '
         f"or check related artifacts before overwriting prior knowledge."
     )
 
@@ -189,11 +190,7 @@ def _query_table(
         where_parts.append("project_id = ?")
         params.append(project_id)
 
-    sql = (
-        f"SELECT {cols_select} FROM {table} "
-        f"WHERE {' AND '.join(where_parts)} "
-        f"ORDER BY {ts_col} DESC LIMIT ?"
-    )
+    sql = f"SELECT {cols_select} FROM {table} WHERE {' AND '.join(where_parts)} ORDER BY {ts_col} DESC LIMIT ?"
     params.append(cap)
 
     try:
@@ -213,6 +210,7 @@ def _to_iso(value: Any) -> str | None:
         return value
     try:
         from datetime import datetime, timezone
+
         return datetime.fromtimestamp(float(value), tz=timezone.utc).isoformat()
     except (ValueError, TypeError):
         return None

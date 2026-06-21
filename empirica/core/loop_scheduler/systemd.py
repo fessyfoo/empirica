@@ -87,7 +87,10 @@ def is_systemd_available() -> bool:
         # respond. Timeout 2s — anything hung means broken environment.
         r = subprocess.run(
             ["systemctl", "--user", "is-system-running"],
-            capture_output=True, text=True, timeout=2, check=False,
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
         )
         # If the binary ran (even with non-zero exit), systemd-user is callable.
         # The real availability test happens when we actually enable a timer.
@@ -100,13 +103,17 @@ def _systemctl(*args: str, check: bool = False) -> subprocess.CompletedProcess:
     """Run `systemctl --user <args>` with a short timeout."""
     return subprocess.run(
         ["systemctl", "--user", *args],
-        capture_output=True, text=True, timeout=5, check=check,
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=check,
     )
 
 
 @dataclass
 class LoopUnitFiles:
     """Resolved on-disk paths for one loop's systemd units."""
+
     timer: Path
     service: Path
 
@@ -114,6 +121,7 @@ class LoopUnitFiles:
 @dataclass
 class LoopStatus:
     """systemctl is-active / is-enabled result + last trigger timestamp."""
+
     name: str
     active: bool
     enabled: bool
@@ -213,15 +221,18 @@ class SystemdLoopScheduler:
 
         paths.service.write_text(
             _SERVICE_TEMPLATE.format(
-                name=name, instance_id=instance_id,
+                name=name,
+                instance_id=instance_id,
                 empirica_bin=self.empirica_bin,
             ),
             encoding="utf-8",
         )
         paths.timer.write_text(
             _TIMER_TEMPLATE.format(
-                name=name, instance_id=instance_id,
-                interval=interval, unit_name=unit_name,
+                name=name,
+                instance_id=instance_id,
+                interval=interval,
+                unit_name=unit_name,
             ),
             encoding="utf-8",
         )
@@ -267,7 +278,8 @@ class SystemdLoopScheduler:
         next_trigger: str | None = None
         if active:
             r = _systemctl(
-                "show", timer_unit,
+                "show",
+                timer_unit,
                 "--property=LastTriggerUSec,NextElapseUSecRealtime",
             )
             for ln in r.stdout.splitlines():
@@ -344,9 +356,7 @@ class SystemdLoopScheduler:
         import datetime as _dt
 
         if not force and SystemdLoopScheduler._instance_has_open_transaction(instance_id):
-            logger.debug(
-                f"tick suppressed for {instance_id}/{name}: open transaction"
-            )
+            logger.debug(f"tick suppressed for {instance_id}/{name}: open transaction")
             return None
 
         # Content-aware path for cortex-mailbox-poll.
@@ -402,9 +412,7 @@ class SystemdLoopScheduler:
         with open(path, "a", encoding="utf-8") as f:
             for ev in events:
                 f.write(ev.to_log_line() + "\n")
-        logger.info(
-            f"content_poll emitted {len(events)} event(s) for {instance_id}/{name}"
-        )
+        logger.info(f"content_poll emitted {len(events)} event(s) for {instance_id}/{name}")
         return path
 
 
@@ -422,7 +430,9 @@ def list_active_loops_for_instance(instance_id: str) -> list[str]:
         return []
     try:
         r = _systemctl(
-            "list-unit-files", "empirica-loop-*.timer", "--no-legend",
+            "list-unit-files",
+            "empirica-loop-*.timer",
+            "--no-legend",
         )
     except Exception:
         return []

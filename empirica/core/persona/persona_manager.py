@@ -19,6 +19,7 @@ from .validation import validate_persona_profile
 
 logger = logging.getLogger(__name__)
 
+
 class PersonaManager:
     """
     Manages persona lifecycle: create, load, save, validate
@@ -62,7 +63,7 @@ class PersonaManager:
         identity_name: str | None = None,
         epistemic_priors: dict[str, float] | None = None,
         focus_domains: list[str] | None = None,
-        template: str | None = None
+        template: str | None = None,
     ) -> PersonaProfile:
         """
         Create a new persona profile
@@ -82,15 +83,11 @@ class PersonaManager:
         """
         # Use template if provided
         if template:
-            return self._create_from_template(
-                template, persona_id, name, version, user_id
-            )
+            return self._create_from_template(template, persona_id, name, version, user_id)
 
         # Get or create signing identity
         identity_name = identity_name or persona_id
-        signing_config = self._get_or_create_signing_identity(
-            user_id, identity_name
-        )
+        signing_config = self._get_or_create_signing_identity(user_id, identity_name)
 
         # Use provided priors or defaults
         if epistemic_priors is None:
@@ -98,9 +95,19 @@ class PersonaManager:
 
         # Validate priors has all 13 vectors
         required_vectors = [
-            "engagement", "know", "do", "context",
-            "clarity", "coherence", "signal", "density",
-            "state", "change", "completion", "impact", "uncertainty"
+            "engagement",
+            "know",
+            "do",
+            "context",
+            "clarity",
+            "coherence",
+            "signal",
+            "density",
+            "state",
+            "change",
+            "completion",
+            "impact",
+            "uncertainty",
         ]
 
         for vector in required_vectors:
@@ -115,10 +122,7 @@ class PersonaManager:
             name=name,
             version=version,
             signing_identity=signing_config,
-            epistemic_config=EpistemicConfig(
-                priors=epistemic_priors,
-                focus_domains=focus_domains or []
-            )
+            epistemic_config=EpistemicConfig(priors=epistemic_priors, focus_domains=focus_domains or []),
         )
 
         logger.info(f"✓ Created persona: {persona_id}")
@@ -147,13 +151,10 @@ class PersonaManager:
         filepath = self.personas_dir / f"{profile.persona_id}.json"
 
         if filepath.exists() and not overwrite:
-            raise FileExistsError(
-                f"Persona {profile.persona_id} already exists. "
-                f"Use overwrite=True to replace."
-            )
+            raise FileExistsError(f"Persona {profile.persona_id} already exists. Use overwrite=True to replace.")
 
         # Save to file
-        with open(filepath, 'w') as f:
+        with open(filepath, "w") as f:
             json.dump(profile_dict, f, indent=2)
 
         logger.info(f"✓ Saved persona to: {filepath}")
@@ -176,9 +177,7 @@ class PersonaManager:
         filepath = self.personas_dir / f"{persona_id}.json"
 
         if not filepath.exists():
-            raise FileNotFoundError(
-                f"Persona not found: {persona_id} (looked in {filepath})"
-            )
+            raise FileNotFoundError(f"Persona not found: {persona_id} (looked in {filepath})")
 
         with open(filepath) as f:
             profile_dict = json.load(f)
@@ -187,16 +186,20 @@ class PersonaManager:
         # - Some older/emergent personas may have placeholder public_key values
         # - Some may omit epistemic_config.focus_domains
         try:
-            signing = profile_dict.get('signing_identity') or {}
-            pk = signing.get('public_key')
+            signing = profile_dict.get("signing_identity") or {}
+            pk = signing.get("public_key")
             if not isinstance(pk, str) or len(pk) != 64:
-                signing['public_key'] = '0' * 64
-            profile_dict['signing_identity'] = signing
+                signing["public_key"] = "0" * 64
+            profile_dict["signing_identity"] = signing
 
-            epi = profile_dict.get('epistemic_config') or {}
-            if 'focus_domains' not in epi or not isinstance(epi.get('focus_domains'), list) or len(epi.get('focus_domains')) == 0:
-                epi['focus_domains'] = ['general']
-            profile_dict['epistemic_config'] = epi
+            epi = profile_dict.get("epistemic_config") or {}
+            if (
+                "focus_domains" not in epi
+                or not isinstance(epi.get("focus_domains"), list)
+                or len(epi.get("focus_domains")) == 0
+            ):
+                epi["focus_domains"] = ["general"]
+            profile_dict["epistemic_config"] = epi
         except Exception:  # noqa: S110 — best-effort profile normalization; validate below
             pass
 
@@ -252,11 +255,7 @@ class PersonaManager:
 
     # Private methods
 
-    def _get_or_create_signing_identity(
-        self,
-        user_id: str,
-        identity_name: str
-    ) -> SigningIdentityConfig:
+    def _get_or_create_signing_identity(self, user_id: str, identity_name: str) -> SigningIdentityConfig:
         """
         Get existing signing identity or create new one
 
@@ -280,10 +279,7 @@ class PersonaManager:
         public_key_hex = public_key_bytes.hex()
 
         return SigningIdentityConfig(
-            user_id=user_id,
-            identity_name=identity_name,
-            public_key=public_key_hex,
-            reputation_score=0.5
+            user_id=user_id, identity_name=identity_name, public_key=public_key_hex, reputation_score=0.5
         )
 
     def _get_default_priors(self) -> dict[str, float]:
@@ -301,16 +297,11 @@ class PersonaManager:
             "change": 0.5,
             "completion": 0.0,
             "impact": 0.5,
-            "uncertainty": 0.5
+            "uncertainty": 0.5,
         }
 
     def _create_from_template(
-        self,
-        template: str,
-        persona_id: str,
-        name: str,
-        version: str,
-        user_id: str
+        self, template: str, persona_id: str, name: str, version: str, user_id: str
     ) -> PersonaProfile:
         """Create persona from built-in template"""
 
@@ -320,17 +311,12 @@ class PersonaManager:
         template_name = template.replace("builtin:", "")
 
         if template_name not in BUILTIN_TEMPLATES:
-            raise ValueError(
-                f"Unknown template: {template_name}. "
-                f"Available: {list(BUILTIN_TEMPLATES.keys())}"
-            )
+            raise ValueError(f"Unknown template: {template_name}. Available: {list(BUILTIN_TEMPLATES.keys())}")
 
         template_data = BUILTIN_TEMPLATES[template_name]
 
         # Get signing identity
-        signing_config = self._get_or_create_signing_identity(
-            user_id, persona_id
-        )
+        signing_config = self._get_or_create_signing_identity(user_id, persona_id)
 
         # Create profile from template
         from .persona_profile import EpistemicConfig
@@ -341,10 +327,10 @@ class PersonaManager:
             version=version,
             signing_identity=signing_config,
             epistemic_config=EpistemicConfig(
-                priors=template_data['priors'],
-                thresholds=template_data['thresholds'],
-                focus_domains=template_data['focus_domains']
-            )
+                priors=template_data["priors"],
+                thresholds=template_data["thresholds"],
+                focus_domains=template_data["focus_domains"],
+            ),
         )
 
         logger.info(f"✓ Created persona from template '{template_name}': {persona_id}")

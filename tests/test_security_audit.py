@@ -103,7 +103,9 @@ _TEST_EMPIRICA_MANAGED: set[str] = {"vulnpkg"}  # vulnpkg is "empirica-managed";
 
 def _audit(kev, *, managed=_TEST_EMPIRICA_MANAGED):
     return audit_module.run_security_audit(
-        Path("."), kev_feed=kev, empirica_managed=managed,
+        Path("."),
+        kev_feed=kev,
+        empirica_managed=managed,
     )
 
 

@@ -67,24 +67,24 @@ def _build_project(tmp_path: Path, name: str = "sit-proj") -> tuple[Path, str]:
     return proj, project_uuid
 
 
-def _add_goal(db_path: Path, project_id: str, *, objective: str,
-              status: str, age_hours: float = 0,
-              description: str | None = None) -> str:
+def _add_goal(
+    db_path: Path, project_id: str, *, objective: str, status: str, age_hours: float = 0, description: str | None = None
+) -> str:
     gid = str(uuid.uuid4())
     conn = sqlite3.connect(str(db_path))
     conn.execute(
         "INSERT INTO goals (id, project_id, objective, description, status, "
         "is_completed, created_timestamp) VALUES (?,?,?,?,?,?,?)",
-        (gid, project_id, objective, description, status, 0,
-         time.time() - age_hours * 3600),
+        (gid, project_id, objective, description, status, 0, time.time() - age_hours * 3600),
     )
     conn.commit()
     conn.close()
     return gid
 
 
-def _add_unknown(db_path: Path, project_id: str, unknown: str, *,
-                 goal_id: str | None = None, age_hours: float = 0) -> str:
+def _add_unknown(
+    db_path: Path, project_id: str, unknown: str, *, goal_id: str | None = None, age_hours: float = 0
+) -> str:
     uid = str(uuid.uuid4())
     conn = sqlite3.connect(str(db_path))
     conn.execute(
@@ -103,10 +103,8 @@ def _add_unknown(db_path: Path, project_id: str, unknown: str, *,
 def test_active_goal_in_progress_wins_over_planned_when_both_present(tmp_path):
     proj, pid = _build_project(tmp_path)
     db = proj / ".empirica" / "sessions" / "sessions.db"
-    in_prog = _add_goal(db, pid, objective="in-progress old", status="in_progress",
-                         age_hours=72)
-    _planned_new = _add_goal(db, pid, objective="planned brand-new",
-                              status="planned", age_hours=0)
+    in_prog = _add_goal(db, pid, objective="in-progress old", status="in_progress", age_hours=72)
+    _planned_new = _add_goal(db, pid, objective="planned brand-new", status="planned", age_hours=0)
     conn = sqlite3.connect(str(db))
     conn.row_factory = sqlite3.Row
     picked = _active_goal(conn, pid)
@@ -134,10 +132,8 @@ def test_active_goal_recency_wins_within_in_progress_tier(tmp_path):
 def test_active_goal_planned_picked_when_no_in_progress(tmp_path):
     proj, pid = _build_project(tmp_path)
     db = proj / ".empirica" / "sessions" / "sessions.db"
-    _old_planned = _add_goal(db, pid, objective="old planned",
-                              status="planned", age_hours=72)
-    new_planned = _add_goal(db, pid, objective="new planned",
-                             status="planned", age_hours=1)
+    _old_planned = _add_goal(db, pid, objective="old planned", status="planned", age_hours=72)
+    new_planned = _add_goal(db, pid, objective="new planned", status="planned", age_hours=1)
     conn = sqlite3.connect(str(db))
     conn.row_factory = sqlite3.Row
     picked = _active_goal(conn, pid)
@@ -251,6 +247,7 @@ def test_build_situation_empty_project_returns_empty_dict_gracefully(tmp_path):
 def _build_full_project(tmp_path: Path, name: str = "sit-full") -> tuple[Path, str]:
     """Project with full circles schema + situation extras."""
     from tests.test_bootstrap_aggregator import _build_test_project
+
     proj, pid = _build_test_project(tmp_path, name)
     db = proj / ".empirica" / "sessions" / "sessions.db"
     conn = sqlite3.connect(str(db))
@@ -288,6 +285,7 @@ def test_build_bootstrap_payload_includes_situation_key(tmp_path):
     conn.close()
 
     from empirica.core.bootstrap import build_bootstrap_payload
+
     payload = build_bootstrap_payload(project_path=proj, project_id=pid)
     assert "situation" in payload
     sit = payload["situation"]
@@ -299,5 +297,6 @@ def test_build_bootstrap_payload_situation_is_first_key(tmp_path):
     """Per the proposal: situation surfaces first so attention-decay favors it."""
     proj, pid = _build_full_project(tmp_path)
     from empirica.core.bootstrap import build_bootstrap_payload
+
     payload = build_bootstrap_payload(project_path=proj, project_id=pid)
     assert next(iter(payload.keys())) == "situation"

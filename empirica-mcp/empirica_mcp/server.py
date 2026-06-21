@@ -99,7 +99,6 @@ TOOL_REGISTRY: dict[str, dict] = {
         "required": [],
         "desc": "Resume a previous session",
     },
-
     # --- CASCADE workflow ---
     "submit_preflight_assessment": {
         "cli": "preflight-submit",
@@ -122,7 +121,6 @@ TOOL_REGISTRY: dict[str, dict] = {
         "desc": "Submit POSTFLIGHT assessment — closes transaction, triggers grounded verification",
         "stdin_json": True,
     },
-
     # --- Noetic artifacts ---
     # `visibility` (public/shared/local) and `epistemic_source` (intuition/
     # search/mixed) are part of the cross-Claude intelligence-sharing
@@ -131,12 +129,23 @@ TOOL_REGISTRY: dict[str, dict] = {
     # through either interface (v1.9.6+).
     "finding_log": {
         "cli": "finding-log",
-        "params": {"finding": "--finding", "impact": "--impact", "session_id": "--session-id",
-                   "goal_id": "--goal-id", "task_id": "--task-id", "project_id": "--project-id",
-                   "subject": "--subject", "scope": "--scope",
-                   "entity_type": "--entity-type", "entity_id": "--entity-id", "via": "--via",
-                   "source_ids": "--source", "description": "--description",
-                   "visibility": "--visibility", "epistemic_source": "--epistemic-source"},
+        "params": {
+            "finding": "--finding",
+            "impact": "--impact",
+            "session_id": "--session-id",
+            "goal_id": "--goal-id",
+            "task_id": "--task-id",
+            "project_id": "--project-id",
+            "subject": "--subject",
+            "scope": "--scope",
+            "entity_type": "--entity-type",
+            "entity_id": "--entity-id",
+            "via": "--via",
+            "source_ids": "--source",
+            "description": "--description",
+            "visibility": "--visibility",
+            "epistemic_source": "--epistemic-source",
+        },
         "required": ["finding"],
         "desc": "Log a finding (what was learned). Use source_ids to link to epistemic sources, visibility to opt into cross-project sharing, epistemic_source to tag provenance.",
         "list_params": ["source_ids"],
@@ -147,87 +156,151 @@ TOOL_REGISTRY: dict[str, dict] = {
         "positional": "text",
         "required": ["text"],
         "desc": "Jot a quick note-to-self (scratchpad) while in flow — for things to "
-                "check on after the current work. Faster + lower-friction than a full "
-                "finding/decision: pure metadata, NOT shared, NOT embedded. Notes are "
-                "transaction-scoped, survive context compaction, and surface at "
-                "POSTFLIGHT for triage. Optional tag: followup | doubt | idea. "
-                "Review/clear via CLI: empirica note --list / --clear.",
+        "check on after the current work. Faster + lower-friction than a full "
+        "finding/decision: pure metadata, NOT shared, NOT embedded. Notes are "
+        "transaction-scoped, survive context compaction, and surface at "
+        "POSTFLIGHT for triage. Optional tag: followup | doubt | idea. "
+        "Review/clear via CLI: empirica note --list / --clear.",
     },
     "unknown_log": {
         "cli": "unknown-log",
-        "params": {"unknown": "--unknown", "session_id": "--session-id",
-                   "goal_id": "--goal-id", "task_id": "--task-id", "project_id": "--project-id",
-                   "subject": "--subject", "scope": "--scope",
-                   "entity_type": "--entity-type", "entity_id": "--entity-id", "via": "--via",
-                   "source_ids": "--source", "description": "--description",
-                   "visibility": "--visibility", "epistemic_source": "--epistemic-source"},
+        "params": {
+            "unknown": "--unknown",
+            "session_id": "--session-id",
+            "goal_id": "--goal-id",
+            "task_id": "--task-id",
+            "project_id": "--project-id",
+            "subject": "--subject",
+            "scope": "--scope",
+            "entity_type": "--entity-type",
+            "entity_id": "--entity-id",
+            "via": "--via",
+            "source_ids": "--source",
+            "description": "--description",
+            "visibility": "--visibility",
+            "epistemic_source": "--epistemic-source",
+        },
         "required": ["unknown"],
         "desc": "Log an unknown (what needs investigation). Use description for a rich body.",
         "list_params": ["source_ids"],
     },
     "deadend_log": {
         "cli": "deadend-log",
-        "params": {"approach": "--approach", "why_failed": "--why-failed", "session_id": "--session-id",
-                   "goal_id": "--goal-id", "task_id": "--task-id", "project_id": "--project-id",
-                   "subject": "--subject", "scope": "--scope",
-                   "entity_type": "--entity-type", "entity_id": "--entity-id", "via": "--via",
-                   "source_ids": "--source", "description": "--description",
-                   "visibility": "--visibility", "epistemic_source": "--epistemic-source"},
+        "params": {
+            "approach": "--approach",
+            "why_failed": "--why-failed",
+            "session_id": "--session-id",
+            "goal_id": "--goal-id",
+            "task_id": "--task-id",
+            "project_id": "--project-id",
+            "subject": "--subject",
+            "scope": "--scope",
+            "entity_type": "--entity-type",
+            "entity_id": "--entity-id",
+            "via": "--via",
+            "source_ids": "--source",
+            "description": "--description",
+            "visibility": "--visibility",
+            "epistemic_source": "--epistemic-source",
+        },
         "required": ["approach", "why_failed"],
         "desc": "Log a dead-end (approach that didn't work). Use description for a rich body.",
         "list_params": ["source_ids"],
     },
     "mistake_log": {
         "cli": "mistake-log",
-        "params": {"mistake": "--mistake", "why_wrong": "--why-wrong", "prevention": "--prevention",
-                   "session_id": "--session-id", "goal_id": "--goal-id", "project_id": "--project-id",
-                   "scope": "--scope", "entity_type": "--entity-type", "entity_id": "--entity-id",
-                   "cost_estimate": "--cost-estimate", "root_cause_vector": "--root-cause-vector",
-                   "source_ids": "--source", "description": "--description",
-                   "visibility": "--visibility", "epistemic_source": "--epistemic-source"},
+        "params": {
+            "mistake": "--mistake",
+            "why_wrong": "--why-wrong",
+            "prevention": "--prevention",
+            "session_id": "--session-id",
+            "goal_id": "--goal-id",
+            "project_id": "--project-id",
+            "scope": "--scope",
+            "entity_type": "--entity-type",
+            "entity_id": "--entity-id",
+            "cost_estimate": "--cost-estimate",
+            "root_cause_vector": "--root-cause-vector",
+            "source_ids": "--source",
+            "description": "--description",
+            "visibility": "--visibility",
+            "epistemic_source": "--epistemic-source",
+        },
         "required": ["mistake", "why_wrong", "prevention"],
         "desc": "Log a mistake (error to avoid in future). cost_estimate + root_cause_vector "
-                "capture severity + which vector misfired; description for a rich body.",
+        "capture severity + which vector misfired; description for a rich body.",
         "list_params": ["source_ids"],
     },
     "assumption_log": {
         "cli": "assumption-log",
-        "params": {"assumption": "--assumption", "confidence": "--confidence", "domain": "--domain",
-                   "session_id": "--session-id", "goal_id": "--goal-id", "project_id": "--project-id",
-                   "entity_type": "--entity-type", "entity_id": "--entity-id", "via": "--via",
-                   "source_ids": "--source", "description": "--description",
-                   "visibility": "--visibility", "epistemic_source": "--epistemic-source"},
+        "params": {
+            "assumption": "--assumption",
+            "confidence": "--confidence",
+            "domain": "--domain",
+            "session_id": "--session-id",
+            "goal_id": "--goal-id",
+            "project_id": "--project-id",
+            "entity_type": "--entity-type",
+            "entity_id": "--entity-id",
+            "via": "--via",
+            "source_ids": "--source",
+            "description": "--description",
+            "visibility": "--visibility",
+            "epistemic_source": "--epistemic-source",
+        },
         "required": ["assumption"],
         "desc": "Log an unverified assumption with confidence level. description for a rich body.",
         "list_params": ["source_ids"],
     },
     "decision_log": {
         "cli": "decision-log",
-        "params": {"choice": "--choice", "rationale": "--rationale", "alternatives": "--alternatives",
-                   "reversibility": "--reversibility", "confidence": "--confidence", "domain": "--domain",
-                   "session_id": "--session-id", "goal_id": "--goal-id", "project_id": "--project-id",
-                   "entity_type": "--entity-type", "entity_id": "--entity-id", "via": "--via",
-                   "evidence_refs": "--evidence", "evidence_from": "--evidence-from",
-                   "source_ids": "--source", "description": "--description",
-                   "visibility": "--visibility", "epistemic_source": "--epistemic-source"},
+        "params": {
+            "choice": "--choice",
+            "rationale": "--rationale",
+            "alternatives": "--alternatives",
+            "reversibility": "--reversibility",
+            "confidence": "--confidence",
+            "domain": "--domain",
+            "session_id": "--session-id",
+            "goal_id": "--goal-id",
+            "project_id": "--project-id",
+            "entity_type": "--entity-type",
+            "entity_id": "--entity-id",
+            "via": "--via",
+            "evidence_refs": "--evidence",
+            "evidence_from": "--evidence-from",
+            "source_ids": "--source",
+            "description": "--description",
+            "visibility": "--visibility",
+            "epistemic_source": "--epistemic-source",
+        },
         "required": ["choice", "rationale"],
         "desc": "Log a decision with rationale. Use evidence_refs/evidence_from to link "
-                "supporting findings, source_ids for external sources, description for a rich "
-                "markdown body.",
+        "supporting findings, source_ids for external sources, description for a rich "
+        "markdown body.",
         "list_params": ["evidence_refs", "evidence_from", "source_ids"],
     },
     "source_add": {
         "cli": "source-add",
-        "params": {"title": "--title", "url": "--url", "source_type": "--source-type",
-                   "description": "--description", "session_id": "--session-id"},
+        "params": {
+            "title": "--title",
+            "url": "--url",
+            "source_type": "--source-type",
+            "description": "--description",
+            "session_id": "--session-id",
+        },
         "required": ["title", "source_type"],
         "desc": "Add an epistemic source reference",
     },
     # --- Read-side logging queries (curated coverage; all local, no cortex) ---
     "source_list": {
         "cli": "source-list",
-        "params": {"project_id": "--project-id", "type": "--type",
-                   "direction": "--direction", "include_archived": "--include-archived"},
+        "params": {
+            "project_id": "--project-id",
+            "type": "--type",
+            "direction": "--direction",
+            "include_archived": "--include-archived",
+        },
         "required": [],
         "desc": "List epistemic sources for the project (filter by type/direction).",
     },
@@ -249,7 +322,6 @@ TOOL_REGISTRY: dict[str, dict] = {
         "required": [],
         "desc": "Show epistemic artifact detail for a session (optionally by phase).",
     },
-
     # --- Batch artifact graph (parity with Cortex MCP cortex_log_artifacts/resolve/delete) ---
     "log_artifacts": {
         "cli": "log-artifacts",
@@ -286,7 +358,6 @@ TOOL_REGISTRY: dict[str, dict] = {
         ),
         "stdin_json": True,
     },
-
     # --- Sync (local → cloud propagation via git remote → Cortex git_watcher) ---
     "sync_push": {
         "cli": "sync-push",
@@ -305,7 +376,6 @@ TOOL_REGISTRY: dict[str, dict] = {
         "required": [],
         "desc": "Show sync state — remote configured, last push/pull timestamp, pending local changes.",
     },
-
     # --- Health ---
     "doctor": {
         "cli": "doctor",
@@ -319,24 +389,28 @@ TOOL_REGISTRY: dict[str, dict] = {
             "available — narrow scoped replacement for general exec MCPs."
         ),
     },
-
     # --- Goals ---
     "goals_create": {
         "cli": "goals-create",
-        "params": {"objective": "--objective", "description": "--description",
-                   "session_id": "--session-id", "project_id": "--project-id",
-                   "scope_breadth": "--scope-breadth", "scope_duration": "--scope-duration",
-                   "scope_coordination": "--scope-coordination",
-                   "success_criteria": "--success-criteria",
-                   "estimated_complexity": "--estimated-complexity", "status": "--status"},
+        "params": {
+            "objective": "--objective",
+            "description": "--description",
+            "session_id": "--session-id",
+            "project_id": "--project-id",
+            "scope_breadth": "--scope-breadth",
+            "scope_duration": "--scope-duration",
+            "scope_coordination": "--scope-coordination",
+            "success_criteria": "--success-criteria",
+            "estimated_complexity": "--estimated-complexity",
+            "status": "--status",
+        },
         "required": ["objective"],
         "desc": "Create a new goal. Use description for a rich markdown body (why/success "
-                "criteria/links), scope_* for sizing, status=planned to queue without starting.",
+        "criteria/links), scope_* for sizing, status=planned to queue without starting.",
     },
     "goals_list": {
         "cli": "goals-list",
-        "params": {"session_id": "--session-id", "project_id": "--project-id",
-                   "completed": "--completed"},
+        "params": {"session_id": "--session-id", "project_id": "--project-id", "completed": "--completed"},
         "required": [],
         "desc": "List goals (use --completed to show completed goals)",
     },
@@ -348,8 +422,7 @@ TOOL_REGISTRY: dict[str, dict] = {
     },
     "goals_add_task": {
         "cli": "goals-add-task",
-        "params": {"goal_id": "--goal-id", "description": "--description",
-                   "importance": "--importance"},
+        "params": {"goal_id": "--goal-id", "description": "--description", "importance": "--importance"},
         "required": ["goal_id", "description"],
         "desc": "Add a task to a goal",
     },
@@ -386,8 +459,12 @@ TOOL_REGISTRY: dict[str, dict] = {
     },
     "goals_add_dependency": {
         "cli": "goals-add-dependency",
-        "params": {"goal_id": "--goal-id", "depends_on": "--depends-on",
-                   "type": "--type", "description": "--description"},
+        "params": {
+            "goal_id": "--goal-id",
+            "depends_on": "--depends-on",
+            "type": "--type",
+            "description": "--description",
+        },
         "required": ["goal_id", "depends_on"],
         "desc": "Declare a goal-to-goal dependency.",
     },
@@ -405,8 +482,7 @@ TOOL_REGISTRY: dict[str, dict] = {
     },
     "goals_search": {
         "cli": "goals-search",
-        "params": {"project_id": "--project-id", "status": "--status",
-                   "type": "--type", "limit": "--limit"},
+        "params": {"project_id": "--project-id", "status": "--status", "type": "--type", "limit": "--limit"},
         "required": [],
         "desc": "Search goals (positional query text required)",
         "positional": "query",  # First positional arg
@@ -417,29 +493,30 @@ TOOL_REGISTRY: dict[str, dict] = {
         "required": [],
         "desc": "List goals ready for work (no blockers)",
     },
-
     # --- Unknowns ---
     "unknown_list": {
         "cli": "unknown-list",
-        "params": {"session_id": "--session-id", "project_id": "--project-id",
-                   "subject": "--subject", "limit": "--limit",
-                   "resolved": "--resolved", "all": "--all"},
+        "params": {
+            "session_id": "--session-id",
+            "project_id": "--project-id",
+            "subject": "--subject",
+            "limit": "--limit",
+            "resolved": "--resolved",
+            "all": "--all",
+        },
         "required": [],
         "desc": "List unknowns (open by default, use --resolved or --all)",
     },
     "unknown_resolve": {
         "cli": "unknown-resolve",
-        "params": {"unknown_id": "--unknown-id", "resolved_by": "--resolved-by",
-                   "resolution_finding_id": "--finding"},
+        "params": {"unknown_id": "--unknown-id", "resolved_by": "--resolved-by", "resolution_finding_id": "--finding"},
         "required": ["unknown_id"],
         "desc": "Resolve an unknown. Use resolution_finding_id to link to the finding that answered it.",
     },
-
     # --- Search and memory ---
     "project_search": {
         "cli": "project-search",
-        "params": {"task": "--task", "project_id": "--project-id", "type": "--type",
-                   "limit": "--limit"},
+        "params": {"task": "--task", "project_id": "--project-id", "type": "--type", "limit": "--limit"},
         "required": ["task"],
         "desc": "Semantic search over project knowledge (Qdrant)",
     },
@@ -449,12 +526,10 @@ TOOL_REGISTRY: dict[str, dict] = {
         "required": [],
         "desc": "Embed project artifacts to Qdrant for semantic search",
     },
-
     # --- Calibration and state ---
     "calibration_report": {
         "cli": "calibration-report",
-        "params": {"ai_id": "--ai-id", "weeks": "--weeks",
-                   "trajectory": "--trajectory"},
+        "params": {"ai_id": "--ai-id", "weeks": "--weeks", "trajectory": "--trajectory"},
         "required": [],
         "desc": "Get calibration report with optional trajectory trend",
     },
@@ -470,7 +545,6 @@ TOOL_REGISTRY: dict[str, dict] = {
         "required": [],
         "desc": "Show artifact counts, drift, calibration summary",
     },
-
     # --- Lessons ---
     "lesson_create": {
         "cli": "lesson-create",
@@ -479,7 +553,6 @@ TOOL_REGISTRY: dict[str, dict] = {
         "desc": "Create a reusable lesson (use --input or --json for full data)",
         "stdin_json": True,  # lesson-create accepts JSON via stdin with -
     },
-
     # --- Noetic batch (multi-op investigation in one tool call) ---
     "noetic_batch": {
         "cli": "noetic-batch",
@@ -507,7 +580,6 @@ TOOL_REGISTRY: dict[str, dict] = {
         "required": ["query"],
         "desc": "Search lessons by text",
     },
-
     # --- Issues ---
     "issue_list": {
         "cli": "issue-list",
@@ -517,12 +589,10 @@ TOOL_REGISTRY: dict[str, dict] = {
     },
     "issue_resolve": {
         "cli": "issue-resolve",
-        "params": {"session_id": "--session-id", "issue_id": "--issue-id",
-                   "resolution": "--resolution"},
+        "params": {"session_id": "--session-id", "issue_id": "--issue-id", "resolution": "--resolution"},
         "required": ["session_id", "issue_id", "resolution"],
         "desc": "Resolve an auto-captured issue",
     },
-
     # --- Workflow Patterns ---
     "workflow_patterns": {
         "cli": "workflow-patterns",
@@ -530,7 +600,6 @@ TOOL_REGISTRY: dict[str, dict] = {
         "required": [],
         "desc": "Detect repeated workflow patterns across transactions (tool sequence mining)",
     },
-
     # --- Investigation ---
     "investigate": {
         "cli": "investigate",
@@ -539,17 +608,20 @@ TOOL_REGISTRY: dict[str, dict] = {
         "desc": "Run structured investigation (positional query text)",
         "positional": "query",
     },
-
     # --- Handoff ---
     "handoff_create": {
         "cli": "handoff-create",
-        "params": {"session_id": "--session-id", "task_summary": "--task-summary",
-                   "key_findings": "--key-findings", "remaining_unknowns": "--remaining-unknowns",
-                   "next_session_context": "--next-session-context", "planning_only": "--planning-only"},
+        "params": {
+            "session_id": "--session-id",
+            "task_summary": "--task-summary",
+            "key_findings": "--key-findings",
+            "remaining_unknowns": "--remaining-unknowns",
+            "next_session_context": "--next-session-context",
+            "planning_only": "--planning-only",
+        },
         "required": [],
         "desc": "Create handoff report for session continuation",
     },
-
     # --- Workspace ---
     "workspace_overview": {
         "cli": "workspace-overview",
@@ -563,7 +635,6 @@ TOOL_REGISTRY: dict[str, dict] = {
         "required": [],
         "desc": "Show knowledge map across projects",
     },
-
     # --- Monitor ---
     "monitor": {
         "cli": "monitor",
@@ -571,7 +642,6 @@ TOOL_REGISTRY: dict[str, dict] = {
         "required": [],
         "desc": "Show session monitoring (epistemic health, cost, adapter health)",
     },
-
     # --- Checkpoint ---
     "checkpoint_create": {
         "cli": "checkpoint-create",
@@ -585,28 +655,38 @@ TOOL_REGISTRY: dict[str, dict] = {
         "required": [],
         "desc": "Load a checkpoint",
     },
-
     # --- Docs ---
     # refdoc_add removed in goal 3d6aeb08 Phase 2 — use source_add instead.
     # MCP callers should pass source_type='pointer' to source_add for the
     # same semantics (refdocs migrated to epistemic_sources WHERE
     # source_type='pointer' via migration 046).
-
     # --- Dispatch Bus (cross-instance typed messaging) ---
     "bus_register": {
         "cli": "bus-register",
-        "params": {"instance_id": "--instance-id", "type": "--type",
-                   "capabilities": "--capabilities", "subscribes": "--subscribes"},
+        "params": {
+            "instance_id": "--instance-id",
+            "type": "--type",
+            "capabilities": "--capabilities",
+            "subscribes": "--subscribes",
+        },
         "required": ["instance_id", "type"],
         "desc": "Register this Claude instance in the shared dispatch bus registry. capabilities and subscribes are comma-separated strings.",
     },
     "bus_dispatch": {
         "cli": "bus-dispatch",
-        "params": {"from_instance": "--from", "to_instance": "--to", "action": "--action",
-                   "payload": "--payload", "priority": "--priority", "deadline": "--deadline",
-                   "required_capabilities": "--required-capabilities",
-                   "callback_channel": "--callback-channel", "ttl": "--ttl",
-                   "wait": "--wait", "wait_timeout": "--wait-timeout"},
+        "params": {
+            "from_instance": "--from",
+            "to_instance": "--to",
+            "action": "--action",
+            "payload": "--payload",
+            "priority": "--priority",
+            "deadline": "--deadline",
+            "required_capabilities": "--required-capabilities",
+            "callback_channel": "--callback-channel",
+            "ttl": "--ttl",
+            "wait": "--wait",
+            "wait_timeout": "--wait-timeout",
+        },
         "required": ["to_instance", "action"],
         "desc": "Send a typed dispatch action to another instance. Use to_instance='*' with required_capabilities for capability routing. Payload is JSON string.",
     },
@@ -624,12 +704,10 @@ TOOL_REGISTRY: dict[str, dict] = {
     },
     "bus_poll": {
         "cli": "message-inbox",
-        "params": {"ai_id": "--ai-id", "channel": "--channel", "status": "--status",
-                   "limit": "--limit"},
+        "params": {"ai_id": "--ai-id", "channel": "--channel", "status": "--status", "limit": "--limit"},
         "required": ["ai_id"],
         "desc": "Poll for incoming messages on a channel (default channel: dispatch). Use bus_subscribe equivalent: pass channel='dispatch' for typed dispatches.",
     },
-
     # --- Misc ---
     "memory_compact": {
         "cli": "memory-compact",
@@ -643,7 +721,6 @@ TOOL_REGISTRY: dict[str, dict] = {
         "required": [],
         "desc": "Generate efficiency report for session",
     },
-
     # --- Mesh + addressbook (added 2026-06-03) ---
     "practice_context": {
         "cli": "practice-context",
@@ -663,7 +740,6 @@ TOOL_REGISTRY: dict[str, dict] = {
             "a clear 'cortex config missing' error."
         ),
     },
-
     # --- Temporal trail (added 2026-06-03) ---
     "commit_context": {
         "cli": "commit-context",
@@ -685,7 +761,6 @@ TOOL_REGISTRY: dict[str, dict] = {
             "expands the artifact graph; --full includes payloads."
         ),
     },
-
     # --- Listener facade (added 2026-06-03) ---
     # Listener primitives are GENERIC (work against any ntfy topic) but the
     # canonical orchestration target is cortex's per-org topic. Without
@@ -728,7 +803,6 @@ TOOL_REGISTRY: dict[str, dict] = {
         "required": [],
         "desc": "Emit a TaskStop command for the armed listener + clear state. Inverse of `listener on`/`arm`.",
     },
-
     # --- Loop scheduler (added 2026-06-03) ---
     "loop_register": {
         "cli": "loop register",
@@ -781,7 +855,6 @@ TOOL_REGISTRY: dict[str, dict] = {
         "positional": "name",
         "desc": "Compute the next fire interval per backoff policy + emit a cron_one_shot expression for CronCreate.",
     },
-
     # --- Notify dispatcher (added 2026-06-03) ---
     "notify_emit": {
         "cli": "notify emit",
@@ -805,7 +878,6 @@ TOOL_REGISTRY: dict[str, dict] = {
             "macos, dbus, slack, email — pluggable."
         ),
     },
-
     # --- Mailbox atomic reply (added 2026-06-03) ---
     "mailbox_reply": {
         "cli": "mailbox reply",
@@ -831,7 +903,6 @@ TOOL_REGISTRY: dict[str, dict] = {
             "to collab_brief; result {shipped,failed,wont_fix} on close."
         ),
     },
-
     # --- Mesh health (added 2026-06-03) ---
     # Hybrid: LOCAL layer (systemd + loop_fires.log + loops) works without
     # cortex; CORTEX BRIDGE layer surfaces only when cortex_configured=true.
@@ -856,11 +927,37 @@ TOOL_REGISTRY: dict[str, dict] = {
 # Tool schemas — auto-generated from registry
 # =============================================================================
 
-_NUMERIC_PARAMS = {"impact", "confidence", "estimated_complexity", "limit", "weeks", "count",
-                   "max_age", "deadline", "wait_timeout", "ttl",
-                   "scope_breadth", "scope_duration", "scope_coordination", "cost_estimate"}
-_BOOLEAN_PARAMS = {"grounded", "trajectory", "completed", "resolved", "all", "planning_only",
-                   "turtle", "cost", "health", "wait", "dry_run", "force", "include_archived"}
+_NUMERIC_PARAMS = {
+    "impact",
+    "confidence",
+    "estimated_complexity",
+    "limit",
+    "weeks",
+    "count",
+    "max_age",
+    "deadline",
+    "wait_timeout",
+    "ttl",
+    "scope_breadth",
+    "scope_duration",
+    "scope_coordination",
+    "cost_estimate",
+}
+_BOOLEAN_PARAMS = {
+    "grounded",
+    "trajectory",
+    "completed",
+    "resolved",
+    "all",
+    "planning_only",
+    "turtle",
+    "cost",
+    "health",
+    "wait",
+    "dry_run",
+    "force",
+    "include_archived",
+}
 _ENUM_PARAMS = {
     "reversibility": ["exploratory", "committal", "forced"],
     "scope": ["session", "project", "both"],
@@ -889,8 +986,11 @@ def _build_tool_schema(name: str, entry: dict) -> types.Tool:
     list_params = set(entry.get("list_params", []))
     for param in entry["params"]:
         if param in list_params:
-            properties[param] = {"type": "array", "items": {"type": "string"},
-                                 "description": f"List of {param.replace('_', ' ')}"}
+            properties[param] = {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": f"List of {param.replace('_', ' ')}",
+            }
         elif param in _NUMERIC_PARAMS:
             properties[param] = {"type": "number", "description": param.replace("_", " ").title()}
         elif param in _BOOLEAN_PARAMS:
@@ -907,8 +1007,14 @@ def _build_tool_schema(name: str, entry: dict) -> types.Tool:
         properties["reasoning"] = {"type": "string", "description": "Assessment reasoning"}
         if name == "submit_preflight_assessment":
             properties["task_context"] = {"type": "string", "description": "What you're working on"}
-            properties["work_type"] = {"type": "string", "description": "code|infra|research|debug|docs|comms|design|audit"}
-            properties["work_context"] = {"type": "string", "description": "greenfield|iteration|investigation|refactor"}
+            properties["work_type"] = {
+                "type": "string",
+                "description": "code|infra|research|debug|docs|comms|design|audit",
+            }
+            properties["work_context"] = {
+                "type": "string",
+                "description": "greenfield|iteration|investigation|refactor",
+            }
         if name == "submit_check_assessment":
             properties["decision"] = {"type": "string", "enum": ["proceed", "investigate"]}
 
@@ -935,17 +1041,17 @@ async def list_tools() -> list[types.Tool]:
     """List all available tools."""
     tools = [_build_tool_schema(name, entry) for name, entry in TOOL_REGISTRY.items()]
 
-    tools.append(types.Tool(
-        name="get_empirica_introduction",
-        description="Get introduction to the Empirica epistemic framework",
-        inputSchema={"type": "object", "properties": {}},
-    ))
+    tools.append(
+        types.Tool(
+            name="get_empirica_introduction",
+            description="Get introduction to the Empirica epistemic framework",
+            inputSchema={"type": "object", "properties": {}},
+        )
+    )
     return tools
 
 
-def _build_cli_command(
-    entry: dict, arguments: dict
-) -> tuple[list[str], bytes | None]:
+def _build_cli_command(entry: dict, arguments: dict) -> tuple[list[str], bytes | None]:
     """Build the argv + optional stdin payload for a TOOL_REGISTRY entry.
 
     Two shapes:
@@ -999,6 +1105,7 @@ def _resolve_cwd(arguments: dict) -> str | None:
         return cwd
     try:
         from empirica.utils.session_resolver import get_active_project_path
+
         return get_active_project_path()
     except Exception as e:
         logger.debug(f"get_active_project_path lookup failed: {e}")
@@ -1015,28 +1122,40 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
     """Route tool calls to CLI."""
 
     if name == "get_empirica_introduction":
-        return [types.TextContent(type="text", text=json.dumps({
-            "framework": "Empirica",
-            "purpose": "Measurement and calibration layer for AI — track what it knows, gate what it does",
-            "workflow": "PREFLIGHT → CHECK → work → POSTFLIGHT",
-            "vectors": 13,
-            "docs": "https://github.com/Nubaeon/empirica",
-            "commands": sorted(TOOL_REGISTRY.keys()),
-        }, indent=2))]
+        return [
+            types.TextContent(
+                type="text",
+                text=json.dumps(
+                    {
+                        "framework": "Empirica",
+                        "purpose": "Measurement and calibration layer for AI — track what it knows, gate what it does",
+                        "workflow": "PREFLIGHT → CHECK → work → POSTFLIGHT",
+                        "vectors": 13,
+                        "docs": "https://github.com/Nubaeon/empirica",
+                        "commands": sorted(TOOL_REGISTRY.keys()),
+                    },
+                    indent=2,
+                ),
+            )
+        ]
 
     entry = TOOL_REGISTRY.get(name)
     if not entry:
-        return _err_text({
-            "ok": False,
-            "error": f"Unknown tool: {name}",
-            "available": sorted(TOOL_REGISTRY.keys()),
-        })
+        return _err_text(
+            {
+                "ok": False,
+                "error": f"Unknown tool: {name}",
+                "available": sorted(TOOL_REGISTRY.keys()),
+            }
+        )
 
     if not EMPIRICA_CLI:
-        return _err_text({
-            "ok": False,
-            "error": "empirica CLI not found. Install: pip install empirica",
-        })
+        return _err_text(
+            {
+                "ok": False,
+                "error": "empirica CLI not found. Install: pip install empirica",
+            }
+        )
 
     cmd, stdin_data = _build_cli_command(entry, arguments)
     cwd = _resolve_cwd(arguments)
@@ -1057,26 +1176,31 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             ),
         )
     except subprocess.TimeoutExpired:
-        return _err_text({
-            "ok": False,
-            "error": f"Command timed out ({timeout}s): {entry['cli']}",
-        })
+        return _err_text(
+            {
+                "ok": False,
+                "error": f"Command timed out ({timeout}s): {entry['cli']}",
+            }
+        )
 
     if result.returncode == 0:
         output = result.stdout or result.stderr or '{"ok": true}'
         if len(output) > MAX_OUTPUT:
             output = output[:MAX_OUTPUT] + f"\n\n⚠️ Truncated ({len(output)} chars)"
         return [types.TextContent(type="text", text=output)]
-    return _err_text({
-        "ok": False,
-        "error": result.stderr or result.stdout or "Command failed",
-        "command": entry["cli"],
-    })
+    return _err_text(
+        {
+            "ok": False,
+            "error": result.stderr or result.stdout or "Command failed",
+            "command": entry["cli"],
+        }
+    )
 
 
 # =============================================================================
 # Entry point
 # =============================================================================
+
 
 async def main():
     """Run MCP server via stdio."""
@@ -1099,7 +1223,10 @@ def run():
         try:
             result = subprocess.run(
                 ["git", "rev-parse", "--show-toplevel"],
-                capture_output=True, text=True, timeout=2, check=False,
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=False,
             )
             if result.returncode == 0:
                 git_root = Path(result.stdout.strip())

@@ -33,7 +33,6 @@ SCHEMAS = [
                     parent_project_id TEXT
                 )
     """,
-
     # Schema 2
     """
     CREATE TABLE IF NOT EXISTS project_handoffs (
@@ -54,7 +53,6 @@ SCHEMAS = [
                     FOREIGN KEY (project_id) REFERENCES projects(id)
                 )
     """,
-
     # Schema 3
     """
     CREATE TABLE IF NOT EXISTS handoff_reports (
@@ -80,7 +78,6 @@ SCHEMAS = [
                     FOREIGN KEY (session_id) REFERENCES sessions(session_id)
                 )
     """,
-
     # Schema 4
     """
     CREATE TABLE IF NOT EXISTS project_findings (
@@ -102,7 +99,6 @@ SCHEMAS = [
                     FOREIGN KEY (subtask_id) REFERENCES subtasks(id)
                 )
     """,
-
     # Schema 5
     """
     CREATE TABLE IF NOT EXISTS project_unknowns (
@@ -127,7 +123,6 @@ SCHEMAS = [
                     FOREIGN KEY (subtask_id) REFERENCES subtasks(id)
                 )
     """,
-
     # Schema 6
     """
     CREATE TABLE IF NOT EXISTS project_dead_ends (
@@ -150,13 +145,11 @@ SCHEMAS = [
                     FOREIGN KEY (subtask_id) REFERENCES subtasks(id)
                 )
     """,
-
     # Schema 7 — project_reference_docs table removed in goal 3d6aeb08
     # Phase 3. Data migrated into epistemic_sources(source_type='pointer')
     # via migration 046; CLI dropped via Phase 2 (refdoc-add gone). Migration
     # 047 drops the legacy table from existing DBs. Schema number 7 retained
     # as a comment to preserve sequencing (don't renumber 8+ retrospectively).
-
     # Schema 8
     """
     CREATE TABLE IF NOT EXISTS epistemic_sources (
@@ -205,12 +198,10 @@ SCHEMAS = [
                     FOREIGN KEY (session_id) REFERENCES sessions(session_id)
                 )
     """,
-
     # =========================================================================
     # Epistemic Intent Layer (v0.6.0)
     # Entity-agnostic columns + new artifact tables
     # =========================================================================
-
     # Assumptions: unverified beliefs (noetic) — per-project mirror of workspace table
     """
     CREATE TABLE IF NOT EXISTS assumptions (
@@ -236,7 +227,6 @@ SCHEMAS = [
         FOREIGN KEY (session_id) REFERENCES sessions(session_id)
     )
     """,
-
     # Decisions: recorded choice points (praxic) — per-project
     """
     CREATE TABLE IF NOT EXISTS decisions (
@@ -265,7 +255,6 @@ SCHEMAS = [
         FOREIGN KEY (session_id) REFERENCES sessions(session_id)
     )
     """,
-
     # Beads: v0 coordination-records — RETIRED 2026-06-02 (empirica 1.11.2).
     # Cross-practitioner coordination state moved to cortex-resident SER
     # (Shared Epistemic Record); see empirica-cortex SHARED_EPISTEMIC_RECORD.md.
@@ -303,7 +292,6 @@ SCHEMAS = [
         FOREIGN KEY (session_id) REFERENCES sessions(session_id)
     )
     """,
-
     # Indexes for new tables (non-migration-dependent columns only)
     "CREATE INDEX IF NOT EXISTS idx_assumptions_entity ON assumptions(entity_type, entity_id)",
     "CREATE INDEX IF NOT EXISTS idx_assumptions_status ON assumptions(status)",
@@ -313,7 +301,6 @@ SCHEMAS = [
     "CREATE INDEX IF NOT EXISTS idx_beads_coordination_state ON beads(coordination_state)",
     "CREATE INDEX IF NOT EXISTS idx_beads_beads_issue_id ON beads(beads_issue_id)",
     "CREATE INDEX IF NOT EXISTS idx_beads_transaction ON beads(transaction_id)",
-
     # Indexes for existing tables (non-migration-dependent columns only)
     "CREATE INDEX IF NOT EXISTS idx_project_findings_project ON project_findings(project_id)",
     "CREATE INDEX IF NOT EXISTS idx_project_findings_session ON project_findings(session_id)",
@@ -335,23 +322,18 @@ ENTITY_MIGRATION_STATEMENTS = [
     "ALTER TABLE project_findings ADD COLUMN entity_type TEXT DEFAULT 'project'",
     "ALTER TABLE project_findings ADD COLUMN entity_id TEXT",
     "UPDATE project_findings SET entity_id = project_id WHERE entity_id IS NULL",
-
     "ALTER TABLE project_unknowns ADD COLUMN entity_type TEXT DEFAULT 'project'",
     "ALTER TABLE project_unknowns ADD COLUMN entity_id TEXT",
     "UPDATE project_unknowns SET entity_id = project_id WHERE entity_id IS NULL",
-
     "ALTER TABLE project_dead_ends ADD COLUMN entity_type TEXT DEFAULT 'project'",
     "ALTER TABLE project_dead_ends ADD COLUMN entity_id TEXT",
     "UPDATE project_dead_ends SET entity_id = project_id WHERE entity_id IS NULL",
-
     "ALTER TABLE mistakes_made ADD COLUMN entity_type TEXT DEFAULT 'project'",
     "ALTER TABLE mistakes_made ADD COLUMN entity_id TEXT",
     "UPDATE mistakes_made SET entity_id = project_id WHERE entity_id IS NULL",
-
     "ALTER TABLE epistemic_sources ADD COLUMN entity_type TEXT DEFAULT 'project'",
     "ALTER TABLE epistemic_sources ADD COLUMN entity_id TEXT",
     "UPDATE epistemic_sources SET entity_id = project_id WHERE entity_id IS NULL",
-
     "ALTER TABLE goals ADD COLUMN entity_type TEXT DEFAULT 'project'",
     "ALTER TABLE goals ADD COLUMN entity_id TEXT",
     "UPDATE goals SET entity_id = project_id WHERE entity_id IS NULL",

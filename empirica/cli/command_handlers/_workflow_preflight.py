@@ -42,52 +42,64 @@ def _preflight_parse_and_validate(args):
     if config_data:
         validated, error = safe_validate(config_data, PreflightInput)
         if error:
-            print(json.dumps({
-                "ok": False,
-                "error": f"Invalid input: {error}",
-                "hint": "Required: session_id (str), vectors (dict with know, uncertainty)"
-            }))
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": f"Invalid input: {error}",
+                        "hint": "Required: session_id (str), vectors (dict with know, uncertainty)",
+                    }
+                )
+            )
             sys.exit(1)
         session_id = validated.session_id
         vectors = validated.vectors
-        reasoning = validated.reasoning or ''
-        task_context = validated.task_context or ''
-        work_context = getattr(validated, 'work_context', None)
-        work_type = getattr(validated, 'work_type', None)
-        domain = getattr(validated, 'domain', None)
-        criticality = getattr(validated, 'criticality', None)
-        predicted_check_outcomes = getattr(validated, 'predicted_check_outcomes', None)
-        voice = getattr(validated, 'voice', None)
-        retrospective_reason = getattr(validated, 'retrospective_reason', None)
+        reasoning = validated.reasoning or ""
+        task_context = validated.task_context or ""
+        work_context = getattr(validated, "work_context", None)
+        work_type = getattr(validated, "work_type", None)
+        domain = getattr(validated, "domain", None)
+        criticality = getattr(validated, "criticality", None)
+        predicted_check_outcomes = getattr(validated, "predicted_check_outcomes", None)
+        voice = getattr(validated, "voice", None)
+        retrospective_reason = getattr(validated, "retrospective_reason", None)
     else:
         session_id = args.session_id
         vectors = parse_json_safely(args.vectors) if isinstance(args.vectors, str) else args.vectors
         reasoning = args.reasoning
-        task_context = getattr(args, 'task_context', '') or ''
+        task_context = getattr(args, "task_context", "") or ""
         work_context = None
         work_type = None
         domain = None
         criticality = None
         predicted_check_outcomes = None
-        voice = getattr(args, 'voice', None)
-        retrospective_reason = getattr(args, 'retrospective_reason', None)
+        voice = getattr(args, "voice", None)
+        retrospective_reason = getattr(args, "retrospective_reason", None)
 
         if not session_id or not vectors:
-            print(json.dumps({
-                "ok": False,
-                "error": "Legacy mode requires --session-id and --vectors flags",
-                "hint": "For AI-first mode, use: empirica preflight-submit config.json"
-            }))
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": "Legacy mode requires --session-id and --vectors flags",
+                        "hint": "For AI-first mode, use: empirica preflight-submit config.json",
+                    }
+                )
+            )
             sys.exit(1)
 
-        legacy_data = {'session_id': session_id, 'vectors': vectors, 'reasoning': reasoning}
+        legacy_data = {"session_id": session_id, "vectors": vectors, "reasoning": reasoning}
         validated, error = safe_validate(legacy_data, PreflightInput)
         if error:
-            print(json.dumps({
-                "ok": False,
-                "error": f"Invalid vectors: {error}",
-                "hint": "Vectors must include 'know' and 'uncertainty' (0.0-1.0)"
-            }))
+            print(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "error": f"Invalid vectors: {error}",
+                        "hint": "Vectors must include 'know' and 'uncertainty' (0.0-1.0)",
+                    }
+                )
+            )
             sys.exit(1)
         vectors = validated.vectors
 
@@ -109,6 +121,7 @@ def _preflight_parse_and_validate(args):
         "output_format": output_format,
     }
 
+
 def _preflight_check_unclosed_transaction():
     """Check for unclosed transaction and return warning dict or None.
 
@@ -118,19 +131,20 @@ def _preflight_check_unclosed_transaction():
 
     try:
         existing_tx = R.transaction_read()
-        if existing_tx and existing_tx.get('status') == 'open':
-            existing_tx_id = existing_tx.get('transaction_id', 'unknown')
-            existing_tx_time = existing_tx.get('preflight_timestamp', 0)
+        if existing_tx and existing_tx.get("status") == "open":
+            existing_tx_id = existing_tx.get("transaction_id", "unknown")
+            existing_tx_time = existing_tx.get("preflight_timestamp", 0)
             age_minutes = int((time.time() - existing_tx_time) / 60) if existing_tx_time else 0
             return {
                 "previous_transaction_id": existing_tx_id[:12] + "...",
                 "age_minutes": age_minutes,
                 "message": "Previous transaction was not closed with POSTFLIGHT. Learning delta from that work is lost. Run POSTFLIGHT before PREFLIGHT to measure learning.",
-                "impact": "Unmeasured work = epistemic dark matter. Calibration cannot improve without POSTFLIGHT."
+                "impact": "Unmeasured work = epistemic dark matter. Calibration cannot improve without POSTFLIGHT.",
             }
     except Exception:
         pass  # Non-fatal — proceed with new transaction
     return None
+
 
 def _preflight_create_checkpoint(session_id, vectors, reasoning, transaction_id):
     """Create GitEnhancedReflexLogger checkpoint for PREFLIGHT.
@@ -142,7 +156,7 @@ def _preflight_create_checkpoint(session_id, vectors, reasoning, transaction_id)
 
     logger_instance = GitEnhancedReflexLogger(
         session_id=session_id,
-        enable_git_notes=True  # Enable git notes for cross-AI features
+        enable_git_notes=True,  # Enable git notes for cross-AI features
     )
 
     return logger_instance.add_checkpoint(
@@ -151,9 +165,10 @@ def _preflight_create_checkpoint(session_id, vectors, reasoning, transaction_id)
         metadata={
             "reasoning": reasoning,
             "prompt": reasoning or "Preflight assessment",
-            "transaction_id": transaction_id
-        }
+            "transaction_id": transaction_id,
+        },
     )
+
 
 def _preflight_enrich_transaction_file(resolved_project_path, parsed):
     """Inject work parameters and cascade profile into the transaction file. Non-fatal."""
@@ -170,31 +185,37 @@ def _preflight_enrich_transaction_file(resolved_project_path, parsed):
 
     try:
         suffix = R.instance_suffix()
-        tx_file = Path(resolved_project_path) / '.empirica' / f'active_transaction{suffix}.json'
+        tx_file = Path(resolved_project_path) / ".empirica" / f"active_transaction{suffix}.json"
         if not tx_file.exists():
             logger.warning(f"Transaction file not found for enrichment: {tx_file}")
             return
 
         with open(tx_file) as f:
             tx_d = _json.load(f)
-        for key, val in [('work_context', work_context), ('work_type', work_type),
-                         ('domain', domain), ('criticality', criticality),
-                         ('predicted_check_outcomes', predicted_check_outcomes)]:
+        for key, val in [
+            ("work_context", work_context),
+            ("work_type", work_type),
+            ("domain", domain),
+            ("criticality", criticality),
+            ("predicted_check_outcomes", predicted_check_outcomes),
+        ]:
             if val:
                 tx_d[key] = val
 
         from empirica.config.threshold_loader import ThresholdLoader
-        selected_profile = ThresholdLoader.select_profile_for_work(
-            work_type=work_type, work_context=work_context
-        )
-        tx_d['cascade_profile'] = selected_profile
-        with open(tx_file, 'w') as f:
+
+        selected_profile = ThresholdLoader.select_profile_for_work(work_type=work_type, work_context=work_context)
+        tx_d["cascade_profile"] = selected_profile
+        with open(tx_file, "w") as f:
             _json.dump(tx_d, f, indent=2)
         logger.debug(f"Transaction enriched: work_type={work_type}, domain={domain}, criticality={criticality}")
-        if selected_profile != 'default':
-            logger.info(f"Cascade profile: {selected_profile} (from work_type={work_type}, work_context={work_context})")
+        if selected_profile != "default":
+            logger.info(
+                f"Cascade profile: {selected_profile} (from work_type={work_type}, work_context={work_context})"
+            )
     except Exception as e:
         logger.warning(f"Transaction enrichment failed: {e}")
+
 
 def _preflight_write_transaction_file(session_id, transaction_id, parsed):
     """Persist active transaction file and enrich with work parameters.
@@ -206,8 +227,8 @@ def _preflight_write_transaction_file(session_id, transaction_id, parsed):
     from empirica.utils.session_resolver import update_active_context
 
     context = R.context()
-    claude_session_id = context.get('claude_session_id')
-    resolved_project_path = context.get('project_path') or R.project_path(claude_session_id)
+    claude_session_id = context.get("claude_session_id")
+    resolved_project_path = context.get("project_path") or R.project_path(claude_session_id)
     if not resolved_project_path:
         logger.warning("Cannot determine project_path for transaction file - no context found")
         return None
@@ -217,7 +238,7 @@ def _preflight_write_transaction_file(session_id, transaction_id, parsed):
         session_id=session_id,
         preflight_timestamp=time.time(),
         status="open",
-        project_path=resolved_project_path
+        project_path=resolved_project_path,
     )
 
     _preflight_enrich_transaction_file(resolved_project_path, parsed)
@@ -226,9 +247,7 @@ def _preflight_write_transaction_file(session_id, transaction_id, parsed):
     # This ensures sentinel reads the SAME session_id that PREFLIGHT wrote to
     if claude_session_id:
         update_active_context(
-            claude_session_id=claude_session_id,
-            empirica_session_id=session_id,
-            project_path=resolved_project_path
+            claude_session_id=claude_session_id, empirica_session_id=session_id, project_path=resolved_project_path
         )
 
     # AUTONOMY CALIBRATION: Calculate avg_turns from past transactions
@@ -236,6 +255,7 @@ def _preflight_write_transaction_file(session_id, transaction_id, parsed):
     _preflight_inject_avg_turns(session_id, resolved_project_path)
 
     return resolved_project_path
+
 
 def _preflight_inject_avg_turns(session_id, resolved_project_path):
     """Calculate avg_turns from past transactions and inject into transaction file."""
@@ -248,14 +268,17 @@ def _preflight_inject_avg_turns(session_id, resolved_project_path):
         avg_db = SessionDatabase()
         avg_cursor = avg_db.conn.cursor()
         # Query past POSTFLIGHT reflex_data for tool_call_count
-        avg_cursor.execute("""
+        avg_cursor.execute(
+            """
             SELECT json_extract(reflex_data, '$.tool_call_count')
             FROM reflexes
             WHERE session_id = ? AND phase = 'POSTFLIGHT'
               AND json_extract(reflex_data, '$.tool_call_count') IS NOT NULL
             ORDER BY timestamp DESC
             LIMIT 20
-        """, (session_id,))
+        """,
+            (session_id,),
+        )
         past_counts = [row[0] for row in avg_cursor.fetchall() if row[0] and row[0] > 0]
         avg_db.close()
 
@@ -267,17 +290,19 @@ def _preflight_inject_avg_turns(session_id, resolved_project_path):
         # Update the transaction file with avg_turns
         tx_data = R.transaction_read()
         if tx_data:
-            tx_data['avg_turns'] = avg_turns
+            tx_data["avg_turns"] = avg_turns
             suffix = R.instance_suffix()
-            tx_path = Path(resolved_project_path) / '.empirica' / f'active_transaction{suffix}.json'
+            tx_path = Path(resolved_project_path) / ".empirica" / f"active_transaction{suffix}.json"
             if tx_path.exists():
                 import tempfile as _tempfile
+
                 fd, tmp = _tempfile.mkstemp(dir=str(tx_path.parent))
-                with os.fdopen(fd, 'w') as tf:
+                with os.fdopen(fd, "w") as tf:
                     _json.dump(tx_data, tf, indent=2)
                 os.replace(tmp, str(tx_path))
     except Exception as e_avg:
         logger.debug(f"Avg turns calculation failed (non-fatal): {e_avg}")
+
 
 def _preflight_publish_bus_event(session_id, transaction_id, vectors, task_context, work_type, work_context):
     """Wire persistent observers and publish PREFLIGHT event on the epistemic bus.
@@ -291,22 +316,26 @@ def _preflight_publish_bus_event(session_id, transaction_id, vectors, task_conte
             EventTypes,
             get_global_bus,
         )
+
         wire_persistent_observers(session_id=session_id)
         bus = get_global_bus()
-        bus.publish(EpistemicEvent(
-            event_type=EventTypes.PREFLIGHT_COMPLETE,
-            agent_id="claude-code",
-            session_id=session_id,
-            data={
-                "transaction_id": transaction_id,
-                "vectors": vectors,
-                "task_context": task_context,
-                "work_type": work_type,
-                "work_context": work_context,
-            },
-        ))
+        bus.publish(
+            EpistemicEvent(
+                event_type=EventTypes.PREFLIGHT_COMPLETE,
+                agent_id="claude-code",
+                session_id=session_id,
+                data={
+                    "transaction_id": transaction_id,
+                    "vectors": vectors,
+                    "task_context": task_context,
+                    "work_type": work_type,
+                    "work_context": work_context,
+                },
+            )
+        )
     except Exception as e:
         logger.debug(f"Bus publish (PREFLIGHT) failed (non-fatal): {e}")
+
 
 def _preflight_load_calibration(db, session_id):
     """Load Bayesian calibration adjustments and project_id from DB.
@@ -316,7 +345,7 @@ def _preflight_load_calibration(db, session_id):
     """
     calibration_adjustments = {}
     calibration_report = None
-    ai_id = 'unknown'
+    ai_id = "unknown"
 
     # BAYESIAN CALIBRATION: Load calibration adjustments based on historical performance
     # This informs the AI about its known biases from past sessions
@@ -327,9 +356,9 @@ def _preflight_load_calibration(db, session_id):
         cursor = db.conn.cursor()
         cursor.execute("SELECT ai_id FROM sessions WHERE session_id = ?", (session_id,))
         row = cursor.fetchone()
-        ai_id = row[0] if row else 'unknown'
+        ai_id = row[0] if row else "unknown"
 
-        if ai_id != 'unknown':
+        if ai_id != "unknown":
             belief_manager = BayesianBeliefManager(db)
             calibration_adjustments = belief_manager.get_calibration_adjustments(ai_id)
             calibration_report = belief_manager.get_calibration_report(ai_id)
@@ -356,66 +385,74 @@ def _preflight_load_calibration(db, session_id):
         "project_id": project_id,
     }
 
+
 def _feedback_extract_retrospective(cursor, session_id):
     """Extract behavioral feedback from last POSTFLIGHT retrospective.
 
     Returns (feedback_dict, pf_meta) or (None, None) if no retrospective found.
     """
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT reflex_data FROM reflexes
         WHERE session_id = ? AND phase = 'POSTFLIGHT'
         ORDER BY timestamp DESC LIMIT 1
-    """, (session_id,))
+    """,
+        (session_id,),
+    )
     pf_row = cursor.fetchone()
     if not (pf_row and pf_row[0]):
         return None, None
 
     pf_meta = json.loads(pf_row[0]) if isinstance(pf_row[0], str) else pf_row[0]
-    retro = pf_meta.get('retrospective', {})
+    retro = pf_meta.get("retrospective", {})
     feedback = {}
 
-    artifact_counts = retro.get('artifact_counts', {})
+    artifact_counts = retro.get("artifact_counts", {})
     missing = [k for k, v in artifact_counts.items() if v == 0] if artifact_counts else []
     if missing:
         feedback["artifact_gaps"] = missing
 
-    if retro.get('breadth_note'):
-        feedback["breadth_warning"] = retro['breadth_note']
-    if retro.get('edge_density_note'):
-        feedback["edge_density_warning"] = retro['edge_density_note']
-    if retro.get('sources_discipline_note'):
-        feedback["sources_discipline_warning"] = retro['sources_discipline_note']
-    if retro.get('commit_warning'):
-        feedback["commit_discipline"] = retro['commit_warning']
+    if retro.get("breadth_note"):
+        feedback["breadth_warning"] = retro["breadth_note"]
+    if retro.get("edge_density_note"):
+        feedback["edge_density_warning"] = retro["edge_density_note"]
+    if retro.get("sources_discipline_note"):
+        feedback["sources_discipline_warning"] = retro["sources_discipline_note"]
+    if retro.get("commit_warning"):
+        feedback["commit_discipline"] = retro["commit_warning"]
 
-    cs = pf_meta.get('context_shifts')
-    if cs and cs.get('unsolicited_prompts', 0) > 0:
+    cs = pf_meta.get("context_shifts")
+    if cs and cs.get("unsolicited_prompts", 0) > 0:
         feedback["context_shifts"] = (
             f"{cs['unsolicited_prompts']} unsolicited context shift(s) in previous transaction."
         )
 
     return feedback, pf_meta
 
+
 def _feedback_collect_suggestions(cursor, session_id, project_id, retro_meta):
     """Collect actionable suggestions from behavioral gaps. Returns list of strings."""
     if not retro_meta:
         return []
 
-    retro = retro_meta.get('retrospective', {})
-    artifact_counts = retro.get('artifact_counts', {})
+    retro = retro_meta.get("retrospective", {})
+    artifact_counts = retro.get("artifact_counts", {})
     missing = [k for k, v in artifact_counts.items() if v == 0] if artifact_counts else []
 
     suggestions = []
     if missing and len(missing) >= 4:
         suggestions.append("Load /epistemic-transaction for artifact discipline guidance")
-    if retro.get('commit_warning'):
+    if retro.get("commit_warning"):
         suggestions.append("Commit per task — don't batch to end")
 
     try:
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT COUNT(*) FROM project_unknowns
             WHERE session_id = ? AND is_resolved = 0
-        """, (session_id,))
+        """,
+            (session_id,),
+        )
         open_unknowns = cursor.fetchone()[0]
         if open_unknowns >= 3:
             suggestions.append(f"{open_unknowns} unresolved unknowns — run: empirica unknown-list")
@@ -424,11 +461,14 @@ def _feedback_collect_suggestions(cursor, session_id, project_id, retro_meta):
 
     try:
         if project_id:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT COUNT(*) FROM goals
                 WHERE session_id IN (SELECT session_id FROM sessions WHERE project_id = ?)
                 AND status = 'in_progress'
-            """, (project_id,))
+            """,
+                (project_id,),
+            )
             active_goals = cursor.fetchone()[0]
             if active_goals == 0:
                 suggestions.append("No active goals — run: empirica goals-create --objective '...'")
@@ -436,6 +476,7 @@ def _feedback_collect_suggestions(cursor, session_id, project_id, retro_meta):
         pass
 
     return suggestions
+
 
 def _feedback_compute_calibration_trend(cursor, ai_id, project_id):
     """Compute calibration trend from recent grounded verifications.
@@ -446,7 +487,8 @@ def _feedback_compute_calibration_trend(cursor, ai_id, project_id):
         return None
     try:
         # grounded_verifications has no project_id column — join through sessions.
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT gv.overall_calibration_score
             FROM grounded_verifications gv
             JOIN sessions s ON gv.session_id = s.session_id
@@ -454,7 +496,9 @@ def _feedback_compute_calibration_trend(cursor, ai_id, project_id):
             AND gv.overall_calibration_score IS NOT NULL
             AND gv.overall_calibration_score > 0
             ORDER BY gv.created_at DESC LIMIT 10
-        """, (ai_id, project_id))
+        """,
+            (ai_id, project_id),
+        )
         recent_scores = [r[0] for r in cursor.fetchall()]
         if len(recent_scores) < 3:
             return None
@@ -469,10 +513,12 @@ def _feedback_compute_calibration_trend(cursor, ai_id, project_id):
     except Exception:
         return None
 
+
 # Work types where zero artifacts is expected, not a discipline gap. `release`
 # is a scripted mechanical pipeline (all evidence is excluded from its
 # calibration anyway). Extend deliberately.
-_RETROSPECTIVE_GATE_EXEMPT_WORK_TYPES = frozenset({'release'})
+_RETROSPECTIVE_GATE_EXEMPT_WORK_TYPES = frozenset({"release"})
+
 
 def _feedback_count_untriaged_notes(cursor, session_id, pf_meta):
     """Count untriaged scratchpad notes for the previous transaction.
@@ -482,11 +528,10 @@ def _feedback_count_untriaged_notes(cursor, session_id, pf_meta):
     older DBs. Returns 0 on any error.
     """
     try:
-        prev_tx = (pf_meta or {}).get('transaction_id')
+        prev_tx = (pf_meta or {}).get("transaction_id")
         if prev_tx:
             row = cursor.execute(
-                "SELECT COUNT(*) FROM notes WHERE session_id = ? AND "
-                "transaction_id = ? AND triaged = 0",
+                "SELECT COUNT(*) FROM notes WHERE session_id = ? AND transaction_id = ? AND triaged = 0",
                 (session_id, prev_tx),
             ).fetchone()
         else:
@@ -499,8 +544,7 @@ def _feedback_count_untriaged_notes(cursor, session_id, pf_meta):
         return 0
 
 
-def _feedback_compute_retrospective_gate(pf_meta, retrospective_reason,
-                                         untriaged_note_count=0):
+def _feedback_compute_retrospective_gate(pf_meta, retrospective_reason, untriaged_note_count=0):
     """The retrospective soft-gate (Piece 2, Part C).
 
     A breather between transactions. Fires at PREFLIGHT ONLY on the narrow,
@@ -522,21 +566,21 @@ def _feedback_compute_retrospective_gate(pf_meta, retrospective_reason,
 
     Returns a gate dict, or None when it should not fire.
     """
-    if os.environ.get('EMPIRICA_RETROSPECTIVE_GATE', 'true').lower() != 'true':
+    if os.environ.get("EMPIRICA_RETROSPECTIVE_GATE", "true").lower() != "true":
         return None
     if not pf_meta:
         return None
 
-    work_type = pf_meta.get('work_type')
+    work_type = pf_meta.get("work_type")
     # Unknown work_type can't be judged; exempt mechanical pipelines.
     if not work_type or work_type in _RETROSPECTIVE_GATE_EXEMPT_WORK_TYPES:
         return None
 
-    phase_tool_counts = pf_meta.get('phase_tool_counts') or {}
-    praxic_calls = phase_tool_counts.get('praxic_tool_calls', 0) or 0
+    phase_tool_counts = pf_meta.get("phase_tool_counts") or {}
+    praxic_calls = phase_tool_counts.get("praxic_tool_calls", 0) or 0
 
-    retro = pf_meta.get('retrospective') or {}
-    counts = retro.get('artifact_counts') or {}
+    retro = pf_meta.get("retrospective") or {}
+    counts = retro.get("artifact_counts") or {}
     artifact_total = sum(v for v in counts.values() if isinstance(v, (int, float)))
 
     # The high-signal pattern: real praxic activity, nothing logged.
@@ -582,8 +626,8 @@ def _feedback_compute_retrospective_gate(pf_meta, retrospective_reason,
         )
     return gate
 
-def _preflight_collect_behavioral_feedback(db, session_id, ai_id, project_id,
-                                           retrospective_reason=None):
+
+def _preflight_collect_behavioral_feedback(db, session_id, ai_id, project_id, retrospective_reason=None):
     """Pull discipline observations from last POSTFLIGHT.
 
     Vectors are beliefs about epistemic state -- deterministic services inform
@@ -593,13 +637,11 @@ def _preflight_collect_behavioral_feedback(db, session_id, ai_id, project_id,
     Returns feedback dict or None.
     """
 
-    calibration_feedback_enabled = os.environ.get(
-        'EMPIRICA_CALIBRATION_FEEDBACK', 'true'
-    ).lower() == 'true'
+    calibration_feedback_enabled = os.environ.get("EMPIRICA_CALIBRATION_FEEDBACK", "true").lower() == "true"
 
     previous_transaction_feedback = None
     try:
-        if not (calibration_feedback_enabled and ai_id and ai_id != 'unknown'):
+        if not (calibration_feedback_enabled and ai_id and ai_id != "unknown"):
             return None
 
         cursor = db.conn.cursor()
@@ -625,9 +667,7 @@ def _preflight_collect_behavioral_feedback(db, session_id, ai_id, project_id,
         #    Note-aware: count the prior transaction's untriaged notes (partial
         #    credit — intent captured even if not yet structured).
         note_count = _feedback_count_untriaged_notes(cursor, session_id, pf_meta)
-        gate = _feedback_compute_retrospective_gate(
-            pf_meta, retrospective_reason, untriaged_note_count=note_count
-        )
+        gate = _feedback_compute_retrospective_gate(pf_meta, retrospective_reason, untriaged_note_count=note_count)
         if gate:
             if previous_transaction_feedback is None:
                 previous_transaction_feedback = {}
@@ -648,22 +688,28 @@ def _preflight_collect_behavioral_feedback(db, session_id, ai_id, project_id,
 
     return previous_transaction_feedback
 
+
 def _preflight_get_last_session_ts(db, project_id, session_id):
     """Get the last session timestamp for adaptive pattern retrieval depth."""
     try:
         cursor = db.conn.cursor()
         # sessions has no updated_at column; start_time is the ISO-8601 row time.
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT MAX(start_time) FROM sessions
             WHERE project_id = ? AND session_id != ?
-        """, (project_id, session_id))
+        """,
+            (project_id, session_id),
+        )
         row = cursor.fetchone()
         if row and row[0]:
             from datetime import datetime
-            return datetime.fromisoformat(row[0].replace('Z', '+00:00')).timestamp()
+
+            return datetime.fromisoformat(row[0].replace("Z", "+00:00")).timestamp()
     except Exception:
         pass
     return None
+
 
 def _preflight_persist_pattern_count(patterns, resolved_project_path):
     """Persist pattern count in the transaction file for context evidence. Non-fatal."""
@@ -672,20 +718,19 @@ def _preflight_persist_pattern_count(patterns, resolved_project_path):
     try:
         import json as _pjson
         from pathlib import Path
-        pattern_count = sum(
-            len(v) for k, v in patterns.items()
-            if isinstance(v, list) and k != 'time_gap'
-        )
+
+        pattern_count = sum(len(v) for k, v in patterns.items() if isinstance(v, list) and k != "time_gap")
         suffix = R.instance_suffix()
-        tx_file = Path(resolved_project_path) / '.empirica' / f'active_transaction{suffix}.json'
+        tx_file = Path(resolved_project_path) / ".empirica" / f"active_transaction{suffix}.json"
         if tx_file.exists():
             with open(tx_file) as f:
                 tx_d = _pjson.load(f)
-            tx_d['preflight_pattern_count'] = pattern_count
-            with open(tx_file, 'w') as f:
+            tx_d["preflight_pattern_count"] = pattern_count
+            with open(tx_file, "w") as f:
                 _pjson.dump(tx_d, f, indent=2)
     except Exception:
         pass
+
 
 def _preflight_retrieve_patterns(db, session_id, project_id, task_context, reasoning, vectors, resolved_project_path):
     """Load relevant patterns based on task_context or reasoning.
@@ -703,25 +748,31 @@ def _preflight_retrieve_patterns(db, session_id, project_id, task_context, reaso
         last_session_ts = _preflight_get_last_session_ts(db, project_id, session_id)
 
         patterns = retrieve_task_patterns(
-            project_id, search_context,
+            project_id,
+            search_context,
             last_session_timestamp=last_session_ts,
-            include_eidetic=True, include_episodic=True,
-            include_related_docs=True, include_goals=True,
-            include_assumptions=True, include_decisions=True,
+            include_eidetic=True,
+            include_episodic=True,
+            include_related_docs=True,
+            include_goals=True,
+            include_assumptions=True,
+            include_decisions=True,
             vectors=vectors,
         )
-        if patterns and any(v for k, v in patterns.items() if k != 'time_gap'):
-            time_gap = patterns.get('time_gap', {})
-            gap_note = time_gap.get('note', '') if time_gap else ''
-            logger.debug(f"Retrieved patterns ({gap_note}): {len(patterns.get('lessons', []))} lessons, "
-                       f"{len(patterns.get('dead_ends', []))} dead_ends, "
-                       f"{len(patterns.get('relevant_findings', []))} findings, "
-                       f"{len(patterns.get('eidetic_facts', []))} eidetic, "
-                       f"{len(patterns.get('episodic_narratives', []))} episodic, "
-                       f"{len(patterns.get('related_docs', []))} docs, "
-                       f"{len(patterns.get('related_goals', []))} goals, "
-                       f"{len(patterns.get('unverified_assumptions', []))} assumptions, "
-                       f"{len(patterns.get('prior_decisions', []))} decisions")
+        if patterns and any(v for k, v in patterns.items() if k != "time_gap"):
+            time_gap = patterns.get("time_gap", {})
+            gap_note = time_gap.get("note", "") if time_gap else ""
+            logger.debug(
+                f"Retrieved patterns ({gap_note}): {len(patterns.get('lessons', []))} lessons, "
+                f"{len(patterns.get('dead_ends', []))} dead_ends, "
+                f"{len(patterns.get('relevant_findings', []))} findings, "
+                f"{len(patterns.get('eidetic_facts', []))} eidetic, "
+                f"{len(patterns.get('episodic_narratives', []))} episodic, "
+                f"{len(patterns.get('related_docs', []))} docs, "
+                f"{len(patterns.get('related_goals', []))} goals, "
+                f"{len(patterns.get('unverified_assumptions', []))} assumptions, "
+                f"{len(patterns.get('prior_decisions', []))} decisions"
+            )
 
         _preflight_persist_pattern_count(patterns, resolved_project_path)
         return patterns
@@ -729,10 +780,19 @@ def _preflight_retrieve_patterns(db, session_id, project_id, task_context, reaso
         logger.debug(f"Pattern retrieval failed (optional): {e}")
         return None
 
-def _preflight_build_result(session_id, transaction_id, calibration_adjustments,
-                            calibration_report, previous_transaction_feedback,
-                            sentinel_decision, patterns, unclosed_transaction_warning,
-                            work_type=None, voice=None):
+
+def _preflight_build_result(
+    session_id,
+    transaction_id,
+    calibration_adjustments,
+    calibration_report,
+    previous_transaction_feedback,
+    sentinel_decision,
+    patterns,
+    unclosed_transaction_warning,
+    work_type=None,
+    voice=None,
+):
     """Assemble the final PREFLIGHT result dict."""
     result: dict = {
         "ok": True,
@@ -740,16 +800,18 @@ def _preflight_build_result(session_id, transaction_id, calibration_adjustments,
         "transaction_id": transaction_id,
         "learning_trajectory": {
             "typical_deltas": calibration_adjustments if calibration_adjustments else None,
-            "total_observations": calibration_report.get('total_evidence', 0) if calibration_report else 0,
-            "summary": _remap_trajectory_summary(
-                calibration_report.get('calibration_summary')
-            ) if calibration_report else None,
-            "note": "INFORMATIONAL: How your vectors typically change (PREFLIGHT->POSTFLIGHT deltas). NOT accuracy corrections."
-        } if calibration_adjustments or calibration_report else None,
+            "total_observations": calibration_report.get("total_evidence", 0) if calibration_report else 0,
+            "summary": _remap_trajectory_summary(calibration_report.get("calibration_summary"))
+            if calibration_report
+            else None,
+            "note": "INFORMATIONAL: How your vectors typically change (PREFLIGHT->POSTFLIGHT deltas). NOT accuracy corrections.",
+        }
+        if calibration_adjustments or calibration_report
+        else None,
         "previous_transaction_feedback": previous_transaction_feedback,
         "sentinel": sentinel_decision.value if sentinel_decision else None,
         "patterns": patterns if patterns and any(patterns.values()) else None,
-        "unclosed_transaction_warning": unclosed_transaction_warning
+        "unclosed_transaction_warning": unclosed_transaction_warning,
     }
     noetic_guidance = _build_noetic_guidance(work_type)
     if noetic_guidance is not None:
@@ -758,6 +820,7 @@ def _preflight_build_result(session_id, transaction_id, calibration_adjustments,
     if voice_guidance is not None:
         result["voice_guidance"] = voice_guidance
     return result
+
 
 def handle_preflight_submit_command(args):
     """Handle preflight-submit command - AI-first with config file support"""
@@ -781,43 +844,39 @@ def handle_preflight_submit_command(args):
             transaction_id = str(uuid.uuid4())
 
             # Stage 3a: Write checkpoint to 3-layer storage
-            checkpoint_id = _preflight_create_checkpoint(
-                session_id, vectors, reasoning, transaction_id
-            )
+            checkpoint_id = _preflight_create_checkpoint(session_id, vectors, reasoning, transaction_id)
 
             # Stage 3b: Persist transaction file
             resolved_project_path = None
             try:
-                resolved_project_path = _preflight_write_transaction_file(
-                    session_id, transaction_id, parsed
-                )
+                resolved_project_path = _preflight_write_transaction_file(session_id, transaction_id, parsed)
             except Exception as e:
                 logger.debug(f"Active transaction file write failed (non-fatal): {e}")
 
             # Stage 4: Sentinel hook
-            sentinel_decision = _invoke_sentinel_hook("PREFLIGHT", session_id, {
-                "vectors": vectors,
-                "reasoning": reasoning,
-                "checkpoint_id": checkpoint_id
-            })
+            sentinel_decision = _invoke_sentinel_hook(
+                "PREFLIGHT", session_id, {"vectors": vectors, "reasoning": reasoning, "checkpoint_id": checkpoint_id}
+            )
 
             # Stage 5: Create DB transaction record
             db = _get_db_for_session(session_id)
             cascade_id = str(uuid.uuid4())
             now = time.time()
 
-            db.conn.execute("""
+            db.conn.execute(
+                """
                 INSERT INTO cascades
                 (cascade_id, session_id, task, started_at)
                 VALUES (?, ?, ?, ?)
-            """, (cascade_id, session_id, "PREFLIGHT assessment", now))
+            """,
+                (cascade_id, session_id, "PREFLIGHT assessment", now),
+            )
 
             db.conn.commit()
 
             # Stage 6: Publish bus event
             _preflight_publish_bus_event(
-                session_id, transaction_id, vectors, task_context,
-                parsed["work_type"], parsed["work_context"]
+                session_id, transaction_id, vectors, task_context, parsed["work_type"], parsed["work_context"]
             )
 
             # Stage 7: Load calibration and project metadata
@@ -825,24 +884,30 @@ def handle_preflight_submit_command(args):
 
             # Stage 8: Collect behavioral feedback from last transaction
             previous_transaction_feedback = _preflight_collect_behavioral_feedback(
-                db, session_id, cal["ai_id"], cal["project_id"],
+                db,
+                session_id,
+                cal["ai_id"],
+                cal["project_id"],
                 retrospective_reason=parsed.get("retrospective_reason"),
             )
 
             # Stage 9: Retrieve patterns for task context
             patterns = _preflight_retrieve_patterns(
-                db, session_id, cal["project_id"], task_context,
-                reasoning, vectors, resolved_project_path
+                db, session_id, cal["project_id"], task_context, reasoning, vectors, resolved_project_path
             )
 
             db.close()
 
             # Stage 10: Build result
             result = _preflight_build_result(
-                session_id, transaction_id,
-                cal["calibration_adjustments"], cal["calibration_report"],
-                previous_transaction_feedback, sentinel_decision,
-                patterns, unclosed_transaction_warning,
+                session_id,
+                transaction_id,
+                cal["calibration_adjustments"],
+                cal["calibration_report"],
+                previous_transaction_feedback,
+                sentinel_decision,
+                patterns,
+                unclosed_transaction_warning,
                 work_type=parsed.get("work_type"),
                 voice=parsed.get("voice"),
             )
@@ -856,15 +921,15 @@ def handle_preflight_submit_command(args):
                 "message": f"Failed to save PREFLIGHT assessment: {e!s}",
                 "vectors_submitted": 0,
                 "persisted": False,
-                "error": str(e)
+                "error": str(e),
             }
 
         # Format output (AI-first = JSON by default)
-        if output_format == 'json':
+        if output_format == "json":
             print(json.dumps(result, indent=2))
         else:
             # Human-readable output (legacy)
-            if result['ok']:
+            if result["ok"]:
                 print("✅ PREFLIGHT assessment submitted successfully")
                 print(f"   Session: {session_id[:8]}...")
                 print(f"   Vectors: {len(vectors)} submitted")
@@ -878,4 +943,4 @@ def handle_preflight_submit_command(args):
         return None
 
     except Exception as e:
-        handle_cli_error(e, "Preflight submit", getattr(args, 'verbose', False))
+        handle_cli_error(e, "Preflight submit", getattr(args, "verbose", False))

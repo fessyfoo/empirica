@@ -62,14 +62,16 @@ class EpistemicSnapshotProvider:
         """
         self.db = db or SessionDatabase()
 
-    def create_snapshot_from_session(self,
-                                    session_id: str,
-                                    context_summary: ContextSummary | None = None,
-                                    context_summary_text: str | None = None,
-                                    semantic_tags: dict | None = None,
-                                    evidence_refs: list[str] | None = None,
-                                    cascade_phase: str | None = None,
-                                    domain_vectors: dict[str, dict[str, float]] | None = None) -> EpistemicStateSnapshot:
+    def create_snapshot_from_session(
+        self,
+        session_id: str,
+        context_summary: ContextSummary | None = None,
+        context_summary_text: str | None = None,
+        semantic_tags: dict | None = None,
+        evidence_refs: list[str] | None = None,
+        cascade_phase: str | None = None,
+        domain_vectors: dict[str, dict[str, float]] | None = None,
+    ) -> EpistemicStateSnapshot:
         """
         Create epistemic snapshot from current session state
 
@@ -100,9 +102,7 @@ class EpistemicSnapshotProvider:
         # Build context summary if not provided
         if context_summary is None:
             context_summary = ContextSummary(
-                semantic=semantic_tags or {},
-                narrative=context_summary_text or "",
-                evidence_refs=evidence_refs or []
+                semantic=semantic_tags or {}, narrative=context_summary_text or "", evidence_refs=evidence_refs or []
             )
 
         # Get previous snapshot for delta calculation
@@ -115,9 +115,9 @@ class EpistemicSnapshotProvider:
             temp_snapshot = EpistemicStateSnapshot(
                 snapshot_id="temp",
                 session_id=session_id,
-                ai_id=session['ai_id'],
+                ai_id=session["ai_id"],
                 timestamp=datetime.now().isoformat(),
-                vectors=vectors
+                vectors=vectors,
             )
             delta = temp_snapshot.calculate_delta(previous_snapshot)
             previous_snapshot_id = previous_snapshot.snapshot_id
@@ -135,7 +135,7 @@ class EpistemicSnapshotProvider:
         snapshot = EpistemicStateSnapshot(
             snapshot_id=str(uuid.uuid4()),
             session_id=session_id,
-            ai_id=session['ai_id'],
+            ai_id=session["ai_id"],
             timestamp=datetime.now().isoformat(),
             cascade_phase=cascade_phase,
             vectors=vectors,
@@ -149,7 +149,7 @@ class EpistemicSnapshotProvider:
             compression_ratio=compression_ratio,
             fidelity_score=self._estimate_fidelity(vectors, context_summary),
             information_loss_estimate=self._estimate_information_loss(compression_ratio),
-            transfer_count=0  # New snapshot, no transfers yet
+            transfer_count=0,  # New snapshot, no transfers yet
         )
 
         return snapshot
@@ -168,7 +168,8 @@ class EpistemicSnapshotProvider:
         if snapshot.context_summary:
             context_summary_json = json.dumps(snapshot.context_summary.to_dict())
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO epistemic_snapshots (
                 snapshot_id, session_id, ai_id, timestamp,
                 cascade_phase, cascade_id, vectors, delta, previous_snapshot_id,
@@ -177,28 +178,30 @@ class EpistemicSnapshotProvider:
                 compression_ratio, information_loss_estimate, fidelity_score,
                 transfer_count, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            snapshot.snapshot_id,
-            snapshot.session_id,
-            snapshot.ai_id,
-            snapshot.timestamp,
-            snapshot.cascade_phase,
-            snapshot.cascade_id,
-            json.dumps(snapshot.vectors),
-            json.dumps(snapshot.delta) if snapshot.delta else None,
-            snapshot.previous_snapshot_id,
-            context_summary_json,
-            json.dumps(snapshot.context_summary.evidence_refs) if snapshot.context_summary else None,
-            snapshot.db_session_ref,
-            json.dumps(snapshot.domain_vectors) if snapshot.domain_vectors else None,
-            snapshot.original_context_tokens,
-            snapshot.snapshot_tokens,
-            snapshot.compression_ratio,
-            snapshot.information_loss_estimate,
-            snapshot.fidelity_score,
-            snapshot.transfer_count,
-            snapshot.created_at
-        ))
+        """,
+            (
+                snapshot.snapshot_id,
+                snapshot.session_id,
+                snapshot.ai_id,
+                snapshot.timestamp,
+                snapshot.cascade_phase,
+                snapshot.cascade_id,
+                json.dumps(snapshot.vectors),
+                json.dumps(snapshot.delta) if snapshot.delta else None,
+                snapshot.previous_snapshot_id,
+                context_summary_json,
+                json.dumps(snapshot.context_summary.evidence_refs) if snapshot.context_summary else None,
+                snapshot.db_session_ref,
+                json.dumps(snapshot.domain_vectors) if snapshot.domain_vectors else None,
+                snapshot.original_context_tokens,
+                snapshot.snapshot_tokens,
+                snapshot.compression_ratio,
+                snapshot.information_loss_estimate,
+                snapshot.fidelity_score,
+                snapshot.transfer_count,
+                snapshot.created_at,
+            ),
+        )
 
         self.db.conn.commit()
 
@@ -206,29 +209,35 @@ class EpistemicSnapshotProvider:
         try:
             from empirica.integration.empirica_action_hooks import EmpiricaActionHooks
 
-            EmpiricaActionHooks.update_snapshot_status({
-                "snapshot_id": snapshot.snapshot_id,
-                "session_id": snapshot.session_id,
-                "ai_id": snapshot.ai_id,
-                "cascade_phase": snapshot.cascade_phase,
-                "vectors": snapshot.vectors,
-                "delta": snapshot.delta,
-                "original_context_tokens": snapshot.original_context_tokens,
-                "snapshot_tokens": snapshot.snapshot_tokens,
-                "compression_ratio": snapshot.compression_ratio,
-                "fidelity_score": snapshot.fidelity_score,
-                "information_loss_estimate": snapshot.information_loss_estimate,
-                "transfer_count": snapshot.transfer_count,
-                "reliability": snapshot.estimate_memory_reliability(),
-                "should_refresh": snapshot.should_refresh(),
-                "refresh_reason": snapshot.get_refresh_reason() if snapshot.should_refresh() else None,
-                "created_at": snapshot.created_at
-            })
+            EmpiricaActionHooks.update_snapshot_status(
+                {
+                    "snapshot_id": snapshot.snapshot_id,
+                    "session_id": snapshot.session_id,
+                    "ai_id": snapshot.ai_id,
+                    "cascade_phase": snapshot.cascade_phase,
+                    "vectors": snapshot.vectors,
+                    "delta": snapshot.delta,
+                    "original_context_tokens": snapshot.original_context_tokens,
+                    "snapshot_tokens": snapshot.snapshot_tokens,
+                    "compression_ratio": snapshot.compression_ratio,
+                    "fidelity_score": snapshot.fidelity_score,
+                    "information_loss_estimate": snapshot.information_loss_estimate,
+                    "transfer_count": snapshot.transfer_count,
+                    "reliability": snapshot.estimate_memory_reliability(),
+                    "should_refresh": snapshot.should_refresh(),
+                    "refresh_reason": snapshot.get_refresh_reason() if snapshot.should_refresh() else None,
+                    "created_at": snapshot.created_at,
+                }
+            )
         except Exception:
             pass  # Action hooks are optional
 
         import sys
-        print(f"📸 Snapshot saved: {snapshot.snapshot_id} (compression: {snapshot.compression_ratio:.1%})", file=sys.stderr)
+
+        print(
+            f"📸 Snapshot saved: {snapshot.snapshot_id} (compression: {snapshot.compression_ratio:.1%})",
+            file=sys.stderr,
+        )
 
     def get_latest_snapshot(self, session_id: str) -> EpistemicStateSnapshot | None:
         """
@@ -241,12 +250,15 @@ class EpistemicSnapshotProvider:
             Latest EpistemicStateSnapshot or None
         """
         cursor = self.db.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT * FROM epistemic_snapshots
             WHERE session_id = ?
             ORDER BY created_at DESC
             LIMIT 1
-        """, (session_id,))
+        """,
+            (session_id,),
+        )
 
         row = cursor.fetchone()
         if not row:
@@ -265,10 +277,13 @@ class EpistemicSnapshotProvider:
             EpistemicStateSnapshot or None
         """
         cursor = self.db.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT * FROM epistemic_snapshots
             WHERE snapshot_id = ?
-        """, (snapshot_id,))
+        """,
+            (snapshot_id,),
+        )
 
         row = cursor.fetchone()
         if not row:
@@ -288,12 +303,15 @@ class EpistemicSnapshotProvider:
             List of EpistemicStateSnapshot (newest first)
         """
         cursor = self.db.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT * FROM epistemic_snapshots
             WHERE session_id = ?
             ORDER BY created_at DESC
             LIMIT ?
-        """, (session_id, limit))
+        """,
+            (session_id, limit),
+        )
 
         return [self._row_to_snapshot(row) for row in cursor.fetchall()]
 
@@ -311,7 +329,7 @@ class EpistemicSnapshotProvider:
         path = Path(filepath)
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(path, 'w') as f:
+        with open(path, "w") as f:
             f.write(snapshot.to_json())
 
         print(f"📤 Snapshot exported: {filepath}")
@@ -352,19 +370,19 @@ class EpistemicSnapshotProvider:
         """
         # Map database column names to vector names
         vector_mapping = {
-            'epistemic_humility': 'KNOW',  # Approximate mapping
-            'cognitive_flexibility': 'DO',
-            'metacognitive_awareness': 'CONTEXT',
-            'uncertainty_acknowledgment': 'UNCERTAINTY',
-            'knowledge_boundary_recognition': 'CLARITY',
-            'contextual_sensitivity': 'COHERENCE',
-            'evidence_based_reasoning': 'SIGNAL',
-            'confidence_calibration': 'DENSITY',
-            'recursive_self_improvement': 'STATE',
-            'assumption_tracking': 'CHANGE',
-            'error_detection_sensitivity': 'COMPLETION',
-            'ambiguity_tolerance': 'IMPACT',
-            'explicit_uncertainty': 'ENGAGEMENT'
+            "epistemic_humility": "KNOW",  # Approximate mapping
+            "cognitive_flexibility": "DO",
+            "metacognitive_awareness": "CONTEXT",
+            "uncertainty_acknowledgment": "UNCERTAINTY",
+            "knowledge_boundary_recognition": "CLARITY",
+            "contextual_sensitivity": "COHERENCE",
+            "evidence_based_reasoning": "SIGNAL",
+            "confidence_calibration": "DENSITY",
+            "recursive_self_improvement": "STATE",
+            "assumption_tracking": "CHANGE",
+            "error_detection_sensitivity": "COMPLETION",
+            "ambiguity_tolerance": "IMPACT",
+            "explicit_uncertainty": "ENGAGEMENT",
         }
 
         vectors = {}
@@ -376,19 +394,19 @@ class EpistemicSnapshotProvider:
     def _get_default_vectors(self) -> dict[str, float]:
         """Get default 13 vectors (neutral state)"""
         return {
-            'ENGAGEMENT': 0.5,
-            'KNOW': 0.5,
-            'DO': 0.5,
-            'CONTEXT': 0.5,
-            'CLARITY': 0.5,
-            'COHERENCE': 0.5,
-            'SIGNAL': 0.5,
-            'DENSITY': 0.5,
-            'STATE': 0.5,
-            'CHANGE': 0.5,
-            'COMPLETION': 0.5,
-            'IMPACT': 0.5,
-            'UNCERTAINTY': 0.5
+            "ENGAGEMENT": 0.5,
+            "KNOW": 0.5,
+            "DO": 0.5,
+            "CONTEXT": 0.5,
+            "CLARITY": 0.5,
+            "COHERENCE": 0.5,
+            "SIGNAL": 0.5,
+            "DENSITY": 0.5,
+            "STATE": 0.5,
+            "CHANGE": 0.5,
+            "COMPLETION": 0.5,
+            "IMPACT": 0.5,
+            "UNCERTAINTY": 0.5,
         }
 
     def _estimate_original_context_tokens(self, session_id: str) -> int:
@@ -415,10 +433,9 @@ class EpistemicSnapshotProvider:
         total_tokens = session_metadata_tokens + (cascade_count * per_cascade_tokens)
         return total_tokens
 
-    def _estimate_snapshot_tokens(self,
-                                  vectors: dict[str, float],
-                                  context_summary: ContextSummary | None,
-                                  domain_vectors: dict | None) -> int:
+    def _estimate_snapshot_tokens(
+        self, vectors: dict[str, float], context_summary: ContextSummary | None, domain_vectors: dict | None
+    ) -> int:
         """
         Estimate snapshot token count
 
@@ -440,9 +457,7 @@ class EpistemicSnapshotProvider:
 
         return tokens
 
-    def _estimate_fidelity(self,
-                          vectors: dict[str, float],
-                          context_summary: ContextSummary | None) -> float:
+    def _estimate_fidelity(self, vectors: dict[str, float], context_summary: ContextSummary | None) -> float:
         """
         Estimate snapshot fidelity (how well it represents original context)
 
@@ -499,34 +514,34 @@ class EpistemicSnapshotProvider:
         row_dict = dict(row)
 
         # Parse JSON fields
-        vectors = json.loads(row_dict['vectors'])
-        delta = json.loads(row_dict['delta']) if row_dict.get('delta') else None
-        domain_vectors = json.loads(row_dict['domain_vectors']) if row_dict.get('domain_vectors') else None
+        vectors = json.loads(row_dict["vectors"])
+        delta = json.loads(row_dict["delta"]) if row_dict.get("delta") else None
+        domain_vectors = json.loads(row_dict["domain_vectors"]) if row_dict.get("domain_vectors") else None
 
         # Parse context summary
         context_summary = None
-        if row_dict.get('context_summary'):
-            context_summary_data = json.loads(row_dict['context_summary'])
+        if row_dict.get("context_summary"):
+            context_summary_data = json.loads(row_dict["context_summary"])
             context_summary = ContextSummary.from_dict(context_summary_data)
 
         return EpistemicStateSnapshot(
-            snapshot_id=row_dict['snapshot_id'],
-            session_id=row_dict['session_id'],
-            ai_id=row_dict['ai_id'],
-            timestamp=row_dict['timestamp'],
-            cascade_phase=row_dict.get('cascade_phase'),
-            cascade_id=row_dict.get('cascade_id'),
+            snapshot_id=row_dict["snapshot_id"],
+            session_id=row_dict["session_id"],
+            ai_id=row_dict["ai_id"],
+            timestamp=row_dict["timestamp"],
+            cascade_phase=row_dict.get("cascade_phase"),
+            cascade_id=row_dict.get("cascade_id"),
             vectors=vectors,
             delta=delta,
-            previous_snapshot_id=row_dict.get('previous_snapshot_id'),
+            previous_snapshot_id=row_dict.get("previous_snapshot_id"),
             context_summary=context_summary,
-            db_session_ref=row_dict['db_session_ref'],
+            db_session_ref=row_dict["db_session_ref"],
             domain_vectors=domain_vectors,
-            original_context_tokens=row_dict['original_context_tokens'],
-            snapshot_tokens=row_dict['snapshot_tokens'],
-            compression_ratio=row_dict['compression_ratio'],
-            information_loss_estimate=row_dict['information_loss_estimate'],
-            fidelity_score=row_dict['fidelity_score'],
-            transfer_count=row_dict['transfer_count'],
-            created_at=row_dict['created_at']
+            original_context_tokens=row_dict["original_context_tokens"],
+            snapshot_tokens=row_dict["snapshot_tokens"],
+            compression_ratio=row_dict["compression_ratio"],
+            information_loss_estimate=row_dict["information_loss_estimate"],
+            fidelity_score=row_dict["fidelity_score"],
+            transfer_count=row_dict["transfer_count"],
+            created_at=row_dict["created_at"],
         )

@@ -33,8 +33,8 @@ def clean_service_registry():
 # SPEC 1 Part 8: Integration checkpoint tests
 # ---------------------------------------------------------------------------
 
-class TestWave1Integration:
 
+class TestWave1Integration:
     def test_domain_registry_loads_builtin_domains(self):
         """A1 baseline: the 4 shipped domains load without a project file."""
         reg = DomainRegistry()
@@ -167,8 +167,8 @@ class TestWave1Integration:
 # End-to-end compliance flow
 # ---------------------------------------------------------------------------
 
-class TestEndToEndComplianceFlow:
 
+class TestEndToEndComplianceFlow:
     def test_cybersec_high_with_mixed_results(self):
         """Full flow: cybersec/high runs 5 checks, some pass some fail."""
         import time
@@ -179,31 +179,52 @@ class TestEndToEndComplianceFlow:
         # Register fake security checks that fail
         def failing_semgrep(ctx):
             from empirica.config.service_registry import CheckResult
-            return CheckResult("semgrep_full", False, {"findings": 1},
-                             "1 critical finding", 100, time.time())
+
+            return CheckResult("semgrep_full", False, {"findings": 1}, "1 critical finding", 100, time.time())
 
         def passing_trivy(ctx):
             from empirica.config.service_registry import CheckResult
-            return CheckResult("trivy_deps", True, {},
-                             "0 vulnerabilities", 50, time.time())
+
+            return CheckResult("trivy_deps", True, {}, "0 vulnerabilities", 50, time.time())
 
         def passing_gitleaks(ctx):
             from empirica.config.service_registry import CheckResult
-            return CheckResult("gitleaks", True, {},
-                             "no secrets found", 30, time.time())
 
-        ServiceRegistry.register(CheckDeclaration(
-            "semgrep_full", "semgrep", (("code", "cybersec"),),
-            "No critical SAST findings", failing_semgrep, 120, ("security",),
-        ))
-        ServiceRegistry.register(CheckDeclaration(
-            "trivy_deps", "trivy", (("code", "cybersec"),),
-            "No dep vulnerabilities", passing_trivy, 120, ("security",),
-        ))
-        ServiceRegistry.register(CheckDeclaration(
-            "gitleaks", "gitleaks", (("code", "cybersec"),),
-            "No hardcoded secrets", passing_gitleaks, 120, ("security",),
-        ))
+            return CheckResult("gitleaks", True, {}, "no secrets found", 30, time.time())
+
+        ServiceRegistry.register(
+            CheckDeclaration(
+                "semgrep_full",
+                "semgrep",
+                (("code", "cybersec"),),
+                "No critical SAST findings",
+                failing_semgrep,
+                120,
+                ("security",),
+            )
+        )
+        ServiceRegistry.register(
+            CheckDeclaration(
+                "trivy_deps",
+                "trivy",
+                (("code", "cybersec"),),
+                "No dep vulnerabilities",
+                passing_trivy,
+                120,
+                ("security",),
+            )
+        )
+        ServiceRegistry.register(
+            CheckDeclaration(
+                "gitleaks",
+                "gitleaks",
+                (("code", "cybersec"),),
+                "No hardcoded secrets",
+                passing_gitleaks,
+                120,
+                ("security",),
+            )
+        )
 
         result = run_compliance_checks(
             session_id="e2e-test",
@@ -226,8 +247,8 @@ class TestEndToEndComplianceFlow:
 # Backward compatibility
 # ---------------------------------------------------------------------------
 
-class TestBackwardCompat:
 
+class TestBackwardCompat:
     def test_no_domain_no_compliance_block(self):
         """Legacy: without domain/criticality, compliance loop returns None."""
         result = run_compliance_checks(

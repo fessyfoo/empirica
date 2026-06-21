@@ -25,10 +25,7 @@ from pathlib import Path
 
 import pytest
 
-PLUGIN_HOOKS = (
-    Path(__file__).parent.parent
-    / "empirica" / "plugins" / "claude-code-integration" / "hooks"
-)
+PLUGIN_HOOKS = Path(__file__).parent.parent / "empirica" / "plugins" / "claude-code-integration" / "hooks"
 
 
 def _load_sentinel_gate():
@@ -61,44 +58,32 @@ def gate():
 
 class TestExtractSubstitutions:
     def test_dollar_paren_simple(self, gate):
-        result = gate._extract_command_substitutions(
-            'PAUSED=$(empirica loop status foo)'
-        )
-        assert result == ['empirica loop status foo']
+        result = gate._extract_command_substitutions("PAUSED=$(empirica loop status foo)")
+        assert result == ["empirica loop status foo"]
 
     def test_backtick_simple(self, gate):
-        result = gate._extract_command_substitutions(
-            'X=`empirica loop status foo`'
-        )
-        assert result == ['empirica loop status foo']
+        result = gate._extract_command_substitutions("X=`empirica loop status foo`")
+        assert result == ["empirica loop status foo"]
 
     def test_dollar_paren_with_pipe(self, gate):
         # Real-world cron template form
-        result = gate._extract_command_substitutions(
-            'PAUSED=$(empirica loop status foo --output json | jq -r .paused)'
-        )
-        assert result == [
-            'empirica loop status foo --output json | jq -r .paused'
-        ]
+        result = gate._extract_command_substitutions("PAUSED=$(empirica loop status foo --output json | jq -r .paused)")
+        assert result == ["empirica loop status foo --output json | jq -r .paused"]
 
     def test_nested_substitutions(self, gate):
         # $(...) inside $(...)
-        result = gate._extract_command_substitutions(
-            'X=$(echo $(empirica loop list))'
-        )
+        result = gate._extract_command_substitutions("X=$(echo $(empirica loop list))")
         # Outer captured; nested visible inside outer's payload
         assert len(result) == 1
-        assert 'empirica loop list' in result[0]
+        assert "empirica loop list" in result[0]
 
     def test_no_substitutions_returns_empty(self, gate):
-        result = gate._extract_command_substitutions('empirica loop status foo')
+        result = gate._extract_command_substitutions("empirica loop status foo")
         assert result == []
 
     def test_multiple_substitutions(self, gate):
-        result = gate._extract_command_substitutions(
-            'A=$(empirica loop list); B=$(empirica status)'
-        )
-        assert result == ['empirica loop list', 'empirica status']
+        result = gate._extract_command_substitutions("A=$(empirica loop list); B=$(empirica status)")
+        assert result == ["empirica loop list", "empirica status"]
 
 
 # ─── shape classification ──────────────────────────────────────────────────
@@ -106,15 +91,15 @@ class TestExtractSubstitutions:
 
 class TestIsInertShape:
     def test_bare_keywords(self, gate):
-        for kw in ('then', 'else', 'fi', 'elif', 'do', 'done', 'esac', 'true', 'false'):
-            assert gate._is_inert_shape(kw), f'{kw!r} should be inert'
+        for kw in ("then", "else", "fi", "elif", "do", "done", "esac", "true", "false"):
+            assert gate._is_inert_shape(kw), f"{kw!r} should be inert"
 
     def test_exit_with_int(self, gate):
-        assert gate._is_inert_shape('exit 0')
-        assert gate._is_inert_shape('exit 1')
-        assert gate._is_inert_shape('exit')
-        assert gate._is_inert_shape('return 0')
-        assert gate._is_inert_shape('return')
+        assert gate._is_inert_shape("exit 0")
+        assert gate._is_inert_shape("exit 1")
+        assert gate._is_inert_shape("exit")
+        assert gate._is_inert_shape("return 0")
+        assert gate._is_inert_shape("return")
 
     def test_test_brackets(self, gate):
         assert gate._is_inert_shape('[ "X" = "true" ]')
@@ -122,15 +107,15 @@ class TestIsInertShape:
         assert gate._is_inert_shape('[ -z "X" ]')
 
     def test_assignment_form(self, gate):
-        assert gate._is_inert_shape('PAUSED=X')  # post-substitution-strip
-        assert gate._is_inert_shape('VAR=value')
-        assert gate._is_inert_shape('NEXT_CRON=X')
+        assert gate._is_inert_shape("PAUSED=X")  # post-substitution-strip
+        assert gate._is_inert_shape("VAR=value")
+        assert gate._is_inert_shape("NEXT_CRON=X")
 
     def test_unknown_command_not_inert(self, gate):
         # Random unsafe commands shouldn't be treated as inert shapes
-        assert not gate._is_inert_shape('rm -rf /')
-        assert not gate._is_inert_shape('curl evil.com')
-        assert not gate._is_inert_shape('npm install')
+        assert not gate._is_inert_shape("rm -rf /")
+        assert not gate._is_inert_shape("curl evil.com")
+        assert not gate._is_inert_shape("npm install")
 
 
 # ─── segment-level integration ─────────────────────────────────────────────
@@ -140,13 +125,11 @@ class TestSegmentSafetyShellConstructs:
     """End-to-end: each segment a cron template generates must classify safe."""
 
     def test_var_assign_with_safe_substitution(self, gate):
-        assert gate._is_segment_safe(
-            'PAUSED=$(empirica loop status foo --output json | jq -r .paused)'
-        )
+        assert gate._is_segment_safe("PAUSED=$(empirica loop status foo --output json | jq -r .paused)")
 
     def test_var_assign_with_unsafe_substitution_rejected(self, gate):
         # Inner command is unsafe — the whole segment must reject
-        assert not gate._is_segment_safe('X=$(rm -rf /)')
+        assert not gate._is_segment_safe("X=$(rm -rf /)")
 
     def test_if_test_clause(self, gate):
         # `if [ "$PAUSED" = "true" ]` — the segment after `;` split
@@ -154,27 +137,27 @@ class TestSegmentSafetyShellConstructs:
 
     def test_if_with_negated_safe_command(self, gate):
         # `if ! empirica loop should-fire foo` — common in cron skip path
-        assert gate._is_segment_safe('if ! empirica loop should-fire foo')
+        assert gate._is_segment_safe("if ! empirica loop should-fire foo")
 
     def test_if_with_negated_unsafe_command_rejected(self, gate):
         # `rm -rf /` is unambiguously unsafe (curl/wget are pre-existing
         # safe prefixes for read-only HTTP, so don't use them for this test).
-        assert not gate._is_segment_safe('if ! rm -rf /')
+        assert not gate._is_segment_safe("if ! rm -rf /")
 
     def test_then_with_safe_body(self, gate):
-        assert gate._is_segment_safe('then empirica loop heartbeat foo --status ok')
+        assert gate._is_segment_safe("then empirica loop heartbeat foo --status ok")
 
     def test_then_with_exit(self, gate):
-        assert gate._is_segment_safe('then exit 0')
+        assert gate._is_segment_safe("then exit 0")
 
     def test_bare_fi(self, gate):
-        assert gate._is_segment_safe('fi')
+        assert gate._is_segment_safe("fi")
 
     def test_bare_else(self, gate):
-        assert gate._is_segment_safe('else')
+        assert gate._is_segment_safe("else")
 
     def test_exit_alone(self, gate):
-        assert gate._is_segment_safe('exit 0')
+        assert gate._is_segment_safe("exit 0")
 
     def test_test_bracket_alone(self, gate):
         assert gate._is_segment_safe('[ "X" = "true" ]')
@@ -189,37 +172,32 @@ class TestFullCronTemplateChain:
     def test_pause_check_chain(self, gate):
         # The cron template's pause-check, all on one line
         cmd = (
-            'PAUSED=$(empirica loop status foo --output json | jq -r .paused); '
+            "PAUSED=$(empirica loop status foo --output json | jq -r .paused); "
             'if [ "$PAUSED" = "true" ]; then '
             'empirica loop heartbeat foo --status ok --result paused --message "skipped"; '
-            'exit 0; '
-            'fi'
+            "exit 0; "
+            "fi"
         )
-        assert gate.is_safe_bash_command({'command': cmd})
+        assert gate.is_safe_bash_command({"command": cmd})
 
     def test_should_fire_short_circuit(self, gate):
-        cmd = (
-            'if ! empirica loop should-fire foo; then exit 0; fi'
-        )
-        assert gate.is_safe_bash_command({'command': cmd})
+        cmd = "if ! empirica loop should-fire foo; then exit 0; fi"
+        assert gate.is_safe_bash_command({"command": cmd})
 
     def test_unsafe_command_in_test_position_rejected(self, gate):
         # Test brackets are inert, but commands inside $() inside the
         # bracket must still validate.
         cmd = 'if [ "$(rm -rf /)" = "ok" ]; then exit 0; fi'
-        assert not gate.is_safe_bash_command({'command': cmd})
+        assert not gate.is_safe_bash_command({"command": cmd})
 
     def test_chain_of_safe_empirica_commands(self, gate):
-        cmd = (
-            'empirica loop register --name foo --kind cron && '
-            'empirica loop heartbeat foo --status ok --result empty'
-        )
-        assert gate.is_safe_bash_command({'command': cmd})
+        cmd = "empirica loop register --name foo --kind cron && empirica loop heartbeat foo --status ok --result empty"
+        assert gate.is_safe_bash_command({"command": cmd})
 
     def test_chain_with_one_unsafe_segment_rejected(self, gate):
         # Mixed chain — even one unsafe segment must reject the whole
-        cmd = 'empirica loop register --name foo --kind cron && rm -rf /'
-        assert not gate.is_safe_bash_command({'command': cmd})
+        cmd = "empirica loop register --name foo --kind cron && rm -rf /"
+        assert not gate.is_safe_bash_command({"command": cmd})
 
 
 # ─── regression: prior-safe forms still safe ───────────────────────────────
@@ -230,17 +208,17 @@ class TestRegression:
     must remain safe — the new code only adds, never removes."""
 
     def test_bare_safe_empirica(self, gate):
-        assert gate._is_segment_safe('empirica goals-list')
-        assert gate._is_segment_safe('empirica loop status foo')
+        assert gate._is_segment_safe("empirica goals-list")
+        assert gate._is_segment_safe("empirica loop status foo")
 
     def test_cd_command(self, gate):
-        assert gate._is_segment_safe('cd /tmp/test')
+        assert gate._is_segment_safe("cd /tmp/test")
 
     def test_unknown_command_still_unsafe(self, gate):
-        assert not gate._is_segment_safe('random_unknown_command')
+        assert not gate._is_segment_safe("random_unknown_command")
 
     def test_dangerous_command_still_unsafe(self, gate):
-        assert not gate._is_segment_safe('rm -rf /')
+        assert not gate._is_segment_safe("rm -rf /")
 
 
 # ─── _has_dangerous_redirects: quote-aware check ───────────────────────────
@@ -271,17 +249,17 @@ class TestQuoteAwareRedirects:
             "print('truncated' if len(body) > 3000 else body)"
             '"'
         )
-        assert gate.is_safe_bash_command({'command': cmd})
+        assert gate.is_safe_bash_command({"command": cmd})
 
     def test_real_gt_redirect_still_blocked(self, gate):
-        assert gate._has_dangerous_redirects('cat foo > /etc/passwd')
-        assert gate._has_dangerous_redirects('echo hi > out.txt')
+        assert gate._has_dangerous_redirects("cat foo > /etc/passwd")
+        assert gate._has_dangerous_redirects("echo hi > out.txt")
 
     def test_real_lt_input_redirect_still_blocked(self, gate):
-        assert gate._has_dangerous_redirects('cat input < /tmp/file')
+        assert gate._has_dangerous_redirects("cat input < /tmp/file")
 
     def test_append_redirect_still_blocked(self, gate):
-        assert gate._has_dangerous_redirects('cmd >> append.log')
+        assert gate._has_dangerous_redirects("cmd >> append.log")
 
     def test_heredoc_input_still_safe(self, gate):
         # << EOF style heredocs are safe (input from stdin literal)
@@ -289,9 +267,9 @@ class TestQuoteAwareRedirects:
         assert not gate._has_dangerous_redirects(cmd)
 
     def test_stderr_redirect_still_safe(self, gate):
-        cmd = 'gh api foo 2>&1'
+        cmd = "gh api foo 2>&1"
         assert not gate._has_dangerous_redirects(cmd)
-        cmd = 'gh api foo 2>/dev/null'
+        cmd = "gh api foo 2>/dev/null"
         assert not gate._has_dangerous_redirects(cmd)
 
 
@@ -315,49 +293,43 @@ class TestRemoteOpsGateRelaxation:
         is script-piped + has a stdin redirect — without the relaxation it
         gates to praxic + dangerous_redirect rejects it. Under remote-ops the
         declaration IS the gate."""
-        self._set_work_type(gate, 'remote-ops')
-        assert gate.is_safe_bash_command(
-            {'command': "ssh host 'zsh -s' < /tmp/probe.sh"}
-        )
+        self._set_work_type(gate, "remote-ops")
+        assert gate.is_safe_bash_command({"command": "ssh host 'zsh -s' < /tmp/probe.sh"})
 
     def test_remote_ops_passes_compound_rsync(self, gate):
-        self._set_work_type(gate, 'remote-ops')
-        assert gate.is_safe_bash_command(
-            {'command': 'rsync -avz --delete src/ host:/dest/'}
-        )
+        self._set_work_type(gate, "remote-ops")
+        assert gate.is_safe_bash_command({"command": "rsync -avz --delete src/ host:/dest/"})
 
     def test_non_remote_ops_still_classifies_ssh_per_command(self, gate):
         """The relaxation is gated on work_type — infra/config/debug + an
         unset work_type must still hit is_safe_remote_command."""
-        for wt in (None, 'infra', 'config', 'debug', 'code'):
+        for wt in (None, "infra", "config", "debug", "code"):
             self._set_work_type(gate, wt)
-            assert not gate.is_safe_bash_command(
-                {'command': "ssh host 'zsh -s' < /tmp/probe.sh"}
-            ), f"work_type={wt} unexpectedly passed a script-piped ssh"
+            assert not gate.is_safe_bash_command({"command": "ssh host 'zsh -s' < /tmp/probe.sh"}), (
+                f"work_type={wt} unexpectedly passed a script-piped ssh"
+            )
 
     def test_remote_ops_inline_ssh_read_still_safe(self, gate):
         """Backward-compat: clean inline read still passes (used to pass via
         is_safe_remote_command; now passes via the work_type short-circuit)."""
-        self._set_work_type(gate, 'remote-ops')
-        assert gate.is_safe_bash_command({'command': 'ssh host ls /opt'})
+        self._set_work_type(gate, "remote-ops")
+        assert gate.is_safe_bash_command({"command": "ssh host ls /opt"})
 
     def test_remote_ops_does_not_relax_local_writes(self, gate):
         """Local writes (cat > /tmp/foo) stay subject to normal gating —
         they ARE observable locally, no calibration reason to relax."""
-        self._set_work_type(gate, 'remote-ops')
-        assert not gate.is_safe_bash_command(
-            {'command': 'cat > /tmp/probe.sh'}
-        )
+        self._set_work_type(gate, "remote-ops")
+        assert not gate.is_safe_bash_command({"command": "cat > /tmp/probe.sh"})
 
     def test_remote_ops_gets_infra_safe_prefixes(self, gate):
         """Secondary: remote-ops joins infra/config/debug in the L1295
         work-type expansion so system inspection (docker, systemctl, ss)
         flows for the local pre/post-SSH inspection step too."""
-        self._set_work_type(gate, 'remote-ops')
+        self._set_work_type(gate, "remote-ops")
         # Use a command that's only safe via INFRA_SAFE_PREFIXES (docker is
         # a representative member).
-        if any(p.startswith('docker') for p in gate.INFRA_SAFE_PREFIXES):
-            assert gate.is_safe_bash_command({'command': 'docker ps'})
+        if any(p.startswith("docker") for p in gate.INFRA_SAFE_PREFIXES):
+            assert gate.is_safe_bash_command({"command": "docker ps"})
 
 
 class TestNewlineChainAndPipeOverAllow:
@@ -372,45 +344,44 @@ class TestNewlineChainAndPipeOverAllow:
             "empirica goals-add-task --goal-id $GOAL_ID --description 'one' 2>&1 | tail -2\n"
             "empirica goals-add-task --goal-id $GOAL_ID --description 'two' 2>&1 | tail -2"
         )
-        assert gate.is_safe_bash_command({'command': cmd}) is True
+        assert gate.is_safe_bash_command({"command": cmd}) is True
 
     def test_newline_chain_plain_planning_verbs_allowed(self, gate):
         cmd = "empirica goals-create --objective 'a'\nempirica unknown-log --unknown 'b'"
-        assert gate.is_safe_bash_command({'command': cmd}) is True
+        assert gate.is_safe_bash_command({"command": cmd}) is True
 
     def test_single_goals_add_task_markdown_pipe_description_allowed(self, gate):
         # `|` (markdown table) and newline live INSIDE the quoted description —
         # not chain/pipe operators. Must stay allowed (the rich-markdown case).
-        cmd = ('empirica goals-add-task --goal-id X '
-               '--description "## T\n| col | col |\n| a | b |"')
-        assert gate.is_safe_bash_command({'command': cmd}) is True
+        cmd = 'empirica goals-add-task --goal-id X --description "## T\n| col | col |\n| a | b |"'
+        assert gate.is_safe_bash_command({"command": cmd}) is True
 
     # ── security: the fix must NOT over-allow ───────────────────────────
     def test_newline_chain_with_rm_blocked(self, gate):
         cmd = "empirica goals-add-task --goal-id X --description 'a'\nrm -rf /tmp/foo"
-        assert gate.is_safe_bash_command({'command': cmd}) is False
+        assert gate.is_safe_bash_command({"command": cmd}) is False
 
     def test_empirica_chained_to_rm_still_blocked(self, gate):
-        assert gate.is_safe_bash_command({'command': 'empirica goals-list && rm -rf /'}) is False
+        assert gate.is_safe_bash_command({"command": "empirica goals-list && rm -rf /"}) is False
 
     def test_empirica_piped_to_sh_blocked(self, gate):
         # The pre-existing over-allow this fix closes: trailing pipe to an
         # executor must not pass on the bare empirica-prefix match.
-        assert gate.is_safe_bash_command({'command': 'empirica goals-list | sh'}) is False
+        assert gate.is_safe_bash_command({"command": "empirica goals-list | sh"}) is False
 
     def test_empirica_piped_to_bash_blocked(self, gate):
-        assert gate.is_safe_bash_command({'command': 'empirica goals-list | bash'}) is False
+        assert gate.is_safe_bash_command({"command": "empirica goals-list | bash"}) is False
 
     def test_newline_chain_with_piped_executor_blocked(self, gate):
         cmd = "empirica goals-add-task --goal-id X --description 'a'\nempirica goals-list | sh"
-        assert gate.is_safe_bash_command({'command': cmd}) is False
+        assert gate.is_safe_bash_command({"command": cmd}) is False
 
     # ── still-allowed read-only pipes + heredocs (no regression) ────────
     def test_empirica_piped_to_tail_allowed(self, gate):
-        assert gate.is_safe_bash_command({'command': 'empirica goals-list | tail -2'}) is True
+        assert gate.is_safe_bash_command({"command": "empirica goals-list | tail -2"}) is True
 
     def test_heredoc_preflight_not_shredded(self, gate):
         # `<<` present → newline-splitting is skipped so the multi-line JSON
         # body isn't shredded into bogus segments.
         cmd = "empirica preflight-submit - << 'EOF'\n{\"vectors\": {}}\nEOF"
-        assert gate.is_safe_bash_command({'command': cmd}) is True
+        assert gate.is_safe_bash_command({"command": cmd}) is True

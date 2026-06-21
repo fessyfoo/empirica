@@ -17,6 +17,7 @@ from dataclasses import dataclass
 @dataclass
 class HotLessonEntry:
     """Minimal lesson data for hot cache"""
+
     id: str
     name: str
     expected_delta: dict[str, float]
@@ -44,9 +45,9 @@ class LessonHotCache:
 
         # Adjacency lists for graph traversal
         self._requires: dict[str, set[str]] = defaultdict(set)  # lesson -> lessons it requires
-        self._enables: dict[str, set[str]] = defaultdict(set)   # lesson -> lessons it enables
+        self._enables: dict[str, set[str]] = defaultdict(set)  # lesson -> lessons it enables
         self._required_by: dict[str, set[str]] = defaultdict(set)  # reverse of requires
-        self._enabled_by: dict[str, set[str]] = defaultdict(set)   # reverse of enables
+        self._enabled_by: dict[str, set[str]] = defaultdict(set)  # reverse of enables
 
         # Index by epistemic improvement
         self._improves_know: list[tuple[str, float]] = []
@@ -67,16 +68,16 @@ class LessonHotCache:
     def load_lesson(self, lesson_hot_dict: dict) -> None:
         """Load a single lesson into hot cache"""
         with self._lock:
-            lesson_id = lesson_hot_dict['id']
+            lesson_id = lesson_hot_dict["id"]
 
             entry = HotLessonEntry(
                 id=lesson_id,
-                name=lesson_hot_dict['name'],
-                expected_delta=lesson_hot_dict.get('expected_delta', {}),
-                prereq_ids=set(lesson_hot_dict.get('prereq_ids', [])),
-                enables_ids=set(lesson_hot_dict.get('enables', [])),
-                requires_ids=set(lesson_hot_dict.get('requires', [])),
-                domain=lesson_hot_dict.get('domain')
+                name=lesson_hot_dict["name"],
+                expected_delta=lesson_hot_dict.get("expected_delta", {}),
+                prereq_ids=set(lesson_hot_dict.get("prereq_ids", [])),
+                enables_ids=set(lesson_hot_dict.get("enables", [])),
+                requires_ids=set(lesson_hot_dict.get("requires", [])),
+                domain=lesson_hot_dict.get("domain"),
             )
 
             self._lessons[lesson_id] = entry
@@ -92,14 +93,14 @@ class LessonHotCache:
 
             # Build epistemic indexes
             delta = entry.expected_delta
-            if delta.get('know', 0) > 0:
-                self._improves_know.append((lesson_id, delta['know']))
-            if delta.get('do', 0) > 0:
-                self._improves_do.append((lesson_id, delta['do']))
-            if delta.get('context', 0) > 0:
-                self._improves_context.append((lesson_id, delta['context']))
-            if delta.get('uncertainty', 0) < 0:  # Negative = reduces
-                self._reduces_uncertainty.append((lesson_id, abs(delta['uncertainty'])))
+            if delta.get("know", 0) > 0:
+                self._improves_know.append((lesson_id, delta["know"]))
+            if delta.get("do", 0) > 0:
+                self._improves_do.append((lesson_id, delta["do"]))
+            if delta.get("context", 0) > 0:
+                self._improves_context.append((lesson_id, delta["context"]))
+            if delta.get("uncertainty", 0) < 0:  # Negative = reduces
+                self._reduces_uncertainty.append((lesson_id, abs(delta["uncertainty"])))
 
             # Domain index
             if entry.domain:
@@ -147,12 +148,7 @@ class LessonHotCache:
         self._query_count += 1
         return self._lessons.get(lesson_id)
 
-    def lessons_that_improve(
-        self,
-        vector: str,
-        threshold: float = 0.1,
-        limit: int = 10
-    ) -> list[str]:
+    def lessons_that_improve(self, vector: str, threshold: float = 0.1, limit: int = 10) -> list[str]:
         """
         Find lessons that improve a specific epistemic vector.
         Returns lesson IDs sorted by improvement magnitude.
@@ -161,19 +157,16 @@ class LessonHotCache:
         """
         self._query_count += 1
         index_map = {
-            'know': self._improves_know,
-            'do': self._improves_do,
-            'context': self._improves_context,
-            'uncertainty': self._reduces_uncertainty
+            "know": self._improves_know,
+            "do": self._improves_do,
+            "context": self._improves_context,
+            "uncertainty": self._reduces_uncertainty,
         }
 
         if vector not in index_map:
             return []
 
-        return [
-            lid for lid, delta in index_map[vector][:limit]
-            if delta >= threshold
-        ]
+        return [lid for lid, delta in index_map[vector][:limit] if delta >= threshold]
 
     def get_prerequisites(self, lesson_id: str) -> set[str]:
         """Get all prerequisites for a lesson - O(1)"""
@@ -209,11 +202,7 @@ class LessonHotCache:
         self._query_count += 1
         return self._enables.get(lesson_id, set())
 
-    def get_learning_path(
-        self,
-        target_lesson_id: str,
-        completed_lessons: set[str]
-    ) -> list[str]:
+    def get_learning_path(self, target_lesson_id: str, completed_lessons: set[str]) -> list[str]:
         """
         Compute optimal learning path to reach target lesson.
         Returns ordered list of lesson IDs to complete.
@@ -286,9 +275,7 @@ class LessonHotCache:
         return self._by_domain.get(domain, set())
 
     def find_best_for_gap(
-        self,
-        epistemic_state: dict[str, float],
-        threshold: float = 0.6
+        self, epistemic_state: dict[str, float], threshold: float = 0.6
     ) -> list[tuple[str, str, float]]:
         """
         Find lessons that address the biggest epistemic gaps.
@@ -300,14 +287,14 @@ class LessonHotCache:
 
         # Find gaps
         gaps = {
-            'know': max(0, threshold - epistemic_state.get('know', 0)),
-            'do': max(0, threshold - epistemic_state.get('do', 0)),
-            'context': max(0, threshold - epistemic_state.get('context', 0)),
+            "know": max(0, threshold - epistemic_state.get("know", 0)),
+            "do": max(0, threshold - epistemic_state.get("do", 0)),
+            "context": max(0, threshold - epistemic_state.get("context", 0)),
         }
 
         # High uncertainty is also a gap
-        if epistemic_state.get('uncertainty', 0) > threshold:
-            gaps['uncertainty'] = epistemic_state['uncertainty'] - threshold
+        if epistemic_state.get("uncertainty", 0) > threshold:
+            gaps["uncertainty"] = epistemic_state["uncertainty"] - threshold
 
         # Find lessons for each gap
         for vector, gap in gaps.items():
@@ -317,7 +304,7 @@ class LessonHotCache:
                     lesson = self._lessons.get(lid)
                     if lesson:
                         improvement = lesson.expected_delta.get(vector, 0)
-                        if vector == 'uncertainty':
+                        if vector == "uncertainty":
                             improvement = abs(improvement)  # Reduction is positive
                         results.append((lid, vector, improvement))
 
@@ -330,12 +317,12 @@ class LessonHotCache:
     def stats(self) -> dict:
         """Get cache statistics"""
         return {
-            'lesson_count': len(self._lessons),
-            'edge_count': sum(len(v) for v in self._requires.values()),
-            'domain_count': len(self._by_domain),
-            'query_count': self._query_count,
-            'load_timestamp': self._load_timestamp,
-            'memory_estimate_kb': self._estimate_memory() / 1024
+            "lesson_count": len(self._lessons),
+            "edge_count": sum(len(v) for v in self._requires.values()),
+            "domain_count": len(self._by_domain),
+            "query_count": self._query_count,
+            "load_timestamp": self._load_timestamp,
+            "memory_estimate_kb": self._estimate_memory() / 1024,
         }
 
     def _estimate_memory(self) -> int:

@@ -24,11 +24,12 @@ from typing import Any
 
 class Action(Enum):
     """Metacognitive action decisions"""
-    PROCEED = "proceed"          # Confidence sufficient, continue
+
+    PROCEED = "proceed"  # Confidence sufficient, continue
     INVESTIGATE = "investigate"  # Knowledge gaps detected, need investigation
-    CLARIFY = "clarify"          # Task unclear, need user clarification
-    RESET = "reset"              # Critical issues (coherence < 0.50, density > 0.90)
-    STOP = "stop"                # Cannot proceed (change < 0.50)
+    CLARIFY = "clarify"  # Task unclear, need user clarification
+    RESET = "reset"  # Critical issues (coherence < 0.50, density > 0.90)
+    STOP = "stop"  # Cannot proceed (change < 0.50)
 
 
 @dataclass
@@ -44,6 +45,7 @@ class VectorState:
     - investigation_priority: 'low', 'medium', 'high', 'critical' - self-assessed priority
     - investigation_reason: why investigation is warranted (self-assessed)
     """
+
     score: float
     rationale: str
     evidence: str | None = None
@@ -72,10 +74,10 @@ class VectorState:
 
 # CANONICAL WEIGHTS (for reference in calculations)
 CANONICAL_WEIGHTS = {
-    'foundation': 0.35,      # know, do, context
-    'comprehension': 0.25,   # clarity, coherence, signal, density
-    'execution': 0.25,       # state, change, completion, impact
-    'engagement': 0.15       # engagement (gate + weight)
+    "foundation": 0.35,  # know, do, context
+    "comprehension": 0.25,  # clarity, coherence, signal, density
+    "execution": 0.25,  # state, change, completion, impact
+    "engagement": 0.15,  # engagement (gate + weight)
 }
 
 # ENGAGEMENT and CRITICAL thresholds now imported from centralized configuration

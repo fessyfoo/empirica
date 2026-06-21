@@ -21,17 +21,13 @@ import pytest
 pytestmark = pytest.mark.integration
 
 
-
 class TestBootstrapComponents:
     """Test that bootstrap loads correctly after cleanup"""
 
     def test_bootstrap_command_works(self):
         """Bootstrap command executes without errors"""
         result = subprocess.run(
-            ["empirica", "project-bootstrap", "--output", "json"],
-            capture_output=True,
-            text=True,
-            timeout=10
+            ["empirica", "project-bootstrap", "--output", "json"], capture_output=True, text=True, timeout=10
         )
 
         # Should succeed
@@ -39,6 +35,7 @@ class TestBootstrapComponents:
 
         # Should return valid JSON with "ok": true
         import json
+
         try:
             output = json.loads(result.stdout)
             assert output.get("ok"), "Bootstrap should return ok=true"
@@ -48,10 +45,7 @@ class TestBootstrapComponents:
     def test_bootstrap_no_import_errors(self):
         """Bootstrap runs without import errors in stderr"""
         result = subprocess.run(
-            ["empirica", "project-bootstrap", "--output", "json"],
-            capture_output=True,
-            text=True,
-            timeout=10
+            ["empirica", "project-bootstrap", "--output", "json"], capture_output=True, text=True, timeout=10
         )
 
         # Should not have ModuleNotFoundError or ImportError
@@ -61,23 +55,21 @@ class TestBootstrapComponents:
 
         # Bayesian deprecation warning is OK
         # But no other errors
-        lines = result.stderr.split('\n')
-        error_lines = [l for l in lines if 'error' in l.lower() and 'deprecated' not in l.lower()]
+        lines = result.stderr.split("\n")
+        error_lines = [l for l in lines if "error" in l.lower() and "deprecated" not in l.lower()]
         assert len(error_lines) == 0, f"Unexpected errors: {error_lines}"
 
     def test_bootstrap_json_output(self):
         """Bootstrap with --output json works"""
         result = subprocess.run(
-            ["empirica", "project-bootstrap", "--output", "json"],
-            capture_output=True,
-            text=True,
-            timeout=10
+            ["empirica", "project-bootstrap", "--output", "json"], capture_output=True, text=True, timeout=10
         )
 
         assert result.returncode == 0
 
         # Should return valid JSON
         import json
+
         try:
             output = json.loads(result.stdout)
             assert "ok" in output, "JSON output should have 'ok' field"
@@ -88,13 +80,11 @@ class TestBootstrapComponents:
     def test_bootstrap_returns_breadcrumbs(self):
         """Bootstrap returns breadcrumbs data structure"""
         result = subprocess.run(
-            ["empirica", "project-bootstrap", "--output", "json"],
-            capture_output=True,
-            text=True,
-            timeout=10
+            ["empirica", "project-bootstrap", "--output", "json"], capture_output=True, text=True, timeout=10
         )
 
         import json
+
         output = json.loads(result.stdout)
 
         # Should have breadcrumbs structure
@@ -112,10 +102,7 @@ class TestBootstrapComponents:
 
         start = time.time()
         result = subprocess.run(
-            ["empirica", "project-bootstrap", "--output", "json"],
-            capture_output=True,
-            text=True,
-            timeout=10
+            ["empirica", "project-bootstrap", "--output", "json"], capture_output=True, text=True, timeout=10
         )
         elapsed = time.time() - start
 
@@ -130,7 +117,7 @@ class TestBootstrapImports:
     def test_optimal_bootstrap_imports(self):
         """optimal_metacognitive_bootstrap.py imports without errors"""
         try:
-                        # Should import successfully
+            # Should import successfully
             assert OptimalMetacognitiveBootstrap is not None  # noqa: F821
         except ImportError as e:
             pytest.fail(f"OptimalMetacognitiveBootstrap import failed: {e}")
@@ -142,7 +129,7 @@ class TestBootstrapImports:
     def test_extended_bootstrap_imports(self):
         """extended_metacognitive_bootstrap.py imports without errors"""
         try:
-                        # Should import successfully
+            # Should import successfully
             assert ExtendedMetacognitiveBootstrap is not None  # noqa: F821
         except ImportError as e:
             pytest.fail(f"ExtendedMetacognitiveBootstrap import failed: {e}")
@@ -154,7 +141,7 @@ class TestBootstrapImports:
         """Bootstrap files don't import deleted components"""
         bootstrap_files = [
             Path("empirica/bootstraps/optimal_metacognitive_bootstrap.py"),
-            Path("empirica/bootstraps/extended_metacognitive_bootstrap.py")
+            Path("empirica/bootstraps/extended_metacognitive_bootstrap.py"),
         ]
 
         # Components that should NOT be imported (deleted)
@@ -178,18 +165,15 @@ class TestBootstrapImports:
 
             for component in deleted_components:
                 # Check if component is imported (not commented out)
-                lines = content.split('\n')
+                lines = content.split("\n")
                 for line in lines:
                     # Skip comments
-                    if line.strip().startswith('#'):
+                    if line.strip().startswith("#"):
                         continue
 
                     # Check for import
                     if f"from empirica.components.{component}" in line:
-                        pytest.fail(
-                            f"{bootstrap_file.name} still imports deleted component: {component}\n"
-                            f"Line: {line}"
-                        )
+                        pytest.fail(f"{bootstrap_file.name} still imports deleted component: {component}\nLine: {line}")
 
 
 class TestBootstrapFallback:
@@ -198,16 +182,14 @@ class TestBootstrapFallback:
     def test_project_bootstrap_works(self):
         """Project bootstrap command is functional"""
         result = subprocess.run(
-            ["empirica", "project-bootstrap", "--output", "json"],
-            capture_output=True,
-            text=True,
-            timeout=10
+            ["empirica", "project-bootstrap", "--output", "json"], capture_output=True, text=True, timeout=10
         )
 
         # Should work and return JSON
         assert result.returncode == 0
 
         import json
+
         output = json.loads(result.stdout)
         assert output.get("ok")
 
@@ -221,13 +203,14 @@ class TestBootstrapVerboseMode:
             ["empirica", "project-bootstrap", "--verbose", "--output", "json"],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
         )
 
         assert result.returncode == 0
 
         # Verbose mode should still return valid JSON
         import json
+
         output = json.loads(result.stdout)
         assert "ok" in output
 
@@ -240,24 +223,19 @@ class TestBootstrapIntegration:
         """Complete bootstrap workflow"""
         # Bootstrap
         result = subprocess.run(
-            ["empirica", "project-bootstrap", "--output", "json"],
-            capture_output=True,
-            text=True,
-            timeout=10
+            ["empirica", "project-bootstrap", "--output", "json"], capture_output=True, text=True, timeout=10
         )
 
         assert result.returncode == 0
 
         import json
+
         output = json.loads(result.stdout)
         assert output.get("ok")
 
         # Should be able to run other commands after bootstrap
         result2 = subprocess.run(
-            ["empirica", "sessions-list", "--output", "json"],
-            capture_output=True,
-            text=True,
-            timeout=10
+            ["empirica", "sessions-list", "--output", "json"], capture_output=True, text=True, timeout=10
         )
 
         # Sessions-list should work after bootstrap

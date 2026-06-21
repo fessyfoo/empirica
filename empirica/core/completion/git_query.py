@@ -32,21 +32,12 @@ class GitProgressQuery:
     def _check_git_available(self) -> bool:
         """Check if git is available"""
         try:
-            result = subprocess.run(
-                ['git', 'rev-parse', '--git-dir'],
-                capture_output=True,
-                timeout=2,
-                cwd='.'
-            )
+            result = subprocess.run(["git", "rev-parse", "--git-dir"], capture_output=True, timeout=2, cwd=".")
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
             return False
 
-    def get_goal_timeline(
-        self,
-        goal_id: str,
-        max_commits: int = 100
-    ) -> dict[str, Any]:
+    def get_goal_timeline(self, goal_id: str, max_commits: int = 100) -> dict[str, Any]:
         """
         Get commit timeline for goal with task metadata
 
@@ -58,39 +49,30 @@ class GitProgressQuery:
             Timeline dict with commits and task metadata
         """
         if not self.git_available:
-            return {
-                'goal_id': goal_id,
-                'error': 'Git not available',
-                'commits': []
-            }
+            return {"goal_id": goal_id, "error": "Git not available", "commits": []}
 
         try:
             # Get commits with notes from goal-specific ref
             note_ref = f"empirica/tasks/{goal_id}"
 
             result = subprocess.run(
-                ['git', 'log', f'--max-count={max_commits}',
-                 '--format=%H|%at|%s', f'--notes={note_ref}'],
+                ["git", "log", f"--max-count={max_commits}", "--format=%H|%at|%s", f"--notes={note_ref}"],
                 capture_output=True,
                 timeout=10,
-                cwd='.',
-                text=True
+                cwd=".",
+                text=True,
             )
 
             if result.returncode != 0:
-                return {
-                    'goal_id': goal_id,
-                    'error': f'Git log failed: {result.stderr}',
-                    'commits': []
-                }
+                return {"goal_id": goal_id, "error": f"Git log failed: {result.stderr}", "commits": []}
 
             # Parse commits
             commits = []
-            for line in result.stdout.strip().split('\n'):
-                if not line or line.startswith('Notes'):
+            for line in result.stdout.strip().split("\n"):
+                if not line or line.startswith("Notes"):
                     continue
 
-                parts = line.split('|', 2)
+                parts = line.split("|", 2)
                 if len(parts) < 3:
                     continue
 
@@ -100,44 +82,32 @@ class GitProgressQuery:
                 task_note = self._get_task_note(commit_hash, note_ref)
 
                 commit_data = {
-                    'hash': commit_hash[:7],
-                    'full_hash': commit_hash,
-                    'timestamp': int(timestamp),
-                    'datetime': datetime.fromtimestamp(int(timestamp)).isoformat(),
-                    'message': message,
-                    'task': task_note
+                    "hash": commit_hash[:7],
+                    "full_hash": commit_hash,
+                    "timestamp": int(timestamp),
+                    "datetime": datetime.fromtimestamp(int(timestamp)).isoformat(),
+                    "message": message,
+                    "task": task_note,
                 }
 
                 commits.append(commit_data)
 
             # Get completed subtask IDs
-            completed_subtasks = [
-                c['task']['subtask_id']
-                for c in commits
-                if c['task'] is not None
-            ]
+            completed_subtasks = [c["task"]["subtask_id"] for c in commits if c["task"] is not None]
 
             return {
-                'goal_id': goal_id,
-                'commits': commits,
-                'total_commits': len(commits),
-                'completed_subtasks': completed_subtasks,
-                'completion_count': len(completed_subtasks)
+                "goal_id": goal_id,
+                "commits": commits,
+                "total_commits": len(commits),
+                "completed_subtasks": completed_subtasks,
+                "completion_count": len(completed_subtasks),
             }
 
         except Exception as e:
             logger.error(f"Error querying goal timeline: {e}")
-            return {
-                'goal_id': goal_id,
-                'error': str(e),
-                'commits': []
-            }
+            return {"goal_id": goal_id, "error": str(e), "commits": []}
 
-    def _get_task_note(
-        self,
-        commit_hash: str,
-        note_ref: str
-    ) -> dict[str, Any] | None:
+    def _get_task_note(self, commit_hash: str, note_ref: str) -> dict[str, Any] | None:
         """
         Get task note for a specific commit
 
@@ -150,11 +120,11 @@ class GitProgressQuery:
         """
         try:
             result = subprocess.run(
-                ['git', 'notes', '--ref', note_ref, 'show', commit_hash],
+                ["git", "notes", "--ref", note_ref, "show", commit_hash],
                 capture_output=True,
                 timeout=2,
-                cwd='.',
-                text=True
+                cwd=".",
+                text=True,
             )
 
             if result.returncode != 0:
@@ -170,10 +140,7 @@ class GitProgressQuery:
             logger.debug(f"Error getting task note: {e}")
             return None
 
-    def get_team_progress(
-        self,
-        goal_ids: list[str]
-    ) -> dict[str, Any]:
+    def get_team_progress(self, goal_ids: list[str]) -> dict[str, Any]:
         """
         Multi-goal progress for team coordination
 
@@ -186,37 +153,28 @@ class GitProgressQuery:
             Team progress summary
         """
         if not self.git_available:
-            return {
-                'error': 'Git not available',
-                'goals': []
-            }
+            return {"error": "Git not available", "goals": []}
 
-        team_data: dict[str, Any] = {
-            'goals': [],
-            'total_completed_tasks': 0,
-            'total_commits': 0
-        }
+        team_data: dict[str, Any] = {"goals": [], "total_completed_tasks": 0, "total_commits": 0}
 
         for goal_id in goal_ids:
             goal_timeline = self.get_goal_timeline(goal_id)
 
-            team_data['goals'].append({
-                'goal_id': goal_id,
-                'completed_tasks': goal_timeline.get('completion_count', 0),
-                'total_commits': goal_timeline.get('total_commits', 0),
-                'last_commit': goal_timeline['commits'][0] if goal_timeline.get('commits') else None
-            })
+            team_data["goals"].append(
+                {
+                    "goal_id": goal_id,
+                    "completed_tasks": goal_timeline.get("completion_count", 0),
+                    "total_commits": goal_timeline.get("total_commits", 0),
+                    "last_commit": goal_timeline["commits"][0] if goal_timeline.get("commits") else None,
+                }
+            )
 
-            team_data['total_completed_tasks'] += goal_timeline.get('completion_count', 0)
-            team_data['total_commits'] += goal_timeline.get('total_commits', 0)
+            team_data["total_completed_tasks"] += goal_timeline.get("completion_count", 0)
+            team_data["total_commits"] += goal_timeline.get("total_commits", 0)
 
         return team_data
 
-    def get_unified_timeline(
-        self,
-        session_id: str,
-        goal_id: str
-    ) -> dict[str, Any]:
+    def get_unified_timeline(self, session_id: str, goal_id: str) -> dict[str, Any]:
         """
         Combine task metadata with epistemic state
 
@@ -230,10 +188,7 @@ class GitProgressQuery:
             Unified timeline with tasks + epistemic checkpoints
         """
         if not self.git_available:
-            return {
-                'error': 'Git not available',
-                'timeline': []
-            }
+            return {"error": "Git not available", "timeline": []}
 
         try:
             # Get task timeline
@@ -243,70 +198,55 @@ class GitProgressQuery:
             epistemic_ref = f"empirica/session/{session_id}"
 
             subprocess.run(
-                ['git', 'log', '--max-count=100',
-                 '--format=%H|%at', f'--notes={epistemic_ref}'],
+                ["git", "log", "--max-count=100", "--format=%H|%at", f"--notes={epistemic_ref}"],
                 capture_output=True,
                 timeout=10,
-                cwd='.',
-                text=True
+                cwd=".",
+                text=True,
             )
 
             # Build unified timeline
             timeline = []
 
-            for commit_data in task_timeline.get('commits', []):
+            for commit_data in task_timeline.get("commits", []):
                 entry = {
-                    'type': 'commit',
-                    'timestamp': commit_data['timestamp'],
-                    'datetime': commit_data['datetime'],
-                    'commit_hash': commit_data['hash'],
-                    'message': commit_data['message']
+                    "type": "commit",
+                    "timestamp": commit_data["timestamp"],
+                    "datetime": commit_data["datetime"],
+                    "commit_hash": commit_data["hash"],
+                    "message": commit_data["message"],
                 }
 
                 # Add task metadata if present
-                if commit_data.get('task'):
-                    entry['task'] = {
-                        'subtask_id': commit_data['task']['subtask_id'],
-                        'description': commit_data['task']['description'],
-                        'epistemic_importance': commit_data['task']['epistemic_importance']
+                if commit_data.get("task"):
+                    entry["task"] = {
+                        "subtask_id": commit_data["task"]["subtask_id"],
+                        "description": commit_data["task"]["description"],
+                        "epistemic_importance": commit_data["task"]["epistemic_importance"],
                     }
 
                 # Try to get epistemic checkpoint for this commit
-                epistemic_note = self._get_task_note(
-                    commit_data['full_hash'],
-                    epistemic_ref
-                )
+                epistemic_note = self._get_task_note(commit_data["full_hash"], epistemic_ref)
 
                 if epistemic_note:
-                    entry['epistemic_state'] = {
-                        'know': epistemic_note.get('vectors', {}).get('know'),
-                        'uncertainty': epistemic_note.get('vectors', {}).get('uncertainty'),
-                        'phase': epistemic_note.get('phase')
+                    entry["epistemic_state"] = {
+                        "know": epistemic_note.get("vectors", {}).get("know"),
+                        "uncertainty": epistemic_note.get("vectors", {}).get("uncertainty"),
+                        "phase": epistemic_note.get("phase"),
                     }
 
                 timeline.append(entry)
 
             # Sort by timestamp descending
-            timeline.sort(key=lambda x: x['timestamp'], reverse=True)
+            timeline.sort(key=lambda x: x["timestamp"], reverse=True)
 
-            return {
-                'session_id': session_id,
-                'goal_id': goal_id,
-                'timeline': timeline,
-                'total_events': len(timeline)
-            }
+            return {"session_id": session_id, "goal_id": goal_id, "timeline": timeline, "total_events": len(timeline)}
 
         except Exception as e:
             logger.error(f"Error building unified timeline: {e}")
-            return {
-                'error': str(e),
-                'timeline': []
-            }
+            return {"error": str(e), "timeline": []}
 
-    def get_recent_activity(
-        self,
-        hours: int = 24
-    ) -> dict[str, Any]:
+    def get_recent_activity(self, hours: int = 24) -> dict[str, Any]:
         """
         Get recent activity across all goals
 
@@ -319,35 +259,28 @@ class GitProgressQuery:
             Recent activity summary
         """
         if not self.git_available:
-            return {
-                'error': 'Git not available',
-                'activity': []
-            }
+            return {"error": "Git not available", "activity": []}
 
         try:
             # Get recent commits
             result = subprocess.run(
-                ['git', 'log', f'--since={hours} hours ago',
-                 '--format=%H|%at|%s'],
+                ["git", "log", f"--since={hours} hours ago", "--format=%H|%at|%s"],
                 capture_output=True,
                 timeout=5,
-                cwd='.',
-                text=True
+                cwd=".",
+                text=True,
             )
 
             if result.returncode != 0:
-                return {
-                    'error': 'Git log failed',
-                    'activity': []
-                }
+                return {"error": "Git log failed", "activity": []}
 
             activity = []
 
-            for line in result.stdout.strip().split('\n'):
+            for line in result.stdout.strip().split("\n"):
                 if not line:
                     continue
 
-                parts = line.split('|', 2)
+                parts = line.split("|", 2)
                 if len(parts) < 3:
                     continue
 
@@ -355,22 +288,17 @@ class GitProgressQuery:
 
                 # Check for task notes in any goal namespace
                 # (We'd need to iterate through known goals, but for now just report commits)
-                activity.append({
-                    'commit_hash': commit_hash[:7],
-                    'timestamp': int(timestamp),
-                    'datetime': datetime.fromtimestamp(int(timestamp)).isoformat(),
-                    'message': message
-                })
+                activity.append(
+                    {
+                        "commit_hash": commit_hash[:7],
+                        "timestamp": int(timestamp),
+                        "datetime": datetime.fromtimestamp(int(timestamp)).isoformat(),
+                        "message": message,
+                    }
+                )
 
-            return {
-                'hours': hours,
-                'activity': activity,
-                'commit_count': len(activity)
-            }
+            return {"hours": hours, "activity": activity, "commit_count": len(activity)}
 
         except Exception as e:
             logger.error(f"Error getting recent activity: {e}")
-            return {
-                'error': str(e),
-                'activity': []
-            }
+            return {"error": str(e), "activity": []}

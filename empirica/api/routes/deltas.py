@@ -19,19 +19,28 @@ bp = Blueprint("deltas", __name__)
 logger = logging.getLogger(__name__)
 
 # Forgejo bare repos path (mounted as Docker volume)
-FORGEJO_REPOS_BASE = os.environ.get(
-    "FORGEJO_REPOS_PATH",
-    "/forgejo-data/gitea/repositories"
-)
+FORGEJO_REPOS_BASE = os.environ.get("FORGEJO_REPOS_PATH", "/forgejo-data/gitea/repositories")
 
 VECTOR_NAMES = [
-    "know", "do", "context", "clarity", "coherence", "signal",
-    "density", "state", "change", "completion", "impact", "engagement", "uncertainty"
+    "know",
+    "do",
+    "context",
+    "clarity",
+    "coherence",
+    "signal",
+    "density",
+    "state",
+    "change",
+    "completion",
+    "impact",
+    "engagement",
+    "uncertainty",
 ]
 
 
 def _get_db():
     from empirica.api.app import get_db
+
     return get_db()
 
 
@@ -49,84 +58,82 @@ def get_session_deltas(session_id: str):
 
         # Get PREFLIGHT
         db.adapter.execute(
-            f'SELECT {vector_cols} FROM reflexes WHERE session_id = ? AND phase = \'PREFLIGHT\' ORDER BY "timestamp" ASC LIMIT 1',
-            (session_id,)
+            f"SELECT {vector_cols} FROM reflexes WHERE session_id = ? AND phase = 'PREFLIGHT' ORDER BY \"timestamp\" ASC LIMIT 1",
+            (session_id,),
         )
         preflight = db.adapter.fetchone()
 
         if not preflight:
-            return jsonify({
-                "ok": False,
-                "error": "no_preflight",
-                "message": "Session has no PREFLIGHT assessment"
-            }), 404
+            return jsonify(
+                {"ok": False, "error": "no_preflight", "message": "Session has no PREFLIGHT assessment"}
+            ), 404
 
         # Get POSTFLIGHT
         db.adapter.execute(
-            f'SELECT {vector_cols} FROM reflexes WHERE session_id = ? AND phase = \'POSTFLIGHT\' ORDER BY "timestamp" DESC LIMIT 1',
-            (session_id,)
+            f"SELECT {vector_cols} FROM reflexes WHERE session_id = ? AND phase = 'POSTFLIGHT' ORDER BY \"timestamp\" DESC LIMIT 1",
+            (session_id,),
         )
         postflight = db.adapter.fetchone()
 
         if not postflight:
-            return jsonify({
-                "ok": False,
-                "error": "no_postflight",
-                "message": "Session has no POSTFLIGHT assessment"
-            }), 404
+            return jsonify(
+                {"ok": False, "error": "no_postflight", "message": "Session has no POSTFLIGHT assessment"}
+            ), 404
 
         # Calculate deltas
         vector_names = [
-            "know", "do", "context", "clarity", "coherence", "signal",
-            "density", "state", "change", "completion", "impact", "engagement", "uncertainty"
+            "know",
+            "do",
+            "context",
+            "clarity",
+            "coherence",
+            "signal",
+            "density",
+            "state",
+            "change",
+            "completion",
+            "impact",
+            "engagement",
+            "uncertainty",
         ]
 
         deltas = {}
         for name in vector_names:
             pre = float(preflight.get(name, 0) or 0)
             post = float(postflight.get(name, 0) or 0)
-            deltas[name] = {
-                "preflight": round(pre, 2),
-                "postflight": round(post, 2),
-                "delta": round(post - pre, 2)
-            }
+            deltas[name] = {"preflight": round(pre, 2), "postflight": round(post, 2), "delta": round(post - pre, 2)}
 
         # Get session duration
-        db.adapter.execute(
-            "SELECT start_time, end_time FROM sessions WHERE session_id = ?",
-            (session_id,)
-        )
+        db.adapter.execute("SELECT start_time, end_time FROM sessions WHERE session_id = ?", (session_id,))
         session = db.adapter.fetchone()
         duration_seconds = 3600  # Default 1hr placeholder
         if session and session.get("end_time") and session.get("start_time"):
             try:
                 from datetime import datetime
+
                 start = datetime.fromisoformat(str(session["start_time"]))
                 end = datetime.fromisoformat(str(session["end_time"]))
                 duration_seconds = max(1, int((end - start).total_seconds()))
             except (ValueError, TypeError):
                 pass
 
-        return jsonify({
-            "ok": True,
-            "session_id": session_id,
-            "deltas": deltas,
-            "learning_velocity": {
-                "know_per_minute": round(deltas["know"]["delta"] / (duration_seconds / 60), 4),
-                "overall_per_minute": round(
-                    sum(deltas[k]["delta"] for k in vector_names) / len(vector_names) / (duration_seconds / 60), 4
-                )
+        return jsonify(
+            {
+                "ok": True,
+                "session_id": session_id,
+                "deltas": deltas,
+                "learning_velocity": {
+                    "know_per_minute": round(deltas["know"]["delta"] / (duration_seconds / 60), 4),
+                    "overall_per_minute": round(
+                        sum(deltas[k]["delta"] for k in vector_names) / len(vector_names) / (duration_seconds / 60), 4
+                    ),
+                },
             }
-        })
+        )
 
     except Exception as e:
         logger.error(f"Error getting deltas: {e}")
-        return jsonify({
-            "ok": False,
-            "error": "database_error",
-            "message": str(e),
-            "status_code": 500
-        }), 500
+        return jsonify({"ok": False, "error": "database_error", "message": str(e), "status_code": 500}), 500
 
 
 def _git_cmd(repo_path: str, *args) -> str:
@@ -156,8 +163,7 @@ def _find_repo_for_commit(commit_sha: str) -> str | None:
             if not repo.endswith(".git"):
                 continue
             result = subprocess.run(
-                ["git", "-C", repo_path, "cat-file", "-t", commit_sha],
-                capture_output=True, text=True, timeout=5
+                ["git", "-C", repo_path, "cat-file", "-t", commit_sha], capture_output=True, text=True, timeout=5
             )
             if result.returncode == 0 and "commit" in result.stdout:
                 _commit_repo_cache[short] = repo_path
@@ -209,10 +215,7 @@ def _build_head_commit_index(repo_path: str) -> dict[str, list[str]]:
         return cached[1]
 
     index: dict[str, list[str]] = {}
-    refs_output = _git_cmd(
-        repo_path, "for-each-ref", "--format=%(refname)",
-        "refs/notes/empirica/session/"
-    )
+    refs_output = _git_cmd(repo_path, "for-each-ref", "--format=%(refname)", "refs/notes/empirica/session/")
     if not refs_output:
         _head_commit_index_cache[repo_path] = (now, index)
         return index
@@ -277,8 +280,7 @@ def _get_assessment_from_ref(repo_path: str, ref: str) -> dict | None:
 def _get_session_refs(repo_path: str, session_id: str) -> list[str]:
     """Get all refs for a specific session."""
     refs_output = _git_cmd(
-        repo_path, "for-each-ref", "--format=%(refname)",
-        f"refs/notes/empirica/session/{session_id}/"
+        repo_path, "for-each-ref", "--format=%(refname)", f"refs/notes/empirica/session/{session_id}/"
     )
     if not refs_output:
         return []
@@ -350,6 +352,7 @@ def _find_session_by_timestamp(commit_sha: str, repo_path: str) -> dict | None:
                 continue
             try:
                 from datetime import datetime
+
                 dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
                 assess_ts = dt.timestamp()
                 diff = abs(assess_ts - commit_ts)
@@ -383,10 +386,7 @@ def _get_session_findings(repo_path: str, session_id: str) -> list[str]:
 
     # Build full index
     session_findings: dict[str, list[str]] = {}
-    refs_output = _git_cmd(
-        repo_path, "for-each-ref", "--format=%(refname)",
-        "refs/notes/empirica/findings/"
-    )
+    refs_output = _git_cmd(repo_path, "for-each-ref", "--format=%(refname)", "refs/notes/empirica/findings/")
     if refs_output:
         for ref in refs_output.split("\n"):
             if not ref:
@@ -474,79 +474,77 @@ def get_commit_epistemic(commit_sha: str):
                 # Get findings for this session
                 findings = _get_session_findings(repo_path, session_id)
 
-                return jsonify({
-                    "ok": True,
-                    "commit_sha": commit_sha,
-                    "source": "git_notes",
-                    "epistemic_context": {
-                        "session_id": session_id,
-                        "ai_id": match.get("ai_id", ""),
-                        "phase": match["phase"],
-                        "know": know,
-                        "uncertainty": uncertainty,
-                        "completion": float(vectors.get("completion", 0)),
-                        "impact": float(vectors.get("impact", 0)),
-                        "context": float(vectors.get("context", 0)),
-                        "clarity": float(vectors.get("clarity", 0)),
-                        "coherence": float(vectors.get("coherence", 0)),
-                        "confidence_basis": "empirica_vectors",
-                        "confidence_label": _confidence_label(know, uncertainty),
-                        "overall_confidence": match.get("overall_confidence"),
-                        "reasoning": match.get("reasoning", "")[:300],
-                    },
-                    "learning_delta": learning_delta if learning_delta else None,
-                    "findings": findings[:5],  # Top 5 findings
-                    "findings_count": len(findings),
-                })
+                return jsonify(
+                    {
+                        "ok": True,
+                        "commit_sha": commit_sha,
+                        "source": "git_notes",
+                        "epistemic_context": {
+                            "session_id": session_id,
+                            "ai_id": match.get("ai_id", ""),
+                            "phase": match["phase"],
+                            "know": know,
+                            "uncertainty": uncertainty,
+                            "completion": float(vectors.get("completion", 0)),
+                            "impact": float(vectors.get("impact", 0)),
+                            "context": float(vectors.get("context", 0)),
+                            "clarity": float(vectors.get("clarity", 0)),
+                            "coherence": float(vectors.get("coherence", 0)),
+                            "confidence_basis": "empirica_vectors",
+                            "confidence_label": _confidence_label(know, uncertainty),
+                            "overall_confidence": match.get("overall_confidence"),
+                            "reasoning": match.get("reasoning", "")[:300],
+                        },
+                        "learning_delta": learning_delta if learning_delta else None,
+                        "findings": findings[:5],  # Top 5 findings
+                        "findings_count": len(findings),
+                    }
+                )
 
         # Strategy 2: Fall back to DB
         db = _get_db()
         if db.adapter.table_exists("commit_epistemics"):
-            db.adapter.execute(
-                "SELECT * FROM commit_epistemics WHERE commit_sha = ?",
-                (commit_sha,)
-            )
+            db.adapter.execute("SELECT * FROM commit_epistemics WHERE commit_sha = ?", (commit_sha,))
             row = db.adapter.fetchone()
             if row:
                 know = float(row.get("know", 0) or 0)
                 uncertainty = float(row.get("uncertainty", 0) or 0)
-                return jsonify({
-                    "ok": True,
-                    "commit_sha": commit_sha,
-                    "source": "database",
-                    "epistemic_context": {
-                        "session_id": row.get("session_id", ""),
-                        "ai_id": row.get("ai_id", ""),
-                        "know": know,
-                        "uncertainty": uncertainty,
-                        "completion": float(row.get("completion", 0) or 0),
-                        "impact": float(row.get("impact", 0) or 0),
-                        "context": float(row.get("context", 0) or 0),
-                        "clarity": float(row.get("clarity", 0) or 0),
-                        "coherence": float(row.get("coherence", 0) or 0),
-                        "confidence_basis": "empirica_vectors",
-                        "confidence_label": _confidence_label(know, uncertainty),
-                    },
-                    "learning_delta": {
-                        "know": float(row.get("learning_delta_know", 0) or 0),
-                        "do": float(row.get("learning_delta_do", 0) or 0),
-                        "overall": float(row.get("learning_delta_overall", 0) or 0)
+                return jsonify(
+                    {
+                        "ok": True,
+                        "commit_sha": commit_sha,
+                        "source": "database",
+                        "epistemic_context": {
+                            "session_id": row.get("session_id", ""),
+                            "ai_id": row.get("ai_id", ""),
+                            "know": know,
+                            "uncertainty": uncertainty,
+                            "completion": float(row.get("completion", 0) or 0),
+                            "impact": float(row.get("impact", 0) or 0),
+                            "context": float(row.get("context", 0) or 0),
+                            "clarity": float(row.get("clarity", 0) or 0),
+                            "coherence": float(row.get("coherence", 0) or 0),
+                            "confidence_basis": "empirica_vectors",
+                            "confidence_label": _confidence_label(know, uncertainty),
+                        },
+                        "learning_delta": {
+                            "know": float(row.get("learning_delta_know", 0) or 0),
+                            "do": float(row.get("learning_delta_do", 0) or 0),
+                            "overall": float(row.get("learning_delta_overall", 0) or 0),
+                        },
                     }
-                })
+                )
 
         # No data found
-        return jsonify({
-            "ok": False,
-            "error": "no_epistemic_data",
-            "commit_sha": commit_sha,
-            "message": "No epistemic data for this commit. Push git notes with your code."
-        }), 404
+        return jsonify(
+            {
+                "ok": False,
+                "error": "no_epistemic_data",
+                "commit_sha": commit_sha,
+                "message": "No epistemic data for this commit. Push git notes with your code.",
+            }
+        ), 404
 
     except Exception as e:
         logger.error(f"Error getting commit epistemic for {commit_sha}: {e}")
-        return jsonify({
-            "ok": False,
-            "error": "server_error",
-            "message": str(e),
-            "status_code": 500
-        }), 500
+        return jsonify({"ok": False, "error": "server_error", "message": str(e), "status_code": 500}), 500

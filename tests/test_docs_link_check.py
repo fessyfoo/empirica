@@ -266,6 +266,7 @@ def test_handler_returns_1_on_broken(tmp_path):
 
     import io
     import sys as _sys
+
     buf = io.StringIO()
     old_stdout = _sys.stdout
     _sys.stdout = buf
@@ -276,6 +277,7 @@ def test_handler_returns_1_on_broken(tmp_path):
 
     assert exit_code == 1
     import json as _json
+
     report = _json.loads(buf.getvalue())
     assert report["passed"] is False
     assert report["broken_total"] == 1
@@ -304,6 +306,7 @@ def test_handler_extra_excludes_take_effect(tmp_path):
     args_no_exclude = SimpleNamespace(root=str(tmp_path), exclude=None, output="json")
     import io
     import sys as _sys
+
     buf = io.StringIO()
     old = _sys.stdout
     _sys.stdout = buf
@@ -346,9 +349,7 @@ def test_handler_output_format_json_returns_parseable_report(tmp_path):
     assert "broken_total" in report
     assert "passed" in report
     assert "tiers" in report
-    assert set(report["tiers"].keys()) == {
-        "tier_1_top_readme", "tier_2_folder_readmes", "tier_3_other_md"
-    }
+    assert set(report["tiers"].keys()) == {"tier_1_top_readme", "tier_2_folder_readmes", "tier_3_other_md"}
 
 
 def test_against_real_empirica_repo_clean():

@@ -33,6 +33,7 @@ def _make_project(root: Path, name: str, *, project_id: str | None = None) -> Pa
 def reset_daemon_cache():
     """Reset the daemon's project cache between tests."""
     import empirica.api.daemon_project as dp
+
     dp._cached = False
     dp._cached_project = None
     yield

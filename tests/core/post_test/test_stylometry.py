@@ -60,8 +60,12 @@ def test_fingerprint_t1_markers_present():
     fp = compute_fingerprint(INFORMAL_SAMPLE)
     markers = fp["markers"]
     expected_t1 = {
-        "contractions_ratio", "first_person_ratio", "function_word_ratio",
-        "type_token_mtld", "sentence_length_stdev", "avg_word_length",
+        "contractions_ratio",
+        "first_person_ratio",
+        "function_word_ratio",
+        "type_token_mtld",
+        "sentence_length_stdev",
+        "avg_word_length",
     }
     assert expected_t1.issubset(markers.keys())
 
@@ -72,8 +76,11 @@ def test_fingerprint_t2_markers_present_when_long_enough():
     fp = compute_fingerprint(INFORMAL_SAMPLE)
     markers = fp["markers"]
     expected_t2 = {
-        "punctuation_distribution", "question_rate", "exclamation_rate",
-        "em_dash_rate", "sentence_initial_diversity",
+        "punctuation_distribution",
+        "question_rate",
+        "exclamation_rate",
+        "em_dash_rate",
+        "sentence_initial_diversity",
     }
     assert expected_t2.issubset(markers.keys())
 
@@ -87,8 +94,7 @@ def test_fingerprint_empty_text_returns_empty_markers():
 def test_fingerprint_paragraph_rhythm_skipped_for_single_paragraph():
     """paragraph_rhythm requires ≥2 paragraphs (stdev needs 2+ samples)."""
     single_para = (
-        "This is one paragraph. It has multiple sentences. "
-        "But there are no blank lines so it stays as one paragraph."
+        "This is one paragraph. It has multiple sentences. But there are no blank lines so it stays as one paragraph."
     )
     fp = compute_fingerprint(single_para)
     assert "paragraph_rhythm" not in fp["markers"]
@@ -191,11 +197,9 @@ def test_load_voice_fingerprint_returns_none_for_invalid_json(tmp_path, monkeypa
 def _voice_fp(**markers):
     """Build a minimal voice fingerprint for testing."""
     return {
-        "name": "test", "version": "test",
-        "markers": {
-            name: {"target": target, "tolerance": tol, "n": 1000}
-            for name, (target, tol) in markers.items()
-        },
+        "name": "test",
+        "version": "test",
+        "markers": {name: {"target": target, "tolerance": tol, "n": 1000} for name, (target, tol) in markers.items()},
     }
 
 
@@ -234,9 +238,9 @@ def test_drift_direction_formal_pull_when_contractions_drop_and_function_words_r
         avg_word_length=(4.6, 0.2),
     )
     output = _output_fp(
-        contractions_ratio=0.005,    # below voice (formal)
-        function_word_ratio=0.55,    # above voice (formal)
-        avg_word_length=5.5,         # above voice (formal)
+        contractions_ratio=0.005,  # below voice (formal)
+        function_word_ratio=0.55,  # above voice (formal)
+        avg_word_length=5.5,  # above voice (formal)
     )
     drift = compute_drift(output, voice)
     assert drift["drift_direction"] == "formal_pull"
@@ -250,9 +254,9 @@ def test_drift_direction_informal_pull_when_inverse():
         avg_word_length=(5.5, 0.2),
     )
     output = _output_fp(
-        contractions_ratio=0.030,    # above voice (informal)
-        function_word_ratio=0.40,    # below voice (informal)
-        avg_word_length=4.4,         # below voice (informal)
+        contractions_ratio=0.030,  # above voice (informal)
+        function_word_ratio=0.40,  # below voice (informal)
+        avg_word_length=4.4,  # below voice (informal)
     )
     drift = compute_drift(output, voice)
     assert drift["drift_direction"] == "informal_pull"
@@ -300,11 +304,7 @@ def test_drift_skips_missing_markers_silently():
 
 def test_drift_default_tolerance_when_voice_omits_it():
     """Voice marker without explicit tolerance → 5% of target as fallback."""
-    voice = {
-        "name": "x", "markers": {
-            "contractions_ratio": {"target": 0.020, "tolerance": None}
-        }
-    }
+    voice = {"name": "x", "markers": {"contractions_ratio": {"target": 0.020, "tolerance": None}}}
     output = _output_fp(contractions_ratio=0.022)  # +10% — exceeds 5% fallback
     drift = compute_drift(output, voice)
     assert "contractions_ratio" in drift["exceeds_tolerance"]

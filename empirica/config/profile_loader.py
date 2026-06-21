@@ -16,24 +16,27 @@ import yaml
 
 class ToolSuggestionMode(Enum):
     """How tools are suggested to AI"""
-    LIGHT = "light"              # Minimal suggestions, AI explores
-    SUGGESTIVE = "suggestive"    # Suggestions provided, AI decides
-    GUIDED = "guided"            # Strong guidance, AI follows
-    PRESCRIBED = "prescribed"    # Specific tools required
+
+    LIGHT = "light"  # Minimal suggestions, AI explores
+    SUGGESTIVE = "suggestive"  # Suggestions provided, AI decides
+    GUIDED = "guided"  # Strong guidance, AI follows
+    PRESCRIBED = "prescribed"  # Specific tools required
     INSPIRATIONAL = "inspirational"  # Spark ideas for exploration
 
 
 class DomainDetection(Enum):
     """How domain is detected"""
-    REASONING = "reasoning"          # AI reasons about domain
+
+    REASONING = "reasoning"  # AI reasons about domain
     PLUGIN_ASSISTED = "plugin_assisted"  # Plugins provide hints
-    HYBRID = "hybrid"                # Mix of reasoning + plugins
-    DECLARED = "declared"            # User declares domain
-    EMERGENT = "emergent"            # Discover through exploration
+    HYBRID = "hybrid"  # Mix of reasoning + plugins
+    DECLARED = "declared"  # User declares domain
+    EMERGENT = "emergent"  # Discover through exploration
 
 
 class PostflightMode(Enum):
     """How postflight assessment works"""
+
     GENUINE_REASSESSMENT = "genuine_reassessment"  # AI genuinely reassesses
     COMPARATIVE_ASSESSMENT = "comparative_assessment"  # Compare pre/post
     FULL_AUDIT_TRAIL = "full_audit_trail"  # Complete audit
@@ -43,6 +46,7 @@ class PostflightMode(Enum):
 @dataclass
 class InvestigationConstraints:
     """Investigation phase constraints"""
+
     max_rounds: int | None = None  # None = no limit
     confidence_threshold: float = 0.65
     confidence_threshold_dynamic: bool = False  # If "dynamic" in config
@@ -55,6 +59,7 @@ class InvestigationConstraints:
 @dataclass
 class ActionThresholds:
     """Thresholds for action determination"""
+
     uncertainty_high: float = 0.75
     clarity_low: float = 0.45
     foundation_low: float = 0.45
@@ -66,6 +71,7 @@ class ActionThresholds:
 @dataclass
 class TuningParameters:
     """Confidence calculation tuning"""
+
     confidence_weight: float = 1.0
     foundation_weight: float = 1.0
     comprehension_weight: float = 1.0
@@ -76,6 +82,7 @@ class TuningParameters:
 @dataclass
 class StrategyConfig:
     """Investigation strategy configuration"""
+
     domain_detection: DomainDetection = DomainDetection.HYBRID
     tool_selection: str = "ai_guided"
     gap_prioritization: str = "balanced"
@@ -84,6 +91,7 @@ class StrategyConfig:
 @dataclass
 class LearningConfig:
     """Learning and postflight configuration"""
+
     postflight_mode: PostflightMode = PostflightMode.GENUINE_REASSESSMENT
     confidence_gain_calculation: str = "evidence_based"
     require_validation: bool = False
@@ -92,6 +100,7 @@ class LearningConfig:
 @dataclass
 class InvestigationProfile:
     """Complete investigation profile"""
+
     name: str
     description: str
     investigation: InvestigationConstraints
@@ -103,48 +112,49 @@ class InvestigationProfile:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary"""
         return {
-            'name': self.name,
-            'description': self.description,
-            'investigation': {
-                'max_rounds': self.investigation.max_rounds,
-                'confidence_threshold': self.investigation.confidence_threshold,
-                'confidence_threshold_dynamic': self.investigation.confidence_threshold_dynamic,
-                'tool_suggestion_mode': self.investigation.tool_suggestion_mode.value,
-                'allow_novel_approaches': self.investigation.allow_novel_approaches,
-                'require_tool_approval': self.investigation.require_tool_approval,
-                'encourage_experimentation': self.investigation.encourage_experimentation,
+            "name": self.name,
+            "description": self.description,
+            "investigation": {
+                "max_rounds": self.investigation.max_rounds,
+                "confidence_threshold": self.investigation.confidence_threshold,
+                "confidence_threshold_dynamic": self.investigation.confidence_threshold_dynamic,
+                "tool_suggestion_mode": self.investigation.tool_suggestion_mode.value,
+                "allow_novel_approaches": self.investigation.allow_novel_approaches,
+                "require_tool_approval": self.investigation.require_tool_approval,
+                "encourage_experimentation": self.investigation.encourage_experimentation,
             },
-            'action_thresholds': {
-                'uncertainty_high': self.action_thresholds.uncertainty_high,
-                'clarity_low': self.action_thresholds.clarity_low,
-                'foundation_low': self.action_thresholds.foundation_low,
-                'confidence_proceed_min': self.action_thresholds.confidence_proceed_min,
-                'override_allowed': self.action_thresholds.override_allowed,
-                'escalate_on_uncertainty': self.action_thresholds.escalate_on_uncertainty,
+            "action_thresholds": {
+                "uncertainty_high": self.action_thresholds.uncertainty_high,
+                "clarity_low": self.action_thresholds.clarity_low,
+                "foundation_low": self.action_thresholds.foundation_low,
+                "confidence_proceed_min": self.action_thresholds.confidence_proceed_min,
+                "override_allowed": self.action_thresholds.override_allowed,
+                "escalate_on_uncertainty": self.action_thresholds.escalate_on_uncertainty,
             },
-            'tuning': {
-                'confidence_weight': self.tuning.confidence_weight,
-                'foundation_weight': self.tuning.foundation_weight,
-                'comprehension_weight': self.tuning.comprehension_weight,
-                'execution_weight': self.tuning.execution_weight,
-                'uncertainty_weight': self.tuning.uncertainty_weight,
+            "tuning": {
+                "confidence_weight": self.tuning.confidence_weight,
+                "foundation_weight": self.tuning.foundation_weight,
+                "comprehension_weight": self.tuning.comprehension_weight,
+                "execution_weight": self.tuning.execution_weight,
+                "uncertainty_weight": self.tuning.uncertainty_weight,
             },
-            'strategy': {
-                'domain_detection': self.strategy.domain_detection.value,
-                'tool_selection': self.strategy.tool_selection,
-                'gap_prioritization': self.strategy.gap_prioritization,
+            "strategy": {
+                "domain_detection": self.strategy.domain_detection.value,
+                "tool_selection": self.strategy.tool_selection,
+                "gap_prioritization": self.strategy.gap_prioritization,
             },
-            'learning': {
-                'postflight_mode': self.learning.postflight_mode.value,
-                'confidence_gain_calculation': self.learning.confidence_gain_calculation,
-                'require_validation': self.learning.require_validation,
-            }
+            "learning": {
+                "postflight_mode": self.learning.postflight_mode.value,
+                "confidence_gain_calculation": self.learning.confidence_gain_calculation,
+                "require_validation": self.learning.require_validation,
+            },
         }
 
 
 @dataclass
 class UniversalConstraints:
     """Universal constraints enforced by Sentinel"""
+
     engagement_gate: float = 0.60
     coherence_min: float = 0.50
     density_max: float = 0.90
@@ -182,20 +192,20 @@ class ProfileLoader:
             self.config = yaml.safe_load(f)
 
         # Load universal constraints
-        uc = self.config.get('universal_constraints', {})
+        uc = self.config.get("universal_constraints", {})
         self.universal_constraints = UniversalConstraints(
-            engagement_gate=uc.get('engagement_gate', 0.60),
-            coherence_min=uc.get('coherence_min', 0.50),
-            density_max=uc.get('density_max', 0.90),
-            change_min=uc.get('change_min', 0.50),
-            max_tool_calls_per_round=uc.get('max_tool_calls_per_round', 10),
-            investigation_timeout_seconds=uc.get('investigation_timeout_seconds', 3600),
-            log_all_assessments=uc.get('log_all_assessments', True),
-            log_tool_calls=uc.get('log_tool_calls', True),
+            engagement_gate=uc.get("engagement_gate", 0.60),
+            coherence_min=uc.get("coherence_min", 0.50),
+            density_max=uc.get("density_max", 0.90),
+            change_min=uc.get("change_min", 0.50),
+            max_tool_calls_per_round=uc.get("max_tool_calls_per_round", 10),
+            investigation_timeout_seconds=uc.get("investigation_timeout_seconds", 3600),
+            log_all_assessments=uc.get("log_all_assessments", True),
+            log_tool_calls=uc.get("log_tool_calls", True),
         )
 
         # Load profiles
-        profiles_config = self.config.get('profiles', {})
+        profiles_config = self.config.get("profiles", {})
         for profile_name, profile_data in profiles_config.items():
             self.profiles[profile_name] = self._parse_profile(profile_name, profile_data)
 
@@ -203,65 +213,65 @@ class ProfileLoader:
         """Parse profile from config data"""
 
         # Parse investigation constraints
-        inv = data.get('investigation', {})
-        confidence_threshold = inv.get('confidence_threshold', 0.65)
+        inv = data.get("investigation", {})
+        confidence_threshold = inv.get("confidence_threshold", 0.65)
         confidence_dynamic = False
 
         if isinstance(confidence_threshold, str):
-            if confidence_threshold in ('dynamic', 'adaptive'):
+            if confidence_threshold in ("dynamic", "adaptive"):
                 confidence_dynamic = True
-                confidence_threshold = inv.get('confidence_threshold_fallback', 0.65)
+                confidence_threshold = inv.get("confidence_threshold_fallback", 0.65)
 
         investigation = InvestigationConstraints(
-            max_rounds=inv.get('max_rounds'),
+            max_rounds=inv.get("max_rounds"),
             confidence_threshold=confidence_threshold,
             confidence_threshold_dynamic=confidence_dynamic,
-            tool_suggestion_mode=ToolSuggestionMode(inv.get('tool_suggestion_mode', 'suggestive')),
-            allow_novel_approaches=inv.get('allow_novel_approaches', True),
-            require_tool_approval=inv.get('require_tool_approval', False),
-            encourage_experimentation=inv.get('encourage_experimentation', False),
+            tool_suggestion_mode=ToolSuggestionMode(inv.get("tool_suggestion_mode", "suggestive")),
+            allow_novel_approaches=inv.get("allow_novel_approaches", True),
+            require_tool_approval=inv.get("require_tool_approval", False),
+            encourage_experimentation=inv.get("encourage_experimentation", False),
         )
 
         # Parse action thresholds
-        at = data.get('action_thresholds', {})
+        at = data.get("action_thresholds", {})
         action_thresholds = ActionThresholds(
-            uncertainty_high=at.get('uncertainty_high', 0.75),
-            clarity_low=at.get('clarity_low', 0.45),
-            foundation_low=at.get('foundation_low', 0.45),
-            confidence_proceed_min=at.get('confidence_proceed_min', 0.65),
-            override_allowed=at.get('override_allowed', True),
-            escalate_on_uncertainty=at.get('escalate_on_uncertainty', False),
+            uncertainty_high=at.get("uncertainty_high", 0.75),
+            clarity_low=at.get("clarity_low", 0.45),
+            foundation_low=at.get("foundation_low", 0.45),
+            confidence_proceed_min=at.get("confidence_proceed_min", 0.65),
+            override_allowed=at.get("override_allowed", True),
+            escalate_on_uncertainty=at.get("escalate_on_uncertainty", False),
         )
 
         # Parse tuning parameters
-        tune = data.get('tuning', {})
+        tune = data.get("tuning", {})
         tuning = TuningParameters(
-            confidence_weight=tune.get('confidence_weight', 1.0),
-            foundation_weight=tune.get('foundation_weight', 1.0),
-            comprehension_weight=tune.get('comprehension_weight', 1.0),
-            execution_weight=tune.get('execution_weight', 1.0),
-            uncertainty_weight=tune.get('uncertainty_weight', 1.0),
+            confidence_weight=tune.get("confidence_weight", 1.0),
+            foundation_weight=tune.get("foundation_weight", 1.0),
+            comprehension_weight=tune.get("comprehension_weight", 1.0),
+            execution_weight=tune.get("execution_weight", 1.0),
+            uncertainty_weight=tune.get("uncertainty_weight", 1.0),
         )
 
         # Parse strategy
-        strat = data.get('strategy', {})
+        strat = data.get("strategy", {})
         strategy = StrategyConfig(
-            domain_detection=DomainDetection(strat.get('domain_detection', 'hybrid')),
-            tool_selection=strat.get('tool_selection', 'ai_guided'),
-            gap_prioritization=strat.get('gap_prioritization', 'balanced'),
+            domain_detection=DomainDetection(strat.get("domain_detection", "hybrid")),
+            tool_selection=strat.get("tool_selection", "ai_guided"),
+            gap_prioritization=strat.get("gap_prioritization", "balanced"),
         )
 
         # Parse learning
-        learn = data.get('learning', {})
+        learn = data.get("learning", {})
         learning = LearningConfig(
-            postflight_mode=PostflightMode(learn.get('postflight_mode', 'genuine_reassessment')),
-            confidence_gain_calculation=learn.get('confidence_gain_calculation', 'evidence_based'),
-            require_validation=learn.get('require_validation', False),
+            postflight_mode=PostflightMode(learn.get("postflight_mode", "genuine_reassessment")),
+            confidence_gain_calculation=learn.get("confidence_gain_calculation", "evidence_based"),
+            require_validation=learn.get("require_validation", False),
         )
 
         return InvestigationProfile(
             name=name,
-            description=data.get('description', ''),
+            description=data.get("description", ""),
             investigation=investigation,
             action_thresholds=action_thresholds,
             tuning=tuning,
@@ -296,7 +306,7 @@ class ProfileLoader:
 
         # Check domain-based selection
         if domain:
-            domain_mapping = self.config.get('profile_selection', {}).get('by_domain', {})
+            domain_mapping = self.config.get("profile_selection", {}).get("by_domain", {})
             for profile_type, domains in domain_mapping.items():
                 if domain in domains:
                     profile_name = f"{profile_type}_domain" if profile_type == "critical" else profile_type
@@ -305,15 +315,19 @@ class ProfileLoader:
 
         # Check AI capability-based selection
         if ai_model:
-            capability_mapping = self.config.get('profile_selection', {}).get('by_ai_capability', {})
+            capability_mapping = self.config.get("profile_selection", {}).get("by_ai_capability", {})
             for capability_type, models in capability_mapping.items():
                 if any(model_pattern in ai_model.lower() for model_pattern in models):
-                    profile_name = f"{capability_type}_collaborative" if capability_type == "high_reasoning" else "autonomous_agent"
+                    profile_name = (
+                        f"{capability_type}_collaborative"
+                        if capability_type == "high_reasoning"
+                        else "autonomous_agent"
+                    )
                     if profile_name in self.profiles:
                         return self.profiles[profile_name]
 
         # Default profile
-        default_name = self.config.get('profile_selection', {}).get('default', 'balanced')
+        default_name = self.config.get("profile_selection", {}).get("default", "balanced")
         return self.profiles.get(default_name, next(iter(self.profiles.values())))
 
     def list_profiles(self) -> list[str]:
@@ -349,7 +363,7 @@ class ProfileLoader:
         if not profile:
             raise ValueError(f"Profile not found: {profile_name}")
 
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             yaml.dump(profile.to_dict(), f, default_flow_style=False)
 
     def import_profile(self, input_path: Path, profile_name: str | None = None) -> None:
@@ -357,7 +371,7 @@ class ProfileLoader:
         with open(input_path) as f:
             data = yaml.safe_load(f)
 
-        name = profile_name or data.get('name', 'imported')
+        name = profile_name or data.get("name", "imported")
         self.profiles[name] = self._parse_profile(name, data)
 
 
@@ -393,11 +407,11 @@ def select_profile(
 
 
 __all__ = [
-    'ActionThresholds',
-    'InvestigationConstraints',
-    'InvestigationProfile',
-    'ProfileLoader',
-    'get_profile_loader',
-    'load_profile',
-    'select_profile',
+    "ActionThresholds",
+    "InvestigationConstraints",
+    "InvestigationProfile",
+    "ProfileLoader",
+    "get_profile_loader",
+    "load_profile",
+    "select_profile",
 ]

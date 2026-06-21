@@ -38,17 +38,17 @@ from .persona_profile import (
 from .validation import ValidationError, validate_persona_profile
 
 __all__ = [
-    'CapabilitiesConfig',
-    'EpistemicConfig',
+    "CapabilitiesConfig",
+    "EpistemicConfig",
     # Management
-    'PersonaManager',
-    'PersonaMetadata',
+    "PersonaManager",
+    "PersonaMetadata",
     # Core
-    'PersonaProfile',
-    'SentinelConfig',
-    'SigningIdentityConfig',
-    'ValidationError',
-    'validate_persona_profile',
+    "PersonaProfile",
+    "SentinelConfig",
+    "SigningIdentityConfig",
+    "ValidationError",
+    "validate_persona_profile",
 ]
 
-__version__ = '4.0.0'  # Phase 4 - Simplified (harness/sentinel removed)
+__version__ = "4.0.0"  # Phase 4 - Simplified (harness/sentinel removed)

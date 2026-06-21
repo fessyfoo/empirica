@@ -12,7 +12,6 @@ Tests:
 8. Confidence filtering
 """
 
-
 from empirica.core.canonical.artifact_extractor import (
     ArtifactExtractor,
     ExtractionResult,
@@ -44,12 +43,13 @@ def make_turn(
 
 
 class TestFindingExtraction:
-
     def test_explicit_finding_pattern(self):
         extractor = ArtifactExtractor()
-        turns = [make_turn(
-            assistant_text="I found that the middleware uses a chain-of-responsibility pattern for request handling."
-        )]
+        turns = [
+            make_turn(
+                assistant_text="I found that the middleware uses a chain-of-responsibility pattern for request handling."
+            )
+        ]
 
         findings = extractor.extract_findings(turns)
         assert len(findings) >= 1
@@ -57,9 +57,11 @@ class TestFindingExtraction:
 
     def test_root_cause_finding(self):
         extractor = ArtifactExtractor()
-        turns = [make_turn(
-            assistant_text="The root cause is a race condition in the session store that occurs under concurrent access."
-        )]
+        turns = [
+            make_turn(
+                assistant_text="The root cause is a race condition in the session store that occurs under concurrent access."
+            )
+        ]
 
         findings = extractor.extract_findings(turns)
         assert len(findings) >= 1
@@ -67,9 +69,7 @@ class TestFindingExtraction:
 
     def test_finding_in_thinking(self):
         extractor = ArtifactExtractor()
-        turns = [make_turn(
-            thinking="I discovered that the auth module imports from a deprecated package."
-        )]
+        turns = [make_turn(thinking="I discovered that the auth module imports from a deprecated package.")]
 
         findings = extractor.extract_findings(turns)
         assert len(findings) >= 1
@@ -78,9 +78,9 @@ class TestFindingExtraction:
 
     def test_impact_estimation_security(self):
         extractor = ArtifactExtractor()
-        turns = [make_turn(
-            assistant_text="I found that there is a security vulnerability in the input validation layer."
-        )]
+        turns = [
+            make_turn(assistant_text="I found that there is a security vulnerability in the input validation layer.")
+        ]
 
         findings = extractor.extract_findings(turns)
         assert len(findings) >= 1
@@ -97,12 +97,11 @@ class TestFindingExtraction:
 
 
 class TestDecisionExtraction:
-
     def test_explicit_decision_pattern(self):
         extractor = ArtifactExtractor()
-        turns = [make_turn(
-            assistant_text="I'll use SQLite instead of Postgres since this is a single-user application."
-        )]
+        turns = [
+            make_turn(assistant_text="I'll use SQLite instead of Postgres since this is a single-user application.")
+        ]
 
         decisions = extractor.extract_decisions(turns)
         assert len(decisions) >= 1
@@ -110,30 +109,31 @@ class TestDecisionExtraction:
 
     def test_decision_with_instead_of(self):
         extractor = ArtifactExtractor()
-        turns = [make_turn(
-            assistant_text="Instead of mocking the database, we should use a test database for integration tests."
-        )]
+        turns = [
+            make_turn(
+                assistant_text="Instead of mocking the database, we should use a test database for integration tests."
+            )
+        ]
 
         decisions = extractor.extract_decisions(turns)
         assert len(decisions) >= 1
 
     def test_lets_decision(self):
         extractor = ArtifactExtractor()
-        turns = [make_turn(
-            assistant_text="Let's use the factory pattern for creating test fixtures across the suite."
-        )]
+        turns = [make_turn(assistant_text="Let's use the factory pattern for creating test fixtures across the suite.")]
 
         decisions = extractor.extract_decisions(turns)
         assert len(decisions) >= 1
 
 
 class TestDeadEndExtraction:
-
     def test_explicit_dead_end(self):
         extractor = ArtifactExtractor()
-        turns = [make_turn(
-            assistant_text="I tried using the passport.js library but it was too heavy for our JWT-only auth needs."
-        )]
+        turns = [
+            make_turn(
+                assistant_text="I tried using the passport.js library but it was too heavy for our JWT-only auth needs."
+            )
+        ]
 
         dead_ends = extractor.extract_dead_ends(turns)
         assert len(dead_ends) >= 1
@@ -156,39 +156,44 @@ class TestDeadEndExtraction:
 
     def test_didnt_work_pattern(self):
         extractor = ArtifactExtractor()
-        turns = [make_turn(
-            assistant_text="That approach didn't work because the API has rate limiting that blocks batch requests."
-        )]
+        turns = [
+            make_turn(
+                assistant_text="That approach didn't work because the API has rate limiting that blocks batch requests."
+            )
+        ]
 
         dead_ends = extractor.extract_dead_ends(turns)
         assert len(dead_ends) >= 1
 
 
 class TestMistakeExtraction:
-
     def test_explicit_mistake(self):
         extractor = ArtifactExtractor()
-        turns = [make_turn(
-            assistant_text="My mistake — I should have checked the return type before using it as a string."
-        )]
+        turns = [
+            make_turn(assistant_text="My mistake — I should have checked the return type before using it as a string.")
+        ]
 
         mistakes = extractor.extract_mistakes(turns)
         assert len(mistakes) >= 1
 
     def test_forgot_to_pattern(self):
         extractor = ArtifactExtractor()
-        turns = [make_turn(
-            assistant_text="I forgot to handle the null case in the session lookup which caused the TypeError."
-        )]
+        turns = [
+            make_turn(
+                assistant_text="I forgot to handle the null case in the session lookup which caused the TypeError."
+            )
+        ]
 
         mistakes = extractor.extract_mistakes(turns)
         assert len(mistakes) >= 1
 
     def test_user_correction_higher_confidence(self):
         extractor = ArtifactExtractor()
-        turns = [make_turn(
-            user_message="No, that's wrong — you should have used the async version of the API call.",
-        )]
+        turns = [
+            make_turn(
+                user_message="No, that's wrong — you should have used the async version of the API call.",
+            )
+        ]
 
         mistakes = extractor.extract_mistakes(turns)
         # User corrections are high confidence (they're the source of truth)
@@ -197,12 +202,9 @@ class TestMistakeExtraction:
 
 
 class TestUnknownExtraction:
-
     def test_explicit_unknown(self):
         extractor = ArtifactExtractor()
-        turns = [make_turn(
-            assistant_text="I'm not sure how the session store handles concurrent access under load."
-        )]
+        turns = [make_turn(assistant_text="I'm not sure how the session store handles concurrent access under load.")]
 
         unknowns = extractor.extract_unknowns(turns)
         assert len(unknowns) >= 1
@@ -210,16 +212,13 @@ class TestUnknownExtraction:
 
     def test_need_to_investigate(self):
         extractor = ArtifactExtractor()
-        turns = [make_turn(
-            assistant_text="I need to investigate how the cache invalidation works across replicas."
-        )]
+        turns = [make_turn(assistant_text="I need to investigate how the cache invalidation works across replicas.")]
 
         unknowns = extractor.extract_unknowns(turns)
         assert len(unknowns) >= 1
 
 
 class TestFullExtraction:
-
     def test_extract_all(self):
         extractor = ArtifactExtractor()
         turns = [
@@ -231,7 +230,7 @@ class TestFullExtraction:
             make_turn(
                 user_message="What about the session?",
                 assistant_text="I tried using Redis for sessions but it didn't work because of the firewall rules. "
-                               "Let's use local file-based sessions instead.",
+                "Let's use local file-based sessions instead.",
                 turn_index=1,
             ),
             make_turn(
@@ -252,9 +251,11 @@ class TestFullExtraction:
 
     def test_extraction_summary(self):
         extractor = ArtifactExtractor()
-        turns = [make_turn(
-            assistant_text="I found that the auth system uses JWT tokens. I decided to use RS256 for signing.",
-        )]
+        turns = [
+            make_turn(
+                assistant_text="I found that the auth system uses JWT tokens. I decided to use RS256 for signing.",
+            )
+        ]
 
         result = extractor.extract_all(turns)
         summary = result.summary()
@@ -266,7 +267,6 @@ class TestFullExtraction:
 
 
 class TestDeduplication:
-
     def test_duplicate_content_filtered(self):
         extractor = ArtifactExtractor()
 
@@ -289,28 +289,30 @@ class TestDeduplication:
     def test_existing_artifacts_deduped(self):
         # Simulate existing artifact hashes
         import hashlib
+
         existing_text = "the middleware uses a chain-of-responsibility pattern for handling"
         normalized = existing_text.lower().strip()
         existing_hash = hashlib.sha256(normalized.encode()).hexdigest()[:16]
 
         extractor = ArtifactExtractor(dedup_existing={existing_hash})
-        turns = [make_turn(
-            assistant_text="I found that the middleware uses a chain-of-responsibility pattern for handling.",
-        )]
+        turns = [
+            make_turn(
+                assistant_text="I found that the middleware uses a chain-of-responsibility pattern for handling.",
+            )
+        ]
 
         findings = extractor.extract_findings(turns)
         assert len(findings) == 0  # Already exists
 
 
 class TestConfidenceFiltering:
-
     def test_filter_by_confidence(self):
         extractor = ArtifactExtractor(min_confidence=0.1)  # Low threshold to get everything
 
         turns = [
             make_turn(
                 assistant_text="I found that the system uses microservices for scaling. "
-                               "I need to investigate the deployment pipeline.",
+                "I need to investigate the deployment pipeline.",
                 turn_index=0,
             ),
         ]

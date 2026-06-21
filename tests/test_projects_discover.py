@@ -161,24 +161,20 @@ def test_walk_finds_nested_projects_when_outer_is_also_a_project(tmp_path):
 
 
 def test_normalize_ssh_form_strips_git_suffix():
-    assert _normalize_remote_url("git@github.com:Nubaeon/empirica.git") == \
-        "https://github.com/Nubaeon/empirica"
+    assert _normalize_remote_url("git@github.com:Nubaeon/empirica.git") == "https://github.com/Nubaeon/empirica"
 
 
 def test_normalize_ssh_form_without_git_suffix():
-    assert _normalize_remote_url("git@github.com:Nubaeon/empirica") == \
-        "https://github.com/Nubaeon/empirica"
+    assert _normalize_remote_url("git@github.com:Nubaeon/empirica") == "https://github.com/Nubaeon/empirica"
 
 
 def test_normalize_https_form_strips_git_suffix():
-    assert _normalize_remote_url("https://github.com/Nubaeon/empirica.git") == \
-        "https://github.com/Nubaeon/empirica"
+    assert _normalize_remote_url("https://github.com/Nubaeon/empirica.git") == "https://github.com/Nubaeon/empirica"
 
 
 def test_normalize_http_form_passes_through():
     """http (not https) is preserved — some private gitea instances use it."""
-    assert _normalize_remote_url("http://git.internal/foo/bar") == \
-        "http://git.internal/foo/bar"
+    assert _normalize_remote_url("http://git.internal/foo/bar") == "http://git.internal/foo/bar"
 
 
 def test_normalize_garbage_returns_none():
@@ -188,8 +184,7 @@ def test_normalize_garbage_returns_none():
 
 
 def test_normalize_handles_whitespace():
-    assert _normalize_remote_url("  git@github.com:Foo/Bar.git  ") == \
-        "https://github.com/Foo/Bar"
+    assert _normalize_remote_url("  git@github.com:Foo/Bar.git  ") == "https://github.com/Foo/Bar"
 
 
 # ---------------------------------------------------------------------------
@@ -234,6 +229,7 @@ def test_discover_projects_includes_repo_url_when_git_remote_set(tmp_path, monke
         class Result:
             returncode = 0
             stdout = "git@github.com:Test/Alpha.git\n"
+
         return Result()
 
     with patch("subprocess.run", side_effect=fake_run):
@@ -261,8 +257,13 @@ def test_write_and_load_manifest_roundtrip(tmp_path):
         "discovered_at": "2026-05-05T12:00:00+00:00",
         "roots": [str(tmp_path)],
         "projects": [
-            {"path": "/x/y", "name": "y", "repo_url": "https://github.com/a/y",
-             "has_empirica_dir": True, "git_remote_origin": "git@github.com:a/y.git"},
+            {
+                "path": "/x/y",
+                "name": "y",
+                "repo_url": "https://github.com/a/y",
+                "has_empirica_dir": True,
+                "git_remote_origin": "git@github.com:a/y.git",
+            },
         ],
     }
     target = tmp_path / "manifest.yaml"
@@ -324,6 +325,7 @@ def test_resolve_cortex_config_strips_trailing_slash(monkeypatch, tmp_path):
     monkeypatch.delenv("EMPIRICA_CREDENTIALS_PATH", raising=False)
     from empirica.config import credentials_loader as cl_mod
     from empirica.config.credentials_loader import CredentialsLoader
+
     CredentialsLoader._instance = None
     CredentialsLoader._credentials_cache = None
     cl_mod._loader = None
@@ -350,6 +352,7 @@ def test_resolve_cortex_config_returns_none_when_unset(monkeypatch, tmp_path):
     # the isolated HOME (get_credentials_loader caches a module global).
     from empirica.config import credentials_loader as cl_mod
     from empirica.config.credentials_loader import CredentialsLoader
+
     CredentialsLoader._instance = None
     CredentialsLoader._credentials_cache = None
     cl_mod._loader = None
@@ -397,11 +400,13 @@ def test_register_one_project_404_falls_back_to_admin():
     admin-201 + user-link).
     """
     project = {"name": "alpha"}
-    responses = iter([
-        (404, None),                              # /v1/projects/register fails
-        (201, {"project_id": "uuid-alpha"}),      # /v1/admin/projects succeeds
-        (200, {"linked": True}),                   # /v1/users/me/projects link
-    ])
+    responses = iter(
+        [
+            (404, None),  # /v1/projects/register fails
+            (201, {"project_id": "uuid-alpha"}),  # /v1/admin/projects succeeds
+            (200, {"linked": True}),  # /v1/users/me/projects link
+        ]
+    )
 
     def fake_post(*_args, **_kwargs):
         return next(responses)
@@ -431,6 +436,7 @@ def test_register_one_project_500_fails_without_fallback():
 def test_register_one_project_network_error_returns_failed():
     """urllib raises URLError → caught and returned as failed result."""
     import urllib.error
+
     project = {"name": "alpha"}
     with patch(
         "empirica.cli.command_handlers.projects_commands._post_project",
@@ -529,9 +535,7 @@ def test_filter_multiple_excludes_are_or():
 
 def test_filter_exclude_runs_after_include():
     """Order matters: include narrows first, exclude trims further."""
-    out = filter_projects(
-        _SAMPLE_PROJECTS, includes=["^empirica"], excludes=["extension"]
-    )
+    out = filter_projects(_SAMPLE_PROJECTS, includes=["^empirica"], excludes=["extension"])
     assert [p["name"] for p in out] == ["empirica"]
 
 
@@ -556,6 +560,7 @@ def test_filter_handles_missing_name_or_path_fields():
 def test_filter_invalid_regex_raises_re_error():
     """Caller (handler) catches re.error and prints friendly message."""
     import re as _re
+
     try:
         filter_projects(_SAMPLE_PROJECTS, includes=["[unclosed"])
     except _re.error:

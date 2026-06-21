@@ -38,16 +38,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-EMPIRICA_DIR = Path.home() / '.empirica'
+EMPIRICA_DIR = Path.home() / ".empirica"
 
 # Default scheduler — Claude Code's CronCreate is the only one we know
 # how to bootstrap by prompt right now. Other backends (systemd-user, at)
 # could be wired later but the cockpit doesn't issue them.
-DEFAULT_SCHEDULER_KIND = 'cron-create'
+DEFAULT_SCHEDULER_KIND = "cron-create"
 
 
 def _safe_suffix(text: str) -> str:
-    return text.replace('/', '-').replace('%', '')
+    return text.replace("/", "-").replace("%", "")
 
 
 def pending_path(instance_id: str, name: str) -> Path:
@@ -55,13 +55,13 @@ def pending_path(instance_id: str, name: str) -> Path:
     so writers and readers agree on the filename."""
     safe_inst = _safe_suffix(instance_id)
     safe_name = _safe_suffix(name)
-    return EMPIRICA_DIR / f'loop_install_pending_{safe_inst}_{safe_name}.json'
+    return EMPIRICA_DIR / f"loop_install_pending_{safe_inst}_{safe_name}.json"
 
 
 def list_pending(instance_id: str) -> list[Path]:
     """All pending install request files for the given instance."""
     safe_inst = _safe_suffix(instance_id)
-    return sorted(EMPIRICA_DIR.glob(f'loop_install_pending_{safe_inst}_*.json'))
+    return sorted(EMPIRICA_DIR.glob(f"loop_install_pending_{safe_inst}_*.json"))
 
 
 def _extract_skill_prompt_template(body_skill: str) -> str | None:
@@ -83,8 +83,13 @@ def _extract_skill_prompt_template(body_skill: str) -> str | None:
     from pathlib import Path
 
     candidates = [
-        Path.home() / '.claude' / 'plugins' / 'local' / 'empirica' / 'skills' / body_skill / 'SKILL.md',
-        Path(__file__).resolve().parents[2] / 'plugins' / 'claude-code-integration' / 'skills' / body_skill / 'SKILL.md',
+        Path.home() / ".claude" / "plugins" / "local" / "empirica" / "skills" / body_skill / "SKILL.md",
+        Path(__file__).resolve().parents[2]
+        / "plugins"
+        / "claude-code-integration"
+        / "skills"
+        / body_skill
+        / "SKILL.md",
     ]
     skill_path: Path | None = None
     for c in candidates:
@@ -95,30 +100,30 @@ def _extract_skill_prompt_template(body_skill: str) -> str | None:
         return None
 
     try:
-        text = skill_path.read_text(encoding='utf-8')
+        text = skill_path.read_text(encoding="utf-8")
     except OSError:
         return None
 
     # Find the Cron Prompt Template heading
-    marker = '## Cron Prompt Template'
+    marker = "## Cron Prompt Template"
     idx = text.find(marker)
     if idx == -1:
         return None
-    after_heading = text[idx + len(marker):]
+    after_heading = text[idx + len(marker) :]
 
     # Find the first fenced code block after the heading
-    fence_match = re.search(r'\n```[a-zA-Z]*\n(.*?)\n```', after_heading, re.DOTALL)
+    fence_match = re.search(r"\n```[a-zA-Z]*\n(.*?)\n```", after_heading, re.DOTALL)
     if not fence_match:
         return None
-    return fence_match.group(1).rstrip() + '\n'
+    return fence_match.group(1).rstrip() + "\n"
 
 
 def render_loop_cron_prompt(
     name: str,
     interval: str,
-    description: str = '',
-    base_interval: str = '15m',
-    max_interval: str = '4h',
+    description: str = "",
+    base_interval: str = "15m",
+    max_interval: str = "4h",
     body_skill: str | None = None,
 ) -> str:
     """Render the loop-cron skill template with placeholders substituted.
@@ -141,7 +146,7 @@ def render_loop_cron_prompt(
         skill_body = _extract_skill_prompt_template(body_skill)
         if skill_body is not None:
             return skill_body
-    desc = description or f'{name} self-scheduling loop'
+    desc = description or f"{name} self-scheduling loop"
     return f"""\
 At start (idempotent — safe to call every fire):
   empirica loop register --name {name} --kind cron --interval "{interval}" \\
@@ -180,43 +185,44 @@ class LoopInstallRequest:
     show 'requested by tmux_7'); None when the request was made via CLI
     outside any tracked instance.
     """
+
     instance_id: str
     name: str
     interval: str
     description: str
     scheduler_kind: str = DEFAULT_SCHEDULER_KIND
-    requested_at: str = ''
+    requested_at: str = ""
     requested_by: str | None = None
-    prompt_template: str = ''
+    prompt_template: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            'instance_id': self.instance_id,
-            'name': self.name,
-            'interval': self.interval,
-            'description': self.description,
-            'scheduler_kind': self.scheduler_kind,
-            'requested_at': self.requested_at,
-            'requested_by': self.requested_by,
-            'prompt_template': self.prompt_template,
+            "instance_id": self.instance_id,
+            "name": self.name,
+            "interval": self.interval,
+            "description": self.description,
+            "scheduler_kind": self.scheduler_kind,
+            "requested_at": self.requested_at,
+            "requested_by": self.requested_by,
+            "prompt_template": self.prompt_template,
         }
 
     @classmethod
     def from_path(cls, path: Path) -> LoopInstallRequest | None:
         try:
-            with open(path, encoding='utf-8') as f:
+            with open(path, encoding="utf-8") as f:
                 data = json.load(f)
         except (OSError, json.JSONDecodeError):
             return None
         return cls(
-            instance_id=str(data.get('instance_id', '')),
-            name=str(data.get('name', '')),
-            interval=str(data.get('interval', '')),
-            description=str(data.get('description', '') or ''),
-            scheduler_kind=str(data.get('scheduler_kind') or DEFAULT_SCHEDULER_KIND),
-            requested_at=str(data.get('requested_at', '')),
-            requested_by=data.get('requested_by'),
-            prompt_template=str(data.get('prompt_template', '') or ''),
+            instance_id=str(data.get("instance_id", "")),
+            name=str(data.get("name", "")),
+            interval=str(data.get("interval", "")),
+            description=str(data.get("description", "") or ""),
+            scheduler_kind=str(data.get("scheduler_kind") or DEFAULT_SCHEDULER_KIND),
+            requested_at=str(data.get("requested_at", "")),
+            requested_by=data.get("requested_by"),
+            prompt_template=str(data.get("prompt_template", "") or ""),
         )
 
 
@@ -224,11 +230,11 @@ def write_pending(
     instance_id: str,
     name: str,
     interval: str,
-    description: str = '',
+    description: str = "",
     scheduler_kind: str = DEFAULT_SCHEDULER_KIND,
     requested_by: str | None = None,
-    base_interval: str = '15m',
-    max_interval: str = '4h',
+    base_interval: str = "15m",
+    max_interval: str = "4h",
     body_skill: str | None = None,
 ) -> Path:
     """Write a pending install request. Idempotent — overwrites existing
@@ -251,12 +257,15 @@ def write_pending(
         requested_at=datetime.now(tz=timezone.utc).isoformat(),
         requested_by=requested_by,
         prompt_template=render_loop_cron_prompt(
-            name=name, interval=interval, description=description,
-            base_interval=base_interval, max_interval=max_interval,
+            name=name,
+            interval=interval,
+            description=description,
+            base_interval=base_interval,
+            max_interval=max_interval,
             body_skill=body_skill,
         ),
     )
-    with open(path, 'w', encoding='utf-8') as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(request.to_dict(), f, indent=2)
     return path
 
@@ -280,12 +289,12 @@ def consume_pending(instance_id: str) -> list[LoopInstallRequest]:
 
 
 __all__ = [
-    'DEFAULT_SCHEDULER_KIND',
-    'EMPIRICA_DIR',
-    'LoopInstallRequest',
-    'consume_pending',
-    'list_pending',
-    'pending_path',
-    'render_loop_cron_prompt',
-    'write_pending',
+    "DEFAULT_SCHEDULER_KIND",
+    "EMPIRICA_DIR",
+    "LoopInstallRequest",
+    "consume_pending",
+    "list_pending",
+    "pending_path",
+    "render_loop_cron_prompt",
+    "write_pending",
 ]

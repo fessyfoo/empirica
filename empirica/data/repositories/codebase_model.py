@@ -48,7 +48,7 @@ class CodebaseModelRepository(BaseRepository):
         existing = cursor.fetchone()
 
         if existing:
-            entity_id = existing[0] if isinstance(existing, tuple) else existing['id']
+            entity_id = existing[0] if isinstance(existing, tuple) else existing["id"]
             # Update signature/metadata but keep last_seen NULL (still active).
             # last_seen is only set by invalidate_entity() when the entity is removed.
             self._execute(
@@ -67,8 +67,17 @@ class CodebaseModelRepository(BaseRepository):
                (id, entity_type, name, file_path, signature, first_seen, last_seen,
                 project_id, session_id, metadata)
                VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)""",
-            (entity_id, entity_type, name, file_path, signature, now,
-             project_id, session_id, json.dumps(metadata or {})),
+            (
+                entity_id,
+                entity_type,
+                name,
+                file_path,
+                signature,
+                now,
+                project_id,
+                session_id,
+                json.dumps(metadata or {}),
+            ),
         )
         self.commit()
         return entity_id
@@ -152,9 +161,17 @@ class CodebaseModelRepository(BaseRepository):
                (id, fact_text, valid_at, invalid_at, status, entity_ids,
                 evidence_type, evidence_path, confidence, project_id, session_id)
                VALUES (?, ?, ?, NULL, 'canonical', ?, ?, ?, ?, ?, ?)""",
-            (fact_id, fact_text, time.time(),
-             json.dumps(entity_ids or []), evidence_type, evidence_path,
-             confidence, project_id, session_id),
+            (
+                fact_id,
+                fact_text,
+                time.time(),
+                json.dumps(entity_ids or []),
+                evidence_type,
+                evidence_path,
+                confidence,
+                project_id,
+                session_id,
+            ),
         )
         self.commit()
         return fact_id
@@ -181,7 +198,7 @@ class CodebaseModelRepository(BaseRepository):
 
         # Filter by entity_id in Python (entity_ids is JSON array)
         if entity_id:
-            rows = [r for r in rows if entity_id in json.loads(r.get('entity_ids', '[]'))]
+            rows = [r for r in rows if entity_id in json.loads(r.get("entity_ids", "[]"))]
 
         return rows
 
@@ -228,8 +245,8 @@ class CodebaseModelRepository(BaseRepository):
         existing = cursor.fetchone()
 
         if existing:
-            rel_id = existing[0] if isinstance(existing, tuple) else existing['id']
-            count = (existing[1] if isinstance(existing, tuple) else existing['evidence_count']) + 1
+            rel_id = existing[0] if isinstance(existing, tuple) else existing["id"]
+            count = (existing[1] if isinstance(existing, tuple) else existing["evidence_count"]) + 1
             self._execute(
                 "UPDATE codebase_relationships SET last_seen = ?, evidence_count = ? WHERE id = ?",
                 (now, count, rel_id),
@@ -243,8 +260,7 @@ class CodebaseModelRepository(BaseRepository):
                (id, source_entity_id, target_entity_id, relationship_type,
                 weight, first_seen, last_seen, evidence_count, project_id)
                VALUES (?, ?, ?, ?, 1.0, ?, ?, 1, ?)""",
-            (rel_id, source_entity_id, target_entity_id, relationship_type,
-             now, now, project_id),
+            (rel_id, source_entity_id, target_entity_id, relationship_type, now, now, project_id),
         )
         self.commit()
         return rel_id
@@ -295,11 +311,9 @@ class CodebaseModelRepository(BaseRepository):
         existing = cursor.fetchone()
 
         if existing:
-            cid = existing[0] if isinstance(existing, tuple) else existing['id']
-            count = (existing[1] if isinstance(existing, tuple) else existing['violation_count']) + 1
-            old_examples = json.loads(
-                (existing[2] if isinstance(existing, tuple) else existing['examples']) or '[]'
-            )
+            cid = existing[0] if isinstance(existing, tuple) else existing["id"]
+            count = (existing[1] if isinstance(existing, tuple) else existing["violation_count"]) + 1
+            old_examples = json.loads((existing[2] if isinstance(existing, tuple) else existing["examples"]) or "[]")
             all_examples = old_examples + (examples or [])
             self._execute(
                 """UPDATE codebase_constraints
@@ -317,9 +331,18 @@ class CodebaseModelRepository(BaseRepository):
                 violation_count, last_violated, examples, severity,
                 project_id, session_id, created_at)
                VALUES (?, ?, ?, ?, ?, 0, NULL, ?, ?, ?, ?, ?)""",
-            (cid, constraint_type, rule_name, file_pattern, description,
-             json.dumps(examples or []), severity,
-             project_id, session_id, now),
+            (
+                cid,
+                constraint_type,
+                rule_name,
+                file_pattern,
+                description,
+                json.dumps(examples or []),
+                severity,
+                project_id,
+                session_id,
+                now,
+            ),
         )
         self.commit()
         return cid
@@ -343,8 +366,7 @@ class CodebaseModelRepository(BaseRepository):
         # File pattern matching in Python (glob)
         if file_path:
             constraints = [
-                c for c in constraints
-                if not c.get('file_pattern') or self._glob_match(file_path, c['file_pattern'])
+                c for c in constraints if not c.get("file_pattern") or self._glob_match(file_path, c["file_pattern"])
             ]
 
         return constraints
@@ -352,9 +374,9 @@ class CodebaseModelRepository(BaseRepository):
     @staticmethod
     def _glob_match(path: str, pattern: str) -> bool:
         """Match a file path against a glob pattern."""
-        if '**' in pattern:
-            flat = pattern.replace('**/', '')
-            recursive = pattern.replace('**', '*')
+        if "**" in pattern:
+            flat = pattern.replace("**/", "")
+            recursive = pattern.replace("**", "*")
             return fnmatch(path, flat) or fnmatch(path, recursive)
         return fnmatch(path, pattern)
 

@@ -47,6 +47,7 @@ def _src(path: Path) -> str:
 # Source-level regression: no gate uses know AND uncertainty compound
 # ---------------------------------------------------------------------------
 
+
 class TestGateSourceRegression:
     """Source files must not contain the old `know >= X and uncertainty <= Y`
     compound gate. The gate is uncertainty-only after 2026-04-07."""
@@ -105,6 +106,7 @@ class TestGateSourceRegression:
 # ---------------------------------------------------------------------------
 # Display strings reflect the new gate semantic
 # ---------------------------------------------------------------------------
+
 
 class TestDisplayStringsUpdated:
     """Reporting/display strings must show the uncertainty-only gate."""

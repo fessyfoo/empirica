@@ -1,6 +1,7 @@
 """
 Epistemic learning trajectory storage and search.
 """
+
 from __future__ import annotations
 
 from empirica.core.qdrant.collections import _epistemics_collection
@@ -45,12 +46,7 @@ def upsert_epistemics(project_id: str, items: list[dict]) -> int:
         return 0
 
 
-def search_epistemics(
-    project_id: str,
-    query_text: str,
-    filters: dict | None = None,
-    limit: int = 5
-) -> list[dict]:
+def search_epistemics(project_id: str, query_text: str, filters: dict | None = None, limit: int = 5) -> list[dict]:
     """
     Search epistemic learning trajectories by semantic similarity.
     Returns empty list if Qdrant not available.
@@ -67,19 +63,8 @@ def search_epistemics(
         if client is None:
             return []
         coll = _epistemics_collection(project_id)
-        results = client.query_points(
-            collection_name=coll,
-            query=qvec,
-            limit=limit,
-            with_payload=True
-        )
-        return [
-            {
-                "score": getattr(r, 'score', 0.0) or 0.0,
-                **(r.payload or {})
-            }
-            for r in results.points
-        ]
+        results = client.query_points(collection_name=coll, query=qvec, limit=limit, with_payload=True)
+        return [{"score": getattr(r, "score", 0.0) or 0.0, **(r.payload or {})} for r in results.points]
     except Exception as e:
         logger.debug(f"search_epistemics failed: {e}")
 
@@ -87,14 +72,7 @@ def search_epistemics(
     try:
         coll = _epistemics_collection(project_id)
         rd = _rest_search(coll, qvec, limit)
-        return [
-            {
-                "score": d.get('score', 0.0),
-                **(d.get('payload') or {})
-            }
-            for d in rd
-        ]
+        return [{"score": d.get("score", 0.0), **(d.get("payload") or {})} for d in rd]
     except Exception as e:
         logger.debug(f"search_epistemics REST fallback failed: {e}")
         return []
-

@@ -73,15 +73,24 @@ REGULATORY_MAP: dict[str, dict[str, Any]] = {
     "tech_docs": {
         "check": "Technical documentation (docs-assess)",
         "frameworks": {
-            "eu_ai_act": {"article": "Art. 11 + Annex IV", "requirement": "Technical documentation — coverage and accuracy"},
+            "eu_ai_act": {
+                "article": "Art. 11 + Annex IV",
+                "requirement": "Technical documentation — coverage and accuracy",
+            },
             "iso_42001": {"clause": "7.5.1", "requirement": "Documented information — creation and updating"},
         },
     },
     "tech_docs_links": {
         "check": "Technical documentation link integrity (docs-link-check)",
         "frameworks": {
-            "eu_ai_act": {"article": "Art. 11 + Annex IV", "requirement": "Technical documentation — accuracy of cross-references"},
-            "iso_42001": {"clause": "7.5.3", "requirement": "Control of documented information — accessibility and integrity"},
+            "eu_ai_act": {
+                "article": "Art. 11 + Annex IV",
+                "requirement": "Technical documentation — accuracy of cross-references",
+            },
+            "iso_42001": {
+                "clause": "7.5.3",
+                "requirement": "Control of documented information — accessibility and integrity",
+            },
         },
     },
     "release_chain": {
@@ -166,6 +175,7 @@ def _load_compliance_config(project_root: Path) -> dict[str, Any]:
         return {}
     try:
         import yaml
+
         with open(config_path) as f:
             return yaml.safe_load(f) or {}
     except Exception as exc:
@@ -198,10 +208,13 @@ def _run_extra_check(check_def: dict[str, Any], project_root: Path) -> dict[str,
 
     try:
         import json as _json
+
         data = _json.loads(raw.get("stdout") or "{}")
     except Exception:
         return {
-            "check": check_id, "passed": False, "status": "fail",
+            "check": check_id,
+            "passed": False,
+            "status": "fail",
             "error": "runner did not emit valid JSON",
             "duration_seconds": raw.get("duration_seconds"),
         }
@@ -226,9 +239,7 @@ def _run_check(name: str, cmd: list[str], timeout: int = 120) -> dict[str, Any]:
     """Run a single compliance check and return structured result."""
     start = time.time()
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
         duration = round(time.time() - start, 2)
         return {
             "check": name,
@@ -387,6 +398,7 @@ def _parse_pip_audit_result(raw: dict[str, Any]) -> dict[str, Any]:
 def _build_epistemic_audit(project_root: Path) -> dict[str, Any]:
     """Check for epistemic transaction trail."""
     from empirica.config.path_resolver import get_session_db_path
+
     try:
         db_path = get_session_db_path()
     except Exception:
@@ -395,6 +407,7 @@ def _build_epistemic_audit(project_root: Path) -> dict[str, Any]:
         return {"check": "epistemic_audit", "passed": None, "status": "unavailable", "reason": "no database"}
 
     import sqlite3
+
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
     try:
@@ -423,6 +436,7 @@ def _build_epistemic_audit(project_root: Path) -> dict[str, Any]:
 def _build_calibration_check(project_root: Path) -> dict[str, Any]:
     """Check grounded calibration data."""
     from empirica.config.path_resolver import get_session_db_path
+
     try:
         db_path = get_session_db_path()
     except Exception:
@@ -431,6 +445,7 @@ def _build_calibration_check(project_root: Path) -> dict[str, Any]:
         return {"check": "calibration", "passed": None, "status": "unavailable"}
 
     import sqlite3
+
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
     try:
@@ -481,6 +496,7 @@ def _build_release_chain_check(project_root: Path) -> dict[str, Any]:
     if proj_yaml.exists():
         try:
             import yaml
+
             with open(proj_yaml) as f:
                 proj = yaml.safe_load(f) or {}
             channels = proj.get("publish_channels", channels)
@@ -514,28 +530,37 @@ def _check_channel(channel: str, version: str, project_root: Path) -> str:
         if channel == "git_tag":
             result = subprocess.run(
                 ["git", "tag", "-l", f"v{version}"],
-                capture_output=True, text=True, timeout=5, cwd=str(project_root),
+                capture_output=True,
+                text=True,
+                timeout=5,
+                cwd=str(project_root),
             )
             return "published" if f"v{version}" in result.stdout else "missing"
 
         if channel == "github_release":
             result = subprocess.run(
                 ["gh", "release", "view", f"v{version}", "--json", "tagName"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             return "published" if result.returncode == 0 else "missing"
 
         if channel == "pypi":
             result = subprocess.run(
                 ["pip", "index", "versions", "empirica"],
-                capture_output=True, text=True, timeout=15,
+                capture_output=True,
+                text=True,
+                timeout=15,
             )
             return "published" if version in result.stdout else "missing"
 
         if channel == "pypi_mcp":
             result = subprocess.run(
                 ["pip", "index", "versions", "empirica-mcp"],
-                capture_output=True, text=True, timeout=15,
+                capture_output=True,
+                text=True,
+                timeout=15,
             )
             return "published" if version in result.stdout else "missing"
 
@@ -543,7 +568,9 @@ def _check_channel(channel: str, version: str, project_root: Path) -> str:
             # Check Docker Hub tag existence via API
             result = subprocess.run(
                 ["docker", "manifest", "inspect", f"nubaeon/empirica:{version}"],
-                capture_output=True, text=True, timeout=15,
+                capture_output=True,
+                text=True,
+                timeout=15,
             )
             return "published" if result.returncode == 0 else "missing"
 
@@ -575,6 +602,7 @@ def _build_discipline_check(project_root: Path) -> dict[str, Any]:
     Cannot be gamed — you either did the work or you didn't.
     """
     from empirica.config.path_resolver import get_session_db_path
+
     try:
         db_path = get_session_db_path()
     except Exception:
@@ -583,6 +611,7 @@ def _build_discipline_check(project_root: Path) -> dict[str, Any]:
         return {"check": "discipline", "passed": None, "status": "unavailable"}
 
     import sqlite3
+
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
 
@@ -620,7 +649,10 @@ def _build_discipline_check(project_root: Path) -> dict[str, Any]:
         try:
             result = subprocess.run(
                 ["git", "log", "--oneline", "--all"],
-                capture_output=True, text=True, timeout=5, cwd=str(project_root),
+                capture_output=True,
+                text=True,
+                timeout=5,
+                cwd=str(project_root),
             )
             commit_count = len(result.stdout.strip().split("\n")) if result.stdout.strip() else 0
         except Exception:
@@ -640,7 +672,7 @@ def _build_discipline_check(project_root: Path) -> dict[str, Any]:
     if artifact_counts.get("dead_ends", 0) == 0:
         gaps.append("No dead-ends logged — are failed approaches being captured?")
     if transactions > 0 and total_artifacts / transactions < 1:
-        gaps.append(f"Low artifact density: {total_artifacts/transactions:.1f} per transaction")
+        gaps.append(f"Low artifact density: {total_artifacts / transactions:.1f} per transaction")
 
     # Pass if: has transactions, has diverse artifacts, has goals
     passed = transactions >= 3 and types_used >= 3 and goals_completed > 0
@@ -665,7 +697,10 @@ def _build_ai_transparency_check(project_root: Path) -> dict[str, Any]:
     try:
         result = subprocess.run(
             ["git", "log", "--format=%b", "-50"],
-            capture_output=True, text=True, timeout=10, cwd=str(project_root),
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=str(project_root),
         )
         if result.returncode != 0:
             return {"check": "ai_transparency", "passed": None, "status": "unavailable"}
@@ -689,6 +724,7 @@ def _build_ai_transparency_check(project_root: Path) -> dict[str, Any]:
 def _build_decision_transparency_check(project_root: Path) -> dict[str, Any]:
     """Check that logged decisions have rationale (interpretable AI output)."""
     from empirica.config.path_resolver import get_session_db_path
+
     try:
         db_path = get_session_db_path()
     except Exception:
@@ -697,6 +733,7 @@ def _build_decision_transparency_check(project_root: Path) -> dict[str, Any]:
         return {"check": "decision_transparency", "passed": None, "status": "unavailable"}
 
     import sqlite3
+
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
     try:
@@ -729,6 +766,7 @@ def _parse_docs_result(raw: dict[str, Any]) -> dict[str, Any]:
 
     try:
         import json as _json
+
         data = _json.loads(raw.get("stdout") or "{}")
         overall = data.get("overall", {})
         coverage = overall.get("coverage", 0)
@@ -747,7 +785,12 @@ def _parse_docs_result(raw: dict[str, Any]) -> dict[str, Any]:
             "duration_seconds": raw["duration_seconds"],
         }
     except Exception:
-        return {"check": "tech_docs", "passed": None, "status": "unavailable", "duration_seconds": raw.get("duration_seconds", 0)}
+        return {
+            "check": "tech_docs",
+            "passed": None,
+            "status": "unavailable",
+            "duration_seconds": raw.get("duration_seconds", 0),
+        }
 
 
 def _parse_docpistemic_result(raw: dict[str, Any]) -> dict[str, Any]:
@@ -766,6 +809,7 @@ def _parse_docpistemic_result(raw: dict[str, Any]) -> dict[str, Any]:
 
     try:
         import json as _json
+
         data = _json.loads(raw.get("stdout") or "{}")
         epistemic = data.get("epistemic", {})
         coverage = epistemic.get("overall_coverage", 0)
@@ -788,12 +832,18 @@ def _parse_docpistemic_result(raw: dict[str, Any]) -> dict[str, Any]:
             "duration_seconds": raw["duration_seconds"],
         }
     except Exception:
-        return {"check": "tech_docs", "passed": None, "status": "unavailable", "duration_seconds": raw.get("duration_seconds", 0)}
+        return {
+            "check": "tech_docs",
+            "passed": None,
+            "status": "unavailable",
+            "duration_seconds": raw.get("duration_seconds", 0),
+        }
 
 
 def _docpistemic_available() -> bool:
     """True if the `docpistemic` CLI is on PATH."""
     import shutil
+
     return shutil.which("docpistemic") is not None
 
 
@@ -805,11 +855,11 @@ def _parse_docs_link_check_result(raw: dict[str, Any]) -> dict[str, Any]:
     surfaced explicitly because they hit the most user-visible docs.
     """
     if raw.get("error"):
-        return {"check": "tech_docs_links", "passed": None, "status": "unavailable",
-                "error": raw["error"]}
+        return {"check": "tech_docs_links", "passed": None, "status": "unavailable", "error": raw["error"]}
 
     try:
         import json as _json
+
         data = _json.loads(raw.get("stdout") or "{}")
         broken_total = data.get("broken_total", 0)
         scanned = data.get("scanned_files", 0)
@@ -831,8 +881,12 @@ def _parse_docs_link_check_result(raw: dict[str, Any]) -> dict[str, Any]:
             "duration_seconds": raw["duration_seconds"],
         }
     except Exception:
-        return {"check": "tech_docs_links", "passed": None, "status": "unavailable",
-                "duration_seconds": raw.get("duration_seconds", 0)}
+        return {
+            "check": "tech_docs_links",
+            "passed": None,
+            "status": "unavailable",
+            "duration_seconds": raw.get("duration_seconds", 0),
+        }
 
 
 def _build_repo_hygiene_check(project_root: Path, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -1000,6 +1054,7 @@ def _parse_trufflehog_result(raw: dict[str, Any]) -> dict[str, Any]:
     detector_breakdown: dict[str, int] = {}
     try:
         import json as _json
+
         for line in (raw.get("stdout") or "").splitlines():
             line = line.strip()
             if not line:
@@ -1043,6 +1098,7 @@ def _parse_semgrep_result(raw: dict[str, Any]) -> dict[str, Any]:
     critical = 0
     try:
         import json as _json
+
         data = _json.loads(raw.get("stdout") or "{}")
         results = data.get("results", [])
         findings = len(results)
@@ -1109,7 +1165,8 @@ def run_compliance_report(
 
     if include_security:
         semgrep_raw = _run_check(
-            "semgrep", ["semgrep", "--config", "p/owasp-top-ten", "empirica/", "--json", "--quiet"],
+            "semgrep",
+            ["semgrep", "--config", "p/owasp-top-ten", "empirica/", "--json", "--quiet"],
             timeout=180,
         )
         results.append(_parse_semgrep_result(semgrep_raw))
@@ -1120,8 +1177,7 @@ def run_compliance_report(
         # parser sees both verified (hard fail) and unverified (warn).
         trufflehog_raw = _run_check(
             "trufflehog",
-            ["trufflehog", "filesystem", str(project_root),
-             "--json", "--no-update"],
+            ["trufflehog", "filesystem", str(project_root), "--json", "--no-update"],
             timeout=180,
         )
         results.append(_parse_trufflehog_result(trufflehog_raw))
@@ -1145,15 +1201,15 @@ def run_compliance_report(
     if tech_docs_tool == "rust-docs-assess":
         docs_raw = _run_check(
             "rust-docs-assess",
-            ["empirica", "rust-docs-assess",
-             "--project-root", str(project_root),
-             "--output", "json"],
+            ["empirica", "rust-docs-assess", "--project-root", str(project_root), "--output", "json"],
             timeout=60,
         )
         results.append(_parse_docpistemic_result(docs_raw))
     elif tech_docs_tool == "docs-assess":
         docs_raw = _run_check(
-            "docs-assess", ["empirica", "docs-assess", "--output", "json"], timeout=60,
+            "docs-assess",
+            ["empirica", "docs-assess", "--output", "json"],
+            timeout=60,
         )
         results.append(_parse_docs_result(docs_raw))
     elif _docpistemic_available():
@@ -1165,7 +1221,9 @@ def run_compliance_report(
         results.append(_parse_docpistemic_result(docs_raw))
     else:
         docs_raw = _run_check(
-            "docs-assess", ["empirica", "docs-assess", "--output", "json"], timeout=60,
+            "docs-assess",
+            ["empirica", "docs-assess", "--output", "json"],
+            timeout=60,
         )
         results.append(_parse_docs_result(docs_raw))
 
@@ -1317,6 +1375,7 @@ def handle_compliance_report_command(args) -> None:
             _project_id_from_path,
             write_last_compliance,
         )
+
         project_id = _project_id_from_path(report.get("project_root"))
         if project_id:
             write_last_compliance(project_id, report)
@@ -1350,7 +1409,10 @@ def _emit_compliance_to_system_events(report: dict[str, Any], *, quiet: bool = F
         ran_by = R.ai_id() or "empirica"
         ran_at = datetime.now(timezone.utc).isoformat()
         envelope = compliance_report_to_event(
-            report, ran_by=ran_by, ran_at=ran_at, suite="empirica-compliance",
+            report,
+            ran_by=ran_by,
+            ran_at=ran_at,
+            suite="empirica-compliance",
         )
         status, body = emit_system_event(envelope)
         if not quiet:

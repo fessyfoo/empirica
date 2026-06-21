@@ -61,7 +61,7 @@ class BranchMapping:
 
     def _save_mappings(self):
         """Save mappings to file."""
-        with open(self.mapping_file, 'w') as f:
+        with open(self.mapping_file, "w") as f:
             json.dump(self._mappings, f, indent=2)
 
     def add_mapping(
@@ -70,7 +70,7 @@ class BranchMapping:
         goal_id: str,
         beads_issue_id: str | None = None,
         ai_id: str | None = None,
-        session_id: str | None = None
+        session_id: str | None = None,
     ) -> bool:
         """
         Add a branch-to-goal mapping.
@@ -94,7 +94,7 @@ class BranchMapping:
             "ai_id": ai_id,
             "session_id": session_id,
             "created_at": datetime.now(timezone.utc).isoformat() + "Z",
-            "status": "active"
+            "status": "active",
         }
 
         self._save_mappings()
@@ -130,10 +130,7 @@ class BranchMapping:
             mapping = self._mappings["mappings"][branch_name]
             mapping["completed_at"] = datetime.now(timezone.utc).isoformat() + "Z"
             mapping["status"] = "completed"
-            self._mappings["history"].append({
-                "branch": branch_name,
-                **mapping
-            })
+            self._mappings["history"].append({"branch": branch_name, **mapping})
 
         # Remove from active mappings
         del self._mappings["mappings"][branch_name]

@@ -8,6 +8,7 @@ all per-project collections, enriched with flattened entity references
 Non-engineers navigate by entity (contact, org, engagement) rather than project.
 Engineers get cross-repo findings as a bonus.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -51,7 +52,7 @@ def _flatten_entity_refs(entity_refs: list[dict[str, Any]]) -> dict[str, list[st
     Output: {"contact_ids": ["david"], "org_ids": ["acme"], "engagement_ids": []}
     """
     result = {"contact_ids": [], "org_ids": [], "engagement_ids": []}
-    for ref in (entity_refs or []):
+    for ref in entity_refs or []:
         etype = ref.get("type", "").lower()
         eid = ref.get("id", "")
         if not eid:
@@ -116,9 +117,7 @@ def embed_to_workspace_index(
             "ai_id": ai_id or "",
         }
 
-        point_id = int(hashlib.md5(
-            f"wsidx_{artifact_type}:{artifact_id}".encode()
-        ).hexdigest()[:15], 16)
+        point_id = int(hashlib.md5(f"wsidx_{artifact_type}:{artifact_id}".encode()).hexdigest()[:15], 16)
 
         point = PointStruct(id=point_id, vector=vector, payload=payload)
         client.upsert(collection_name=_workspace_index_collection(), points=[point])
@@ -181,6 +180,7 @@ def search_workspace_index(
 
         # Build Qdrant filter
         from qdrant_client.models import FieldCondition, Filter, MatchAny, MatchValue
+
         conditions = []
 
         # Entity type/id shorthand → filter
@@ -194,24 +194,18 @@ def search_workspace_index(
             }
             field = field_map.get(entity_type.lower())
             if field:
-                conditions.append(
-                    FieldCondition(key=field, match=MatchAny(any=[entity_id]))
-                )
+                conditions.append(FieldCondition(key=field, match=MatchAny(any=[entity_id])))
 
         # Explicit entity_filter dict
         if entity_filter:
             for key in ("contact_ids", "org_ids", "engagement_ids"):
                 ids = entity_filter.get(key, [])
                 if ids:
-                    conditions.append(
-                        FieldCondition(key=key, match=MatchAny(any=ids))
-                    )
+                    conditions.append(FieldCondition(key=key, match=MatchAny(any=ids)))
 
         # Project scope
         if project_id:
-            conditions.append(
-                FieldCondition(key="project_id", match=MatchValue(value=project_id))
-            )
+            conditions.append(FieldCondition(key="project_id", match=MatchValue(value=project_id)))
 
         query_filter = Filter(must=conditions) if conditions else None
 
@@ -290,11 +284,13 @@ def sync_transaction_to_index(
                     "artifact_source": link.get("artifact_source", ""),
                     "entity_refs": [],
                 }
-            artifact_map[key]["entity_refs"].append({
-                "type": link["entity_type"],
-                "id": link["entity_id"],
-                "relationship": link.get("relationship", "about"),
-            })
+            artifact_map[key]["entity_refs"].append(
+                {
+                    "type": link["entity_type"],
+                    "id": link["entity_id"],
+                    "relationship": link.get("relationship", "about"),
+                }
+            )
 
         # Fetch artifact text from sessions.db
         artifact_texts = _resolve_artifact_texts(
@@ -355,6 +351,7 @@ def _resolve_artifact_texts(
     result = {}
     try:
         from empirica.data.session_database import SessionDatabase
+
         db = SessionDatabase()
 
         for atype, aid in artifacts:

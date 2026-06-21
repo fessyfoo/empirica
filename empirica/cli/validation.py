@@ -16,12 +16,13 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel, Field, field_validator
 
-T = TypeVar('T', bound=BaseModel)
+T = TypeVar("T", bound=BaseModel)
 
 
 # =============================================================================
 # Epistemic Transaction Workflow Input Models
 # =============================================================================
+
 
 class VectorValues(BaseModel):
     """Epistemic vector values for AI self-assessment (0.0-1.0 scale).
@@ -42,6 +43,7 @@ class VectorValues(BaseModel):
     protocol docs for the full vector semantics. Used by `PreflightInput`,
     `CheckInput`, and `PostflightInput`.
     """
+
     know: float = Field(ge=0.0, le=1.0, description="Knowledge level")
     uncertainty: float = Field(ge=0.0, le=1.0, description="Uncertainty level")
     context: float | None = Field(default=None, ge=0.0, le=1.0, description="Context understanding")
@@ -52,7 +54,12 @@ class VectorValues(BaseModel):
     density: float | None = Field(default=None, ge=0.0, le=1.0, description="Information density")
     state: float | None = Field(default=None, ge=0.0, le=1.0, description="Current state")
     change: float | None = Field(default=None, ge=0.0, le=1.0, description="Rate of change")
-    completion: float | None = Field(default=None, ge=0.0, le=1.0, description="Phase-aware completion: NOETIC='Have I learned enough?' PRAXIC='Have I implemented enough?'")
+    completion: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Phase-aware completion: NOETIC='Have I learned enough?' PRAXIC='Have I implemented enough?'",
+    )
     impact: float | None = Field(default=None, ge=0.0, le=1.0, description="Expected impact")
     do: float | None = Field(default=None, ge=0.0, le=1.0, description="Execution capability")
 
@@ -91,12 +98,14 @@ class PreflightInput(BaseModel):
             value is outside 0.0-1.0, or required vectors (know,
             uncertainty) are missing.
     """
+
     session_id: str = Field(min_length=1, max_length=100, description="Session identifier")
     vectors: dict[str, float] = Field(description="Epistemic vector values")
     reasoning: str | None = Field(default="", max_length=5000, description="Reasoning for assessment")
     task_context: str | None = Field(default="", max_length=2000, description="Context for pattern retrieval")
     work_context: str | None = Field(
-        default=None, description="Work context for maturity-aware calibration normalization",
+        default=None,
+        description="Work context for maturity-aware calibration normalization",
         pattern="^(greenfield|iteration|investigation|refactor)$",
     )
     work_type: str | None = Field(
@@ -153,35 +162,47 @@ class PreflightInput(BaseModel):
         ),
     )
 
-    @field_validator('session_id')
+    @field_validator("session_id")
     @classmethod
     def validate_session_id(cls, v: str) -> str:
         """Validate session_id format."""
         if not v or not v.strip():
-            raise ValueError('session_id cannot be empty')
+            raise ValueError("session_id cannot be empty")
         return v.strip()
 
-    @field_validator('vectors')
+    @field_validator("vectors")
     @classmethod
     def validate_vectors(cls, v: dict[str, float]) -> dict[str, float]:
         """Validate vector values are in valid range."""
         if not v:
-            raise ValueError('vectors cannot be empty')
+            raise ValueError("vectors cannot be empty")
 
-        valid_keys = {'know', 'uncertainty', 'context', 'engagement', 'clarity',
-                      'coherence', 'signal', 'density', 'state', 'change',
-                      'completion', 'impact', 'do'}
+        valid_keys = {
+            "know",
+            "uncertainty",
+            "context",
+            "engagement",
+            "clarity",
+            "coherence",
+            "signal",
+            "density",
+            "state",
+            "change",
+            "completion",
+            "impact",
+            "do",
+        }
 
         for key, value in v.items():
             if key not in valid_keys:
-                raise ValueError(f'Unknown vector key: {key}')
+                raise ValueError(f"Unknown vector key: {key}")
             if not isinstance(value, (int, float)):
-                raise ValueError(f'Vector {key} must be a number, got {type(value).__name__}')
+                raise ValueError(f"Vector {key} must be a number, got {type(value).__name__}")
             if not 0.0 <= float(value) <= 1.0:
-                raise ValueError(f'Vector {key} must be between 0.0 and 1.0, got {value}')
+                raise ValueError(f"Vector {key} must be between 0.0 and 1.0, got {value}")
 
         # Require at least know and uncertainty
-        if 'know' not in v or 'uncertainty' not in v:
+        if "know" not in v or "uncertainty" not in v:
             raise ValueError('vectors must include at least "know" and "uncertainty"')
 
         return v
@@ -189,20 +210,21 @@ class PreflightInput(BaseModel):
 
 class CheckInput(BaseModel):
     """Input model for check-submit command."""
+
     session_id: str = Field(min_length=1, max_length=100, description="Session identifier")
     vectors: dict[str, float] | None = Field(default=None, description="Updated vector values")
     approach: str | None = Field(default="", max_length=2000, description="Planned approach")
     reasoning: str | None = Field(default="", max_length=5000, description="Reasoning for check")
 
-    @field_validator('session_id')
+    @field_validator("session_id")
     @classmethod
     def validate_session_id(cls, v: str) -> str:
         """Validate session_id is non-empty."""
         if not v or not v.strip():
-            raise ValueError('session_id cannot be empty')
+            raise ValueError("session_id cannot be empty")
         return v.strip()
 
-    @field_validator('vectors')
+    @field_validator("vectors")
     @classmethod
     def validate_vectors(cls, v: dict[str, float] | None) -> dict[str, float] | None:
         """Validate optional vector values are in valid 0.0-1.0 range."""
@@ -210,9 +232,9 @@ class CheckInput(BaseModel):
             return v
         for key, value in v.items():
             if not isinstance(value, (int, float)):
-                raise ValueError(f'Vector {key} must be a number')
+                raise ValueError(f"Vector {key} must be a number")
             if not 0.0 <= float(value) <= 1.0:
-                raise ValueError(f'Vector {key} must be between 0.0 and 1.0')
+                raise ValueError(f"Vector {key} must be between 0.0 and 1.0")
         return v
 
 
@@ -240,6 +262,7 @@ class PostflightInput(BaseModel):
         ValueError: via field validators when session_id is empty,
             vectors dict is empty, or any value is outside 0.0-1.0.
     """
+
     session_id: str = Field(min_length=1, max_length=100, description="Session identifier")
     vectors: dict[str, float] = Field(description="Final epistemic vector values")
     reasoning: str | None = Field(default="", max_length=5000, description="Reasoning for assessment")
@@ -276,31 +299,32 @@ class PostflightInput(BaseModel):
         ),
     )
 
-    @field_validator('session_id')
+    @field_validator("session_id")
     @classmethod
     def validate_session_id(cls, v: str) -> str:
         """Validate session_id is non-empty."""
         if not v or not v.strip():
-            raise ValueError('session_id cannot be empty')
+            raise ValueError("session_id cannot be empty")
         return v.strip()
 
-    @field_validator('vectors')
+    @field_validator("vectors")
     @classmethod
     def validate_vectors(cls, v: dict[str, float]) -> dict[str, float]:
         """Validate required vector values are in valid 0.0-1.0 range."""
         if not v:
-            raise ValueError('vectors cannot be empty')
+            raise ValueError("vectors cannot be empty")
         for key, value in v.items():
             if not isinstance(value, (int, float)):
-                raise ValueError(f'Vector {key} must be a number')
+                raise ValueError(f"Vector {key} must be a number")
             if not 0.0 <= float(value) <= 1.0:
-                raise ValueError(f'Vector {key} must be between 0.0 and 1.0')
+                raise ValueError(f"Vector {key} must be between 0.0 and 1.0")
         return v
 
 
 # =============================================================================
 # Finding/Unknown Input Models
 # =============================================================================
+
 
 class FindingInput(BaseModel):
     """Pydantic input schema for the `finding-log` CLI command.
@@ -321,6 +345,7 @@ class FindingInput(BaseModel):
             "frontend"). Max 100 chars.
         goal_id: Optional goal UUID this finding contributes to.
     """
+
     session_id: str = Field(min_length=1, max_length=100)
     finding: str = Field(min_length=1, max_length=5000)
     impact: float = Field(ge=0.0, le=1.0, default=0.5)
@@ -346,6 +371,7 @@ class UnknownInput(BaseModel):
             prominently.
         goal_id: Optional goal UUID this unknown blocks.
     """
+
     session_id: str = Field(min_length=1, max_length=100)
     unknown: str = Field(min_length=1, max_length=5000)
     impact: float = Field(ge=0.0, le=1.0, default=0.5)
@@ -355,6 +381,7 @@ class UnknownInput(BaseModel):
 # =============================================================================
 # Validation Utilities
 # =============================================================================
+
 
 def validate_json_input(raw_json: str, model: type[T]) -> T:
     """

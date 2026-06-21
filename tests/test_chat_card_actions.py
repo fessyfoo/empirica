@@ -19,7 +19,9 @@ class TestResolveUnknown:
     @patch("empirica.core.chat.actions.subprocess.run")
     def test_calls_cli_with_unknown_id(self, mock_run):
         mock_run.return_value = MagicMock(
-            returncode=0, stdout='{"ok": true, "id": "uuid-1"}', stderr="",
+            returncode=0,
+            stdout='{"ok": true, "id": "uuid-1"}',
+            stderr="",
         )
         result = resolve_unknown("uuid-1")
         assert result["ok"] is True
@@ -31,7 +33,9 @@ class TestResolveUnknown:
     @patch("empirica.core.chat.actions.subprocess.run")
     def test_includes_resolved_by_when_provided(self, mock_run):
         mock_run.return_value = MagicMock(
-            returncode=0, stdout='{"ok": true}', stderr="",
+            returncode=0,
+            stdout='{"ok": true}',
+            stderr="",
         )
         resolve_unknown("uuid-2", resolved_by="found in docs")
         cmd = mock_run.call_args[0][0]
@@ -41,7 +45,9 @@ class TestResolveUnknown:
     @patch("empirica.core.chat.actions.subprocess.run")
     def test_omits_resolved_by_when_none(self, mock_run):
         mock_run.return_value = MagicMock(
-            returncode=0, stdout='{"ok": true}', stderr="",
+            returncode=0,
+            stdout='{"ok": true}',
+            stderr="",
         )
         resolve_unknown("uuid-3")
         cmd = mock_run.call_args[0][0]
@@ -50,7 +56,9 @@ class TestResolveUnknown:
     @patch("empirica.core.chat.actions.subprocess.run")
     def test_nonzero_exit_raises(self, mock_run):
         mock_run.return_value = MagicMock(
-            returncode=1, stdout="", stderr="not found",
+            returncode=1,
+            stdout="",
+            stderr="not found",
         )
         with pytest.raises(ActionError):
             resolve_unknown("missing")
@@ -85,14 +93,12 @@ class TestPinFilePersistence:
 
     def test_pin_appends_to_existing_file(self, tmp_path):
         pin_path = tmp_path / "chat_pinned_abc.json"
-        existing = [{"artifact_type": "finding", "artifact_id": "old-1",
-                     "turn_id": "t1", "pinned_at": 1700000000}]
+        existing = [{"artifact_type": "finding", "artifact_id": "old-1", "turn_id": "t1", "pinned_at": 1700000000}]
         pin_path.write_text(json.dumps(existing))
 
         # Append-and-rewrite (matches _pin_artifact behavior)
         loaded = json.loads(pin_path.read_text() or "[]")
-        loaded.append({"artifact_type": "decision", "artifact_id": "new-1",
-                       "turn_id": "t2", "pinned_at": 1700000100})
+        loaded.append({"artifact_type": "decision", "artifact_id": "new-1", "turn_id": "t2", "pinned_at": 1700000100})
         pin_path.write_text(json.dumps(loaded, indent=2))
 
         result = json.loads(pin_path.read_text())

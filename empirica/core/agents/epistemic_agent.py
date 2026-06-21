@@ -122,27 +122,31 @@ def load_persona(config: EpistemicAgentConfig) -> PersonaProfile:
                 identity_name="general_agent",
                 # Must be 64 hex chars; using a stable placeholder that matches schema.
                 # (Real identities are used for signing in production personas.)
-                public_key="0" * 64
+                public_key="0" * 64,
             ),
             epistemic_config=EpistemicConfig(
                 priors={
-                    "engagement": 0.70, "know": 0.50, "do": 0.50,
-                    "context": 0.50, "clarity": 0.50, "coherence": 0.50,
-                    "signal": 0.50, "density": 0.50, "state": 0.50,
-                    "change": 0.30, "completion": 0.10, "impact": 0.50,
-                    "uncertainty": 0.50
+                    "engagement": 0.70,
+                    "know": 0.50,
+                    "do": 0.50,
+                    "context": 0.50,
+                    "clarity": 0.50,
+                    "coherence": 0.50,
+                    "signal": 0.50,
+                    "density": 0.50,
+                    "state": 0.50,
+                    "change": 0.30,
+                    "completion": 0.10,
+                    "impact": 0.50,
+                    "uncertainty": 0.50,
                 },
                 # Required by schema; used by Sentinel / persona matching.
-                focus_domains=["general"]
-            )
+                focus_domains=["general"],
+            ),
         )
 
 
-def create_investigation_branch(
-    db: SessionDatabase,
-    config: EpistemicAgentConfig,
-    persona: PersonaProfile
-) -> str:
+def create_investigation_branch(db: SessionDatabase, config: EpistemicAgentConfig, persona: PersonaProfile) -> str:
     """Create investigation branch for agent tracking."""
 
     preflight_vectors = persona.epistemic_config.priors
@@ -154,17 +158,13 @@ def create_investigation_branch(
         investigation_path=config.investigation_path,
         git_branch_name="",  # Sub-agents don't create git branches
         preflight_vectors=preflight_vectors,
-        transaction_id=config.transaction_id  # Link to parent's transaction
+        transaction_id=config.transaction_id,  # Link to parent's transaction
     )
 
     return branch_id
 
 
-def format_agent_prompt(
-    config: EpistemicAgentConfig,
-    persona: PersonaProfile,
-    branch_id: str
-) -> str:
+def format_agent_prompt(config: EpistemicAgentConfig, persona: PersonaProfile, branch_id: str) -> str:
     """
     Format the prompt for an epistemic agent.
 
@@ -184,17 +184,17 @@ def format_agent_prompt(
 
 You are operating as a specialized epistemic agent with the following profile:
 
-**Focus Domains:** {', '.join(domains) if domains else 'General'}
+**Focus Domains:** {", ".join(domains) if domains else "General"}
 
 **Starting Epistemic State (your priors):**
-- Knowledge (know): {priors.get('know', 0.5):.2f}
-- Uncertainty: {priors.get('uncertainty', 0.5):.2f}
-- Context: {priors.get('context', 0.5):.2f}
-- Clarity: {priors.get('clarity', 0.5):.2f}
+- Knowledge (know): {priors.get("know", 0.5):.2f}
+- Uncertainty: {priors.get("uncertainty", 0.5):.2f}
+- Context: {priors.get("context", 0.5):.2f}
+- Clarity: {priors.get("clarity", 0.5):.2f}
 
 **Decision Thresholds:**
-- Investigate if uncertainty > {thresholds.get('uncertainty_trigger', 0.4)}
-- Proceed if confidence > {thresholds.get('confidence_to_proceed', 0.75)}
+- Investigate if uncertainty > {thresholds.get("uncertainty_trigger", 0.4)}
+- Proceed if confidence > {thresholds.get("confidence_to_proceed", 0.75)}
 
 ---
 
@@ -205,10 +205,10 @@ You are operating as a specialized epistemic agent with the following profile:
 ---
 
 ## Context from Parent Agent
-{config.parent_context or 'No additional context provided.'}
+{config.parent_context or "No additional context provided."}
 
 ## Findings So Far
-{chr(10).join(f'- {f}' for f in config.findings_so_far) if config.findings_so_far else 'None yet.'}
+{chr(10).join(f"- {f}" for f in config.findings_so_far) if config.findings_so_far else "None yet."}
 
 ---
 
@@ -261,7 +261,7 @@ def parse_postflight(output: str, branch_id: str) -> dict[str, Any] | None:
     import re
 
     # Try to find postflight block
-    pattern = r'```postflight\s*\n(.*?)\n```'
+    pattern = r"```postflight\s*\n(.*?)\n```"
     match = re.search(pattern, output, re.DOTALL)
 
     if not match:
@@ -273,35 +273,32 @@ def parse_postflight(output: str, branch_id: str) -> dict[str, Any] | None:
         return None
 
     try:
-        data = json.loads(match.group(1) if match.group(1).startswith('{') else '{' + match.group(1) + '}')
+        data = json.loads(match.group(1) if match.group(1).startswith("{") else "{" + match.group(1) + "}")
 
         # Validate required fields
-        if 'vectors' not in data:
+        if "vectors" not in data:
             return None
 
         # Normalize vectors to expected range
-        vectors = data['vectors']
+        vectors = data["vectors"]
         for key, value in vectors.items():
             if isinstance(value, (int, float)):
                 vectors[key] = max(0.0, min(1.0, float(value)))
 
         return {
-            'vectors': vectors,
-            'findings': data.get('findings', []),
-            'unknowns': data.get('unknowns', []),
-            'summary': data.get('summary', '')
+            "vectors": vectors,
+            "findings": data.get("findings", []),
+            "unknowns": data.get("unknowns", []),
+            "summary": data.get("summary", ""),
         }
     except (json.JSONDecodeError, KeyError):
         return None
 
 
-def calculate_learning_delta(
-    preflight: dict[str, float],
-    postflight: dict[str, float]
-) -> dict[str, float]:
+def calculate_learning_delta(preflight: dict[str, float], postflight: dict[str, float]) -> dict[str, float]:
     """Calculate learning delta between preflight and postflight."""
     delta = {}
-    key_vectors = ['know', 'uncertainty', 'context', 'clarity', 'completion', 'impact']
+    key_vectors = ["know", "uncertainty", "context", "clarity", "completion", "impact"]
 
     for key in key_vectors:
         pre = preflight.get(key, 0.5)
@@ -313,7 +310,7 @@ def calculate_learning_delta(
 
 def spawn_epistemic_agent(
     config: EpistemicAgentConfig,
-    execute_fn=None  # Function to execute agent (for testing/mocking)
+    execute_fn=None,  # Function to execute agent (for testing/mocking)
 ) -> EpistemicAgentResult:
     """
     Spawn an epistemic sub-agent.
@@ -364,7 +361,7 @@ def spawn_epistemic_agent(
                 time_spent_minutes=0,
                 merge_score=None,
                 success=False,  # Not yet executed
-                error="Agent not executed - prompt returned for external execution"
+                error="Agent not executed - prompt returned for external execution",
             )
 
         # Execute agent
@@ -387,7 +384,7 @@ def spawn_epistemic_agent(
                 time_spent_minutes=0,
                 merge_score=None,
                 success=False,
-                error=str(e)
+                error=str(e),
             )
 
         end_time = datetime.now(UTC)
@@ -397,9 +394,9 @@ def spawn_epistemic_agent(
         postflight_data = parse_postflight(output, branch_id)
 
         if postflight_data and config.require_postflight:
-            postflight_vectors = postflight_data['vectors']
-            findings = postflight_data['findings']
-            unknowns = postflight_data['unknowns']
+            postflight_vectors = postflight_data["vectors"]
+            findings = postflight_data["findings"]
+            unknowns = postflight_data["unknowns"]
         else:
             # Use defaults if no postflight found
             postflight_vectors = preflight_vectors.copy()
@@ -414,7 +411,7 @@ def spawn_epistemic_agent(
             branch_id=branch_id,
             postflight_vectors=postflight_vectors,
             tokens_spent=tokens,
-            time_spent_minutes=int(time_spent)
+            time_spent_minutes=int(time_spent),
         )
 
         return EpistemicAgentResult(
@@ -430,7 +427,7 @@ def spawn_epistemic_agent(
             tokens_spent=tokens,
             time_spent_minutes=time_spent,
             merge_score=merge_score,
-            success=True
+            success=True,
         )
 
     finally:
@@ -438,9 +435,7 @@ def spawn_epistemic_agent(
 
 
 def aggregate_agent_results(
-    session_id: str,
-    results: list[EpistemicAgentResult],
-    investigation_round: int = 1
+    session_id: str, results: list[EpistemicAgentResult], investigation_round: int = 1
 ) -> dict[str, Any]:
     """
     Aggregate results from multiple epistemic agents.
@@ -469,15 +464,12 @@ def aggregate_agent_results(
             return {"error": "No successful agent results"}
 
         # Get merge decision
-        merge_result = db.branches.merge_branches(
-            session_id=session_id,
-            round_number=investigation_round
-        )
+        merge_result = db.branches.merge_branches(session_id=session_id, round_number=investigation_round)
 
         # Find winner
         winner = None
         for r in results:
-            if r.branch_id == merge_result.get('winning_branch_id'):
+            if r.branch_id == merge_result.get("winning_branch_id"):
                 winner = r
                 break
 
@@ -503,10 +495,9 @@ def aggregate_agent_results(
         total_weight = sum(r.merge_score or 0.1 for r in results if r.success)
         aggregate_vectors = {}
 
-        for key in ['know', 'uncertainty', 'context', 'clarity', 'completion', 'impact']:
+        for key in ["know", "uncertainty", "context", "clarity", "completion", "impact"]:
             weighted_sum = sum(
-                (r.postflight_vectors or {}).get(key, 0.5) * (r.merge_score or 0.1)
-                for r in results if r.success
+                (r.postflight_vectors or {}).get(key, 0.5) * (r.merge_score or 0.1) for r in results if r.success
             )
             aggregate_vectors[key] = weighted_sum / total_weight if total_weight > 0 else 0.5
 
@@ -515,14 +506,14 @@ def aggregate_agent_results(
                 "branch_id": winner.branch_id if winner else None,
                 "persona_id": winner.persona_id if winner else None,
                 "merge_score": winner.merge_score if winner else None,
-                "learning_delta": winner.learning_delta if winner else {}
+                "learning_delta": winner.learning_delta if winner else {},
             },
             "all_agents": [
                 {
                     "branch_id": r.branch_id,
                     "persona_id": r.persona_id,
                     "merge_score": r.merge_score,
-                    "success": r.success
+                    "success": r.success,
                 }
                 for r in results
             ],
@@ -530,7 +521,7 @@ def aggregate_agent_results(
             "combined_unknowns": all_unknowns,
             "aggregate_vectors": aggregate_vectors,
             "merge_decision": merge_result,
-            "investigation_round": investigation_round
+            "investigation_round": investigation_round,
         }
 
     finally:
@@ -539,10 +530,7 @@ def aggregate_agent_results(
 
 # Convenience function for Claude Code integration
 def create_epistemic_agent_prompt(
-    session_id: str,
-    task: str,
-    persona_id: str = "general",
-    parent_context: str | None = None
+    session_id: str, task: str, persona_id: str = "general", parent_context: str | None = None
 ) -> tuple[str, str]:
     """
     Create prompt for spawning via Claude Code Task tool.
@@ -551,10 +539,7 @@ def create_epistemic_agent_prompt(
         Tuple of (prompt, branch_id) - use branch_id to report results later
     """
     config = EpistemicAgentConfig(
-        session_id=session_id,
-        task=task,
-        persona_id=persona_id,
-        parent_context=parent_context
+        session_id=session_id, task=task, persona_id=persona_id, parent_context=parent_context
     )
 
     result = spawn_epistemic_agent(config, execute_fn=None)

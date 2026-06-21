@@ -1,6 +1,7 @@
 """
 Eidetic memory: stable facts with confidence scoring.
 """
+
 from __future__ import annotations
 
 from empirica.core.qdrant.collections import _eidetic_collection
@@ -204,9 +205,7 @@ def confirm_eidetic_fact(
         # Find existing fact by content hash
         results = client.scroll(
             collection_name=coll,
-            scroll_filter=Filter(
-                must=[FieldCondition(key="content_hash", match=MatchValue(value=content_hash))]
-            ),
+            scroll_filter=Filter(must=[FieldCondition(key="content_hash", match=MatchValue(value=content_hash))]),
             limit=1,
             with_payload=True,
             with_vectors=True,
@@ -231,12 +230,14 @@ def confirm_eidetic_fact(
             sessions.append(session_id)
 
         import time
+
         payload["confidence"] = new_confidence
         payload["confirmation_count"] = new_count
         payload["source_sessions"] = sessions
         payload["last_confirmed"] = time.time()
 
         from qdrant_client.models import PointStruct
+
         updated_point = PointStruct(id=point.id, vector=point.vector, payload=payload)
         client.upsert(collection_name=coll, points=[updated_point])
 
@@ -245,4 +246,3 @@ def confirm_eidetic_fact(
     except Exception as e:
         logger.warning(f"Failed to confirm eidetic fact: {e}")
         return False
-

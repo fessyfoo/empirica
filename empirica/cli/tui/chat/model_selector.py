@@ -114,7 +114,9 @@ class ModelSelectorModal(ModalScreen[str | None]):
         self.call_from_thread(self._render_models, models, error)  # type: ignore[attr-defined]
 
     def _render_models(
-        self, models: list[str], error: str | None,
+        self,
+        models: list[str],
+        error: str | None,
     ) -> None:
         try:
             ol = self.query_one(OptionList)

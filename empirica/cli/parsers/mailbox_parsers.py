@@ -15,23 +15,26 @@ def add_mailbox_parsers(subparsers):
     mailbox_root = subparsers.add_parser(
         "mailbox",
         help="Cortex AI mesh interaction — atomic reply with auto-close "
-             "(distinct from message-* git-notes local messaging)",
+        "(distinct from message-* git-notes local messaging)",
     )
     mailbox_subs = mailbox_root.add_subparsers(
-        dest="mailbox_action", metavar="action",
+        dest="mailbox_action",
+        metavar="action",
     )
 
     reply = mailbox_subs.add_parser(
         "reply",
         help="Atomic propose + complete in one call — fixes the AI "
-             "ack-discipline gap (skip the second cortex_complete_proposal step)",
+        "ack-discipline gap (skip the second cortex_complete_proposal step)",
     )
     reply.add_argument(
-        "--parent-id", required=True,
+        "--parent-id",
+        required=True,
         help="Parent proposal id being replied to (the inbox row)",
     )
     reply.add_argument(
-        "--summary", required=True,
+        "--summary",
+        required=True,
         help="Reply body (the actual message)",
     )
     reply.add_argument(
@@ -39,18 +42,22 @@ def add_mailbox_parsers(subparsers):
         help='Reply title (default: "Re: <parent.title>", truncated to 200)',
     )
     reply.add_argument(
-        "--type", default="collab_brief",
+        "--type",
+        default="collab_brief",
         choices=[
-            "architecture_decision", "collab_brief", "code_change_request",
-            "investigation_request", "spec_updated", "publish",
+            "architecture_decision",
+            "collab_brief",
+            "code_change_request",
+            "investigation_request",
+            "spec_updated",
+            "publish",
             "trust_escalation_request",
         ],
         help="Reply proposal type (default: collab_brief)",
     )
     reply.add_argument(
         "--target-claudes",
-        help="Comma-separated target ai_ids "
-             "(default: auto-derive from parent.source_claude)",
+        help="Comma-separated target ai_ids (default: auto-derive from parent.source_claude)",
     )
     reply.add_argument(
         "--source-claude",
@@ -61,7 +68,8 @@ def add_mailbox_parsers(subparsers):
         help="Optional type-specific payload as JSON string (default: {})",
     )
     reply.add_argument(
-        "--result", default="shipped",
+        "--result",
+        default="shipped",
         choices=["shipped", "failed", "wont_fix"],
         help="Completion result applied to parent (default: shipped)",
     )
@@ -70,11 +78,13 @@ def add_mailbox_parsers(subparsers):
         help="Optional commit_sha attached to parent completion",
     )
     reply.add_argument(
-        "--no-close", action="store_true",
+        "--no-close",
+        action="store_true",
         help="Send reply WITHOUT closing parent (follow-up question case)",
     )
     reply.add_argument(
-        "--no-archive", action="store_true",
+        "--no-archive",
+        action="store_true",
         help=(
             "Close the parent but do NOT archive it. Default behaviour archives "
             "the parent after close to keep your inbox view focused on "
@@ -83,7 +93,9 @@ def add_mailbox_parsers(subparsers):
         ),
     )
     reply.add_argument(
-        "--output", choices=["human", "json"], default="json",
+        "--output",
+        choices=["human", "json"],
+        default="json",
         help="Output format (default: json)",
     )
 

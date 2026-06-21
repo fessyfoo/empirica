@@ -14,11 +14,11 @@ from empirica.cli.command_handlers.practice_context_commands import (
 
 def _make_args(**overrides):
     defaults = {
-        'cortex_url': 'https://cortex.test',
-        'api_key': 'test-key',
-        'ai_id': None,
-        'timeout': 5.0,
-        'output': 'json',
+        "cortex_url": "https://cortex.test",
+        "api_key": "test-key",
+        "ai_id": None,
+        "timeout": 5.0,
+        "output": "json",
     }
     defaults.update(overrides)
     return types.SimpleNamespace(**defaults)
@@ -92,7 +92,9 @@ def test_projection_flattens_all_tenants():
     rows = _project_roster_to_addressbook(_SAMPLE_ROSTER, self_ai_id="empirica")
     assert len(rows) == 3
     assert {r["ai_id"] for r in rows} == {
-        "empirica", "empirica-cortex", "empirica-mesh-support",
+        "empirica",
+        "empirica-cortex",
+        "empirica-mesh-support",
     }
 
 
@@ -124,14 +126,18 @@ def test_projection_substrate_defaults_to_cortex_when_missing():
         "self": {"tenant_slug": "david"},
         "org": {
             "slug": "empirica",
-            "tenants": [{
-                "tenant_slug": "david",
-                "projects": [{
-                    "slug": "empirica",
-                    "ai_id_short": "empirica",
-                    # no substrate field
-                }],
-            }],
+            "tenants": [
+                {
+                    "tenant_slug": "david",
+                    "projects": [
+                        {
+                            "slug": "empirica",
+                            "ai_id_short": "empirica",
+                            # no substrate field
+                        }
+                    ],
+                }
+            ],
         },
     }
     rows = _project_roster_to_addressbook(roster, self_ai_id="empirica")
@@ -147,13 +153,16 @@ def test_projection_handles_empty_roster():
 
 
 def test_command_renders_json_when_requested(capsys):
-    args = _make_args(output='json')
-    with patch(
-        'empirica.cli.command_handlers.practice_context_commands._fetch_roster',
-        return_value=_SAMPLE_ROSTER,
-    ), patch(
-        'empirica.cli.command_handlers.practice_context_commands._resolve_self_ai_id',
-        return_value='empirica',
+    args = _make_args(output="json")
+    with (
+        patch(
+            "empirica.cli.command_handlers.practice_context_commands._fetch_roster",
+            return_value=_SAMPLE_ROSTER,
+        ),
+        patch(
+            "empirica.cli.command_handlers.practice_context_commands._resolve_self_ai_id",
+            return_value="empirica",
+        ),
     ):
         rc = handle_practice_context_command(args)
     assert rc == 0
@@ -163,13 +172,16 @@ def test_command_renders_json_when_requested(capsys):
 
 
 def test_command_filters_by_ai_id(capsys):
-    args = _make_args(output='json', ai_id='empirica-mesh-support')
-    with patch(
-        'empirica.cli.command_handlers.practice_context_commands._fetch_roster',
-        return_value=_SAMPLE_ROSTER,
-    ), patch(
-        'empirica.cli.command_handlers.practice_context_commands._resolve_self_ai_id',
-        return_value='empirica',
+    args = _make_args(output="json", ai_id="empirica-mesh-support")
+    with (
+        patch(
+            "empirica.cli.command_handlers.practice_context_commands._fetch_roster",
+            return_value=_SAMPLE_ROSTER,
+        ),
+        patch(
+            "empirica.cli.command_handlers.practice_context_commands._resolve_self_ai_id",
+            return_value="empirica",
+        ),
     ):
         handle_practice_context_command(args)
     out = json.loads(capsys.readouterr().out)
@@ -239,13 +251,16 @@ _COLLISION_ROSTER = {
 
 
 def _run_filter(roster, ai_id, self_ai_id, capsys):
-    args = _make_args(output='json', ai_id=ai_id)
-    with patch(
-        'empirica.cli.command_handlers.practice_context_commands._fetch_roster',
-        return_value=roster,
-    ), patch(
-        'empirica.cli.command_handlers.practice_context_commands._resolve_self_ai_id',
-        return_value=self_ai_id,
+    args = _make_args(output="json", ai_id=ai_id)
+    with (
+        patch(
+            "empirica.cli.command_handlers.practice_context_commands._fetch_roster",
+            return_value=roster,
+        ),
+        patch(
+            "empirica.cli.command_handlers.practice_context_commands._resolve_self_ai_id",
+            return_value=self_ai_id,
+        ),
     ):
         handle_practice_context_command(args)
     return json.loads(capsys.readouterr().out)
@@ -254,7 +269,10 @@ def _run_filter(roster, ai_id, self_ai_id, capsys):
 def test_command_filter_prefers_own_tenant_on_slug_collision(capsys):
     """Two tenants own the same ai_id_short — the caller's own tenant wins."""
     out = _run_filter(
-        _COLLISION_ROSTER, 'empirica-mesh-support', 'empirica-mesh-support', capsys,
+        _COLLISION_ROSTER,
+        "empirica-mesh-support",
+        "empirica-mesh-support",
+        capsys,
     )
     assert out["count"] == 1
     assert out["practices"][0]["project_id"] == "p-philipp-mesh-support"
@@ -265,7 +283,7 @@ def test_command_filter_falls_back_to_peer_when_not_in_own_tenant(capsys):
     """A slug that only a peer tenant owns still resolves (no own-tenant match)."""
     david_seat = dict(_COLLISION_ROSTER)
     david_seat["self"] = {"user_id": "u-david", "tenant_slug": "david", "ai_ids": []}
-    out = _run_filter(david_seat, 'empirica-research', None, capsys)
+    out = _run_filter(david_seat, "empirica-research", None, capsys)
     assert out["count"] == 1
     assert out["practices"][0]["tenant"] == "philipp"
 
@@ -275,8 +293,8 @@ def test_command_filter_canonical_3form_matches_exactly(capsys):
     bypassing the own-tenant preference entirely."""
     out = _run_filter(
         _COLLISION_ROSTER,
-        'empirica.david.empirica-mesh-support',
-        'empirica-mesh-support',
+        "empirica.david.empirica-mesh-support",
+        "empirica-mesh-support",
         capsys,
     )
     assert out["count"] == 1
@@ -286,19 +304,22 @@ def test_command_filter_canonical_3form_matches_exactly(capsys):
 
 def test_command_filter_no_collision_baseline(capsys):
     """Single-owner slug returns exactly that row (pre-fix behavior preserved)."""
-    out = _run_filter(_SAMPLE_ROSTER, 'empirica-mesh-support', 'empirica', capsys)
+    out = _run_filter(_SAMPLE_ROSTER, "empirica-mesh-support", "empirica", capsys)
     assert out["count"] == 1
     assert out["practices"][0]["tenant"] == "philipp"
 
 
 def test_command_human_output_renders_table(capsys):
-    args = _make_args(output='human')
-    with patch(
-        'empirica.cli.command_handlers.practice_context_commands._fetch_roster',
-        return_value=_SAMPLE_ROSTER,
-    ), patch(
-        'empirica.cli.command_handlers.practice_context_commands._resolve_self_ai_id',
-        return_value='empirica',
+    args = _make_args(output="human")
+    with (
+        patch(
+            "empirica.cli.command_handlers.practice_context_commands._fetch_roster",
+            return_value=_SAMPLE_ROSTER,
+        ),
+        patch(
+            "empirica.cli.command_handlers.practice_context_commands._resolve_self_ai_id",
+            return_value="empirica",
+        ),
     ):
         handle_practice_context_command(args)
     out = capsys.readouterr().out
@@ -311,7 +332,7 @@ def test_command_human_output_renders_table(capsys):
 def test_command_errors_when_no_cortex_config(capsys):
     args = _make_args(cortex_url=None, api_key=None)
     with patch(
-        'empirica.cli.command_handlers.practice_context_commands._resolve_cortex_config',
+        "empirica.cli.command_handlers.practice_context_commands._resolve_cortex_config",
         return_value=(None, None),
     ):
         rc = handle_practice_context_command(args)
@@ -322,9 +343,10 @@ def test_command_errors_when_no_cortex_config(capsys):
 
 def test_command_handles_cortex_unreachable_gracefully(capsys):
     import urllib.error
+
     args = _make_args()
     with patch(
-        'empirica.cli.command_handlers.practice_context_commands._fetch_roster',
+        "empirica.cli.command_handlers.practice_context_commands._fetch_roster",
         side_effect=urllib.error.URLError("connection refused"),
     ):
         rc = handle_practice_context_command(args)
@@ -335,13 +357,17 @@ def test_command_handles_cortex_unreachable_gracefully(capsys):
 
 def test_command_handles_http_error(capsys):
     import urllib.error
+
     args = _make_args()
     err = urllib.error.HTTPError(
         url="https://cortex.test/v1/users/me/roster",
-        code=401, msg="Unauthorized", hdrs=None, fp=None,
+        code=401,
+        msg="Unauthorized",
+        hdrs=None,
+        fp=None,
     )
     with patch(
-        'empirica.cli.command_handlers.practice_context_commands._fetch_roster',
+        "empirica.cli.command_handlers.practice_context_commands._fetch_roster",
         side_effect=err,
     ):
         rc = handle_practice_context_command(args)

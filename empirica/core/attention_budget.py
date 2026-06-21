@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DomainAllocation:
     """Budget allocation for a single investigation domain."""
+
     domain: str
     budget: int  # Max findings to accept from this domain
     priority: float  # 0.0-1.0, higher = more important
@@ -52,6 +53,7 @@ class DomainAllocation:
 @dataclass
 class AttentionBudget:
     """Tracks the attention budget for a parallel investigation session."""
+
     id: str
     session_id: str
     total_budget: int  # Total findings to accept across all domains
@@ -181,14 +183,16 @@ class AttentionBudgetCalculator:
             domain_budget = max(1, round(share * total))  # At least 1 per domain
             priority = raw_gains[domain] / max(max(raw_gains.values()), 0.01)
 
-            allocations.append(DomainAllocation(
-                domain=domain,
-                budget=domain_budget,
-                priority=priority,
-                expected_gain=raw_gains[domain],
-                prior_findings=prior_findings.get(domain, 0),
-                dead_ends=dead_ends.get(domain, 0),
-            ))
+            allocations.append(
+                DomainAllocation(
+                    domain=domain,
+                    budget=domain_budget,
+                    priority=priority,
+                    expected_gain=raw_gains[domain],
+                    prior_findings=prior_findings.get(domain, 0),
+                    dead_ends=dead_ends.get(domain, 0),
+                )
+            )
 
         # Adjust to fit total budget exactly
         allocated_sum = sum(a.budget for a in allocations)
@@ -217,10 +221,7 @@ class AttentionBudgetCalculator:
             allocations=allocations,
         )
 
-        logger.info(
-            f"Created attention budget: total={total}, "
-            f"domains={[(a.domain, a.budget) for a in allocations]}"
-        )
+        logger.info(f"Created attention budget: total={total}, domains={[(a.domain, a.budget) for a in allocations]}")
 
         return budget
 
@@ -292,24 +293,28 @@ def persist_budget(budget: AttentionBudget) -> bool:
     """Persist an attention budget to the database."""
     try:
         from empirica.data.session_database import SessionDatabase
+
         db = SessionDatabase()
         cursor = db.conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT OR REPLACE INTO attention_budgets
             (id, session_id, total_budget, allocated, remaining, strategy, domain_allocations, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            budget.id,
-            budget.session_id,
-            budget.total_budget,
-            budget.allocated,
-            budget.remaining,
-            budget.strategy,
-            json.dumps([a.to_dict() for a in budget.allocations]),
-            budget.created_at,
-            budget.updated_at,
-        ))
+        """,
+            (
+                budget.id,
+                budget.session_id,
+                budget.total_budget,
+                budget.allocated,
+                budget.remaining,
+                budget.strategy,
+                json.dumps([a.to_dict() for a in budget.allocations]),
+                budget.created_at,
+                budget.updated_at,
+            ),
+        )
 
         db.conn.commit()
         db.close()
@@ -323,12 +328,11 @@ def load_budget(budget_id: str) -> AttentionBudget | None:
     """Load an attention budget from the database."""
     try:
         from empirica.data.session_database import SessionDatabase
+
         db = SessionDatabase()
         cursor = db.conn.cursor()
 
-        cursor.execute(
-            "SELECT * FROM attention_budgets WHERE id = ?", (budget_id,)
-        )
+        cursor.execute("SELECT * FROM attention_budgets WHERE id = ?", (budget_id,))
         row = cursor.fetchone()
         db.close()
 

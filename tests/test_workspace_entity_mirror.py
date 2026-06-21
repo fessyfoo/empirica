@@ -77,8 +77,7 @@ def _override_workspace_home(tmp_path: Path):
     """Yield a context that points Path.home() at a tmp_path so workspace.db
     lands under <tmp>/.empirica/workspace/workspace.db.
     """
-    return patch("empirica.cli.command_handlers.workspace_init.Path.home",
-                 return_value=tmp_path)
+    return patch("empirica.cli.command_handlers.workspace_init.Path.home", return_value=tmp_path)
 
 
 def test_register_in_workspace_db_dual_writes_both_tables(tmp_path):
@@ -104,8 +103,7 @@ def test_register_in_workspace_db_dual_writes_both_tables(tmp_path):
     conn = sqlite3.connect(str(db))
     cur = conn.cursor()
     # global_projects row exists
-    cur.execute("SELECT id, name FROM global_projects WHERE id = ?",
-                ("a0e24049-d159-4834-afcb-930ba64d0e2b",))
+    cur.execute("SELECT id, name FROM global_projects WHERE id = ?", ("a0e24049-d159-4834-afcb-930ba64d0e2b",))
     gp = cur.fetchone()
     assert gp is not None
     assert gp[1] == "empirica-mesh-support"
@@ -150,8 +148,7 @@ def test_register_in_workspace_db_reupsert_is_idempotent(tmp_path):
     cur.execute("SELECT COUNT(*) FROM global_projects WHERE id = ?", (pid,))
     assert cur.fetchone()[0] == 1
     cur.execute(
-        "SELECT COUNT(*) FROM entity_registry "
-        "WHERE entity_type = 'project' AND entity_id = ?",
+        "SELECT COUNT(*) FROM entity_registry WHERE entity_type = 'project' AND entity_id = ?",
         (pid,),
     )
     assert cur.fetchone()[0] == 1
@@ -170,10 +167,8 @@ def test_register_in_workspace_db_update_refreshes_entity_registry(tmp_path):
     pid = "22222222-3333-4444-5555-666666666666"
     traj = str(tmp_path / "p/.empirica")
     with _override_workspace_home(tmp_path):
-        _register_in_workspace_db(project_id=pid, name="old-name",
-                                   trajectory_path=traj)
-        _register_in_workspace_db(project_id=pid, name="new-name",
-                                   trajectory_path=traj)
+        _register_in_workspace_db(project_id=pid, name="old-name", trajectory_path=traj)
+        _register_in_workspace_db(project_id=pid, name="new-name", trajectory_path=traj)
 
     db = tmp_path / ".empirica/workspace/workspace.db"
     conn = sqlite3.connect(str(db))
@@ -181,8 +176,7 @@ def test_register_in_workspace_db_update_refreshes_entity_registry(tmp_path):
     cur.execute("SELECT name FROM global_projects WHERE id = ?", (pid,))
     assert cur.fetchone()[0] == "new-name"
     cur.execute(
-        "SELECT display_name FROM entity_registry "
-        "WHERE entity_type = 'project' AND entity_id = ?",
+        "SELECT display_name FROM entity_registry WHERE entity_type = 'project' AND entity_id = ?",
         (pid,),
     )
     assert cur.fetchone()[0] == "new-name"
@@ -214,9 +208,16 @@ def _seed_legacy_global_projects(tmp_path: Path, projects: list[dict]) -> None:
             "(id, name, description, trajectory_path, git_remote_url, "
             " status, project_type, created_timestamp, updated_timestamp) "
             "VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?)",
-            (p["id"], p["name"], p.get("description"), p["trajectory_path"],
-             p.get("git_remote_url"), p.get("project_type", "software"),
-             now, now),
+            (
+                p["id"],
+                p["name"],
+                p.get("description"),
+                p["trajectory_path"],
+                p.get("git_remote_url"),
+                p.get("project_type", "software"),
+                now,
+                now,
+            ),
         )
     # Strip any entity_registry rows that may have been created indirectly
     cur.execute("DELETE FROM entity_registry WHERE entity_type = 'project'")
@@ -233,37 +234,39 @@ def _run_backfill(tmp_path, *, dry_run=False, output="json"):
     )
 
     args = SimpleNamespace(dry_run=dry_run, output=output, verbose=False)
-    with patch("empirica.data.repositories.workspace_db.Path.home",
-               return_value=tmp_path):
+    with patch("empirica.data.repositories.workspace_db.Path.home", return_value=tmp_path):
         return handle_workspace_backfill_entities_command(args)
 
 
 def test_backfill_adds_missing_entity_rows(tmp_path):
     """Seed 3 legacy projects, backfill, expect 3 added."""
-    _seed_legacy_global_projects(tmp_path, [
-        {"id": "uuid-1", "name": "p1", "trajectory_path": str(tmp_path / "p1/.empirica")},
-        {"id": "uuid-2", "name": "p2", "trajectory_path": str(tmp_path / "p2/.empirica")},
-        {"id": "uuid-3", "name": "p3", "trajectory_path": str(tmp_path / "p3/.empirica")},
-    ])
+    _seed_legacy_global_projects(
+        tmp_path,
+        [
+            {"id": "uuid-1", "name": "p1", "trajectory_path": str(tmp_path / "p1/.empirica")},
+            {"id": "uuid-2", "name": "p2", "trajectory_path": str(tmp_path / "p2/.empirica")},
+            {"id": "uuid-3", "name": "p3", "trajectory_path": str(tmp_path / "p3/.empirica")},
+        ],
+    )
     result = _run_backfill(tmp_path)
     assert result == {"ok": True, "added": 3, "updated": 0, "scanned": 3}
 
     db = tmp_path / ".empirica/workspace/workspace.db"
     conn = sqlite3.connect(str(db))
     cur = conn.cursor()
-    cur.execute(
-        "SELECT COUNT(*) FROM entity_registry WHERE entity_type = 'project'"
-    )
+    cur.execute("SELECT COUNT(*) FROM entity_registry WHERE entity_type = 'project'")
     assert cur.fetchone()[0] == 3
     conn.close()
 
 
 def test_backfill_is_idempotent(tmp_path):
     """Second run reports 0 added (only updated)."""
-    _seed_legacy_global_projects(tmp_path, [
-        {"id": "uuid-A", "name": "pA",
-         "trajectory_path": str(tmp_path / "pA/.empirica")},
-    ])
+    _seed_legacy_global_projects(
+        tmp_path,
+        [
+            {"id": "uuid-A", "name": "pA", "trajectory_path": str(tmp_path / "pA/.empirica")},
+        ],
+    )
     first = _run_backfill(tmp_path)
     second = _run_backfill(tmp_path)
     assert first["added"] == 1
@@ -273,19 +276,19 @@ def test_backfill_is_idempotent(tmp_path):
 
 def test_backfill_dry_run_writes_nothing(tmp_path):
     """--dry-run reports the would-be add but leaves entity_registry empty."""
-    _seed_legacy_global_projects(tmp_path, [
-        {"id": "uuid-Z", "name": "pZ",
-         "trajectory_path": str(tmp_path / "pZ/.empirica")},
-    ])
+    _seed_legacy_global_projects(
+        tmp_path,
+        [
+            {"id": "uuid-Z", "name": "pZ", "trajectory_path": str(tmp_path / "pZ/.empirica")},
+        ],
+    )
     result = _run_backfill(tmp_path, dry_run=True)
     assert result == {"ok": True, "added": 1, "updated": 0, "scanned": 1}
 
     db = tmp_path / ".empirica/workspace/workspace.db"
     conn = sqlite3.connect(str(db))
     cur = conn.cursor()
-    cur.execute(
-        "SELECT COUNT(*) FROM entity_registry WHERE entity_type = 'project'"
-    )
+    cur.execute("SELECT COUNT(*) FROM entity_registry WHERE entity_type = 'project'")
     assert cur.fetchone()[0] == 0  # nothing written under dry-run
     conn.close()
 
@@ -293,24 +296,26 @@ def test_backfill_dry_run_writes_nothing(tmp_path):
 def test_backfill_carries_description_and_metadata(tmp_path):
     """entity_registry.description + metadata reflect the global_projects
     row contents (git remote, project_type, trajectory_path)."""
-    _seed_legacy_global_projects(tmp_path, [
-        {
-            "id": "uuid-meta",
-            "name": "p-meta",
-            "trajectory_path": str(tmp_path / "p-meta/.empirica"),
-            "description": "A meta-rich project",
-            "git_remote_url": "https://example.com/p-meta.git",
-            "project_type": "research",
-        },
-    ])
+    _seed_legacy_global_projects(
+        tmp_path,
+        [
+            {
+                "id": "uuid-meta",
+                "name": "p-meta",
+                "trajectory_path": str(tmp_path / "p-meta/.empirica"),
+                "description": "A meta-rich project",
+                "git_remote_url": "https://example.com/p-meta.git",
+                "project_type": "research",
+            },
+        ],
+    )
     _run_backfill(tmp_path)
 
     db = tmp_path / ".empirica/workspace/workspace.db"
     conn = sqlite3.connect(str(db))
     cur = conn.cursor()
     cur.execute(
-        "SELECT description, metadata FROM entity_registry "
-        "WHERE entity_type = 'project' AND entity_id = ?",
+        "SELECT description, metadata FROM entity_registry WHERE entity_type = 'project' AND entity_id = ?",
         ("uuid-meta",),
     )
     desc, raw_meta = cur.fetchone()

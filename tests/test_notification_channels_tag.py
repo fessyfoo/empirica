@@ -18,9 +18,13 @@ from empirica.core.cockpit import notification_channels as nc
 
 
 def test_canonical_tag_resolves_3form():
-    with patch.object(nc, "_cortex_creds", return_value=("https://cortex", "k")), \
-         patch("empirica.core.loop_scheduler.content_poll._resolve_canonical_ai_id",
-               return_value="empirica.david.empirica-autonomy") as r:
+    with (
+        patch.object(nc, "_cortex_creds", return_value=("https://cortex", "k")),
+        patch(
+            "empirica.core.loop_scheduler.content_poll._resolve_canonical_ai_id",
+            return_value="empirica.david.empirica-autonomy",
+        ) as r,
+    ):
         assert nc._canonical_tag("empirica-autonomy") == "empirica.david.empirica-autonomy"
     r.assert_called_once_with("https://cortex", "k", "empirica-autonomy")
 
@@ -31,17 +35,22 @@ def test_canonical_tag_falls_back_to_bare_when_no_creds():
 
 
 def test_canonical_tag_falls_back_to_bare_on_resolver_error():
-    with patch.object(nc, "_cortex_creds", return_value=("https://cortex", "k")), \
-         patch("empirica.core.loop_scheduler.content_poll._resolve_canonical_ai_id",
-               side_effect=RuntimeError("roster down")):
+    with (
+        patch.object(nc, "_cortex_creds", return_value=("https://cortex", "k")),
+        patch(
+            "empirica.core.loop_scheduler.content_poll._resolve_canonical_ai_id",
+            side_effect=RuntimeError("roster down"),
+        ),
+    ):
         assert nc._canonical_tag("empirica-autonomy") == "empirica-autonomy"
 
 
 def test_canonical_tag_resolver_already_returns_bare_on_failure():
     # _resolve_canonical_ai_id returns the basename unchanged on its own failures
-    with patch.object(nc, "_cortex_creds", return_value=("https://cortex", "k")), \
-         patch("empirica.core.loop_scheduler.content_poll._resolve_canonical_ai_id",
-               return_value="empirica-autonomy"):
+    with (
+        patch.object(nc, "_cortex_creds", return_value=("https://cortex", "k")),
+        patch("empirica.core.loop_scheduler.content_poll._resolve_canonical_ai_id", return_value="empirica-autonomy"),
+    ):
         assert nc._canonical_tag("empirica-autonomy") == "empirica-autonomy"
 
 
@@ -50,14 +59,18 @@ def test_canonical_tag_resolver_already_returns_bare_on_failure():
 
 def test_topic_uses_canonical_tag():
     body = {"channels": [{"topic": "empirica-orchestration-events-david", "category": "orchestration_events"}]}
-    with patch.object(nc, "fetch_notification_channels", return_value=body), \
-         patch.object(nc, "_canonical_tag", return_value="empirica.david.empirica-autonomy") as ct:
+    with (
+        patch.object(nc, "fetch_notification_channels", return_value=body),
+        patch.object(nc, "_canonical_tag", return_value="empirica.david.empirica-autonomy") as ct,
+    ):
         topic = nc.resolve_orchestration_events_topic("empirica-autonomy")
     assert topic == "ntfy:empirica-orchestration-events-david?tags=empirica.david.empirica-autonomy"
     ct.assert_called_once_with("empirica-autonomy")
 
 
 def test_topic_still_raises_when_base_unresolvable():
-    with patch.object(nc, "fetch_notification_channels", return_value=None), \
-         pytest.raises(RuntimeError, match="orchestration-events topic"):
+    with (
+        patch.object(nc, "fetch_notification_channels", return_value=None),
+        pytest.raises(RuntimeError, match="orchestration-events topic"),
+    ):
         nc.resolve_orchestration_events_topic("empirica-autonomy")

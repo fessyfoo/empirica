@@ -59,6 +59,7 @@ def _default_resolve_creds() -> tuple[str | None, str | None]:
     """Resolve Cortex URL + api_key from credentials_loader. Defensive — returns (None, None) on any failure."""
     try:
         from empirica.config.credentials_loader import get_credentials_loader
+
         cfg = get_credentials_loader().get_cortex_config()
         return cfg.get("url"), cfg.get("api_key")
     except Exception:
@@ -144,11 +145,13 @@ class HeartbeatEmitter:
         if not url or not api_key:
             return 0  # SKIP — cortex not configured
         endpoint = f"{url.rstrip('/')}{_HEARTBEAT_ENDPOINT_PATH}"
-        body = json.dumps({
-            "ai_id": self.ai_id,
-            "instance_id": self.instance_id,
-            "capabilities": self.capabilities,
-        }).encode("utf-8")
+        body = json.dumps(
+            {
+                "ai_id": self.ai_id,
+                "instance_id": self.instance_id,
+                "capabilities": self.capabilities,
+            }
+        ).encode("utf-8")
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
@@ -161,7 +164,6 @@ class HeartbeatEmitter:
             try:
                 self.emit_once()
             except Exception as e:
-                logger.warning("heartbeat: emit failed: %s: %s",
-                               type(e).__name__, e)
+                logger.warning("heartbeat: emit failed: %s: %s", type(e).__name__, e)
             # Interruptible sleep — stop() sets the event and wait returns immediately
             self._stop_event.wait(self.interval_sec)

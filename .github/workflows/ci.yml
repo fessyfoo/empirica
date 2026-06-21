@@ -44,7 +44,6 @@ jobs:
 
       - name: ruff format --check
         run: ruff format --check empirica/ empirica-mcp/ tests/
-        continue-on-error: true  # informational until format is enforced
 
       - name: pyright
         run: pyright empirica/ empirica-mcp/

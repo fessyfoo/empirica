@@ -31,7 +31,7 @@ class Snapshot:
     """Single ``empirica scan`` snapshot — the deterministic ground truth."""
 
     scan_id: str
-    started_at: float            # epoch seconds
+    started_at: float  # epoch seconds
     finished_at: float | None
     host: str
     platform: str
@@ -48,21 +48,20 @@ class Snapshot:
     # ── Convenience accessors ────────────────────────────────────────────
     @property
     def processes(self) -> list[dict[str, Any]]:
-        return self.snapshot.get('processes', [])
+        return self.snapshot.get("processes", [])
 
     @property
     def listening_ports(self) -> list[int]:
-        net = self.snapshot.get('network') or {}
-        return list(net.get('listening_ports', []))
+        net = self.snapshot.get("network") or {}
+        return list(net.get("listening_ports", []))
 
     @property
     def env_var_names(self) -> list[str]:
-        env = self.snapshot.get('process_env') or {}
-        return list(env.get('var_names_only', []))
+        env = self.snapshot.get("process_env") or {}
+        return list(env.get("var_names_only", []))
 
 
-def _safe_collect(snap: Snapshot, name: str, fn,
-                  default_payload, default_coverage):
+def _safe_collect(snap: Snapshot, name: str, fn, default_payload, default_coverage):
     """Run ``fn`` and return ``(payload, coverage)``.
 
     On failure, captures the error in ``snap.errors`` and returns the
@@ -72,7 +71,7 @@ def _safe_collect(snap: Snapshot, name: str, fn,
         result = fn()
     except Exception as exc:
         snap.errors.append(f"{name}: {type(exc).__name__}: {exc}")
-        return default_payload, {**default_coverage, 'collector_error': str(exc)}
+        return default_payload, {**default_coverage, "collector_error": str(exc)}
 
     if isinstance(result, tuple) and len(result) == 2:
         return result
@@ -80,9 +79,7 @@ def _safe_collect(snap: Snapshot, name: str, fn,
     return result, default_coverage
 
 
-def _compute_globs_coverage(surface: ReadSurface,
-                            project_root: Path | None = None
-                            ) -> dict[str, Any]:
+def _compute_globs_coverage(surface: ReadSurface, project_root: Path | None = None) -> dict[str, Any]:
     """Count files matching each ``relevant_globs_for_coverage`` entry.
 
     Phase 1 only counts file existence — the deterministic 'how big is the
@@ -109,15 +106,15 @@ def _compute_globs_coverage(surface: ReadSurface,
             per_glob[pattern] = len(hits)
             match_count += len(hits)
         out[category] = {
-            'patterns': per_glob,
-            'total_matches': match_count,
+            "patterns": per_glob,
+            "total_matches": match_count,
         }
     return out
 
 
-def collect_snapshot(read_surface: ReadSurface | None = None,
-                     project_yaml: str | None = None,
-                     project_root: Path | None = None) -> Snapshot:
+def collect_snapshot(
+    read_surface: ReadSurface | None = None, project_yaml: str | None = None, project_root: Path | None = None
+) -> Snapshot:
     """Run every collector and assemble a :class:`Snapshot`.
 
     ``read_surface`` overrides automatic resolution; pass ``None`` to read
@@ -136,50 +133,63 @@ def collect_snapshot(read_surface: ReadSurface | None = None,
     )
 
     proc_rows, proc_cov = _safe_collect(
-        snap, 'processes', lambda: collect_processes(surface),
-        default_payload=[], default_coverage={'attempted': 0, 'succeeded': 0},
+        snap,
+        "processes",
+        lambda: collect_processes(surface),
+        default_payload=[],
+        default_coverage={"attempted": 0, "succeeded": 0},
     )
     net_payload, net_cov = _safe_collect(
-        snap, 'network', lambda: collect_network(surface),
-        default_payload={'connections': [], 'listening_ports': []},
-        default_coverage={'attempted': 0, 'succeeded': 0},
+        snap,
+        "network",
+        lambda: collect_network(surface),
+        default_payload={"connections": [], "listening_ports": []},
+        default_coverage={"attempted": 0, "succeeded": 0},
     )
     sched_payload, sched_cov = _safe_collect(
-        snap, 'scheduled', lambda: collect_scheduled(surface),
-        default_payload={}, default_coverage={'sources_checked': 0},
+        snap,
+        "scheduled",
+        lambda: collect_scheduled(surface),
+        default_payload={},
+        default_coverage={"sources_checked": 0},
     )
     env_payload, env_cov = _safe_collect(
-        snap, 'process_env', lambda: collect_env_var_names(surface),
-        default_payload={'var_names_only': []},
-        default_coverage={'total_env_vars': 0, 'interesting_matches': 0},
+        snap,
+        "process_env",
+        lambda: collect_env_var_names(surface),
+        default_payload={"var_names_only": []},
+        default_coverage={"total_env_vars": 0, "interesting_matches": 0},
     )
     fs_payload, fs_cov = _safe_collect(
-        snap, 'filesystem', lambda: collect_manifests(surface),
-        default_payload={}, default_coverage={},
+        snap,
+        "filesystem",
+        lambda: collect_manifests(surface),
+        default_payload={},
+        default_coverage={},
     )
 
-    snap.snapshot['processes'] = proc_rows
-    snap.snapshot['network'] = net_payload
-    snap.snapshot['scheduled'] = sched_payload
-    snap.snapshot['process_env'] = env_payload
-    snap.snapshot['filesystem'] = fs_payload
+    snap.snapshot["processes"] = proc_rows
+    snap.snapshot["network"] = net_payload
+    snap.snapshot["scheduled"] = sched_payload
+    snap.snapshot["process_env"] = env_payload
+    snap.snapshot["filesystem"] = fs_payload
 
-    snap.snapshot['read_surface_summary'] = {
-        'process_fields': sorted(surface.process),
-        'network_fields': sorted(surface.network),
-        'filesystem_fields': sorted(surface.filesystem),
-        'process_env_fields': sorted(surface.process_env),
-        'scheduled_fields': sorted(surface.scheduled),
-        'mcp_fields': sorted(surface.mcp),
+    snap.snapshot["read_surface_summary"] = {
+        "process_fields": sorted(surface.process),
+        "network_fields": sorted(surface.network),
+        "filesystem_fields": sorted(surface.filesystem),
+        "process_env_fields": sorted(surface.process_env),
+        "scheduled_fields": sorted(surface.scheduled),
+        "mcp_fields": sorted(surface.mcp),
     }
 
-    snap.snapshot['coverage'] = {
-        'processes': proc_cov,
-        'network': net_cov,
-        'scheduled': sched_cov,
-        'process_env': env_cov,
-        'filesystem': fs_cov,
-        'relevant_globs': _compute_globs_coverage(surface, project_root),
+    snap.snapshot["coverage"] = {
+        "processes": proc_cov,
+        "network": net_cov,
+        "scheduled": sched_cov,
+        "process_env": env_cov,
+        "filesystem": fs_cov,
+        "relevant_globs": _compute_globs_coverage(surface, project_root),
     }
 
     snap.finished_at = time.time()
@@ -187,7 +197,7 @@ def collect_snapshot(read_surface: ReadSurface | None = None,
 
 
 __all__ = [
-    'DEFAULT_READ_SURFACE',
-    'Snapshot',
-    'collect_snapshot',
+    "DEFAULT_READ_SURFACE",
+    "Snapshot",
+    "collect_snapshot",
 ]

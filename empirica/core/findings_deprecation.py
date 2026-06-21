@@ -21,18 +21,18 @@ class FindingsDeprecationEngine:
     """Calculate relevance scores and filter findings by depth."""
 
     # Deprecation constants
-    TIME_DECAY_TAU_DAYS = 30   # e-folding time constant for exp decay (~21d half-life)
-    LONGEVITY_DECAY_K = 2.0    # longevity modulator lengthens tau: tau = TAU * (1 + K*longevity)
-                               # (findings pass impact; lessons/eidetic pass confidence)
-    COMPLETION_PENALTY = 0.3   # completed goals reduced by 30%
-    DELTA_BOOST_FACTOR = 0.2   # execution state delta boost
+    TIME_DECAY_TAU_DAYS = 30  # e-folding time constant for exp decay (~21d half-life)
+    LONGEVITY_DECAY_K = 2.0  # longevity modulator lengthens tau: tau = TAU * (1 + K*longevity)
+    # (findings pass impact; lessons/eidetic pass confidence)
+    COMPLETION_PENALTY = 0.3  # completed goals reduced by 30%
+    DELTA_BOOST_FACTOR = 0.2  # execution state delta boost
 
     # Tier thresholds
     TIER_THRESHOLDS: ClassVar[dict[str, float]] = {
-        "minimal": 0.80,    # Only high relevance (Tier 0)
-        "moderate": 0.60,   # Recent context (Tiers 0-1)
-        "full": 0.40,       # Extended history (Tiers 0-2)
-        "complete": 0.0     # All findings (Tiers 0-3+)
+        "minimal": 0.80,  # Only high relevance (Tier 0)
+        "moderate": 0.60,  # Recent context (Tiers 0-1)
+        "full": 0.40,  # Extended history (Tiers 0-2)
+        "complete": 0.0,  # All findings (Tiers 0-3+)
     }
 
     @staticmethod
@@ -106,9 +106,7 @@ class FindingsDeprecationEngine:
 
     @staticmethod
     def calculate_relevance_score(
-        finding: dict,
-        execution_state_delta: float = 0.0,
-        goal_completion: float | None = None
+        finding: dict, execution_state_delta: float = 0.0, goal_completion: float | None = None
     ) -> float:
         """
         Calculate 0.0-1.0 relevance score for a finding.
@@ -131,14 +129,14 @@ class FindingsDeprecationEngine:
         # weighted separately at component 2, so passing impact into the decay
         # would double-count it. The impact-modulated tau is for the standalone
         # recency-rerank path (pattern_retrieval._apply_findings_recency).
-        created_ts = finding.get('created_timestamp')
+        created_ts = finding.get("created_timestamp")
         if not created_ts:
             time_score = 0.5
         else:
             time_score = FindingsDeprecationEngine.calculate_time_decay(created_ts)
 
         # Component 2: Impact weight * completion factor (30%)
-        impact = finding.get('impact')
+        impact = finding.get("impact")
         if impact is None:
             impact = 0.5  # Default for NULL values
 
@@ -154,21 +152,13 @@ class FindingsDeprecationEngine:
         task_match = 0.5  # Default neutral
 
         # Weighted combination
-        relevance = (
-            0.40 * time_score +
-            0.30 * impact_score +
-            0.20 * delta_score +
-            0.10 * task_match
-        )
+        relevance = 0.40 * time_score + 0.30 * impact_score + 0.20 * delta_score + 0.10 * task_match
 
         return max(0.0, min(1.0, relevance))
 
     @staticmethod
     def filter_by_depth(
-        findings: list[dict],
-        depth: str = "auto",
-        relevance_scores: list[float] | None = None,
-        uncertainty: float = 0.5
+        findings: list[dict], depth: str = "auto", relevance_scores: list[float] | None = None, uncertainty: float = 0.5
     ) -> list[dict]:
         """
         Filter findings by depth tier and relevance threshold.
@@ -197,10 +187,7 @@ class FindingsDeprecationEngine:
 
         # Calculate scores if not provided
         if relevance_scores is None:
-            relevance_scores = [
-                FindingsDeprecationEngine.calculate_relevance_score(f)
-                for f in findings
-            ]
+            relevance_scores = [FindingsDeprecationEngine.calculate_relevance_score(f) for f in findings]
 
         # Determine actual depth
         if depth == "auto":
@@ -215,23 +202,14 @@ class FindingsDeprecationEngine:
         threshold = FindingsDeprecationEngine.TIER_THRESHOLDS.get(depth, 0.0)
 
         # Filter by threshold
-        filtered = [
-            finding for finding, score in zip(findings, relevance_scores)
-            if score >= threshold
-        ]
+        filtered = [finding for finding, score in zip(findings, relevance_scores) if score >= threshold]
 
-        logger.info(
-            f"Filtered findings: {len(filtered)}/{len(findings)} "
-            f"(depth={depth}, threshold={threshold:.2f})"
-        )
+        logger.info(f"Filtered findings: {len(filtered)}/{len(findings)} (depth={depth}, threshold={threshold:.2f})")
 
         return filtered
 
     @staticmethod
-    def get_findings_summary(
-        findings: list[dict],
-        relevance_scores: list[float] | None = None
-    ) -> dict:
+    def get_findings_summary(findings: list[dict], relevance_scores: list[float] | None = None) -> dict:
         """
         Generate summary statistics about findings relevance distribution.
 
@@ -239,18 +217,10 @@ class FindingsDeprecationEngine:
             Dict with count, avg_relevance, tier_distribution
         """
         if not findings:
-            return {
-                "total": 0,
-                "loaded": 0,
-                "avg_relevance": 0.0,
-                "tier_distribution": {}
-            }
+            return {"total": 0, "loaded": 0, "avg_relevance": 0.0, "tier_distribution": {}}
 
         if relevance_scores is None:
-            relevance_scores = [
-                FindingsDeprecationEngine.calculate_relevance_score(f)
-                for f in findings
-            ]
+            relevance_scores = [FindingsDeprecationEngine.calculate_relevance_score(f) for f in findings]
 
         # Count by tier
         tiers = {
@@ -264,5 +234,5 @@ class FindingsDeprecationEngine:
             "total": len(findings),
             "loaded": len(findings),
             "avg_relevance": sum(relevance_scores) / len(relevance_scores),
-            "tier_distribution": tiers
+            "tier_distribution": tiers,
         }

@@ -29,14 +29,11 @@ class TestExtractNumericValue:
         nested = {
             "score": 0.95,
             "rationale": "High engagement with collaborative work",
-            "evidence": "Multiple user clarifications incorporated"
+            "evidence": "Multiple user clarifications incorporated",
         }
         assert _extract_numeric_value(nested) == 0.95
 
-        nested2 = {
-            "score": 0.7,
-            "rationale": "Moderate knowledge"
-        }
+        nested2 = {"score": 0.7, "rationale": "Moderate knowledge"}
         assert _extract_numeric_value(nested2) == 0.7
 
     def test_nested_dict_without_score(self):
@@ -60,19 +57,9 @@ class TestDeltaCalculation:
 
     def test_delta_simple_format(self):
         """Delta calculation with simple float format (current working case)"""
-        preflight = {
-            "engagement": 0.90,
-            "know": 0.65,
-            "do": 0.80,
-            "uncertainty": 0.25
-        }
+        preflight = {"engagement": 0.90, "know": 0.65, "do": 0.80, "uncertainty": 0.25}
 
-        postflight = {
-            "engagement": 0.95,
-            "know": 0.85,
-            "do": 0.90,
-            "uncertainty": 0.15
-        }
+        postflight = {"engagement": 0.95, "know": 0.85, "do": 0.90, "uncertainty": 0.15}
 
         deltas = {}
         for key in postflight:
@@ -89,31 +76,14 @@ class TestDeltaCalculation:
 
     def test_delta_nested_format(self):
         """Delta calculation with nested dict format (was causing the error)"""
-        preflight = {
-            "engagement": 0.90,
-            "know": 0.65,
-            "do": 0.80,
-            "uncertainty": 0.25
-        }
+        preflight = {"engagement": 0.90, "know": 0.65, "do": 0.80, "uncertainty": 0.25}
 
         # This format was causing: "unsupported operand type(s) for -: 'dict' and 'float'"
         postflight = {
-            "engagement": {
-                "score": 0.95,
-                "rationale": "Highly collaborative session with iterative clarification"
-            },
-            "know": {
-                "score": 0.85,
-                "rationale": "Deep implementation knowledge from hands-on work"
-            },
-            "do": {
-                "score": 0.90,
-                "rationale": "Successful delivery with all tests passing"
-            },
-            "uncertainty": {
-                "score": 0.15,
-                "rationale": "Low uncertainty after schema verification"
-            }
+            "engagement": {"score": 0.95, "rationale": "Highly collaborative session with iterative clarification"},
+            "know": {"score": 0.85, "rationale": "Deep implementation knowledge from hands-on work"},
+            "do": {"score": 0.90, "rationale": "Successful delivery with all tests passing"},
+            "uncertainty": {"score": 0.15, "rationale": "Low uncertainty after schema verification"},
         }
 
         deltas = {}
@@ -132,19 +102,14 @@ class TestDeltaCalculation:
 
     def test_delta_mixed_format(self):
         """Delta calculation with mixed formats (some nested, some simple)"""
-        preflight = {
-            "engagement": 0.90,
-            "know": 0.65,
-            "do": 0.80,
-            "uncertainty": 0.25
-        }
+        preflight = {"engagement": 0.90, "know": 0.65, "do": 0.80, "uncertainty": 0.25}
 
         # Mixed: some simple floats, some nested dicts
         postflight = {
             "engagement": 0.95,  # Simple
             "know": {"score": 0.85, "rationale": "Deep knowledge"},  # Nested
             "do": 0.90,  # Simple
-            "uncertainty": {"score": 0.15}  # Nested (minimal)
+            "uncertainty": {"score": 0.15},  # Nested (minimal)
         }
 
         deltas = {}
@@ -162,16 +127,13 @@ class TestDeltaCalculation:
 
     def test_delta_with_missing_keys(self):
         """Delta calculation should skip missing keys gracefully"""
-        preflight = {
-            "engagement": 0.90,
-            "know": 0.65
-        }
+        preflight = {"engagement": 0.90, "know": 0.65}
 
         postflight = {
             "engagement": 0.95,
             "know": 0.85,
             "do": 0.90,  # New key not in preflight
-            "uncertainty": 0.15  # New key not in preflight
+            "uncertainty": 0.15,  # New key not in preflight
         }
 
         deltas = {}
@@ -216,7 +178,7 @@ class TestRegressionForOriginalError:
             "change": 0.75,
             "completion": 0.60,
             "impact": 0.75,
-            "uncertainty": 0.25
+            "uncertainty": 0.25,
         }
 
         # POSTFLIGHT format (nested dicts - this caused the error)
@@ -224,12 +186,9 @@ class TestRegressionForOriginalError:
             "engagement": {
                 "score": 0.95,
                 "rationale": "Highly collaborative",
-                "evidence": "Multiple user clarifications"
+                "evidence": "Multiple user clarifications",
             },
-            "know": {
-                "score": 0.85,
-                "rationale": "Deep implementation knowledge"
-            },
+            "know": {"score": 0.85, "rationale": "Deep implementation knowledge"},
             # ... (abbreviated for brevity)
         }
 

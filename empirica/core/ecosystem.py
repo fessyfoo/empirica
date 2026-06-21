@@ -21,6 +21,7 @@ def _get_yaml():
     global _yaml
     if _yaml is None:
         import yaml
+
         _yaml = yaml
     return _yaml
 
@@ -68,14 +69,12 @@ def load_manifest(manifest_path: str | None = None) -> dict:
         path = find_ecosystem_manifest()
 
     if not path or not path.exists():
-        raise FileNotFoundError(
-            "ecosystem.yaml not found. Create one at your workspace root."
-        )
+        raise FileNotFoundError("ecosystem.yaml not found. Create one at your workspace root.")
 
     with open(path) as f:
         data = yaml.safe_load(f)
 
-    if not data or 'projects' not in data:
+    if not data or "projects" not in data:
         raise ValueError(f"Invalid ecosystem manifest: {path} (missing 'projects' key)")
 
     return data
@@ -92,8 +91,8 @@ class EcosystemGraph:
 
     def __init__(self, manifest: dict):
         self.manifest = manifest
-        self.workspace_root = manifest.get('workspace_root', '')
-        self.projects = manifest.get('projects', {})
+        self.workspace_root = manifest.get("workspace_root", "")
+        self.projects = manifest.get("projects", {})
 
         # Build adjacency lists
         self._depends_on: dict[str, set[str]] = {}  # project -> set of deps
@@ -107,7 +106,7 @@ class EcosystemGraph:
             if name not in self._depended_by:
                 self._depended_by[name] = set()
 
-            deps = config.get('depends_on', [])
+            deps = config.get("depends_on", [])
             if isinstance(deps, list):
                 for dep in deps:
                     if isinstance(dep, dict):
@@ -120,7 +119,7 @@ class EcosystemGraph:
                     self._depended_by[dep_name].add(name)
 
             # Also handle optional depends for graph completeness
-            opt_deps = config.get('optional_depends', [])
+            opt_deps = config.get("optional_depends", [])
             if isinstance(opt_deps, list):
                 for dep in opt_deps:
                     if isinstance(dep, dict):
@@ -182,14 +181,14 @@ class EcosystemGraph:
 
         # Normalize: strip workspace root if present
         if self.workspace_root and file_path.startswith(self.workspace_root):
-            file_path = file_path[len(self.workspace_root):].lstrip('/')
+            file_path = file_path[len(self.workspace_root) :].lstrip("/")
 
         best_match = None
         best_length = 0
 
         for name, config in self.projects.items():
-            proj_path = config.get('path', name)
-            if file_path.startswith(proj_path + '/') or file_path == proj_path:
+            proj_path = config.get("path", name)
+            if file_path.startswith(proj_path + "/") or file_path == proj_path:
                 if len(proj_path) > best_length:
                     best_match = name
                     best_length = len(proj_path)
@@ -220,12 +219,9 @@ class EcosystemGraph:
         config = self.projects.get(project, {})
 
         # Check if the changed file is in an exported surface
-        exports = config.get('exports', [])
+        exports = config.get("exports", [])
         file_path_str = str(file_path)
-        exports_affected = any(
-            exp.replace('.', '/') in file_path_str
-            for exp in exports
-        ) if exports else False
+        exports_affected = any(exp.replace(".", "/") in file_path_str for exp in exports) if exports else False
 
         return {
             "project": project,
@@ -236,17 +232,11 @@ class EcosystemGraph:
 
     def by_role(self, role: str) -> list[str]:
         """Get all projects with a given role."""
-        return [
-            name for name, config in self.projects.items()
-            if config.get('role') == role
-        ]
+        return [name for name, config in self.projects.items() if config.get("role") == role]
 
     def by_tag(self, tag: str) -> list[str]:
         """Get all projects with a given tag."""
-        return [
-            name for name, config in self.projects.items()
-            if tag in config.get('tags', [])
-        ]
+        return [name for name, config in self.projects.items() if tag in config.get("tags", [])]
 
     def validate(self) -> list[str]:
         """Validate the ecosystem manifest.
@@ -259,9 +249,7 @@ class EcosystemGraph:
         for name, deps in self._depends_on.items():
             for dep in deps:
                 if dep not in self.projects:
-                    issues.append(
-                        f"Project '{name}' depends on '{dep}' which is not in the manifest"
-                    )
+                    issues.append(f"Project '{name}' depends on '{dep}' which is not in the manifest")
 
         # Check for circular dependencies
         for name in self.projects:
@@ -270,7 +258,7 @@ class EcosystemGraph:
 
         # Check paths exist
         for name, config in self.projects.items():
-            proj_path = config.get('path', name)
+            proj_path = config.get("path", name)
             full_path = Path(self.workspace_root) / proj_path if self.workspace_root else Path(proj_path)
             if not full_path.exists():
                 issues.append(f"Project '{name}' path does not exist: {full_path}")
@@ -282,8 +270,8 @@ class EcosystemGraph:
         roles = {}
         types = {}
         for _name, config in self.projects.items():
-            role = config.get('role', 'unknown')
-            ptype = config.get('type', 'unknown')
+            role = config.get("role", "unknown")
+            ptype = config.get("type", "unknown")
             roles[role] = roles.get(role, 0) + 1
             types[ptype] = types.get(ptype, 0) + 1
 
@@ -292,14 +280,8 @@ class EcosystemGraph:
             "by_role": roles,
             "by_type": types,
             "dependency_edges": sum(len(deps) for deps in self._depends_on.values()),
-            "root_projects": sorted([
-                name for name, deps in self._depends_on.items()
-                if not deps
-            ]),
-            "leaf_projects": sorted([
-                name for name in self.projects
-                if not self._depended_by.get(name)
-            ]),
+            "root_projects": sorted([name for name, deps in self._depends_on.items() if not deps]),
+            "leaf_projects": sorted([name for name in self.projects if not self._depended_by.get(name)]),
         }
 
 

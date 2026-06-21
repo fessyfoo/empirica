@@ -118,21 +118,21 @@ class CockpitApp(App):
     """
 
     BINDINGS: ClassVar[list[Binding]] = [
-        Binding('q', 'quit', 'Quit'),
-        Binding('r', 'refresh_now', 'Refresh'),
-        Binding('p', 'toggle_sentinel', 'Sent.'),
-        Binding('e', 'toggle_events', 'Events'),
-        Binding('s', 'stop', 'Stop'),
-        Binding('n', 'clear_notifications', 'Notif'),
-        Binding('c', 'toggle_compliance', 'Compl.'),
-        Binding('i', 'toggle_services', 'Servic.'),
-        Binding('D', 'toggle_dead', 'Show dead'),
-        Binding('a', 'toggle_auto_accept', 'AutoAcc'),
+        Binding("q", "quit", "Quit"),
+        Binding("r", "refresh_now", "Refresh"),
+        Binding("p", "toggle_sentinel", "Sent."),
+        Binding("e", "toggle_events", "Events"),
+        Binding("s", "stop", "Stop"),
+        Binding("n", "clear_notifications", "Notif"),
+        Binding("c", "toggle_compliance", "Compl."),
+        Binding("i", "toggle_services", "Servic."),
+        Binding("D", "toggle_dead", "Show dead"),
+        Binding("a", "toggle_auto_accept", "AutoAcc"),
     ]
 
     def __init__(self, include_dead: bool = False) -> None:
         super().__init__()
-        self.payload: dict[str, Any] = {'instances': [], 'summary': {}, 'generated_at': ''}
+        self.payload: dict[str, Any] = {"instances": [], "summary": {}, "generated_at": ""}
         self.selected_instance_id: str | None = None
         self.include_dead = include_dead
         # Compliance + services panel expansion state. Failures /
@@ -148,10 +148,10 @@ class CockpitApp(App):
         yield Header(show_clock=True)
         # Failure banner sits directly under the header so it's the first
         # thing the eye lands on when ntfy or another backend is broken.
-        yield Static('', id='dispatch-banner')
-        yield Static('', id='summary')
+        yield Static("", id="dispatch-banner")
+        yield Static("", id="summary")
 
-        table = DataTable(id='inst-table', cursor_type='row', zebra_stripes=True)
+        table = DataTable(id="inst-table", cursor_type="row", zebra_stripes=True)
         # 'dom' shows the open transaction's domain + criticality glyph
         # (e.g. 'def·M' for default/medium, 'leg·H' for legal/high). Helps
         # readers see which threshold profile each instance is operating
@@ -160,37 +160,37 @@ class CockpitApp(App):
         # into a single 'N' column. The listener (T8) is the unified wake
         # mechanism — separate columns were noise. N now shows ⊕<count>
         # when there are recent events for this instance, glyph otherwise.
-        table.add_columns('s', 'name', 'ph', 'dom', 'S', 'N')
+        table.add_columns("s", "name", "ph", "dom", "S", "N")
         yield table
 
-        with Horizontal(id='action-bar'):
-            yield Button('P sent', id='btn-sent', variant='warning')
-            yield Button('E events', id='btn-events', variant='warning')
-            yield Button('S stop', id='btn-stop', variant='error')
-            yield Button('N notif', id='btn-notif', variant='primary')
+        with Horizontal(id="action-bar"):
+            yield Button("P sent", id="btn-sent", variant="warning")
+            yield Button("E events", id="btn-events", variant="warning")
+            yield Button("S stop", id="btn-stop", variant="error")
+            yield Button("N notif", id="btn-notif", variant="primary")
 
-        yield Static('', id='statusline')
-        yield Static('open goals', id='goals-header')
-        yield Static('(none selected)', id='goals')
+        yield Static("", id="statusline")
+        yield Static("open goals", id="goals-header")
+        yield Static("(none selected)", id="goals")
         # Notifications-per-project is mid-stack — what David asks for
         # when checking each project's inbox at a glance.
-        yield Static('notifications', id='notif-header')
-        yield Static('', id='notif')
+        yield Static("notifications", id="notif-header")
+        yield Static("", id="notif")
         # Compliance panel (1.9.6): last `empirica compliance-report`
         # result for the selected instance's project. Green collapsed
         # to one line; yellow/red default-expanded showing failures.
         # Press `c` to toggle expansion.
-        yield Static('compliance', id='compliance-header')
-        yield Static('', id='compliance')
+        yield Static("compliance", id="compliance-header")
+        yield Static("", id="compliance")
         # Services panel (Phase 2 T2): last `empirica scan` snapshot for
         # the selected instance's project. Collapsed to a one-line
         # summary by default; press `i` (scanner Inventory) to expand.
-        yield Static('services', id='services-header')
-        yield Static('', id='services')
+        yield Static("services", id="services-header")
+        yield Static("", id="services")
         yield Footer()
 
     def on_mount(self) -> None:
-        self.title = 'empirica cockpit'
+        self.title = "empirica cockpit"
         self.refresh_payload()
         self.set_interval(REFRESH_SECONDS, self.refresh_payload)
 
@@ -200,7 +200,7 @@ class CockpitApp(App):
         try:
             self.payload = aggregate_all(include_dead=self.include_dead)
         except Exception as e:
-            self._log_status(f'refresh failed: {e}')
+            self._log_status(f"refresh failed: {e}")
             return
         self._render_summary()
         self._render_table()
@@ -228,53 +228,50 @@ class CockpitApp(App):
             fetch_auto_accept_mode,
             set_auto_accept_mode,
         )
+
         current = fetch_auto_accept_mode(force=True)
         if current is None:
-            self._log_status(
-                'auto-accept: cortex unreachable or endpoint not shipped yet — toggle no-op'
-            )
+            self._log_status("auto-accept: cortex unreachable or endpoint not shipped yet — toggle no-op")
             return
         new_state = set_auto_accept_mode(not current)
         if new_state is None:
-            self._log_status(
-                'auto-accept: toggle failed (cortex returned no body / non-2xx)'
-            )
+            self._log_status("auto-accept: toggle failed (cortex returned no body / non-2xx)")
             return
-        verb = 'ENABLED' if new_state else 'DISABLED'
+        verb = "ENABLED" if new_state else "DISABLED"
         self._log_status(
-            f'auto-accept {verb} for this user. '
-            f'{"All future cortex_propose emissions auto-accept (no ECO ack)." if new_state else "ECO review resumed for future emissions."}'
+            f"auto-accept {verb} for this user. "
+            f"{'All future cortex_propose emissions auto-accept (no ECO ack).' if new_state else 'ECO review resumed for future emissions.'}"
         )
         self.refresh_payload()
 
     def _render_summary(self) -> None:
-        s = self.payload.get('summary', {})
-        notif_total = s.get('open_notifications', 0)
-        ts = self.payload.get('generated_at', '').split('T')[-1].split('+')[0][:5]
-        notif_part = f' · ⊕{notif_total}' if notif_total else ''
+        s = self.payload.get("summary", {})
+        notif_total = s.get("open_notifications", 0)
+        ts = self.payload.get("generated_at", "").split("T")[-1].split("+")[0][:5]
+        notif_part = f" · ⊕{notif_total}" if notif_total else ""
 
         # Compact dispatcher status — backend dots + 24h emit count.
         # ●/○ glyphs make it immediately scannable. Default backend wins
         # the brackets so the eye knows where things go by default.
-        nd = s.get('notify_dispatcher') or {}
-        dispatch_part = ''
-        backends = nd.get('backends') or []
+        nd = s.get("notify_dispatcher") or {}
+        dispatch_part = ""
+        backends = nd.get("backends") or []
         if backends:
             cells: list[str] = []
-            default = nd.get('default_backend') or ''
+            default = nd.get("default_backend") or ""
             for b in backends:
-                glyph = '●' if b.get('configured') else '○'
-                name = b.get('name', '?')
+                glyph = "●" if b.get("configured") else "○"
+                name = b.get("name", "?")
                 if name == default:
-                    cells.append(f'{glyph}[{name}]')
+                    cells.append(f"{glyph}[{name}]")
                 else:
-                    cells.append(f'{glyph}{name}')
-            emit_24h = nd.get('emit_count_24h', 0)
-            fb_24h = nd.get('fell_back_count_24h', 0)
-            stats = f'24h:{emit_24h}'
+                    cells.append(f"{glyph}{name}")
+            emit_24h = nd.get("emit_count_24h", 0)
+            fb_24h = nd.get("fell_back_count_24h", 0)
+            stats = f"24h:{emit_24h}"
             if fb_24h:
-                stats += f' fb:{fb_24h}'
-            dispatch_part = f' · {" ".join(cells)} {stats}'
+                stats += f" fb:{fb_24h}"
+            dispatch_part = f" · {' '.join(cells)} {stats}"
 
         # Auto-accept chip — always visible so the bypass state is never
         # ambiguous (was prev hidden when OFF, which made "is bypass on?"
@@ -282,32 +279,29 @@ class CockpitApp(App):
         # required for emissions from this user); muted text when OFF;
         # hidden only when state is unknown (cortex unreachable / endpoint
         # not shipped — distinguishing "off" from "unknown" matters).
-        auto_accept = s.get('auto_accept')
+        auto_accept = s.get("auto_accept")
         if auto_accept is True:
-            auto_part = ' · ⚡AUTO-ACCEPT'
+            auto_part = " · ⚡AUTO-ACCEPT"
         elif auto_accept is False:
-            auto_part = ' · auto-accept:off'
+            auto_part = " · auto-accept:off"
         else:
-            auto_part = ''
+            auto_part = ""
 
-        text = (
-            f"empirica · {s.get('instances', 0)} inst{notif_part}"
-            f"{auto_part}{dispatch_part} · {ts}"
-        )
-        self.query_one('#summary', Static).update(text)
+        text = f"empirica · {s.get('instances', 0)} inst{notif_part}{auto_part}{dispatch_part} · {ts}"
+        self.query_one("#summary", Static).update(text)
 
     def _render_table(self) -> None:
-        table = self.query_one('#inst-table', DataTable)
+        table = self.query_one("#inst-table", DataTable)
         previously_selected = self.selected_instance_id
         table.clear()
-        rows = self.payload.get('instances', [])
+        rows = self.payload.get("instances", [])
         for inst in rows:
-            iid = inst['instance_id']
-            stat = self._state_glyph(inst['state'])
-            name = (inst.get('label') or iid)[:16]
-            phase = self._phase_short(inst.get('phase'), inst.get('asking', False))
-            dom = self._domain_chip(inst.get('transaction'))
-            sentinel = '○' if inst['sentinel']['paused'] else '●'
+            iid = inst["instance_id"]
+            stat = self._state_glyph(inst["state"])
+            name = (inst.get("label") or iid)[:16]
+            phase = self._phase_short(inst.get("phase"), inst.get("asking", False))
+            dom = self._domain_chip(inst.get("transaction"))
+            sentinel = "○" if inst["sentinel"]["paused"] else "●"
             # T9: events cell = recent_events count (most actionable signal)
             # falling back to the loops glyph if no events yet. listeners
             # are subsumed (they're loops with held connections now).
@@ -315,15 +309,15 @@ class CockpitApp(App):
             table.add_row(stat, name, phase, dom, sentinel, events_cell, key=iid)
 
         if rows:
-            target = previously_selected or rows[0]['instance_id']
+            target = previously_selected or rows[0]["instance_id"]
             for idx, inst in enumerate(rows):
-                if inst['instance_id'] == target:
+                if inst["instance_id"] == target:
                     table.move_cursor(row=idx)
                     self.selected_instance_id = target
                     break
             else:
                 table.move_cursor(row=0)
-                self.selected_instance_id = rows[0]['instance_id']
+                self.selected_instance_id = rows[0]["instance_id"]
         else:
             self.selected_instance_id = None
 
@@ -337,33 +331,39 @@ class CockpitApp(App):
         legible at a glance is the point of this column.
         """
         if not transaction:
-            return '—'
-        domain = (transaction.get('domain') or '').strip()
-        criticality = (transaction.get('criticality') or '').strip()
+            return "—"
+        domain = (transaction.get("domain") or "").strip()
+        criticality = (transaction.get("criticality") or "").strip()
         if not domain:
-            return '—'
-        crit_short = {'low': 'L', 'medium': 'M', 'high': 'H'}.get(
-            criticality.lower(), '?',
+            return "—"
+        crit_short = {"low": "L", "medium": "M", "high": "H"}.get(
+            criticality.lower(),
+            "?",
         )
-        return f'{domain[:3]}·{crit_short}'
+        return f"{domain[:3]}·{crit_short}"
 
     @staticmethod
     def _state_glyph(state: str) -> str:
         return {
-            'active': '🟢', 'idle': '🟡', 'stuck': '🔴',
-            'closed': '⊘', 'no-claude': '⊗',
-        }.get(state, '?')
+            "active": "🟢",
+            "idle": "🟡",
+            "stuck": "🔴",
+            "closed": "⊘",
+            "no-claude": "⊗",
+        }.get(state, "?")
 
     @staticmethod
     def _phase_short(phase: str | None, asking: bool) -> str:
         """Compress phase to ≤4 chars to fit the narrow column."""
         if asking:
-            return 'ask⚠'
+            return "ask⚠"
         if not phase:
-            return '—'
+            return "—"
         return {
-            'noetic': 'noet', 'praxic': 'prax',
-            'closed': 'cls', 'no-transaction': '—',
+            "noetic": "noet",
+            "praxic": "prax",
+            "closed": "cls",
+            "no-transaction": "—",
         }.get(phase, phase[:4])
 
     @staticmethod
@@ -376,21 +376,21 @@ class CockpitApp(App):
         match by prefix so any 'systemd*' variant routes through the systemctl
         liveness check instead of falling through to file-flag pause.
         """
-        if (v.get('scheduler_kind') or '').lower().startswith('systemd'):
+        if (v.get("scheduler_kind") or "").lower().startswith("systemd"):
             # systemd_active absent → unknown → treat as off (conservative)
-            return not v.get('systemd_active', False)
-        return bool(v.get('paused'))
+            return not v.get("systemd_active", False)
+        return bool(v.get("paused"))
 
     @staticmethod
     def _loops_glyph(loops: dict[str, Any]) -> str:
         if not loops:
-            return '–'
+            return "–"
         off = sum(1 for v in loops.values() if CockpitApp._loop_is_off(v))
         if off == 0:
-            return '●'
+            return "●"
         if off == len(loops):
-            return '○'
-        return '◐'
+            return "○"
+        return "◐"
 
     @staticmethod
     def _listeners_glyph(listeners: dict[str, Any]) -> str:
@@ -398,44 +398,44 @@ class CockpitApp(App):
         event-driven instead of cron. ●=all armed, ○=all paused, ◐=mixed,
         –=none registered."""
         if not listeners:
-            return '–'
-        paused = sum(1 for v in listeners.values() if v.get('paused'))
+            return "–"
+        paused = sum(1 for v in listeners.values() if v.get("paused"))
         if paused == 0:
-            return '●'
+            return "●"
         if paused == len(listeners):
-            return '○'
-        return '◐'
+            return "○"
+        return "◐"
 
     @staticmethod
     def _notif_glyph(notif: dict[str, Any]) -> str:
-        count = int(notif.get('open_count', 0) or 0)
+        count = int(notif.get("open_count", 0) or 0)
         if count == 0:
-            return '·'
-        return f'⊕{count}'
+            return "·"
+        return f"⊕{count}"
 
     @staticmethod
     def _events_cell(inst: dict[str, Any]) -> str:
         """T9: unified events cell — replaces separate loops/listeners/notif
         columns. Priority: recent-events count if any, else loop liveness."""
-        recent = inst.get('recent_events') or []
+        recent = inst.get("recent_events") or []
         if recent:
             # Show count of latest events as the wake-summary chip
-            return f'⊕{len(recent)}'
+            return f"⊕{len(recent)}"
         # No recent events — fall back to loop liveness (T5 _loops_glyph)
-        loops = inst.get('loops') or {}
+        loops = inst.get("loops") or {}
         if loops:
             return CockpitApp._loops_glyph(loops)
         # Also check listeners — registered but no recent events
-        listeners = inst.get('listeners') or {}
+        listeners = inst.get("listeners") or {}
         if listeners:
             return CockpitApp._listeners_glyph(listeners)
-        return '·'
+        return "·"
 
     def _selected_instance(self) -> dict[str, Any] | None:
         if not self.selected_instance_id:
             return None
-        for inst in self.payload.get('instances', []):
-            if inst['instance_id'] == self.selected_instance_id:
+        for inst in self.payload.get("instances", []):
+            if inst["instance_id"] == self.selected_instance_id:
                 return inst
         return None
 
@@ -443,18 +443,18 @@ class CockpitApp(App):
         """Statusline + open-goals + notifications + compliance + services
         for the selected instance."""
         inst = self._selected_instance()
-        statusline_widget = self.query_one('#statusline', Static)
-        goals_widget = self.query_one('#goals', Static)
-        notif_widget = self.query_one('#notif', Static)
-        compliance_widget = self.query_one('#compliance', Static)
-        services_widget = self.query_one('#services', Static)
+        statusline_widget = self.query_one("#statusline", Static)
+        goals_widget = self.query_one("#goals", Static)
+        notif_widget = self.query_one("#notif", Static)
+        compliance_widget = self.query_one("#compliance", Static)
+        services_widget = self.query_one("#services", Static)
 
         if inst is None:
-            statusline_widget.update('')
-            goals_widget.update('(no instance selected)')
-            notif_widget.update('')
-            compliance_widget.update('')
-            services_widget.update('')
+            statusline_widget.update("")
+            goals_widget.update("(no instance selected)")
+            notif_widget.update("")
+            compliance_widget.update("")
+            services_widget.update("")
             return
 
         statusline_widget.update(self._format_statusline(inst))
@@ -470,42 +470,44 @@ class CockpitApp(App):
         sees off-record status without having to scan the table column.
         """
         ss = statusline_summary(
-            inst['instance_id'],
-            label_fallback=inst.get('label'),
-            project_path=inst.get('project_path'),
-            session_id=inst.get('session_id'),
+            inst["instance_id"],
+            label_fallback=inst.get("label"),
+            project_path=inst.get("project_path"),
+            session_id=inst.get("session_id"),
         )
         parts: list[str] = []
-        sent = inst.get('sentinel') or {}
-        if sent.get('paused'):
-            scope = sent.get('scope') or 'instance'
-            parts.append(f'PAUSED({scope})')
+        sent = inst.get("sentinel") or {}
+        if sent.get("paused"):
+            scope = sent.get("scope") or "instance"
+            parts.append(f"PAUSED({scope})")
         if ss.know is not None:
-            parts.append(f'k:{ss.know:.2f}')
+            parts.append(f"k:{ss.know:.2f}")
         if ss.context is not None:
-            parts.append(f'c:{ss.context:.2f}')
+            parts.append(f"c:{ss.context:.2f}")
         if ss.confidence is not None:
-            parts.append(f'conf:{int(ss.confidence * 100)}%')
+            parts.append(f"conf:{int(ss.confidence * 100)}%")
         if ss.open_goals is not None:
-            parts.append(f'goals:{ss.open_goals}')
-        ctx = context_usage(inst['instance_id'])
-        line = ' '.join(parts) if parts else '(no vectors)'
+            parts.append(f"goals:{ss.open_goals}")
+        ctx = context_usage(inst["instance_id"])
+        line = " ".join(parts) if parts else "(no vectors)"
         if ctx is not None:
-            line = f'{line} — ctx:{ctx}%'
+            line = f"{line} — ctx:{ctx}%"
         return line
 
     def _format_goals(self, inst: dict[str, Any]) -> str:
         # Project-scoped: passes session_id through but it's ignored by
         # the reader (kept for signature compat).
         goals = open_goals_list(
-            inst.get('project_path'), inst.get('session_id'), limit=5,
+            inst.get("project_path"),
+            inst.get("session_id"),
+            limit=5,
         )
         if not goals:
-            return '(none)'
-        return '\n'.join(
+            return "(none)"
+        return "\n".join(
             _wrap_item(
-                ('⏸' if g.status == 'blocked' else '·'),
-                g.objective.replace('\n', ' ').strip(),
+                ("⏸" if g.status == "blocked" else "·"),
+                g.objective.replace("\n", " ").strip(),
             )
             for g in goals
         )
@@ -515,16 +517,16 @@ class CockpitApp(App):
         # those are the actionable AI-orchestration signals. Fall back to
         # project notifications (the older project-level audit notifs) when
         # no event stream activity exists yet for this instance.
-        recent = inst.get('recent_events') or []
+        recent = inst.get("recent_events") or []
         if recent:
             lines = []
             for ev in recent:
                 lines.append(_format_event_line(ev))
-            return '\n'.join(lines)
-        items = notifications_for_project(inst.get('project_path'), limit=5)
+            return "\n".join(lines)
+        items = notifications_for_project(inst.get("project_path"), limit=5)
         if not items:
-            return '(no events yet — listener silent or not armed)'
-        return '\n'.join(_wrap_item('•', n.title) for n in items)
+            return "(no events yet — listener silent or not armed)"
+        return "\n".join(_wrap_item("•", n.title) for n in items)
 
     def _format_compliance(self, inst: dict[str, Any]) -> str:
         """Header is always-on; `c` toggles a passing-checks list below it.
@@ -539,57 +541,57 @@ class CockpitApp(App):
             The `c` toggle therefore has visible effect in both pass
             and fail states without ever hiding a failure.
         """
-        c = inst.get('compliance')
+        c = inst.get("compliance")
         if not c:
-            return '(no compliance-report run for this project — `empirica compliance-report`)'
+            return "(no compliance-report run for this project — `empirica compliance-report`)"
 
-        score = c.get('score', 0.0) or 0.0
-        passed = c.get('checks_passed', 0)
-        total = c.get('checks_total', 0)
-        failed = c.get('failed_checks') or []
-        passed_names = c.get('passed_check_names') or []
-        fresh = c.get('fresh', False)
-        age = c.get('age_seconds')
+        score = c.get("score", 0.0) or 0.0
+        passed = c.get("checks_passed", 0)
+        total = c.get("checks_total", 0)
+        failed = c.get("failed_checks") or []
+        passed_names = c.get("passed_check_names") or []
+        fresh = c.get("fresh", False)
+        age = c.get("age_seconds")
 
         # Glyph: 🛡 green (all pass) | 🛡 yellow (≥80%) | 🛡 red (<80%)
         if not failed:
-            glyph = '🛡 ✓'
+            glyph = "🛡 ✓"
         elif score >= 0.8:
-            glyph = '🛡 ⚠'
+            glyph = "🛡 ⚠"
         else:
-            glyph = '🛡 ✗'
+            glyph = "🛡 ✗"
 
         if not fresh and age is not None:
-            staleness = f' (stale {self._format_age(age)})'
+            staleness = f" (stale {self._format_age(age)})"
         elif age is not None:
-            staleness = f' ({self._format_age(age)} ago)'
+            staleness = f" ({self._format_age(age)} ago)"
         else:
-            staleness = ''
+            staleness = ""
 
-        head = f'{glyph} {passed}/{total}{staleness}'
+        head = f"{glyph} {passed}/{total}{staleness}"
         if failed:
-            head += f' · failing: {", ".join(failed)}'
+            head += f" · failing: {', '.join(failed)}"
 
         if not self.compliance_expanded or not passed_names:
             return head
 
-        lines = [head, '']
+        lines = [head, ""]
         for label in passed_names:
-            lines.append(_wrap_item('  ✓', label))
-        lines.append('  (press `c` to collapse)')
-        return '\n'.join(lines)
+            lines.append(_wrap_item("  ✓", label))
+        lines.append("  (press `c` to collapse)")
+        return "\n".join(lines)
 
     @staticmethod
     def _format_age(seconds: float) -> str:
         """Compact age render: 5m, 2h, 3d. Falls back to seconds for short."""
         s = int(seconds)
         if s < 60:
-            return f'{s}s'
+            return f"{s}s"
         if s < 3600:
-            return f'{s // 60}m'
+            return f"{s // 60}m"
         if s < 86400:
-            return f'{s // 3600}h'
-        return f'{s // 86400}d'
+            return f"{s // 3600}h"
+        return f"{s // 86400}d"
 
     def _format_services(self, inst: dict[str, Any]) -> str:
         """Last `empirica scan` snapshot summary for the selected project.
@@ -599,38 +601,35 @@ class CockpitApp(App):
         Expanded (`i`): adds breakdowns for MCP servers, plugin manifests,
         cron entries, and interesting env-var name count.
         """
-        s = inst.get('services')
+        s = inst.get("services")
         if not s:
-            return '(no scanner snapshot for this project — `empirica scan --save`)'
+            return "(no scanner snapshot for this project — `empirica scan --save`)"
 
-        proc_count = s.get('process_count', 0)
-        listening = s.get('listening_ports_count', 0)
-        integrity = s.get('integrity_ratio', 0.0)
-        errors = s.get('errors_count', 0)
-        fresh = s.get('fresh', False)
-        age = s.get('age_seconds')
+        proc_count = s.get("process_count", 0)
+        listening = s.get("listening_ports_count", 0)
+        integrity = s.get("integrity_ratio", 0.0)
+        errors = s.get("errors_count", 0)
+        fresh = s.get("fresh", False)
+        age = s.get("age_seconds")
 
         # Glyph: 🔍 green (clean + fresh) | 🔍 yellow (stale) | 🔍 red (errors)
         if errors > 0:
-            glyph = '🔍 ✗'
+            glyph = "🔍 ✗"
         elif not fresh:
-            glyph = '🔍 ⚠'
+            glyph = "🔍 ⚠"
         else:
-            glyph = '🔍 ✓'
+            glyph = "🔍 ✓"
 
         if not fresh and age is not None:
-            staleness = f' (stale {self._format_age(age)})'
+            staleness = f" (stale {self._format_age(age)})"
         elif age is not None:
-            staleness = f' ({self._format_age(age)} ago)'
+            staleness = f" ({self._format_age(age)} ago)"
         else:
-            staleness = ''
+            staleness = ""
 
-        head = (
-            f'{glyph} {proc_count} procs · {listening} listening · '
-            f'integrity {int(integrity * 100)}%{staleness}'
-        )
+        head = f"{glyph} {proc_count} procs · {listening} listening · integrity {int(integrity * 100)}%{staleness}"
         if errors:
-            head += f' · {errors} collector errors'
+            head += f" · {errors} collector errors"
 
         # Mirrors compliance: error visibility is preserved by the head line
         # (glyph + `· N collector errors`), and `i` toggles the per-category
@@ -644,48 +643,46 @@ class CockpitApp(App):
         if not show_detail:
             return head
 
-        lines = [head, '']
+        lines = [head, ""]
         if errors > 0:
-            lines.append(_wrap_item('  ✗', f'{errors} collector error(s) during scan'))
-        lines.append(_wrap_item('  ·', f'MCP servers: {s.get("mcp_servers_count", 0)}'))
-        lines.append(_wrap_item('  ·', f'Plugin manifests: {s.get("plugin_manifests_count", 0)}'))
-        lines.append(_wrap_item('  ·', f'Cron entries: {s.get("cron_entries_count", 0)}'))
-        lines.append(_wrap_item('  ·', f'Interesting env-var names: {s.get("env_var_names_count", 0)}'))
-        host = s.get('host') or '?'
-        lines.append(_wrap_item('  ·', f'Host: {host}'))
+            lines.append(_wrap_item("  ✗", f"{errors} collector error(s) during scan"))
+        lines.append(_wrap_item("  ·", f"MCP servers: {s.get('mcp_servers_count', 0)}"))
+        lines.append(_wrap_item("  ·", f"Plugin manifests: {s.get('plugin_manifests_count', 0)}"))
+        lines.append(_wrap_item("  ·", f"Cron entries: {s.get('cron_entries_count', 0)}"))
+        lines.append(_wrap_item("  ·", f"Interesting env-var names: {s.get('env_var_names_count', 0)}"))
+        host = s.get("host") or "?"
+        lines.append(_wrap_item("  ·", f"Host: {host}"))
         if errors > 0:
-            lines.append('  (press `i` to collapse — error count stays in header)')
+            lines.append("  (press `i` to collapse — error count stays in header)")
         else:
-            lines.append('  (press `i` to collapse)')
-        return '\n'.join(lines)
+            lines.append("  (press `i` to collapse)")
+        return "\n".join(lines)
 
     def _render_dispatcher(self) -> None:
         """Render the failure banner only — backends + 24h counts now live
         inline in the summary line, recent emits live in `empirica status
         --pretty` (CLI single-instance view) so the TUI's bottom widget
         stays focused on per-project notifications."""
-        nd = (self.payload.get('summary', {}) or {}).get('notify_dispatcher') or {}
-        banner_widget = self.query_one('#dispatch-banner', Static)
-        banner = nd.get('banner_failure')
+        nd = (self.payload.get("summary", {}) or {}).get("notify_dispatcher") or {}
+        banner_widget = self.query_one("#dispatch-banner", Static)
+        banner = nd.get("banner_failure")
         if banner:
-            backend = banner.get('resolved_backend') or '?'
-            age = self._age_short(banner.get('age_seconds'))
-            detail = (banner.get('detail') or '').split('\n', 1)[0][:60]
-            banner_widget.update(
-                f'⚠ notify backend {backend} failed {age} ago — {detail}'
-            )
+            backend = banner.get("resolved_backend") or "?"
+            age = self._age_short(banner.get("age_seconds"))
+            detail = (banner.get("detail") or "").split("\n", 1)[0][:60]
+            banner_widget.update(f"⚠ notify backend {backend} failed {age} ago — {detail}")
         else:
-            banner_widget.update('')
+            banner_widget.update("")
 
     @staticmethod
     def _age_short(seconds: int | None) -> str:
         if seconds is None:
-            return '?'
+            return "?"
         if seconds < 60:
-            return f'{seconds}s'
+            return f"{seconds}s"
         if seconds < 3600:
-            return f'{seconds // 60}m'
-        return f'{seconds // 3600}h'
+            return f"{seconds // 60}m"
+        return f"{seconds // 3600}h"
 
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
         if event.row_key and event.row_key.value:
@@ -701,12 +698,12 @@ class CockpitApp(App):
         inst = self._require_selected()
         if inst is None:
             return
-        if inst['sentinel']['paused']:
-            resume_sentinel(inst['instance_id'])
-            self._log_status(f'sentinel resumed: {inst["instance_id"]}')
+        if inst["sentinel"]["paused"]:
+            resume_sentinel(inst["instance_id"])
+            self._log_status(f"sentinel resumed: {inst['instance_id']}")
         else:
-            pause_sentinel(inst['instance_id'], reason='via tui')
-            self._log_status(f'sentinel paused: {inst["instance_id"]}')
+            pause_sentinel(inst["instance_id"], reason="via tui")
+            self._log_status(f"sentinel paused: {inst['instance_id']}")
         self.refresh_payload()
 
     def action_toggle_events(self) -> None:
@@ -728,8 +725,8 @@ class CockpitApp(App):
         inst = self._require_selected()
         if inst is None:
             return
-        loops = inst.get('loops') or {}
-        listeners = inst.get('listeners') or {}
+        loops = inst.get("loops") or {}
+        listeners = inst.get("listeners") or {}
 
         # Empty registries on both sides — try project.yaml bootstrap.
         if not loops and not listeners:
@@ -742,30 +739,25 @@ class CockpitApp(App):
                 # press-Events-and-it-just-works: Space+Enter into the pane
                 # triggers UserPromptSubmit hooks that surface the pending
                 # state as a system-reminder, AI processes immediately.
-                wake = wake_instance(inst['instance_id'])
-                wake_note = (
-                    ' · woke target pane'
-                    if wake.success
-                    else f' · wake unreachable ({wake.detail})'
-                )
+                wake = wake_instance(inst["instance_id"])
+                wake_note = " · woke target pane" if wake.success else f" · wake unreachable ({wake.detail})"
                 self._log_status(
-                    f'{inst["instance_id"]}: requested install of '
-                    f'{installed_l} loop(s) + {installed_e} listener(s)'
-                    f'{wake_note}'
+                    f"{inst['instance_id']}: requested install of "
+                    f"{installed_l} loop(s) + {installed_e} listener(s)"
+                    f"{wake_note}"
                 )
                 self.refresh_payload()
             else:
                 self._log_status(
-                    f'{inst["instance_id"]}: no events registered + no '
-                    'cockpit.loops/listeners in project.yaml — add the '
-                    'blocks or use install-request CLI'
+                    f"{inst['instance_id']}: no events registered + no "
+                    "cockpit.loops/listeners in project.yaml — add the "
+                    "blocks or use install-request CLI"
                 )
             return
 
         # Decide target state from current state: any-unpaused → pause all.
-        any_unpaused = (
-            any(not v.get('paused') for v in loops.values())
-            or any(not v.get('paused') for v in listeners.values())
+        any_unpaused = any(not v.get("paused") for v in loops.values()) or any(
+            not v.get("paused") for v in listeners.values()
         )
         target_paused = bool(any_unpaused)
 
@@ -778,72 +770,59 @@ class CockpitApp(App):
         # legacy cron-create paths still use instance_id (tied to the
         # CronCreate in the current AI session, which IS tmux-pane-bound).
         from empirica.utils.session_resolver import InstanceResolver
+
         ai_id_for_timer = (
-            inst.get('ai_id')
-            or InstanceResolver.ai_id(project_path=inst.get('project_path'))
-            or inst['instance_id']
+            inst.get("ai_id") or InstanceResolver.ai_id(project_path=inst.get("project_path")) or inst["instance_id"]
         )
         for name, loop_data in loops.items():
-            scheduler_kind = (loop_data.get('scheduler_kind') or '').lower()
-            if scheduler_kind.startswith('systemd'):
-                handler = (handle_loop_disable_command if target_paused
-                           else handle_loop_enable_command)
+            scheduler_kind = (loop_data.get("scheduler_kind") or "").lower()
+            if scheduler_kind.startswith("systemd"):
+                handler = handle_loop_disable_command if target_paused else handle_loop_enable_command
                 args_dict = {
-                    'name': name,
-                    'instance': ai_id_for_timer,
-                    'output': 'json',
+                    "name": name,
+                    "instance": ai_id_for_timer,
+                    "output": "json",
                 }
                 if not target_paused:
-                    args_dict['interval'] = (
-                        loop_data.get('interval')
-                        or loop_data.get('base_interval')
-                        or '30s'
-                    )
+                    args_dict["interval"] = loop_data.get("interval") or loop_data.get("base_interval") or "30s"
                 args = Namespace(**args_dict)
             else:
-                handler = (handle_loop_pause_command if target_paused
-                           else handle_loop_resume_command)
+                handler = handle_loop_pause_command if target_paused else handle_loop_resume_command
                 args = Namespace(
                     name=name,
-                    instance=inst['instance_id'],
-                    output='json',
+                    instance=inst["instance_id"],
+                    output="json",
                 )
             try:
                 handler(args)
             except Exception as e:
-                self._log_status(f'{inst["instance_id"]} loop {name}: {e}')
+                self._log_status(f"{inst['instance_id']} loop {name}: {e}")
                 return
 
         # Then listeners (mirror mechanical pause flow).
-        listener_handler = (
-            handle_listener_pause_command if target_paused
-            else handle_listener_resume_command
-        )
+        listener_handler = handle_listener_pause_command if target_paused else handle_listener_resume_command
         for name in listeners:
             args = Namespace(
                 name=name,
-                instance=inst['instance_id'],
-                output='json',
+                instance=inst["instance_id"],
+                output="json",
             )
             try:
                 listener_handler(args)
             except Exception as e:
-                self._log_status(f'{inst["instance_id"]} listener {name}: {e}')
+                self._log_status(f"{inst['instance_id']} listener {name}: {e}")
                 return
 
-        verb = 'paused' if target_paused else 'resumed'
-        self._log_status(
-            f'{verb} {len(loops)} loop(s) + {len(listeners)} listener(s) '
-            f'on {inst["instance_id"]}'
-        )
+        verb = "paused" if target_paused else "resumed"
+        self._log_status(f"{verb} {len(loops)} loop(s) + {len(listeners)} listener(s) on {inst['instance_id']}")
         self.refresh_payload()
 
     def action_stop(self) -> None:
         inst = self._require_selected()
         if inst is None:
             return
-        result = stop_instance(inst['instance_id'])
-        self._log_status(f'stop {inst["instance_id"]}: {result.detail}')
+        result = stop_instance(inst["instance_id"])
+        self._log_status(f"stop {inst['instance_id']}: {result.detail}")
         self.refresh_payload()
 
     def action_toggle_services(self) -> None:
@@ -870,25 +849,25 @@ class CockpitApp(App):
         inst = self._require_selected()
         if inst is None:
             return
-        project_path = inst.get('project_path')
-        cleared = clear_notifications(inst['instance_id'], project_path=project_path)
-        scope = project_path or inst['instance_id']
+        project_path = inst.get("project_path")
+        cleared = clear_notifications(inst["instance_id"], project_path=project_path)
+        scope = project_path or inst["instance_id"]
         if cleared:
-            self._log_status(f'cleared {cleared} notif(s) for {scope}')
+            self._log_status(f"cleared {cleared} notif(s) for {scope}")
         else:
-            self._log_status(f'no notifications to clear for {scope}')
+            self._log_status(f"no notifications to clear for {scope}")
         self.refresh_payload()
 
     # ─── button events (mouse / touch) ────────────────────────────────────
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         actions = {
-            'btn-sent': self.action_toggle_sentinel,
-            'btn-events': self.action_toggle_events,
-            'btn-stop': self.action_stop,
-            'btn-notif': self.action_clear_notifications,
+            "btn-sent": self.action_toggle_sentinel,
+            "btn-events": self.action_toggle_events,
+            "btn-stop": self.action_stop,
+            "btn-notif": self.action_clear_notifications,
         }
-        handler = actions.get(event.button.id or '')
+        handler = actions.get(event.button.id or "")
         if handler:
             handler()
 
@@ -897,14 +876,14 @@ class CockpitApp(App):
     def _require_selected(self) -> dict[str, Any] | None:
         inst = self._selected_instance()
         if inst is None:
-            self._log_status('no instance selected')
+            self._log_status("no instance selected")
         return inst
 
     def _log_status(self, message: str) -> None:
         """Status messages share the notif widget when nothing else lives there."""
         try:
-            notif = self.query_one('#notif', Static)
-            notif.update(f'• {message}')
+            notif = self.query_one("#notif", Static)
+            notif.update(f"• {message}")
         except Exception:  # noqa: S110 — TUI status nudge is best-effort; failure must not crash the app
             pass
 
@@ -920,12 +899,13 @@ class CockpitApp(App):
         empirica claude — currently the cortex-mailbox-poll orchestration
         spine).
         """
-        configs = project_loops(inst.get('project_path'))
-        source_label = 'project.yaml'
+        configs = project_loops(inst.get("project_path"))
+        source_label = "project.yaml"
         if not configs:
             from empirica.core.cockpit.canonical_loops import CANONICAL_LOOPS
+
             configs = list(CANONICAL_LOOPS)
-            source_label = 'canonical catalog'
+            source_label = "canonical catalog"
             if not configs:
                 return 0
         installed = 0
@@ -938,82 +918,74 @@ class CockpitApp(App):
         # fallback to project basename, then to pane instance_id for
         # pre-convention installs.
         from empirica.utils.session_resolver import InstanceResolver
+
         timer_instance = (
-            inst.get('ai_id')
-            or InstanceResolver.ai_id(project_path=inst.get('project_path'))
-            or inst['instance_id']
+            inst.get("ai_id") or InstanceResolver.ai_id(project_path=inst.get("project_path")) or inst["instance_id"]
         )
         for cfg in configs:
-            scheduler_kind = (cfg.get('scheduler_kind') or '').lower()
+            scheduler_kind = (cfg.get("scheduler_kind") or "").lower()
             try:
                 # canonical_loops.py declares 'systemd-user' per the
                 # VALID_SCHEDULER_KIND alphabet — match by prefix so any
                 # systemd* variant routes through systemctl install.
-                if scheduler_kind.startswith('systemd'):
+                if scheduler_kind.startswith("systemd"):
                     # Phase 1c: systemd-scheduled loops install via systemctl
                     # directly. No pending file, no AI cooperation needed —
                     # the timer starts immediately. SessionStart's monitor-arm
                     # hook (Phase 1b) wires the wake bridge on next session.
                     args = Namespace(
                         instance=timer_instance,
-                        name=cfg['name'],
-                        interval=cfg.get('interval') or cfg.get('base_interval') or '30s',
-                        description=cfg.get('description', ''),
-                        output='json',
+                        name=cfg["name"],
+                        interval=cfg.get("interval") or cfg.get("base_interval") or "30s",
+                        description=cfg.get("description", ""),
+                        output="json",
                     )
                     handle_loop_enable_command(args)
                 else:
                     args = Namespace(
-                        instance=inst['instance_id'],
-                        name=cfg['name'],
-                        kind=cfg.get('kind', 'cron'),
-                        cron=cfg.get('cron'),
-                        interval=cfg.get('interval'),
-                        description=cfg.get('description', ''),
-                        base_interval=cfg.get('base_interval'),
-                        max_interval=cfg.get('max_interval'),
+                        instance=inst["instance_id"],
+                        name=cfg["name"],
+                        kind=cfg.get("kind", "cron"),
+                        cron=cfg.get("cron"),
+                        interval=cfg.get("interval"),
+                        description=cfg.get("description", ""),
+                        base_interval=cfg.get("base_interval"),
+                        max_interval=cfg.get("max_interval"),
                         # Canonical loops carry an optional `body_skill` — the
                         # handler uses it to substitute the skill's actual
                         # prompt template instead of the generic placeholder.
-                        body_skill=cfg.get('body_skill'),
-                        output='json',
+                        body_skill=cfg.get("body_skill"),
+                        output="json",
                     )
                     handle_loop_install_request_command(args)
                 installed += 1
             except Exception as e:
-                self._log_status(
-                    f'{inst["instance_id"]} loop {cfg.get("name", "?")}: {e}'
-                )
+                self._log_status(f"{inst['instance_id']} loop {cfg.get('name', '?')}: {e}")
         if installed:
-            self._log_status(
-                f'{inst["instance_id"]}: installed {installed} loop(s) '
-                f'from {source_label}'
-            )
+            self._log_status(f"{inst['instance_id']}: installed {installed} loop(s) from {source_label}")
         return installed
 
     def _install_listeners_from_project(self, inst: dict[str, Any]) -> int:
         """Install listeners from the project's cockpit.listeners config.
         Returns the count installed."""
-        configs = project_listeners(inst.get('project_path'))
+        configs = project_listeners(inst.get("project_path"))
         if not configs:
             return 0
         installed = 0
         for cfg in configs:
             args = Namespace(
-                instance=inst['instance_id'],
-                name=cfg['name'],
-                topic=cfg['topic'],
-                description=cfg.get('description', ''),
-                on_wake=cfg.get('on_wake', ''),
-                output='json',
+                instance=inst["instance_id"],
+                name=cfg["name"],
+                topic=cfg["topic"],
+                description=cfg.get("description", ""),
+                on_wake=cfg.get("on_wake", ""),
+                output="json",
             )
             try:
                 handle_listener_install_request_command(args)
                 installed += 1
             except Exception as e:
-                self._log_status(
-                    f'{inst["instance_id"]} listener {cfg.get("name", "?")}: {e}'
-                )
+                self._log_status(f"{inst['instance_id']} listener {cfg.get('name', '?')}: {e}")
         return installed
 
 
@@ -1029,14 +1001,14 @@ def _format_event_line(ev: dict[str, Any]) -> str:
       ▲ outbox (proposal FROM this AI — ack received)
       • unknown / legacy heartbeat
     """
-    direction = (ev.get('direction') or '').lower()
-    dir_glyph = '▼' if direction == 'inbox' else '▲' if direction == 'outbox' else '•'
-    status = ev.get('status', '')
-    pid = (ev.get('proposal_id') or '')[:8]
-    eco = ev.get('eco_actor') or ev.get('commit_sha') or ''
-    title = (ev.get('proposal_title') or ev.get('loop') or '')[:48]
-    suffix = f' · {eco}' if eco else ''
-    return _wrap_item(f'{dir_glyph}·{status}', f'{pid}{suffix}  {title}')
+    direction = (ev.get("direction") or "").lower()
+    dir_glyph = "▼" if direction == "inbox" else "▲" if direction == "outbox" else "•"
+    status = ev.get("status", "")
+    pid = (ev.get("proposal_id") or "")[:8]
+    eco = ev.get("eco_actor") or ev.get("commit_sha") or ""
+    title = (ev.get("proposal_title") or ev.get("loop") or "")[:48]
+    suffix = f" · {eco}" if eco else ""
+    return _wrap_item(f"{dir_glyph}·{status}", f"{pid}{suffix}  {title}")
 
 
 def _wrap_item(marker: str, text: str, width: int = _WRAP_WIDTH) -> str:
@@ -1050,20 +1022,23 @@ def _wrap_item(marker: str, text: str, width: int = _WRAP_WIDTH) -> str:
         return marker
     capped = text[:_ITEM_HARD_CAP]
     if len(text) > _ITEM_HARD_CAP:
-        capped += '…'
+        capped += "…"
 
-    indent = ' ' * (len(marker) + 1)
+    indent = " " * (len(marker) + 1)
     body_width = max(8, width - len(marker) - 1)
     chunks = textwrap.wrap(
-        capped, width=body_width, break_long_words=True, break_on_hyphens=False,
+        capped,
+        width=body_width,
+        break_long_words=True,
+        break_on_hyphens=False,
     )
     if not chunks:
         return marker
     first, rest = chunks[0], chunks[1:]
-    lines = [f'{marker} {first}']
+    lines = [f"{marker} {first}"]
     for chunk in rest:
-        lines.append(f'{indent}{chunk}')
-    return '\n'.join(lines)
+        lines.append(f"{indent}{chunk}")
+    return "\n".join(lines)
 
 
 def run_tui(include_dead: bool = False) -> int:

@@ -1,6 +1,7 @@
 """
 Qdrant collection naming, initialization, and migration utilities.
 """
+
 from __future__ import annotations
 
 # Public API — collection name functions are imported by vector_store, memory, etc.
@@ -75,6 +76,7 @@ def _calibration_collection(project_id: str) -> str:
 
 # --- Forward-compatible collections for Epistemic Intent Layer ---
 
+
 def _assumptions_collection(project_id: str) -> str:
     """Collection for assumptions (unverified beliefs with urgency decay)."""
     return f"project_{project_id}_assumptions"
@@ -111,7 +113,6 @@ def init_collections(project_id: str) -> bool:
     return client is not None
 
 
-
 def init_global_collection() -> bool:
     """Initialize global learnings collection. Returns False if Qdrant not available."""
     if not _check_qdrant_available():
@@ -131,7 +132,6 @@ def init_global_collection() -> bool:
     except Exception as e:
         logger.debug(f"Failed to init global collection: {e}")
         return False
-
 
 
 def recreate_collection(collection_name: str) -> bool:
@@ -160,8 +160,7 @@ def recreate_collection(collection_name: str) -> bool:
 
         # Create with new dimensions
         client.create_collection(
-            collection_name,
-            vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE)
+            collection_name, vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE)
         )
         logger.info(f"Created collection {collection_name} with {vector_size} dimensions")
         return True
@@ -178,9 +177,15 @@ def recreate_project_collections(project_id: str) -> dict:
     """
     results = {}
     for coll_fn in [
-        _docs_collection, _memory_collection, _epistemics_collection,
-        _eidetic_collection, _episodic_collection, _goals_collection,
-        _calibration_collection, _assumptions_collection, _decisions_collection,
+        _docs_collection,
+        _memory_collection,
+        _epistemics_collection,
+        _eidetic_collection,
+        _episodic_collection,
+        _goals_collection,
+        _calibration_collection,
+        _assumptions_collection,
+        _decisions_collection,
         _intents_collection,
     ]:
         name = coll_fn(project_id)
@@ -218,12 +223,14 @@ def get_collection_info() -> list[dict]:
             try:
                 coll_info = client.get_collection(c.name)
                 vectors_config = coll_info.config.params.vectors
-                dim = getattr(vectors_config, 'size', None)
-                info.append({
-                    "name": c.name,
-                    "dimensions": dim,
-                    "points": coll_info.points_count,
-                })
+                dim = getattr(vectors_config, "size", None)
+                info.append(
+                    {
+                        "name": c.name,
+                        "dimensions": dim,
+                        "points": coll_info.points_count,
+                    }
+                )
             except Exception:
                 info.append({"name": c.name, "dimensions": None, "points": 0})
         return info
@@ -287,4 +294,3 @@ def cleanup_empty_collections(dry_run: bool = True) -> dict:
     except Exception as e:
         logger.warning(f"Failed to cleanup collections: {e}")
         return {"error": str(e)}
-

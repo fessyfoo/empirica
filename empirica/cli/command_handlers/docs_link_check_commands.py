@@ -27,17 +27,31 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_SKIP_DIRS = frozenset({
-    ".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build",
-    ".tox", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".cache",
-    "htmlcov", ".empirica", ".empirica-project",
-    # Local-only / gitignored content — references inside aren't gating
-    # public ship-readiness. Mirrors the .gitignore stance on these paths.
-    "research",  # docs/research/ — paper outlines + experiments, local-only
-    "superpowers",  # docs/superpowers/ — internal design specs, local-only
-    # Deprecated by design — broken links there are accepted noise
-    "_archive",
-})
+DEFAULT_SKIP_DIRS = frozenset(
+    {
+        ".git",
+        ".venv",
+        "venv",
+        "node_modules",
+        "__pycache__",
+        "dist",
+        "build",
+        ".tox",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+        ".cache",
+        "htmlcov",
+        ".empirica",
+        ".empirica-project",
+        # Local-only / gitignored content — references inside aren't gating
+        # public ship-readiness. Mirrors the .gitignore stance on these paths.
+        "research",  # docs/research/ — paper outlines + experiments, local-only
+        "superpowers",  # docs/superpowers/ — internal design specs, local-only
+        # Deprecated by design — broken links there are accepted noise
+        "_archive",
+    }
+)
 
 # `[text](target)` and `![alt](target)` (image variant)
 LINK_RE = re.compile(r"!?\[([^\]]*)\]\(([^)]+)\)")
@@ -69,11 +83,14 @@ def _gitignored_paths(root: Path) -> set[Path]:
     the command fails — link-check still works, just without the filter.
     """
     import subprocess
+
     try:
         result = subprocess.run(
-            ["git", "-C", str(root), "ls-files",
-             "--others", "--ignored", "--exclude-standard"],
-            capture_output=True, text=True, timeout=10, check=False,
+            ["git", "-C", str(root), "ls-files", "--others", "--ignored", "--exclude-standard"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
         )
     except (OSError, subprocess.SubprocessError):
         return set()
@@ -122,13 +139,11 @@ def _check_one_file(source: Path) -> list[dict[str, Any]]:
             try:
                 resolved = _resolve_relative(source, target)
             except (ValueError, OSError):
-                broken.append({"line": line_no, "text": text, "target": target,
-                               "reason": "could not resolve path"})
+                broken.append({"line": line_no, "text": text, "target": target, "reason": "could not resolve path"})
                 continue
 
             if not resolved.exists():
-                broken.append({"line": line_no, "text": text, "target": target,
-                               "reason": "target not found"})
+                broken.append({"line": line_no, "text": text, "target": target, "reason": "target not found"})
 
     return broken
 
@@ -155,11 +170,13 @@ def _scan(root: Path, skip_dirs: frozenset[str]) -> dict[str, Any]:
         for f in files:
             broken = _check_one_file(f)
             if broken:
-                per_file.append({
-                    "file": str(f.relative_to(root)),
-                    "broken_count": len(broken),
-                    "broken": broken,
-                })
+                per_file.append(
+                    {
+                        "file": str(f.relative_to(root)),
+                        "broken_count": len(broken),
+                        "broken": broken,
+                    }
+                )
                 tier_total += len(broken)
         result_tiers[tier_id] = {
             "broken_total": tier_total,
@@ -199,9 +216,7 @@ def _format_human(report: dict[str, Any]) -> str:
             lines.append("")
             lines.append(f"## {f['file']} ({f['broken_count']} broken)")
             for entry in f["broken"]:
-                lines.append(
-                    f"  line {entry['line']}: [{entry['text']}]({entry['target']}) — {entry['reason']}"
-                )
+                lines.append(f"  line {entry['line']}: [{entry['text']}]({entry['target']}) — {entry['reason']}")
     lines.append("")
     lines.append(f"❌ {report['broken_total']} broken links")
     return "\n".join(lines)

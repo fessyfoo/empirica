@@ -33,14 +33,16 @@ if TYPE_CHECKING:
 def __getattr__(name):
     if name == "GitEnhancedReflexLogger":
         from empirica.core.canonical import GitEnhancedReflexLogger
+
         return GitEnhancedReflexLogger
     if name == "SessionDatabase":
         from empirica.data.session_database import SessionDatabase
+
         return SessionDatabase
     raise AttributeError(f"module 'empirica' has no attribute {name!r}")
 
 
 __all__ = [
-    'GitEnhancedReflexLogger',
-    'SessionDatabase',
+    "GitEnhancedReflexLogger",
+    "SessionDatabase",
 ]

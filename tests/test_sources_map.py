@@ -116,6 +116,7 @@ def _run(args, capsys) -> tuple[int, dict]:
     from empirica.cli.command_handlers.artifact_log_commands import (
         handle_sources_map_command,
     )
+
     rc = handle_sources_map_command(args)
     out = capsys.readouterr().out
     payload = json.loads(out) if out.strip() else {}
@@ -176,23 +177,31 @@ def test_global_mode_wires_search_cross_project(fake_db, capsys):
 
     fake_hits = [
         # A real source (type='source')
-        {"type": "source", "item_id": "sid-a", "project_id": other_project,
-         "text": "External canonical doc", "score": 0.93,
-         "source_type": "document"},
+        {
+            "type": "source",
+            "item_id": "sid-a",
+            "project_id": other_project,
+            "text": "External canonical doc",
+            "score": 0.93,
+            "source_type": "document",
+        },
         # Noise (type='finding') — must be filtered out
-        {"type": "finding", "item_id": "fid-a", "project_id": other_project,
-         "text": "Some finding"},
+        {"type": "finding", "item_id": "fid-a", "project_id": other_project, "text": "Some finding"},
         # Another real source
-        {"type": "source", "item_id": "sid-b", "project_id": other_project,
-         "text": "Another doc", "score": 0.81,
-         "source_type": "document"},
+        {
+            "type": "source",
+            "item_id": "sid-b",
+            "project_id": other_project,
+            "text": "Another doc",
+            "score": 0.81,
+            "source_type": "document",
+        },
     ]
     with patch(
         "empirica.core.qdrant.global_sync.search_cross_project",
         return_value=fake_hits,
     ) as mock_search:
-        args = _make_args(project_id=project_id, include_global=True,
-                          query="rfc")
+        args = _make_args(project_id=project_id, include_global=True, query="rfc")
         rc, payload = _run(args, capsys)
     assert rc == 0
     # Search was called and excluded the current project_id
@@ -212,17 +221,14 @@ def test_global_post_filter_by_source_type(fake_db, capsys):
     """--type web should drop type='source' but source_type!='web'."""
     project_id = "55555555-5555-5555-5555-555555555555"
     fake_hits = [
-        {"type": "source", "item_id": "sid-doc", "project_id": "p2",
-         "text": "doc", "source_type": "document"},
-        {"type": "source", "item_id": "sid-web", "project_id": "p2",
-         "text": "url", "source_type": "web"},
+        {"type": "source", "item_id": "sid-doc", "project_id": "p2", "text": "doc", "source_type": "document"},
+        {"type": "source", "item_id": "sid-web", "project_id": "p2", "text": "url", "source_type": "web"},
     ]
     with patch(
         "empirica.core.qdrant.global_sync.search_cross_project",
         return_value=fake_hits,
     ):
-        args = _make_args(project_id=project_id, include_global=True,
-                          source_type="web")
+        args = _make_args(project_id=project_id, include_global=True, source_type="web")
         rc, payload = _run(args, capsys)
     assert rc == 0
     assert payload["discoverable"]["count"] == 1

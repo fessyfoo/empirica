@@ -54,8 +54,12 @@ def empty_project_db(tmp_path: Path) -> Path:
     conn = sqlite3.connect(str(db_path))
     cur = conn.cursor()
     for table in (
-        "project_findings", "project_unknowns", "project_dead_ends",
-        "mistakes_made", "assumptions", "decisions",
+        "project_findings",
+        "project_unknowns",
+        "project_dead_ends",
+        "mistakes_made",
+        "assumptions",
+        "decisions",
     ):
         # Minimal columns to satisfy the fallback's queries
         text_col = {
@@ -66,10 +70,7 @@ def empty_project_db(tmp_path: Path) -> Path:
             "assumptions": "assumption",
             "decisions": "choice",
         }[table]
-        cur.execute(
-            f"CREATE TABLE {table} (id TEXT PRIMARY KEY, project_id TEXT, "
-            f"{text_col} TEXT)"
-        )
+        cur.execute(f"CREATE TABLE {table} (id TEXT PRIMARY KEY, project_id TEXT, {text_col} TEXT)")
     conn.commit()
     conn.close()
     return tmp_path
@@ -100,10 +101,8 @@ def test_returns_empty_when_embedding_fails():
     """Embedding returns None → empty list."""
     fake_client = MagicMock()
     with (
-        patch("empirica.core.qdrant.connection._get_qdrant_client",
-              return_value=fake_client),
-        patch("empirica.core.qdrant.connection._get_embedding_safe",
-              return_value=None),
+        patch("empirica.core.qdrant.connection._get_qdrant_client", return_value=fake_client),
+        patch("empirica.core.qdrant.connection._get_embedding_safe", return_value=None),
     ):
         out = suggest_links_for_artifact("proj-1", "some text", "self-id")
     assert out == []
@@ -116,19 +115,21 @@ def test_returns_modern_hit_with_artifact_id():
     fake_client = MagicMock()
     response = MagicMock()
     response.points = [
-        _make_qdrant_hit(123, 0.85, {
-            "artifact_id": "neighbor-1",
-            "type": "finding",
-            "text": "A neighbor finding about embeddings",
-        }),
+        _make_qdrant_hit(
+            123,
+            0.85,
+            {
+                "artifact_id": "neighbor-1",
+                "type": "finding",
+                "text": "A neighbor finding about embeddings",
+            },
+        ),
     ]
     fake_client.query_points.return_value = response
 
     with (
-        patch("empirica.core.qdrant.connection._get_qdrant_client",
-              return_value=fake_client),
-        patch("empirica.core.qdrant.connection._get_embedding_safe",
-              return_value=[0.1] * 384),
+        patch("empirica.core.qdrant.connection._get_qdrant_client", return_value=fake_client),
+        patch("empirica.core.qdrant.connection._get_embedding_safe", return_value=[0.1] * 384),
     ):
         out = suggest_links_for_artifact("proj-1", "embedding stuff", "self-id")
 
@@ -143,18 +144,14 @@ def test_excludes_self_id_from_results():
     fake_client = MagicMock()
     response = MagicMock()
     response.points = [
-        _make_qdrant_hit(111, 0.99, {"artifact_id": "self-id", "type": "finding",
-                                       "text": "self"}),
-        _make_qdrant_hit(222, 0.85, {"artifact_id": "neighbor", "type": "finding",
-                                       "text": "neighbor"}),
+        _make_qdrant_hit(111, 0.99, {"artifact_id": "self-id", "type": "finding", "text": "self"}),
+        _make_qdrant_hit(222, 0.85, {"artifact_id": "neighbor", "type": "finding", "text": "neighbor"}),
     ]
     fake_client.query_points.return_value = response
 
     with (
-        patch("empirica.core.qdrant.connection._get_qdrant_client",
-              return_value=fake_client),
-        patch("empirica.core.qdrant.connection._get_embedding_safe",
-              return_value=[0.1] * 384),
+        patch("empirica.core.qdrant.connection._get_qdrant_client", return_value=fake_client),
+        patch("empirica.core.qdrant.connection._get_embedding_safe", return_value=[0.1] * 384),
     ):
         out = suggest_links_for_artifact("proj-1", "text", "self-id")
 
@@ -169,21 +166,20 @@ def test_drops_hits_below_similarity_threshold():
     # Qdrant won't actually return below-threshold when score_threshold is set,
     # but the helper double-checks defensively. Simulate a bad client.
     response.points = [
-        _make_qdrant_hit(111, 0.50, {"artifact_id": "below", "type": "finding",
-                                       "text": "low"}),
-        _make_qdrant_hit(222, 0.80, {"artifact_id": "above", "type": "finding",
-                                       "text": "high"}),
+        _make_qdrant_hit(111, 0.50, {"artifact_id": "below", "type": "finding", "text": "low"}),
+        _make_qdrant_hit(222, 0.80, {"artifact_id": "above", "type": "finding", "text": "high"}),
     ]
     fake_client.query_points.return_value = response
 
     with (
-        patch("empirica.core.qdrant.connection._get_qdrant_client",
-              return_value=fake_client),
-        patch("empirica.core.qdrant.connection._get_embedding_safe",
-              return_value=[0.1] * 384),
+        patch("empirica.core.qdrant.connection._get_qdrant_client", return_value=fake_client),
+        patch("empirica.core.qdrant.connection._get_embedding_safe", return_value=[0.1] * 384),
     ):
         out = suggest_links_for_artifact(
-            "proj-1", "text", "self-id", similarity_threshold=0.7,
+            "proj-1",
+            "text",
+            "self-id",
+            similarity_threshold=0.7,
         )
 
     ids = [h["id"] for h in out]
@@ -195,21 +191,20 @@ def test_respects_top_k_limit():
     fake_client = MagicMock()
     response = MagicMock()
     response.points = [
-        _make_qdrant_hit(i, 0.9 - i * 0.01,
-                         {"artifact_id": f"n-{i}", "type": "finding",
-                          "text": f"hit {i}"})
+        _make_qdrant_hit(i, 0.9 - i * 0.01, {"artifact_id": f"n-{i}", "type": "finding", "text": f"hit {i}"})
         for i in range(20)
     ]
     fake_client.query_points.return_value = response
 
     with (
-        patch("empirica.core.qdrant.connection._get_qdrant_client",
-              return_value=fake_client),
-        patch("empirica.core.qdrant.connection._get_embedding_safe",
-              return_value=[0.1] * 384),
+        patch("empirica.core.qdrant.connection._get_qdrant_client", return_value=fake_client),
+        patch("empirica.core.qdrant.connection._get_embedding_safe", return_value=[0.1] * 384),
     ):
         out = suggest_links_for_artifact(
-            "proj-1", "text", "self-id", top_k=3,
+            "proj-1",
+            "text",
+            "self-id",
+            top_k=3,
         )
 
     assert len(out) == 3
@@ -223,25 +218,23 @@ def test_dedupes_same_artifact_id_across_collections():
     fake_client = MagicMock()
     response_mem = MagicMock()
     response_mem.points = [
-        _make_qdrant_hit(111, 0.80, {"artifact_id": "x", "type": "finding",
-                                       "text": "x in memory"}),
+        _make_qdrant_hit(111, 0.80, {"artifact_id": "x", "type": "finding", "text": "x in memory"}),
     ]
     response_dec = MagicMock()
     response_dec.points = [
-        _make_qdrant_hit(111, 0.85, {"artifact_id": "x", "type": "decision",
-                                       "choice": "x in decisions"}),
+        _make_qdrant_hit(111, 0.85, {"artifact_id": "x", "type": "decision", "choice": "x in decisions"}),
     ]
     response_assum = MagicMock()
     response_assum.points = []
     fake_client.query_points.side_effect = [
-        response_mem, response_assum, response_dec,
+        response_mem,
+        response_assum,
+        response_dec,
     ]
 
     with (
-        patch("empirica.core.qdrant.connection._get_qdrant_client",
-              return_value=fake_client),
-        patch("empirica.core.qdrant.connection._get_embedding_safe",
-              return_value=[0.1] * 384),
+        patch("empirica.core.qdrant.connection._get_qdrant_client", return_value=fake_client),
+        patch("empirica.core.qdrant.connection._get_embedding_safe", return_value=[0.1] * 384),
     ):
         out = suggest_links_for_artifact("proj-1", "text", "self-id")
 
@@ -272,19 +265,18 @@ def test_legacy_payload_resolved_via_sqlite_reverse_hash(empty_project_db: Path)
     response = MagicMock()
     # Legacy payload — no artifact_id field
     response.points = [
-        _make_qdrant_hit(point_id, 0.82, {"type": "finding",
-                                            "text": "legacy"}),
+        _make_qdrant_hit(point_id, 0.82, {"type": "finding", "text": "legacy"}),
     ]
     fake_client.query_points.return_value = response
 
     with (
-        patch("empirica.core.qdrant.connection._get_qdrant_client",
-              return_value=fake_client),
-        patch("empirica.core.qdrant.connection._get_embedding_safe",
-              return_value=[0.1] * 384),
+        patch("empirica.core.qdrant.connection._get_qdrant_client", return_value=fake_client),
+        patch("empirica.core.qdrant.connection._get_embedding_safe", return_value=[0.1] * 384),
     ):
         out = suggest_links_for_artifact(
-            "proj-1", "search text", "self-id",
+            "proj-1",
+            "search text",
+            "self-id",
             project_path=empty_project_db,
         )
 
@@ -311,19 +303,18 @@ def test_legacy_fallback_excludes_self_id(empty_project_db: Path):
     fake_client = MagicMock()
     response = MagicMock()
     response.points = [
-        _make_qdrant_hit(self_point, 0.99, {"type": "finding",
-                                              "text": "self"}),
+        _make_qdrant_hit(self_point, 0.99, {"type": "finding", "text": "self"}),
     ]
     fake_client.query_points.return_value = response
 
     with (
-        patch("empirica.core.qdrant.connection._get_qdrant_client",
-              return_value=fake_client),
-        patch("empirica.core.qdrant.connection._get_embedding_safe",
-              return_value=[0.1] * 384),
+        patch("empirica.core.qdrant.connection._get_qdrant_client", return_value=fake_client),
+        patch("empirica.core.qdrant.connection._get_embedding_safe", return_value=[0.1] * 384),
     ):
         out = suggest_links_for_artifact(
-            "proj-1", "search text", self_uuid,
+            "proj-1",
+            "search text",
+            self_uuid,
             project_path=empty_project_db,
         )
 

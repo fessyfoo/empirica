@@ -59,8 +59,13 @@ def _resolve_project(path: Path) -> tuple[str | None, str | None]:
 
 
 def _forgejo_publish_post(
-    cortex_url: str, project_id: str, api_key: str, *,
-    rotate: bool = False, description: str | None = None, timeout: float = 30.0,
+    cortex_url: str,
+    project_id: str,
+    api_key: str,
+    *,
+    rotate: bool = False,
+    description: str | None = None,
+    timeout: float = 30.0,
 ) -> tuple[int, dict[str, Any]]:
     """POST the forgejo-publish endpoint. Returns (status, parsed_body)."""
     url = cortex_url.rstrip("/") + FORGEJO_PUBLISH_PATH.format(project_id=project_id)
@@ -70,7 +75,9 @@ def _forgejo_publish_post(
     if description:
         body["description"] = description
     req = urllib.request.Request(
-        url, data=json.dumps(body).encode("utf-8"), method="POST",
+        url,
+        data=json.dumps(body).encode("utf-8"),
+        method="POST",
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
     )
     try:
@@ -108,9 +115,10 @@ def _compose_push_url(repo_url: str, token_user: str, token: str) -> str:
     credential-free URL).
     """
     from urllib.parse import quote
+
     if not repo_url.startswith("https://"):
         return repo_url
-    rest = repo_url[len("https://"):]
+    rest = repo_url[len("https://") :]
     return f"https://{quote(token_user, safe='')}:{quote(token, safe='')}@{rest}"
 
 
@@ -118,7 +126,10 @@ def _git(project_path: Path, *args: str, timeout: int = 180) -> subprocess.Compl
     """Run git in `project_path` (HTTPS push carries creds in the URL arg)."""
     return subprocess.run(
         ["git", "-C", str(project_path), *args],
-        capture_output=True, text=True, timeout=timeout, check=False,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
     )
 
 
@@ -162,7 +173,7 @@ def _push_refspec(project_path: Path, push_url: str, spec: str) -> tuple[bool, s
         return True, ""  # nothing to mirror — benign
     ok, last_err = True, ""
     for i in range(0, len(refs), NOTES_PUSH_BATCH):
-        batch = refs[i:i + NOTES_PUSH_BATCH]
+        batch = refs[i : i + NOTES_PUSH_BATCH]
         r = _git(project_path, "push", push_url, *(f"{force_pfx}{ref}:{ref}" for ref in batch))
         if r.returncode != 0:
             ok = False
@@ -198,7 +209,9 @@ def handle_forgejo_publish_command(args) -> int:
         return _emit({"ok": False, "reason": "no cortex url/api_key (configure ~/.empirica/credentials.yaml)"}, 1)
 
     status, body = _forgejo_publish_post(
-        cortex_url, project_id, api_key,
+        cortex_url,
+        project_id,
+        api_key,
         rotate=getattr(args, "rotate", False),
         description=getattr(args, "description", None),
     )
@@ -214,11 +227,15 @@ def handle_forgejo_publish_command(args) -> int:
 
     # Idempotent re-call without rotate returns no token (unrecoverable) — can't push.
     if not (token and token_user):
-        return _emit({
-            "ok": True, "forgejo_repo_url": forgejo_url,
-            "already_published": bool(body.get("already_published")),
-            "note": "no token returned (already published) — re-run with --rotate to mint a fresh token and re-push",
-        }, 0)
+        return _emit(
+            {
+                "ok": True,
+                "forgejo_repo_url": forgejo_url,
+                "already_published": bool(body.get("already_published")),
+                "note": "no token returned (already published) — re-run with --rotate to mint a fresh token and re-push",
+            },
+            0,
+        )
 
     tok_path = _write_token(project_id, token)
     _set_forgejo_remote(project_path, forgejo_url)  # clean URL — credentials never persisted
@@ -236,10 +253,13 @@ def handle_forgejo_publish_command(args) -> int:
             print(f"   ✗ push {spec}: {(err or '').strip().replace(token, '***')[:200]}")
 
     ok = all(push_results.values()) if push_results else True
-    return _emit({
-        "ok": ok,
-        "forgejo_repo_url": forgejo_url,
-        "refspecs": refspecs,
-        "push_results": push_results,
-        "token_path": str(tok_path),
-    }, 0 if ok else 1)
+    return _emit(
+        {
+            "ok": ok,
+            "forgejo_repo_url": forgejo_url,
+            "refspecs": refspecs,
+            "push_results": push_results,
+            "token_path": str(tok_path),
+        },
+        0 if ok else 1,
+    )

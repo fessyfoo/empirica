@@ -50,11 +50,7 @@ class GitDeadEndStore:
         """Check if we're in a git repository"""
         try:
             result = subprocess.run(
-                ['git', 'rev-parse', '--git-dir'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                timeout=5
+                ["git", "rev-parse", "--git-dir"], cwd=self.workspace_root, capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -66,11 +62,7 @@ class GitDeadEndStore:
             return False
         try:
             result = subprocess.run(
-                ['git', 'rev-parse', 'HEAD'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                timeout=5
+                ["git", "rev-parse", "HEAD"], cwd=self.workspace_root, capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
@@ -85,7 +77,7 @@ class GitDeadEndStore:
         approach: str,
         why_failed: str,
         goal_id: str | None = None,
-        subtask_id: str | None = None
+        subtask_id: str | None = None,
     ) -> bool:
         """
         Store dead end in git notes
@@ -113,35 +105,31 @@ class GitDeadEndStore:
 
         try:
             payload = {
-                'dead_end_id': dead_end_id,
-                'project_id': project_id,
-                'session_id': session_id,
-                'ai_id': ai_id,
-                'created_at': datetime.now(timezone.utc).isoformat(),
-                'approach': approach,
-                'why_failed': why_failed,
-                'goal_id': goal_id,
-                'subtask_id': subtask_id
+                "dead_end_id": dead_end_id,
+                "project_id": project_id,
+                "session_id": session_id,
+                "ai_id": ai_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "approach": approach,
+                "why_failed": why_failed,
+                "goal_id": goal_id,
+                "subtask_id": subtask_id,
             }
 
             payload_json = json.dumps(payload, indent=2)
 
             result = subprocess.run(
-                ['git', 'rev-parse', 'HEAD'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True,
-                check=True
+                ["git", "rev-parse", "HEAD"], cwd=self.workspace_root, capture_output=True, text=True, check=True
             )
             commit_hash = result.stdout.strip()
 
-            note_ref = f'empirica/dead_ends/{dead_end_id}'
+            note_ref = f"empirica/dead_ends/{dead_end_id}"
             subprocess.run(
-                ['git', 'notes', f'--ref={note_ref}', 'add', '-f', '-m', payload_json, commit_hash],
+                ["git", "notes", f"--ref={note_ref}", "add", "-f", "-m", payload_json, commit_hash],
                 cwd=self.workspace_root,
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             )
 
             logger.info(f"✓ Stored dead end {dead_end_id[:8]} in git notes")
@@ -157,14 +145,11 @@ class GitDeadEndStore:
             return None
 
         try:
-            note_ref = f'empirica/dead_ends/{dead_end_id}'
+            note_ref = f"empirica/dead_ends/{dead_end_id}"
 
             # List which commit has the note (notes can be on any commit, not just HEAD)
             result = subprocess.run(
-                ['git', 'notes', f'--ref={note_ref}', 'list'],
-                cwd=self.workspace_root,
-                capture_output=True,
-                text=True
+                ["git", "notes", f"--ref={note_ref}", "list"], cwd=self.workspace_root, capture_output=True, text=True
             )
 
             if result.returncode != 0 or not result.stdout.strip():
@@ -178,10 +163,10 @@ class GitDeadEndStore:
 
             # Load note from the commit it's actually attached to
             result = subprocess.run(
-                ['git', 'notes', f'--ref={note_ref}', 'show', commit_hash],
+                ["git", "notes", f"--ref={note_ref}", "show", commit_hash],
                 cwd=self.workspace_root,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:
@@ -194,10 +179,7 @@ class GitDeadEndStore:
             return None
 
     def discover_dead_ends(
-        self,
-        project_id: str | None = None,
-        session_id: str | None = None,
-        ai_id: str | None = None
+        self, project_id: str | None = None, session_id: str | None = None, ai_id: str | None = None
     ) -> list[dict[str, Any]]:
         """
         Discover dead ends from git notes
@@ -215,10 +197,10 @@ class GitDeadEndStore:
 
         try:
             result = subprocess.run(
-                ['git', 'for-each-ref', 'refs/notes/empirica/dead_ends/'],
+                ["git", "for-each-ref", "refs/notes/empirica/dead_ends/"],
                 cwd=self.workspace_root,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:
@@ -226,30 +208,30 @@ class GitDeadEndStore:
 
             dead_ends = []
 
-            for line in result.stdout.strip().split('\n'):
+            for line in result.stdout.strip().split("\n"):
                 if not line:
                     continue
 
-                parts = line.split('\t')
+                parts = line.split("\t")
                 if len(parts) < 2:
                     continue
 
                 ref = parts[1]
-                if not ref.startswith('refs/notes/empirica/dead_ends/'):
+                if not ref.startswith("refs/notes/empirica/dead_ends/"):
                     continue
 
-                dead_end_id = ref.split('/')[-1]
+                dead_end_id = ref.split("/")[-1]
                 dead_end_data = self.load_dead_end(dead_end_id)
 
                 if not dead_end_data:
                     continue
 
                 # Apply filters
-                if project_id and dead_end_data.get('project_id') != project_id:
+                if project_id and dead_end_data.get("project_id") != project_id:
                     continue
-                if session_id and dead_end_data.get('session_id') != session_id:
+                if session_id and dead_end_data.get("session_id") != session_id:
                     continue
-                if ai_id and dead_end_data.get('ai_id') != ai_id:
+                if ai_id and dead_end_data.get("ai_id") != ai_id:
                     continue
 
                 dead_ends.append(dead_end_data)
@@ -274,7 +256,7 @@ class GitDeadEndStore:
         matching = []
 
         for dead_end in all_dead_ends:
-            approach_lower = dead_end.get('approach', '').lower()
+            approach_lower = dead_end.get("approach", "").lower()
             if any(kw.lower() in approach_lower for kw in approach_keywords):
                 matching.append(dead_end)
 

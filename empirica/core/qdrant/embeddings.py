@@ -18,6 +18,7 @@ Providers:
 - voyage: Voyage AI API (voyage-3.5, voyage-3-lite)
 - local: Hash-based fallback for testing (no external deps)
 """
+
 from __future__ import annotations
 
 import logging
@@ -85,6 +86,7 @@ def _check_ollama_available(ollama_url: str = "http://localhost:11434") -> bool:
 
     try:
         import requests
+
         # Quick health check
         resp = requests.get(f"{ollama_url}/api/tags", timeout=2)
         if resp.status_code == 200:
@@ -134,6 +136,7 @@ def _load_config_file() -> dict:
     config_yaml_path = os.path.expanduser("~/.empirica/config.yaml")
     try:
         import yaml
+
         with open(config_yaml_path) as f:
             full_config = yaml.safe_load(f) or {}
         emb_config = full_config.get("embeddings", {})
@@ -151,10 +154,10 @@ def _load_config_file() -> dict:
         with open(conf_path) as f:
             for line in f:
                 line = line.strip()
-                if not line or line.startswith('#'):
+                if not line or line.startswith("#"):
                     continue
-                if '=' in line:
-                    key, _, value = line.partition('=')
+                if "=" in line:
+                    key, _, value = line.partition("=")
                     config[key.strip()] = value.strip()
     except FileNotFoundError:
         pass
@@ -175,6 +178,7 @@ class EmbeddingsProvider:
 
     Configuration priority: env vars > ~/.empirica/embeddings.conf > code defaults.
     """
+
     # Type declarations for conditional attributes
     _jina_api_key: str | None = None
     _voyage_api_key: str | None = None
@@ -187,16 +191,10 @@ class EmbeddingsProvider:
         """
         file_conf = _load_config_file()
 
-        self.ollama_url = os.getenv(
-            "EMPIRICA_OLLAMA_URL",
-            file_conf.get("ollama_url", "http://localhost:11434")
-        )
+        self.ollama_url = os.getenv("EMPIRICA_OLLAMA_URL", file_conf.get("ollama_url", "http://localhost:11434"))
 
         # Get provider from env, default to "auto"
-        provider_env = os.getenv(
-            "EMPIRICA_EMBEDDINGS_PROVIDER",
-            file_conf.get("provider", "auto")
-        ).lower()
+        provider_env = os.getenv("EMPIRICA_EMBEDDINGS_PROVIDER", file_conf.get("provider", "auto")).lower()
 
         # Resolve "auto" to actual provider, tracking if we fell back
         self._auto_fallback = False
@@ -208,8 +206,7 @@ class EmbeddingsProvider:
             self.provider = provider_env
 
         self.model = os.getenv(
-            "EMPIRICA_EMBEDDINGS_MODEL",
-            file_conf.get("model", DEFAULT_MODELS.get(self.provider, "qwen3-embedding"))
+            "EMPIRICA_EMBEDDINGS_MODEL", file_conf.get("model", DEFAULT_MODELS.get(self.provider, "qwen3-embedding"))
         )
         self._client = None
         self._vector_size: int | None = None
@@ -219,7 +216,9 @@ class EmbeddingsProvider:
             # /v1/embeddings endpoint is a plain POST, same shape as jina/voyage.
             self._openai_api_key = os.getenv("OPENAI_API_KEY", file_conf.get("openai_api_key"))
             if not self._openai_api_key:
-                raise RuntimeError("OPENAI_API_KEY env var or openai_api_key in ~/.empirica/embeddings.conf required for provider=openai")
+                raise RuntimeError(
+                    "OPENAI_API_KEY env var or openai_api_key in ~/.empirica/embeddings.conf required for provider=openai"
+                )
             self._client = None
             self._vector_size = MODEL_DIMENSIONS.get(self.model, 1536)
         elif self.provider == "ollama":
@@ -231,14 +230,18 @@ class EmbeddingsProvider:
             # Jina AI uses REST API
             self._jina_api_key = os.getenv("JINA_API_KEY", file_conf.get("jina_api_key"))
             if not self._jina_api_key:
-                raise RuntimeError("JINA_API_KEY env var or jina_api_key in ~/.empirica/embeddings.conf required for provider=jina")
+                raise RuntimeError(
+                    "JINA_API_KEY env var or jina_api_key in ~/.empirica/embeddings.conf required for provider=jina"
+                )
             self._client = None
             self._vector_size = MODEL_DIMENSIONS.get(self.model, 1024)
         elif self.provider == "voyage":
             # Voyage AI uses REST API
             self._voyage_api_key = os.getenv("VOYAGE_API_KEY", file_conf.get("voyage_api_key"))
             if not self._voyage_api_key:
-                raise RuntimeError("VOYAGE_API_KEY env var or voyage_api_key in ~/.empirica/embeddings.conf required for provider=voyage")
+                raise RuntimeError(
+                    "VOYAGE_API_KEY env var or voyage_api_key in ~/.empirica/embeddings.conf required for provider=voyage"
+                )
             self._client = None
             self._vector_size = MODEL_DIMENSIONS.get(self.model, 1024)
         elif self.provider == "local":
@@ -246,12 +249,16 @@ class EmbeddingsProvider:
             self._client = None
             if self._auto_fallback:
                 # Match Ollama dimensions so fallback vectors fit existing collections
-                configured_model = os.getenv("EMPIRICA_EMBEDDINGS_MODEL", DEFAULT_MODELS.get("ollama", "qwen3-embedding"))
+                configured_model = os.getenv(
+                    "EMPIRICA_EMBEDDINGS_MODEL", DEFAULT_MODELS.get("ollama", "qwen3-embedding")
+                )
                 self._vector_size = MODEL_DIMENSIONS.get(configured_model, 1024)
             else:
                 self._vector_size = 1024  # Default to 1024 for consistency
         else:
-            raise RuntimeError(f"Unsupported provider '{self.provider}'. Set EMPIRICA_EMBEDDINGS_PROVIDER=openai|ollama|jina|voyage|local|auto")
+            raise RuntimeError(
+                f"Unsupported provider '{self.provider}'. Set EMPIRICA_EMBEDDINGS_PROVIDER=openai|ollama|jina|voyage|local|auto"
+            )
 
         logger.debug(f"Embeddings provider: {self.provider}, model: {self.model}")
 
@@ -338,9 +345,7 @@ class EmbeddingsProvider:
                 return self._embed_local_hash(text)
             except Exception as e:
                 if attempt < len(prompt_sizes):
-                    logger.warning(
-                        f"Ollama embedding attempt {attempt}/{len(prompt_sizes)} failed: {e}"
-                    )
+                    logger.warning(f"Ollama embedding attempt {attempt}/{len(prompt_sizes)} failed: {e}")
                     time.sleep(0.4 * attempt)
                     continue
                 logger.warning(f"Ollama embedding failed: {e} - falling back to local hash")
@@ -364,10 +369,14 @@ class EmbeddingsProvider:
         prepared = [self._prepare_ollama_prompt(t, max_chars=max_chars) for t in texts]
 
         try:
-            resp = requests.post(url, json={
-                "model": self.model,
-                "input": prepared,
-            }, timeout=120)
+            resp = requests.post(
+                url,
+                json={
+                    "model": self.model,
+                    "input": prepared,
+                },
+                timeout=120,
+            )
             resp.raise_for_status()
             data = resp.json()
             embeddings = data.get("embeddings", [])
@@ -401,14 +410,8 @@ class EmbeddingsProvider:
         import requests
 
         url = "https://api.openai.com/v1/embeddings"
-        headers = {
-            "Authorization": f"Bearer {self._openai_api_key}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "model": self.model,
-            "input": text
-        }
+        headers = {"Authorization": f"Bearer {self._openai_api_key}", "Content-Type": "application/json"}
+        payload = {"model": self.model, "input": text}
 
         try:
             resp = requests.post(url, json=payload, headers=headers, timeout=30)
@@ -436,15 +439,8 @@ class EmbeddingsProvider:
         import requests
 
         url = "https://api.jina.ai/v1/embeddings"
-        headers = {
-            "Authorization": f"Bearer {self._jina_api_key}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "model": self.model,
-            "input": [text],
-            "encoding_type": "float"
-        }
+        headers = {"Authorization": f"Bearer {self._jina_api_key}", "Content-Type": "application/json"}
+        payload = {"model": self.model, "input": [text], "encoding_type": "float"}
 
         try:
             resp = requests.post(url, json=payload, headers=headers, timeout=30)
@@ -472,14 +468,11 @@ class EmbeddingsProvider:
         import requests
 
         url = "https://api.voyageai.com/v1/embeddings"
-        headers = {
-            "Authorization": f"Bearer {self._voyage_api_key}",
-            "Content-Type": "application/json"
-        }
+        headers = {"Authorization": f"Bearer {self._voyage_api_key}", "Content-Type": "application/json"}
         payload = {
             "model": self.model,
             "input": [text],
-            "input_type": "document"  # or "query" for search queries
+            "input_type": "document",  # or "query" for search queries
         }
 
         try:
@@ -521,7 +514,7 @@ class EmbeddingsProvider:
             idx = h % dim
             vec[idx] += 1.0
         # L2 normalize
-        norm = math.sqrt(sum(v*v for v in vec)) or 1.0
+        norm = math.sqrt(sum(v * v for v in vec)) or 1.0
         return [v / norm for v in vec]
 
     @property
@@ -535,6 +528,7 @@ class EmbeddingsProvider:
 
 
 _provider_singleton: EmbeddingsProvider | None = None
+
 
 def get_embedding(text: str) -> list[float]:
     """Get embedding vector for text using the singleton provider instance."""

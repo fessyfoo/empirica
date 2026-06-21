@@ -45,6 +45,7 @@ def isolated_loader(monkeypatch, tmp_path):
         CredentialsLoader._instance = None
         CredentialsLoader._credentials_cache = None
         return CredentialsLoader()
+
     return _make
 
 
@@ -138,9 +139,7 @@ cortex:
     with caplog.at_level(logging.WARNING):
         cfg = loader.get_cortex_config()
     assert cfg["api_key"] == "ctx_file_key"
-    assert any(
-        "CORTEX_API_KEY env var differs" in rec.message for rec in caplog.records
-    )
+    assert any("CORTEX_API_KEY env var differs" in rec.message for rec in caplog.records)
 
 
 def test_missing_cortex_block_returns_none(isolated_loader):
@@ -198,6 +197,7 @@ def test_save_cortex_creates_file_when_missing(tmp_path, monkeypatch):
     assert path == target
     assert target.exists()
     import yaml
+
     parsed = yaml.safe_load(target.read_text())
     assert parsed["cortex"]["url"] == "https://cortex.example.com"
     assert parsed["cortex"]["api_key"] == "ctx_new_key"
@@ -225,6 +225,7 @@ cortex:
     loader.save_cortex_config(api_key="ctx_updated", config_path=target)
 
     import yaml
+
     parsed = yaml.safe_load(target.read_text())
     assert parsed["providers"]["qwen"]["api_key"] == "qwen_secret_unchanged"
     assert parsed["providers"]["qwen"]["base_url"] == "https://qwen.example.com"
@@ -249,6 +250,7 @@ cortex:
     loader.save_cortex_config(url="https://C.example.com", config_path=target)
 
     import yaml
+
     parsed = yaml.safe_load(target.read_text())
     assert parsed["cortex"]["url"] == "https://C.example.com"
     assert parsed["cortex"]["api_key"] == "B"  # preserved
@@ -300,7 +302,9 @@ def test_save_cortex_atomic_no_tempfile_leak(tmp_path, monkeypatch):
     CredentialsLoader._credentials_cache = None
     loader = CredentialsLoader()
     loader.save_cortex_config(
-        url="https://x.example.com", api_key="k", config_path=target,
+        url="https://x.example.com",
+        api_key="k",
+        config_path=target,
     )
 
     tmp_files = list(tmp_path.glob(".credentials-*.tmp"))
@@ -418,6 +422,7 @@ def test_save_ntfy_creates_file_when_missing(tmp_path, monkeypatch):
     monkeypatch.delenv("ORCHESTRATION_NTFY_PASS", raising=False)
 
     from empirica.config.credentials_loader import CredentialsLoader
+
     loader = CredentialsLoader()
     written = loader.save_ntfy_config(
         url="https://ntfy.example.com",
@@ -428,6 +433,7 @@ def test_save_ntfy_creates_file_when_missing(tmp_path, monkeypatch):
     assert written == target
     assert target.exists()
     import yaml as _yaml
+
     data = _yaml.safe_load(target.read_text())
     assert data["ntfy"]["url"] == "https://ntfy.example.com"
     assert data["ntfy"]["topic"] == "orchestration-events"
@@ -442,12 +448,18 @@ def test_save_ntfy_preserves_existing_cortex_block(tmp_path, monkeypatch):
     target = tmp_path / "credentials.yaml"
     monkeypatch.setenv("EMPIRICA_CREDENTIALS_PATH", str(target))
     import yaml as _yaml
-    target.write_text(_yaml.dump({
-        "version": "1.0",
-        "cortex": {"url": "https://cortex.example.com", "api_key": "ctx_keep_me"},
-    }))
+
+    target.write_text(
+        _yaml.dump(
+            {
+                "version": "1.0",
+                "cortex": {"url": "https://cortex.example.com", "api_key": "ctx_keep_me"},
+            }
+        )
+    )
 
     from empirica.config.credentials_loader import CredentialsLoader
+
     loader = CredentialsLoader()
     loader.save_ntfy_config(
         url="https://ntfy.example.com",
@@ -469,6 +481,7 @@ def test_save_ntfy_with_basic_auth_path(tmp_path, monkeypatch):
     monkeypatch.setenv("EMPIRICA_CREDENTIALS_PATH", str(target))
 
     from empirica.config.credentials_loader import CredentialsLoader
+
     loader = CredentialsLoader()
     loader.save_ntfy_config(
         url="https://ntfy.example.com",
@@ -478,6 +491,7 @@ def test_save_ntfy_with_basic_auth_path(tmp_path, monkeypatch):
     )
 
     import yaml as _yaml
+
     data = _yaml.safe_load(target.read_text())
     assert data["ntfy"]["user"] == "alice"
     assert data["ntfy"]["password"] == _FIXTURE_NTFY_PASSWORD
@@ -491,8 +505,10 @@ def test_save_ntfy_requires_at_least_one_field(tmp_path, monkeypatch):
     monkeypatch.setenv("EMPIRICA_CREDENTIALS_PATH", str(target))
 
     from empirica.config.credentials_loader import CredentialsLoader
+
     loader = CredentialsLoader()
     import pytest
+
     with pytest.raises(ValueError, match="at least one field"):
         loader.save_ntfy_config()
 
@@ -503,9 +519,11 @@ def test_save_ntfy_strips_trailing_slash_on_url(tmp_path, monkeypatch):
     monkeypatch.setenv("EMPIRICA_CREDENTIALS_PATH", str(target))
 
     from empirica.config.credentials_loader import CredentialsLoader
+
     loader = CredentialsLoader()
     loader.save_ntfy_config(url="https://ntfy.example.com/", topic="t", token=_FIXTURE_NTFY_TOKEN_X)
 
     import yaml as _yaml
+
     data = _yaml.safe_load(target.read_text())
     assert data["ntfy"]["url"] == "https://ntfy.example.com"
