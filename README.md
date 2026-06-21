@@ -339,15 +339,16 @@ All read-only, all support `--output json`. Backs cross-project orchestration, C
 
 ---
 
-## What's New in 1.12.2
+## What's New in 1.12.3
 
-- **`GET /api/v1/listeners`** — the serve daemon exposes the registered mesh listeners plus heartbeat freshness, merged from the on-disk registry and health markers, so the Chrome extension can flag silent receive failures (a listener that's alive but no longer receiving) without reading `~/.empirica/` directly. Read-only.
-- **Service-token auth for the hosted entity-mint endpoint** — `POST /api/v1/entities` (and `GET /api/v1/listeners`) are guarded by an `emk_…` bearer token when the daemon binds beyond loopback. Configure the valid-token set via `EMPIRICA_ENTITY_MINT_TOKENS` (comma-separated, rotation-friendly). The daemon refuses to start when bound to a non-loopback host with no token configured (fail-closed), so these surfaces are never exposed unauthenticated. Loopback (same-box) daemons stay auth-free and unchanged.
-- **`empirica serve` `/health` reflects the actual configured backends** — Ollama and Qdrant reachability probes now resolve their URLs the same way embeddings does (env var → `~/.empirica/config.yaml` `embeddings.ollama_url` → localhost) instead of always probing hardcoded `localhost:11434` / `localhost:6333`.
-- **`openai` embeddings provider is now REST-only** — the `openai` Python SDK is no longer a dependency; embeddings call the `/v1/embeddings` endpoint directly over HTTP. `OPENAI_API_KEY` is still used for auth; no behaviour change for users.
-- **Faster CLI startup** — `httpx` and `GitPython` imports are deferred off the CLI startup path, trimming cold-start overhead for commands that never touch them.
-- **`listener-on` subscribe tag is canonicalized to the 3-form**, so wake routing addresses the correct practitioner.
-- **Listener garbage collection no longer reaps live launchd-supervised workers** on macOS — liveness derives from the running process rather than the launchd plist location.
+- **`empirica note`** — a fast scratchpad note-to-self for jotting things to
+- **Retrospective soft-gate** — at PREFLIGHT, when the previous transaction made
+- **MCP↔CLI parity guard** — a test that introspects the real CLI parser and
+- **SQL schema-reference guard** — a test that validates every static SQL query
+- **Import-budget gate** — a test keeping the CLI and serve `/health` hot paths
+- **Revived 12 silently-dead static SQL queries** whose columns had been renamed
+- **PREFLIGHT prior-transaction behavioral feedback** was dead for an unknown
+- **Project-id resolution** read a non-existent `.empirica/project.json`; all
 ---
 
 ## Privacy & Data

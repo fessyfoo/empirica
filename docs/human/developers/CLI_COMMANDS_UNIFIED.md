@@ -22,9 +22,9 @@
 > `empirica/cli/cli_core.py` — adding a new category means editing that
 > dictionary, then running this script.
 
-**Framework version:** 1.12.2
-**Generated:** 2026-06-19 09:34:41 UTC
-**Total commands:** 243 (across 26 categories)
+**Framework version:** 1.12.3
+**Generated:** 2026-06-21 12:21:51 UTC
+**Total commands:** 244 (across 26 categories)
 
 For the most up-to-date detail on any single command, prefer
 `empirica <command> --help` — the generator extracts the same `help`
@@ -65,7 +65,7 @@ require `--session-id` (`project-bootstrap`, `sessions-show`,
 | [session](#session) | 8 | `session-create`, `sessions-list`, `sessions-show`, … |
 | [workflow](#workflow) | 4 | `preflight-submit`, `check`, `check-submit`, … |
 | [goals](#goals) | 16 | `goals-create`, `goals-list`, `goals-search`, … |
-| [logging](#logging) | 22 | `finding-log`, `unknown-log`, `unknown-list`, … |
+| [logging](#logging) | 23 | `finding-log`, `unknown-log`, `unknown-list`, … |
 | [project](#project) | 18 | `project-init`, `project-update`, `project-create`, … |
 | [workspace](#workspace) | 13 | `workspace-init`, `workspace-map`, `workspace-list`, … |
 | [checkpoint](#checkpoint) | 7 | `checkpoint-create`, `checkpoint-load`, `checkpoint-list`, … |
@@ -969,6 +969,29 @@ Look up logged mistakes — useful before tackling work that echoes a pattern yo
   Output format
 - `--verbose` — optional · flag
   Show detailed operation info
+
+#### `empirica note`
+
+Jot a quick note-to-self while in flow — a scratchpad for things to check on after the current work. Faster + lower-friction than a full finding/decision: pure metadata, NOT shared, NOT embedded. Notes are transaction-scoped and surface at POSTFLIGHT for triage (promote to an artifact/goal, or discard). They survive context compaction. Use --list to review, --clear to mark triaged.
+
+**Arguments:**
+
+- `text` — **required**
+  The note text (positional, the common case)
+- `--text` — optional
+  The note text (flag form, for MCP/scripts)
+- `--tag` — optional
+  Optional free-form tag (suggested: followup | doubt | idea)
+- `--list` — optional · flag
+  List untriaged notes for the current transaction/session
+- `--clear` — optional · flag
+  Mark the current transaction/session notes as triaged
+- `--session-id` — optional
+  Session UUID
+- `--project-id` — optional
+  Project UUID
+- `--output` — optional · type=`choice` · choices={human, json} · default=`human`
+  Output format
 
 #### `empirica source-add`
 
@@ -4210,8 +4233,6 @@ Configure Claude Code integration (hooks, CLAUDE.md, MCP server)
   Override mesh_id_prefix (skip cortex /v1/tenant/me fetch for this field)
 - `--skip-claude-md` — optional · flag
   Skip CLAUDE.md installation (keep existing system prompt)
-- `--full-prompt` — optional · flag
-  Use full system prompt instead of lean core default (lean loads skills on demand)
 - `--output` — optional · type=`choice` · choices={human, json} · default=`human`
   Output format (default: human)
 - `--verbose` — optional · flag
