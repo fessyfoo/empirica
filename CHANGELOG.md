@@ -5,6 +5,37 @@ All notable changes to Empirica will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.4] — 2026-06-21
+
+A maintenance patch: a new family of graph-integrity checks, a sentinel
+deadlock fix, mesh-identity self-healing at session start, and repo-wide
+format enforcement.
+
+### Added
+- **Connective-tissue checks** — three domain-agnostic checks in the
+  CheckDeclaration registry that assess the *structure* of the epistemic
+  graph rather than its content: `edge_density` (a transaction's artifacts
+  connect into the graph), `orphan_artifacts` (a majority of session
+  artifacts left fully disconnected), and `dangling_edges` (an edge that
+  references an artifact which no longer exists). Non-blocking; they query the
+  canonical `artifact_edges` table.
+
+### Fixed
+- **Sentinel recovery-verb deadlock** — a rushed assessment could make the
+  rush-guard deny every praxic call, *including* the postflight / check /
+  doctor verbs needed to clear it. Recovery verbs now always escape the gate,
+  in any state. Also: `empirica doctor` / `diagnose` are allow-listed, and a
+  worktree-aware subagent signal was added.
+- **Session-init mesh-identity self-heal** — session start now backfills a
+  project's mesh identity metadata when it is absent, so multi-practice setups
+  resolve their identity correctly instead of degrading.
+
+### Changed
+- **Repo-wide format enforcement** — the codebase is now `ruff format`-clean
+  and CI enforces it (the format check was previously informational). Ruff is
+  pinned to a current floor for local/CI parity; CI `actions/checkout` bumped
+  to v7.
+
 ## [1.12.3] — 2026-06-21
 
 A discipline-and-reliability release: a low-friction scratchpad for AIs, a
