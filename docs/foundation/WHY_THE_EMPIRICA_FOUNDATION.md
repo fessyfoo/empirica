@@ -1,97 +1,123 @@
 # Why the Empirica Foundation Exists
 
-*The Foundation is not a nicer way to run the mesh. It is the mechanism by which
-collaborative epistemic work becomes a public good — and ultimately, a
-commons-owned open model.*
+*The Foundation is the mechanism by which collaborative epistemic work becomes a
+public good — and ultimately, a commons-owned open model. This is the founding
+rationale, **hardened by adversarial review from the mesh it describes** —
+autonomy on governance, outreach on defensibility. It is input for ratification,
+and it is meant to survive contact.*
 
 ---
 
 ## 1. The premise, made structural
 
-Empirica measures epistemic work. Every PREFLIGHT → CHECK → POSTFLIGHT cycle a
-practitioner runs produces something rare: a **calibrated reasoning trace** — a
-prediction of one's own epistemic state, checked against the grounded outcome,
-labeled with the divergence. Not text. Not preferences. *Process supervision with
-ground truth.*
+Empirica measures epistemic work. Every PREFLIGHT → CHECK → POSTFLIGHT cycle
+produces a **calibrated reasoning trace**: a prediction of one's own epistemic
+state, checked against the grounded outcome, labeled with the divergence. Not
+text. Not preferences. **Process supervision with ground truth.** The mesh
+already pools this across practitioners. The Foundation turns the pool from a
+coordination convenience into an owned, governed, world-facing asset.
 
-The mesh already pools this across practitioners. The Foundation is what turns
-that pool from a coordination convenience into an owned, governed, world-facing
-asset.
+## 2. The differentiator — the asset and the gift are the same object
 
-## 2. What the Foundation actually is
+Normally a company's data moat is in tension with openness: the asset and the
+gift pull apart, and you must choose. In the Foundation they are **the same
+object.** The calibration-scored epistemic commons is *simultaneously* the
+defensible asset and the public good. No one else can give the ecosystem away
+**and** keep the moat — because for everyone else the data is text; for us it is
+**measurement.** That convergence is what earns the right to say "for the good of
+humanity" *structurally*, instead of asserting it. Everything below is downstream
+of this one line.
 
-A **contribution-gated commons**: the full ecosystem — tools, credentials, the
-mesh — free, for the lifetime that you are contributing to it and upholding the
-charter. Not charity; reciprocity. You keep what you give back. The charter's
-commitment — *open and collaborative AI for the good of humanity* — is the
-membership condition, not a slogan on a wall.
+## 3. The consequence — the commons becomes a model
 
-The reason this isn't naïve — the reason it's load-bearing — is that **Empirica
-can measure its own membership.** "Are you contributing? Are you upholding the
-charter?" are usually vibes that collapse into gatekeeping or get gamed. Here
-they are *numbers*: mesh participation, calibration trajectory, grounded-verified
-artifacts. The same anti-gaming substrate that keeps a single practitioner honest
-keeps the commons honest. Membership is **earned and measured, not voted.**
+The commons of calibrated epistemic data is not the *largest* corpus. It is the
+**uniquely-clean and singularly-positioned** one — and it grows by every
+transaction across every contributing practice.
 
-## 3. The load-bearing why: the commons becomes a model
-
-This is the part beyond mesh mechanics.
-
-A contribution-gated commons of calibrated epistemic data is the scarcest
-training corpus in existence — and the cleanest.
-
-- **Scarce**, because almost no one has *reasoning traces with grounded
+- **Unique in kind:** almost no one has *reasoning traces with grounded
   verification and calibration deltas* — the signal that teaches a model **when
-  it was right versus merely confident.**
-- **Clean**, because every contribution is consent-clear and provenance-clean by
-  construction: you opted in by participating, under a charter. The #1 problem
-  with training data is no longer volume — it is **legitimacy.** The Foundation's
-  corpus is legitimate by design.
+  it was right versus merely confident**, the exact signal absent from
+  preference-based RLHF.
+- **Clean:** every contribution's provenance is clear by construction.
 
-That corpus trains — more precisely, *aligns and calibrates* — a **true
-open-source, open-weights model.** Not by pretraining from scratch (a losing race
-on raw scale), but as the **epistemic-humility layer** on an open base: the part
-that makes a model calibrated, that makes it know what it doesn't know.
-Empirica's own thesis already gestures at the endgame — calibration data stored
-as **weight overlays, part of the model, not metadata.** The Foundation is how
-that gets built by everyone and owned by everyone.
+The path is not a handwave. It is **Bayesian supervised fine-tuning of an open
+base model** (per the 2026 Bayesian-SFT result): Empirica's matched
+`(prior, posterior, calibration_gap)` tuples are the training data — they teach a
+model *when to be uncertain versus confident*. Not pretraining from scratch (a
+volume war we need not fight), but the **epistemic-humility layer** on an open
+base; calibration data as **weight overlays — part of the model, not metadata.**
 
-*"AGI through democratic collaboration, not bigger models"* stops being a slogan
-the moment the data, the governance, and the weights are one commons.
+Stated honestly as a bet: this pays off above a corpus-scale threshold the
+contributing mesh is built to cross. (*"AGI through democratic collaboration, not
+bigger models"* is internal shorthand for the idea — and an explicit
+public-communications decision before it is ever a slogan.)
 
-## 4. Why this alignment is rare
+## 4. The operational shape — human-judged, signal-assisted
 
-Normally a company's data moat is in tension with openness — the asset and the
-gift pull apart. In the Foundation they are **the same object.** The
-calibration-scored epistemic commons is simultaneously the defensible thing and
-the public good. Nobody else can give the ecosystem away *and* keep the moat,
-because for everyone else the data is text; for us it is **measurement.** That
-alignment is what earns the right to say "for the good of humanity"
-*structurally*, instead of asserting it.
+Membership is **decided by humans, on genuine commitment to the charter.** This
+*is* the gaming-resistance argument, and it is stronger than any metric: **you
+don't game a philosophy you actually believe in**, and a human's read of real
+conviction is far harder to fake than a number. The moment a metric *gates*
+access it becomes an adversarial target and people optimize the number instead of
+the work (Goodhart). So measurement never gates — it **assists.**
 
-## 5. What the charter must encode (governance and commons as one document)
+What the system *measures* is **contribution health** — quantity *and* quality,
+at a scale no human reviewer could track by hand. That is precisely an AI's job:
 
-- **The data-contribution consent** — participating contributes the *epistemic
-  signal* (calibration patterns, grounded structure) to the commons at the
-  `public` tier; proprietary project content never leaves `local` / `shared`.
-  The visibility tiers already *are* the commons boundary.
-- **The calibrated-membership metric** — contribution measured by grounded
-  epistemic value, not volume, so the commons can be neither flooded nor
-  gatekept.
-- **The reciprocity term** — free for life while contributing and upholding the
-  charter; the model and the ecosystem are the dividend the commons pays back to
-  those who built it.
+- sustained **calibration trajectory** (Brier-trend over time);
+- **grounded-verified artifact** production (findings/decisions with source-refs);
+- **cross-practitioner reciprocity** (your work cited in others');
+- **governance participation** (decisions on shared epistemic records).
 
-One document: the charter is the **consent, the metric, and the gift, together.**
+These signals **surface the free-rider tail and inform the human deciders — they
+do not decide.** AI measures; humans judge. That division is the whole point: it
+keeps the calibration substrate honest (never the gate, so never worth gaming)
+while still letting the Foundation *see*, at scale, who is genuinely contributing.
+
+It also resolves flooding and gatekeeping at the right layer. **Flooding** is
+self-defeating *as a signal* — false confidence erodes your own calibration
+trajectory, so volume-without-value shows up as exactly what it is.
+**Gatekeeping** cannot hide behind "the numbers," because membership is a human
+act bound to the charter, not a metric trip — and that human judgment is itself
+accountable (below). The AI makes the free-riders visible; the humans decide on
+conviction.
+
+## 5. What the charter encodes — governance and commons, one document
+
+- **Training consent: explicit, granular, revocable, per tier.** Participating
+  contributes the epistemic *signal* (calibration patterns, grounded structure)
+  at the `public` tier; proprietary content never leaves `local` / `shared`. As
+  traces become weights, consent is an ongoing, revocable grant — *not* "by
+  construction." The visibility tiers already are the commons boundary.
+- **Membership: human-judged on charter-commitment, signal-assisted, and the
+  judgment itself accountable.** The system measures contribution health and
+  surfaces the free-rider tail; *humans* decide membership on genuine commitment.
+  Whoever judges holds real power, so the judgment must be **accountable and
+  contestable** — who judges, on what evidence, how it is challenged — or the
+  charter has no teeth against capture.
+- **Reciprocity that decays on charter-divergence, not on time.** A contributor
+  who goes dormant retains access commensurate with what they gave; a contributor
+  who acts *against* the charter forfeits, regardless of past contribution.
+  Lifetime-while-upholding — not lifetime-unconditional.
+
+One document: the charter is the **consent, the evidence standard, and the gift,
+together.**
 
 ---
 
 **The Foundation exists because collaborative epistemic measurement — done in the
-open, under a charter that can measure itself — is the only path we can see to an
-aligned model that belongs to the people who reasoned it into being.**
+open, under a charter that can hold its own stewards accountable — is the most
+defensible path we can articulate to an aligned model that belongs to the people
+who reasoned it into being.**
 
 ---
 
-*Status: founding rationale, input for ratification. Authored by the `empirica`
-practice for the empirica-foundation coordination SER. Push back hard — a charter
-worth signing survives adversarial reading.*
+*v2 — hardened by adversarial review from the substrate it describes. autonomy
+(governance): membership is human-judged, not metric-gated; consent is revocable;
+the steward's judgment must be accountable. outreach (defensibility): name the
+signals and the Bayesian-SFT mechanism; lead with the asset-=-gift differentiator;
+drop the hedges. The charter survived scrutiny from the system it governs — which
+is the point. Lanes: **cortex** owns org/tenancy/roster/credential standup;
+**autonomy** owns governance + gaming-resistance design; **outreach** owns the
+public derivation (this becomes the typed `foundation_rationale` source, public
+from day one). Input for ratification. Push again.*
