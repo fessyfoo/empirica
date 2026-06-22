@@ -23,8 +23,8 @@
 > dictionary, then running this script.
 
 **Framework version:** 1.12.4
-**Generated:** 2026-06-22 16:23:47 UTC
-**Total commands:** 245 (across 26 categories)
+**Generated:** 2026-06-22 22:41:07 UTC
+**Total commands:** 246 (across 26 categories)
 
 For the most up-to-date detail on any single command, prefer
 `empirica <command> --help` — the generator extracts the same `help`
@@ -87,7 +87,7 @@ require `--session-id` (`project-bootstrap`, `sessions-show`,
 | [memory](#memory) | 6 | `memory-prime`, `memory-scope`, `memory-value`, … |
 | [vision](#vision) | 1 | `vision` |
 | [domains](#domains) | 4 | `domain-list`, `domain-show`, `domain-resolve`, … |
-| [setup](#setup) | 7 | `onboard`, `setup-claude-code`, `enp-setup`, … |
+| [setup](#setup) | 8 | `onboard`, `setup-claude-code`, `plugin-sync`, … |
 
 ---
 
@@ -4287,6 +4287,19 @@ Configure Claude Code integration (hooks, CLAUDE.md, MCP server)
   Output format (default: human)
 - `--verbose` — optional · flag
   Show detailed output
+
+#### `empirica plugin-sync`
+
+Re-sync the installed Claude Code plugin if it has drifted behind the running empirica version
+
+**Arguments:**
+
+- `--force` — optional · flag
+  Sync even if the version stamp matches
+- `--quiet` — optional · flag
+  Suppress the human status line (still exits non-zero on error)
+- `--output` — optional · type=`choice` · choices={human, json} · default=`human`
+  Output format
 
 #### `empirica enp-setup`
 
