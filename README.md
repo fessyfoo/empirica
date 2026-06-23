@@ -2,7 +2,7 @@
 
 > **We Gave AI a Mirror. Now It Measures What It Believes.**
 
-[![Version](https://img.shields.io/badge/version-1.12.4-blue)](https://github.com/EmpiricaAI/empirica/releases/tag/v1.12.4)
+[![Version](https://img.shields.io/badge/version-1.12.5-blue)](https://github.com/EmpiricaAI/empirica/releases/tag/v1.12.5)
 [![PyPI](https://img.shields.io/pypi/v/empirica)](https://pypi.org/project/empirica/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)]()
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -101,13 +101,13 @@ empirica setup-claude-code
 
 ```bash
 # Security-hardened Alpine image (~276MB, recommended)
-docker pull nubaeon/empirica:1.12.4-alpine
+docker pull nubaeon/empirica:1.12.5-alpine
 
 # Standard image (Debian slim, ~414MB)
-docker pull nubaeon/empirica:1.12.4
+docker pull nubaeon/empirica:1.12.5
 
 # Run
-docker run -it -v $(pwd)/.empirica:/data/.empirica nubaeon/empirica:1.12.4 /bin/bash
+docker run -it -v $(pwd)/.empirica:/data/.empirica nubaeon/empirica:1.12.5 /bin/bash
 ```
 </details>
 
@@ -339,12 +339,14 @@ All read-only, all support `--output json`. Backs cross-project orchestration, C
 
 ---
 
-## What's New in 1.12.4
+## What's New in 1.12.5
 
-- **Connective-tissue checks** — three domain-agnostic checks in the
-- **Sentinel recovery-verb deadlock** — a rushed assessment could make the
-- **Session-init mesh-identity self-heal** — session start now backfills a
-- **Repo-wide format enforcement** — the codebase is now `ruff format`-clean
+- **Practice-module system (legs 1–3):** `empirica module validate` (module.yaml
+- **ERM entity API:** `GET /api/v1/entities` (list projection over the workspace
+- **`empirica grounding-export --ai-id`:** per-practice self-assessed/grounded
+- **`empirica plugin-sync`:** drift-check + in-place re-sync of the installed
+- **Sentinel "rushed assessment" deadlock — fully hardened:** the self-heal
+- **Mesh discipline elevated:** "pull when uncertain" is now a *stuck → collab*
 ---
 
 ## Privacy & Data
@@ -374,6 +376,6 @@ MIT License — see [LICENSE](LICENSE) for details.
 ---
 
 **Author:** David S. L. Van Assche
-**Version:** 1.12.4
+**Version:** 1.12.5
 
 *Turtles all the way down — built with its own epistemic framework, measuring what it knows at every step.*
