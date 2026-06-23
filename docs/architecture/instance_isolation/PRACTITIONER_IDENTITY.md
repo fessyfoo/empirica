@@ -97,15 +97,21 @@ off `instance_id`. → silent miss.
 
   ```
   practitioner_presence
-    session_id            (the practitioner)
+    session_id            (the practitioner — the FK in v1)
+    practitioner_id       (NULLABLE seam — present NOW; backfilled, not migrated, when the
+                           durable cross-session id lands = user_id × practice_id × harness_class)
     practice_ai_id        (the practice it occupies)
     location              tmux_N / host           ← current display location
     status                active | idle | paused
+    pending_question      (blocked-reason: distinguishes blocked-on-Q vs idle vs working — the
+                           emit-and-park signal; makes this table autonomy's liveness sensor too)
     active_transaction_id
     last_heartbeat
   ```
   Written by session-init (register on start, heartbeat, **clear on session-end**). One read
-  answers "practice → its active practitioner(s) → where + gate state."
+  answers "practice → its active practitioner(s) → where + gate state." With `pending_question`
+  it does **double duty**: the control resolver AND the deterministic liveness sensor autonomy's
+  watch-sweep needs (blocked vs idle vs working).
 
 - **ERM typing** (reuses the shipped entity API): a `practitioner` `entity_registry` type + a
   membership edge `practitioner —[occupies]→ practice`. The extension renders
@@ -115,6 +121,37 @@ off `instance_id`. → silent miss.
   (`ai_id`) **or** a practitioner (`session_id`); resolve via the presence table; **error loudly on
   no-match** (never silent-success). `ai_id` with N practitioners → fan out to all (or require an
   explicit practitioner selector — see open decision).
+
+## 5b. Remote addressing & routing (the "target one of N" problem)
+
+The wire address is the **practice** — so how does a remote peer message *one*
+practitioner rather than all of them? Resolution:
+
+- **Practice-broadcast (default).** A message to `org.tenant.<practice>` lands in the
+  practice's inbox; all its practitioners poll it. Correct for "the practice should do X."
+  With N>1 this needs **claim/dedup** — which proposal-accept/complete + SER already provide
+  (one practitioner claims; others see it's handled).
+- **Practitioner-targeted.** Carry a **`target_practitioner` selector** on the message
+  (resolved by cortex), **not** a 4-form wire address — `org.tenant.<practice>` stays canonical
+  (the prior "no shifting sub-identities in the wire id" decision holds). cortex routes
+  `target_practitioner` matches to that practitioner's inbox filter; each practitioner polls with
+  `(practice, practitioner_id)` and receives **broadcast ∪ targeted**.
+
+**Remote targeting requires a *published* practitioner id** — a peer can't name a local
+`claude_session_id` it has no way to know. The publish mechanism is the **cortex roster /
+presence aggregate**: empirica pushes per-machine presence up; cortex exposes
+`GET /v1/practitioners/{ai_id}/presence` → `{user_id, machine, session_id, location, status,
+last_heartbeat, active_transaction_id}` across machines. A remote peer queries that, picks a
+practitioner, and targets it. Most targeting is **implicit** anyway (a thread records which
+practitioner claimed it → replies route back); explicit `target_practitioner` is mainly for
+**control** (autonomy pausing a specific stuck one) and deliberate handoff.
+
+**Heartbeat = push (A).** empirica POSTs `POST /v1/practitioners/heartbeat` on the existing
+daemon-sync channel; cortex stays passive (autonomy reads the snapshot synchronously);
+stale-after-2N → `unreachable`. Cadence owned by empirica, aligned to `mesh_mode`: realtime_push
+≤30s, default 60s, mailbox_only 120s. cortex keeps `practitioner_registrations` (stable
+per-machine config, commit 46dc8b1) separate from a sibling high-churn `practitioner_presence`
+aggregate.
 
 ## 6. Phases (each independently shippable)
 
@@ -129,22 +166,39 @@ off `instance_id`. → silent miss.
 durable resolver; ③ is the real consolidation (deliberate, separately reviewed migration); ④ is the
 visible layer on top.
 
+**Liveness-safety invariant (governs ① and the ③ cutover):** a control action that cannot resolve
+its target MUST fail **loud** — never no-op silently. ① exit codes: `ai_id → N` → **informational**
+(pass `--session <id>` or `--all`); `ai_id → 0` → **error** (the silent-miss class being killed).
+
+**③ transition guard:** the `tmux_N → claude_session_id` re-key must not open a *new* silent-miss
+window — the gate resolves *either* key during cutover (or a clean atomic cutover); ①-first
+(loud-error) is the belt-and-suspenders net.
+
 ## 7. Open decisions (require ratification before ③)
 
 1. **Practitioner == session (1:1)** vs a **stable `practitioner_id`** whose current incarnation is
-   a session (cross-session attribution / a durable seat-holder). → **Recommend 1:1 first**; leave a
-   clean seam for the stable layer.
-2. **`ai_id` with N practitioners**: does `pause <ai_id>` pause **all** of the practice's
-   practitioners, or require an explicit practitioner selector? → liveness wants fan-out; cockpit
-   wants per-practitioner — **support both** (fan-out by default, explicit session for one).
+   a session (cross-session attribution / a durable seat-holder). → **Ratified: 1:1 first**; seam =
+   keep `claude_session_id` as the FK, add a `practitioner_id` column when the use case lands. When
+   it does, it derives from **`user_id × practice_id × harness_class`** (not user×practice — same
+   human on CC vs Desktop on the same practice = different practitioners: different runtime context
+   + calibration weighting); tie to the harness_taxonomy (cortex 46dc8b1).
+2. **`ai_id` with N practitioners** — **Ratified (autonomy control-model lane): NO silent
+   fan-out.** N=1 → `pause <ai_id>` pauses the one (unambiguous). N>1 → require explicit
+   disambiguation: `--session <id>` (one) **or** `--all` (deliberate whole-practice quarantine).
+   Rationale: least-privilege / no-surprise — unblocking one stuck practitioner must not
+   collaterally pause N−1 healthy siblings. (cortex concurred on both modes; autonomy refined the
+   *default* to explicit.)
 3. **Confirm** the PreToolUse gate reliably has `claude_session_id` at hook time **before** re-keying
    the gate (③). High prior confidence (`active_work_*` is session-keyed) but verify.
 
 ## 8. Lanes
 
 - **empirica:** ①–④ — CLI resolver, presence table, control-plane re-key, ERM typing.
-- **cortex:** roster mapping (mesh `user_id`/practice → its local practitioners) for **cross-machine**
-  control; the wire address stays the practice.
+- **cortex:** roster / presence aggregate for **cross-machine** control (wire address stays the
+  practice). Substrate mostly ready (`practitioner_registrations`, 46dc8b1). On phase-② go cortex
+  ships: a sibling high-churn `practitioner_presence` table + `POST /v1/practitioners/heartbeat`
+  (same-org-guarded) + `GET /v1/practitioners/{ai_id}/presence`. This presence aggregate IS the
+  roster that resolves `target_practitioner` for remote targeting (§5b).
 - **autonomy:** consumer — the liveness watch addresses practitioners via the reliable resolver;
   interim it self-resolves `ai_id → runtime` via `status --all`.
 - **extension:** renders practice → active practitioners (entity API + presence read).
