@@ -511,7 +511,7 @@ _HELP_CATEGORIES = {
     "memory": ["memory-prime", "memory-scope", "memory-value", "pattern-check", "session-rollup", "memory-report"],
     "vision": ["vision"],
     "domains": ["domain-list", "domain-show", "domain-resolve", "domain-validate"],
-    "setup": ["onboard", "setup-claude-code", "enp-setup", "diagnose", "doctor", "release", "serve"],
+    "setup": ["onboard", "setup-claude-code", "plugin-sync", "enp-setup", "diagnose", "doctor", "release", "serve"],
 }
 
 
@@ -861,6 +861,7 @@ def main(args=None):
             # Onboarding commands
             "onboard": handle_onboard_command,
             "setup-claude-code": handle_setup_claude_code_command,
+            "plugin-sync": handle_plugin_sync_command,
             "enp-setup": handle_enp_setup_command,
             "diagnose": handle_diagnose_command,
             "doctor": handle_doctor_command,

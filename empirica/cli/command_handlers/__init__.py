@@ -235,7 +235,7 @@ from .session_commands import (
     handle_transaction_adopt_command,
 )
 from .session_create import handle_session_create_command
-from .setup_claude_code import handle_setup_claude_code_command
+from .setup_claude_code import handle_plugin_sync_command, handle_setup_claude_code_command
 from .skill_commands import (
     handle_skill_extract_command,
     handle_skill_fetch_command,
@@ -474,6 +474,7 @@ __all__ = [  # noqa: RUF022
     "handle_sessions_show_command",
     "handle_sessions_show_command",
     "handle_setup_claude_code_command",
+    "handle_plugin_sync_command",
     "handle_skill_extract_command",
     "handle_skill_fetch_command",
     "handle_skill_suggest_command",

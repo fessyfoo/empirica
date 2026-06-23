@@ -30,6 +30,9 @@ logger = logging.getLogger(__name__)
 
 PLUGIN_NAME = "empirica"
 PLUGIN_VERSION = "1.12.4"
+# Written into the installed plugin dir; the empirica version its files came
+# from. Drives drift-sync (empirica plugin-sync / session-init auto-heal).
+PLUGIN_VERSION_STAMP = ".plugin-version"
 
 
 def _resolve_empirica_version() -> str:
@@ -684,6 +687,95 @@ def _install_plugin_files(source_dir, plugin_dir, output_format):
 
     if output_format != "json":
         print(f"   ✓ Plugin installed to {plugin_dir}")
+
+
+def _installed_plugin_dir() -> Path:
+    """The installed plugin location Claude Code loads hooks from."""
+    return Path.home() / ".claude" / "plugins" / "local" / PLUGIN_NAME
+
+
+def _read_plugin_version_stamp(plugin_dir: Path) -> str | None:
+    try:
+        return (plugin_dir / PLUGIN_VERSION_STAMP).read_text().strip() or None
+    except OSError:
+        return None
+
+
+def _write_plugin_version_stamp(plugin_dir: Path, version: str | None = None) -> None:
+    """Stamp the installed plugin with the empirica version its files came from."""
+    try:
+        (plugin_dir / PLUGIN_VERSION_STAMP).write_text((version or _resolve_empirica_version()).strip() + "\n")
+    except OSError:
+        pass
+
+
+def _sync_plugin_files_in_place(source_dir: Path, plugin_dir: Path) -> None:
+    """Overwrite installed plugin files from source IN PLACE (no rmtree), so it
+    is safe to run from a hook executing inside plugin_dir. Refreshes + adds
+    files; does NOT prune files removed from source (the full clean rebuild is
+    `setup-claude-code --force`, which rmtrees first)."""
+
+    def _ignore(_directory, files):
+        return [f for f in files if f in ("__pycache__", ".git", ".pyc")]
+
+    shutil.copytree(source_dir, plugin_dir, ignore=_ignore, dirs_exist_ok=True)
+    hooks_dir = plugin_dir / "hooks"
+    if hooks_dir.exists():
+        for h in list(hooks_dir.glob("*.py")) + list(hooks_dir.glob("*.sh")):
+            try:
+                h.chmod(0o755)
+            except OSError:
+                pass
+
+
+def handle_plugin_sync_command(args):
+    """Re-sync the installed CC plugin from the bundled package source when the
+    installed copy has drifted behind the running empirica version.
+
+    Closes the deploy-staleness gap: hook fixes land in the package on upgrade
+    but the installed ~/.claude copy only refreshes on a manual
+    setup-claude-code. session-init shells out to this at SessionStart so a pip
+    upgrade's hook fixes reach running CC sessions automatically (this is what
+    prevents the recovery-verb 'Rushed assessment' deadlock from a stale gate).
+
+    Default: sync only when the stamped version != running version. --force
+    always syncs. Lightweight (in-place overwrite, no interactive setup).
+    """
+    output = getattr(args, "output", "human")
+    force = getattr(args, "force", False)
+    quiet = getattr(args, "quiet", False)
+    version = _resolve_empirica_version()
+    plugin_dir = _installed_plugin_dir()
+    installed = _read_plugin_version_stamp(plugin_dir)
+
+    def _emit(result, rc=0):
+        if output == "json":
+            print(json.dumps(result))
+        elif not quiet:
+            if result.get("synced"):
+                print(f"🔄 empirica plugin synced {result.get('from') or '(unstamped)'} → {result['to']}")
+            elif result.get("ok"):
+                print(f"✓ empirica plugin current ({version})")
+        return rc
+
+    # No install present — nothing to sync (not an error: e.g. non-CC env).
+    if not plugin_dir.exists():
+        return _emit({"ok": True, "synced": False, "reason": "not_installed", "version": version})
+
+    if installed == version and version != "unknown" and not force:
+        return _emit({"ok": True, "synced": False, "reason": "current", "version": version})
+
+    source_dir = _get_plugin_source_dir()
+    if source_dir is None:
+        if output == "json":
+            print(json.dumps({"ok": False, "synced": False, "reason": "source_not_found", "version": version}))
+        elif not quiet:
+            print("⚠ empirica plugin source not found — run `empirica setup-claude-code --force`", file=sys.stderr)
+        return 1
+
+    _sync_plugin_files_in_place(source_dir, plugin_dir)
+    _write_plugin_version_stamp(plugin_dir, version)
+    return _emit({"ok": True, "synced": True, "from": installed, "to": version})
 
 
 def _install_claude_md(plugin_dir, claude_dir, output_format):
@@ -1535,6 +1627,7 @@ def handle_setup_claude_code_command(args):
 
         # Stage 2: Install plugin files
         _install_plugin_files(source_dir, plugin_dir, output_format)
+        _write_plugin_version_stamp(plugin_dir)  # drives drift-sync / session-init auto-heal
 
         # Stage 3: Install CLAUDE.md
         if not skip_claude_md:

@@ -13,6 +13,24 @@ def add_onboarding_parsers(subparsers):
         help="AI identifier (optional, derives from project basename or .empirica/project.yaml)",
     )
 
+    # Plugin sync - re-sync the installed CC plugin when it drifts behind the
+    # running empirica version (closes the deploy-staleness gap that strands
+    # hook fixes in the package until a manual setup-claude-code --force).
+    plugin_sync_parser = subparsers.add_parser(
+        "plugin-sync",
+        help="Re-sync the installed Claude Code plugin if it has drifted behind the running empirica version",
+        description="Lightweight in-place re-copy of the bundled plugin files into "
+        "~/.claude/plugins/local/empirica/ when the installed copy's version stamp "
+        "differs from the running empirica version. Run automatically by session-init "
+        "at SessionStart so a pip upgrade's hook fixes reach running CC sessions without "
+        "a full setup-claude-code. Use --force to sync unconditionally.",
+    )
+    plugin_sync_parser.add_argument("--force", action="store_true", help="Sync even if the version stamp matches")
+    plugin_sync_parser.add_argument(
+        "--quiet", action="store_true", help="Suppress the human status line (still exits non-zero on error)"
+    )
+    plugin_sync_parser.add_argument("--output", choices=["human", "json"], default="human", help="Output format")
+
     # Setup Claude Code command - configure Claude Code integration
     setup_cc_parser = subparsers.add_parser(
         "setup-claude-code",

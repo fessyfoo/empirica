@@ -1405,12 +1405,39 @@ EOF
 """
 
 
+def _auto_sync_plugin():
+    """Best-effort: heal a stale installed CC plugin so hook fixes from a pip
+    upgrade reach this session. Shells out to `empirica plugin-sync` (a no-op
+    when the installed version stamp already matches the running empirica).
+
+    This is what prevents the deploy-staleness deadlock class: without it, a
+    hook fix that lands in the package on upgrade doesn't reach
+    ~/.claude/plugins/local/empirica/ until a manual setup-claude-code --force,
+    so running CC sessions keep loading the stale gate. Never blocks session
+    start — short timeout, all failures swallowed.
+    """
+    try:
+        subprocess.run(
+            ["empirica", "plugin-sync", "--quiet"],
+            capture_output=True,
+            stdin=subprocess.DEVNULL,  # never consume the hook's JSON stdin
+            timeout=8,
+            check=False,
+        )
+    except Exception:
+        pass
+
+
 def main():
     """Main session init logic.
 
     Orchestrates: input parsing, project resolution, existing session detection
     (resume/adoption), new session creation, budget/dashboard init, and output.
     """
+    # Auto-heal a stale installed plugin (deploy-staleness gap) before the
+    # session work — so this session's hooks reflect the running empirica.
+    _auto_sync_plugin()
+
     hook_input = {}
     try:
         hook_input = json.loads(sys.stdin.read())
