@@ -27,3 +27,14 @@ def add_module_parsers(subparsers):
         default="json",
         help="Output format (default: json)",
     )
+
+    fetch = module_subs.add_parser(
+        "fetch",
+        help="Stage a module's distribution artifacts (auth-gated pre-step before seat + provision)",
+    )
+    fetch.add_argument("path", help="Path to the module.yaml")
+    fetch.add_argument("--dry-run", action="store_true", help="Compute the fetch plan; write nothing")
+    fetch.add_argument("--registry", help="Plugin-archive registry base URL (default: $EMPIRICA_MODULE_REGISTRY)")
+    fetch.add_argument("--index-url", help="pip index URL for python_packages (default: $EMPIRICA_MODULE_INDEX_URL)")
+    fetch.add_argument("--staging-root", help="Override the staging root (default: ~/.empirica/module_staging)")
+    fetch.add_argument("--output", choices=("json", "text"), default="json", help="Output format (default: json)")

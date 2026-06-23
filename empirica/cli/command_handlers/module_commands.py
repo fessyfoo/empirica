@@ -32,8 +32,44 @@ def handle_module_validate_command(args) -> int:
     return 0 if receipt["ok"] else 1
 
 
+def handle_module_fetch_command(args) -> int:
+    """Stage a module's distribution artifacts. Exit 0 on success, 1 on any error."""
+    from pathlib import Path
+
+    from empirica.core.modules.executors import fetch_module
+    from empirica.core.modules.manifest import load_manifest
+
+    try:
+        manifest = load_manifest(args.path)
+    except Exception as e:  # ManifestError — invalid manifest can't be fetched
+        receipt = {"ok": False, "action": "fetch", "errors": [str(e)]}
+        sys.stdout.write(json.dumps(receipt) + "\n")
+        return 1
+
+    receipt = fetch_module(
+        manifest,
+        dry_run=getattr(args, "dry_run", False),
+        staging_root=Path(args.staging_root) if getattr(args, "staging_root", None) else None,
+        registry_base=getattr(args, "registry", None),
+        index_url=getattr(args, "index_url", None),
+    )
+
+    if getattr(args, "output", "json") == "json":
+        sys.stdout.write(json.dumps(receipt) + "\n")
+    else:
+        head = "fetch (dry-run)" if receipt["dry_run"] else "fetch"
+        sys.stdout.write(f"{head}: {receipt['module']} → {receipt['staged_path']}\n")
+        for step in receipt["steps"]:
+            sys.stdout.write(f"  [{step['status']}] {step['kind']}: {step['target']} ({step['detail']})\n")
+        for err in receipt["errors"]:
+            sys.stdout.write(f"  ERROR: {err}\n")
+
+    return 0 if receipt["ok"] else 1
+
+
 _MODULE_DISPATCH = {
     "validate": handle_module_validate_command,
+    "fetch": handle_module_fetch_command,
 }
 
 
