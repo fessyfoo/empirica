@@ -5,6 +5,40 @@ All notable changes to Empirica will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.5] — 2026-06-23
+
+A feature + hardening patch: the first legs of the installable
+practice-module system, the ERM entity API, a mesh-tooling grounding
+export, and a robust fix for the recurring "rushed assessment" deadlock.
+
+### Added
+- **Practice-module system (legs 1–3):** `empirica module validate` (module.yaml
+  schema + fail-fast validator — reference-only secrets, unknown-key rejection,
+  automation consistency), `empirica module fetch` (auth-gated artifact pre-step),
+  and `empirica module provision` (plugin layer: file placement, automation
+  registration via the loop registry, ntfy-topic grants, env presence). All
+  idempotent with `--dry-run`.
+- **ERM entity API:** `GET /api/v1/entities` (list projection over the workspace
+  entity registry) + `empirica entity-link` CLI (typed entity_memberships writes).
+- **`empirica grounding-export --ai-id`:** per-practice self-assessed/grounded
+  calibration snapshot for mesh (L1/L2) tooling.
+- **`empirica plugin-sync`:** drift-check + in-place re-sync of the installed
+  Claude Code plugin, auto-run at session-init — heals deploy-staleness so a
+  stale hook can't silently persist.
+
+### Fixed
+- **Sentinel "rushed assessment" deadlock — fully hardened:** the self-heal
+  verbs (`setup-claude-code`, `plugin-sync`) are now in the rush-bypass whitelist,
+  so the command that fixes a stale-hook box is never itself rush-blocked.
+- `project-sync` is now an alias of `projects-sync` (discoverability).
+
+### Changed
+- **Mesh discipline elevated:** "pull when uncertain" is now a *stuck → collab*
+  reflex in the system prompt + constitution §V — surface a blocker to the mesh
+  after 1–2 local attempts rather than grinding it.
+- Repo URLs updated `Nubaeon → EmpiricaAI` (single-repo transfer; Docker Hub and
+  non-transferred sibling repos left unchanged).
+
 ## [1.12.4] — 2026-06-21
 
 A maintenance patch: a new family of graph-integrity checks, a sentinel
