@@ -89,8 +89,8 @@ def _default_get(url: str, api_key: str, timeout: float) -> dict[str, Any]:
 _CANONICAL_MAP: dict[str, str] | None = None
 
 
-def _reset_canonical_cache() -> None:
-    """Test seam — clear the cached canonical map."""
+def _reset_canonical_cache() -> None:  # pyright: ignore[reportUnusedFunction]
+    """Test seam — clear the cached canonical map (referenced from tests only)."""
     global _CANONICAL_MAP
     _CANONICAL_MAP = None
 
