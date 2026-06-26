@@ -5,7 +5,9 @@ All notable changes to Empirica will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.12.7] — 2026-06-26
+
+A hardening + docs patch: the remote-ops pacing-guard is now fully recoverable and wrapper-aware, the deployed Claude Code plugin self-heals from the CLI, and the `/eat-the-broccoli` quality-sweep skill ships in-plugin.
 
 ### Added
 - **Vendored `/eat-the-broccoli` skill** — the tiered quality-and-pattern audit
