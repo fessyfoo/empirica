@@ -5,6 +5,34 @@ All notable changes to Empirica will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.8] — 2026-06-29
+
+A context-hygiene + module-install patch: the PREFLIGHT/CHECK/bootstrap pattern block is now budgeted lean-by-default, and `module provision` completes the competence layer (skill/agent discovery) for installed modules.
+
+### Added
+- **Module plugin registration** — `empirica module provision` now registers an
+  installed module as its own `<name>@local` Claude Code plugin (writes the
+  `installed_plugins.json` entry + generates `.claude-plugin/plugin.json` when the
+  archive didn't ship one), so the module's skills and agents are discovered from
+  its own plugin directory. Idempotent and dry-runnable; gated on a declared
+  plugin archive. (Local-plugin `hooks` additionally need a `settings.json` entry —
+  a separate follow-up.)
+- **Authenticated `git+https` module packages** — `module fetch` substitutes a
+  resolved `secrets_ref` bearer into `git+https://github.com/…` `python_packages`
+  at pip-install time, so a proprietary module installs with the same token that
+  gates its plugin archive (no `~/.netrc` setup). The token is passed to pip only —
+  never written to a receipt or error string — and falls back to the operator's
+  own git credentials when no bearer resolves.
+
+### Changed
+- **Lean-by-default pattern retrieval** — the pattern block injected into PREFLIGHT
+  / CHECK / project bootstrap is now budgeted: cross-section duplicates are removed,
+  long items are truncated with an expand-on-demand pointer, and a total size budget
+  drops the lowest-ranked items (protecting the core lessons/dead-ends/findings
+  triad). Adaptive retrieval limits are capped so the block stays small exactly when
+  context is tightest (post-compaction). Set `EMPIRICA_PATTERN_BUDGET_OFF=1` for the
+  full untrimmed result; per-knob env overrides available.
+
 ## [1.12.7] — 2026-06-26
 
 A hardening + docs patch: the remote-ops pacing-guard is now fully recoverable and wrapper-aware, the deployed Claude Code plugin self-heals from the CLI, and the `/eat-the-broccoli` quality-sweep skill ships in-plugin.

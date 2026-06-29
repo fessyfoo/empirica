@@ -72,6 +72,25 @@ This takes priority over the env var and is dynamically settable without restart
 
 ---
 
+## Pattern Retrieval (Context Budget)
+
+The pattern block injected into PREFLIGHT / CHECK / project bootstrap is budgeted
+**lean-by-default** — duplicates removed across sections, long items truncated, and
+a total size cap that drops the lowest-ranked items. These knobs tune or disable it.
+
+| Variable | Purpose | Default | Required |
+|----------|---------|---------|----------|
+| `EMPIRICA_PATTERN_BUDGET_OFF` | Set to `1` to emit the full untrimmed pattern block (escape hatch) | (off) | No |
+| `EMPIRICA_PATTERN_MAX_ITEM_CHARS` | Max chars per retrieved item before truncation | `280` | No |
+| `EMPIRICA_PATTERN_MAX_PER_SECTION` | Cap on items per section (also bounds adaptive growth) | `5` | No |
+| `EMPIRICA_PATTERN_MAX_TOTAL_CHARS` | Total char budget across all sections | `8000` | No |
+
+The full context stays retrievable on demand via `empirica investigate` /
+`empirica project-search` / `empirica commit-context` — the injected block is a
+ranked teaser, not the whole store.
+
+---
+
 ## Paths & Directories
 
 | Variable | Purpose | Default | Required |
