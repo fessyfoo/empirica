@@ -1094,10 +1094,16 @@ brew install empirica
         # 600s ceiling: full suite is ~3-4min on cold cache. Scanner integration
         # alone can take ~80s — 300s left no headroom and timed out in 1.8.19
         # release prep. Bump gives ~2x safety margin.
+        # Deterministic order for the release gate: `-p no:randomly` disables
+        # pytest-randomly here so a cut can't coin-flip on the suite's known
+        # cross-test isolation debt (a stale module-level cache another test
+        # left warm). The release gate must be reproducible. CI keeps random
+        # ordering as the watchdog that surfaces that isolation debt — fixing it
+        # there is a separate, tracked effort.
         result = subprocess.run(
             ["python3", "-m", "pytest", "tests/", "-x", "-q", "--tb=short",
              "--ignore=tests/integration", "--ignore=tests/manual_test_goals.py",
-             "-p", "no:cacheprovider"],
+             "-p", "no:cacheprovider", "-p", "no:randomly"],
             capture_output=True, text=True, timeout=600,
             cwd=str(self.repo_root),
         )
