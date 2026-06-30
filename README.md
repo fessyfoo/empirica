@@ -352,11 +352,15 @@ The open-source projects are free for everyone. What the Foundation adds is a **
 
 ---
 
-## What's New in 1.12.8
+## What's New in 1.12.9
 
-- **Module plugin registration** — `empirica module provision` now registers an
-- **Authenticated `git+https` module packages** — `module fetch` substitutes a
-- **Lean-by-default pattern retrieval** — the pattern block injected into PREFLIGHT
+- **`empirica instance rebind <id>`** — re-stamp an instance's captured pid +
+- **empirica-mcp pinned to its core version (drift footgun)** — `empirica-mcp`
+- **`empirica doctor` surfaces the full optional noetic toolchain** — the Sentinel
+- **Multiplexer-agnostic cockpit liveness** — `status` / `status --all` and the
+- **Generated hook timeouts raised so context injection survives load** —
+- **`instance prune` now reaps superseded fallback ghosts** — an old
+- **Liveness no longer flaps on a recycled PID** — `is_alive`'s captured-PID
 ---
 
 ## Privacy & Data

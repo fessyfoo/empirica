@@ -22,8 +22,8 @@
 > `empirica/cli/cli_core.py` — adding a new category means editing that
 > dictionary, then running this script.
 
-**Framework version:** 1.12.8
-**Generated:** 2026-06-29 13:29:15 UTC
+**Framework version:** 1.12.9
+**Generated:** 2026-06-30 14:11:26 UTC
 **Total commands:** 254 (across 26 categories)
 
 For the most up-to-date detail on any single command, prefer
@@ -1454,7 +1454,7 @@ Semantic search for relevant docs/memory by task description
 - `--verbose` — optional · flag
   Show detailed operation info
 - `--global` — optional · flag
-  Include global cross-project learnings in search
+  Also search the global-learnings pool + other LOCAL projects (semantic, this machine). Cross-practice/mesh search is `cortex investigate`.
 
 #### `empirica project-embed`
 
@@ -3475,6 +3475,18 @@ Bulk forget every instance that fails the liveness check
 
 - `--dry-run` — optional · flag
   Show which instances would be removed without removing them
+- `--output` — optional · type=`choice` · choices={human, json} · default=`human`
+  Output format (default: human)
+
+
+##### `empirica instance rebind`
+
+Re-stamp an instance's captured pid from its live process (fixes stale pid after `claude --resume`)
+
+**Arguments:**
+
+- `instance_id` — **required**
+  Target instance_id
 - `--output` — optional · type=`choice` · choices={human, json} · default=`human`
   Output format (default: human)
 
