@@ -23,7 +23,7 @@
 > dictionary, then running this script.
 
 **Framework version:** 1.12.9
-**Generated:** 2026-06-30 15:38:57 UTC
+**Generated:** 2026-07-01 12:12:23 UTC
 **Total commands:** 256 (across 26 categories)
 
 For the most up-to-date detail on any single command, prefer
@@ -1957,7 +1957,7 @@ Create an engagement: mints the engagement entity (the entities-mint path) then 
 
 #### `empirica engagement-list`
 
-List engagements, filtered by --domain / --lifecycle / --org.
+List engagements (active-by-default) filtered by --domain / --lifecycle / --org; --include-closed for terminal ones.
 
 **Arguments:**
 
@@ -1967,6 +1967,8 @@ List engagements, filtered by --domain / --lifecycle / --org.
   Filter by lifecycle_state (open|in_progress|blocked|closed)
 - `--org` — optional
   Scope to an organization's tickets (role='ticket_of')
+- `--include-closed` — optional · flag
+  Include terminal (closed) engagements. Default: active-only (open|in_progress|blocked). Ignored when --lifecycle is given.
 - `--limit` — optional · type=`int` · default=`100`
   Max rows (default: 100)
 - `--output` — optional · type=`choice` · choices={human, json} · default=`human`
