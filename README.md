@@ -2,7 +2,7 @@
 
 > **We Gave AI a Mirror. Now It Measures What It Believes.**
 
-[![Version](https://img.shields.io/badge/version-1.12.11-blue)](https://github.com/EmpiricaAI/empirica/releases/tag/v1.12.11)
+[![Version](https://img.shields.io/badge/version-1.12.12-blue)](https://github.com/EmpiricaAI/empirica/releases/tag/v1.12.12)
 [![PyPI](https://img.shields.io/pypi/v/empirica)](https://pypi.org/project/empirica/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)]()
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -101,13 +101,13 @@ empirica setup-claude-code
 
 ```bash
 # Security-hardened Alpine image (~276MB, recommended)
-docker pull nubaeon/empirica:1.12.11-alpine
+docker pull nubaeon/empirica:1.12.12-alpine
 
 # Standard image (Debian slim, ~414MB)
-docker pull nubaeon/empirica:1.12.11
+docker pull nubaeon/empirica:1.12.12
 
 # Run
-docker run -it -v $(pwd)/.empirica:/data/.empirica nubaeon/empirica:1.12.11 /bin/bash
+docker run -it -v $(pwd)/.empirica:/data/.empirica nubaeon/empirica:1.12.12 /bin/bash
 ```
 </details>
 
@@ -352,14 +352,12 @@ The open-source projects are free for everyone. What the Foundation adds is a **
 
 ---
 
-## What's New in 1.12.11
+## What's New in 1.12.12
 
-- **Daemon CRM projection — richer contacts, engagement tasks, contact/manager
-- **Calibration config — settable epistemic weights + Sentinel thresholds (per-practice + global).**
-- **`empirica security-audit` is now STRICT and shares one governed waiver source
-- **nltk removed from the dependency tree** — the `[prose]` evidence extra pulled
-- **`get_instance_id()` no longer emits a harmful false-positive warning for
-- **Daemon CRM projections degrade to empty instead of 500-ing on
+- **Engagement `planned` (pre-active) lifecycle state + `?lifecycle=all`
+- **Presence torn-write data corruption.** `write_presence` and the daemon's
+- **Sentinel no longer spuriously reports "Epistemic loop closed" mid-transaction.**
+- **cortex-mailbox skills are harness-portable.** The mailbox poll/send skills
 ---
 
 ## Privacy & Data
@@ -389,6 +387,6 @@ MIT License — see [LICENSE](LICENSE) for details.
 ---
 
 **Author:** David S. L. Van Assche
-**Version:** 1.12.11
+**Version:** 1.12.12
 
 *Turtles all the way down — built with its own epistemic framework, measuring what it knows at every step.*
