@@ -5,20 +5,26 @@ All notable changes to Empirica will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.12.11] — 2026-07-03
 
 ### Added
-- **Daemon CRM projection — richer contacts + engagement tasks.** `GET /api/v1/entities?type=contact`
-  now projects the full CRM detail per contact — `email`/`phone`/`title`
+- **Daemon CRM projection — richer contacts, engagement tasks, contact/manager
+  scoping.** `GET /api/v1/entities?type=contact` now projects the full CRM detail
+  per contact — `email`/`phone`/`title`
   (`contacts.email_primary`/`phone_primary`/`organization_title`), `tags`
-  (JSON-parsed), `notes`, `contact_type`, `lifecycle_stage`, plus `role` and
-  `parent_org_name` resolved from the contact→org `entity_membership` (role is a
-  free-text verb; org name joins `entity_registry.display_name`). New
+  (JSON-parsed), `notes`, `contact_type`, `lifecycle_stage`, `role` and
+  `parent_org_name` (contact→org `entity_membership`; role is a free-text verb,
+  org name joins `entity_registry.display_name`), plus **`tier`**
+  (`entity_registry.metadata.tier`) and **`reporting_to_name`** (resolves the
+  `reports_to` edge → manager's `display_name`). New
   `GET /api/v1/engagements/{id}/tasks` surfaces the workspace `engagement_tasks`
-  (task_id/title/status/assigned_to/due_at/…, oldest first, honest-empty).
-  Three new `WorkspaceDBRepository` maps (`get_contact_org_details_map`,
-  `get_contact_detail_map`, `get_engagement_tasks`); all field sources verified
-  against the live workspace.db.
+  (task_id/title/status/assigned_to/due_at/…, oldest first, honest-empty). New
+  **`?contact=`** filter on `GET /api/v1/engagements` scopes the feed to a
+  contact's active participations (`engagement_contacts` edge), composing with
+  the existing `?org=` (ticket_of) filter. Four new `WorkspaceDBRepository` maps
+  (`get_contact_org_details_map`, `get_contact_detail_map`,
+  `get_contact_reports_to_map`, `get_engagement_tasks`); all field sources
+  verified against the live workspace.db.
 - **Calibration config — settable epistemic weights + Sentinel thresholds (per-practice + global).**
   A new `empirica/core/calibration_config.py` declares the tunable surface (the 4
   dimension weights + 4 Sentinel thresholds — the same shape personas use as
@@ -77,6 +83,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   PYSEC-2026-597 release-gate waiver is **retired** rather than carried. The
   prose-quality evidence metrics `textstat_readability`/`textstat_density` are
   renamed `readability`/`readability_density`.
+
+### Fixed
+- **`get_instance_id()` no longer emits a harmful false-positive warning for
+  UUIDv7 practitioner_ids.** The tmux Priority-1 override guard treated only
+  cockpit-slot ids (`[a-z][a-z0-9_-]*`, leading lowercase letter) as intentional;
+  a UUIDv7 starts with a digit, so a codex/ecodex fork that wires its `thread_id`
+  into `EMPIRICA_INSTANCE_ID` (to key per-practitioner calibration) fell through
+  to a `logger.warning` advising *"unset EMPIRICA_INSTANCE_ID"* — following which
+  would sever the practitioner_id → calibration mapping. The guard now also
+  accepts UUID-shaped ids (via the existing `_is_uuid_format` helper) → logs at
+  debug. Resolution was already correct; only the misleading warning is silenced.
+- **Daemon CRM projections degrade to empty instead of 500-ing on
+  older/minimal workspace DBs.** The contact-detail / engagement-task / `?contact=`
+  queries hit tables (`contacts`, `engagement_tasks`, `engagement_contacts`) that
+  are workspace-managed and absent on a core-only install; a `_table_exists`
+  guard now returns `{}`/`[]`/`count 0` rather than raising
+  `OperationalError: no such table`, so `GET /api/v1/entities` and
+  `GET /api/v1/engagements` stay 200.
 
 ## [1.12.10] — 2026-07-02
 
