@@ -2,7 +2,7 @@
 
 > **We Gave AI a Mirror. Now It Measures What It Believes.**
 
-[![Version](https://img.shields.io/badge/version-1.12.12-blue)](https://github.com/EmpiricaAI/empirica/releases/tag/v1.12.12)
+[![Version](https://img.shields.io/badge/version-1.12.13-blue)](https://github.com/EmpiricaAI/empirica/releases/tag/v1.12.13)
 [![PyPI](https://img.shields.io/pypi/v/empirica)](https://pypi.org/project/empirica/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)]()
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -101,13 +101,13 @@ empirica setup-claude-code
 
 ```bash
 # Security-hardened Alpine image (~276MB, recommended)
-docker pull nubaeon/empirica:1.12.12-alpine
+docker pull nubaeon/empirica:1.12.13-alpine
 
 # Standard image (Debian slim, ~414MB)
-docker pull nubaeon/empirica:1.12.12
+docker pull nubaeon/empirica:1.12.13
 
 # Run
-docker run -it -v $(pwd)/.empirica:/data/.empirica nubaeon/empirica:1.12.12 /bin/bash
+docker run -it -v $(pwd)/.empirica:/data/.empirica nubaeon/empirica:1.12.13 /bin/bash
 ```
 </details>
 
@@ -352,12 +352,12 @@ The open-source projects are free for everyone. What the Foundation adds is a **
 
 ---
 
-## What's New in 1.12.12
+## What's New in 1.12.13
 
-- **Engagement `planned` (pre-active) lifecycle state + `?lifecycle=all`
-- **Presence torn-write data corruption.** `write_presence` and the daemon's
-- **Sentinel no longer spuriously reports "Epistemic loop closed" mid-transaction.**
-- **cortex-mailbox skills are harness-portable.** The mailbox poll/send skills
+- **Legacy Flask dashboard API.** `empirica serve` runs the FastAPI serve
+- **Presence: a live practitioner no longer disappears behind a stale
+- **Loops: ghost canonical-loop units guarded.** Loop enablement now refuses a
+- **Hooks: vendor-agnostic practice resolution at the post-compact boundary.**
 ---
 
 ## Privacy & Data
@@ -387,6 +387,6 @@ MIT License — see [LICENSE](LICENSE) for details.
 ---
 
 **Author:** David S. L. Van Assche
-**Version:** 1.12.12
+**Version:** 1.12.13
 
 *Turtles all the way down — built with its own epistemic framework, measuring what it knows at every step.*
