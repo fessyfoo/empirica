@@ -7,7 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.14] — 2026-07-06
+
 ### Added
+- **`source-update` — re-fetch a source and recompute its content identity.**
+  The act half of the source lifecycle: after `sources-check` flags a source
+  stale or broken, `source-update` re-fetches it (local path first, else the
+  http(s) URL, size-capped), recomputes `content_hash` / size / mime, and
+  appends an audit event. A failed re-fetch updates nothing — an existing hash
+  is never wiped by a transient failure.
+- **`delete-artifacts` — edge deletion + dangling-edge repair/prune.** Alongside
+  node deletion it now accepts `edges` (delete a specific edge) and
+  `prune_dangling` (sweep edges whose endpoints no longer exist). Prune is
+  repair-before-prune by default: an endpoint that resolves to a real artifact
+  (e.g. a short id prefix) is rewired instead of deleted; only the truly
+  unrecoverable is removed. Dry-run by default.
+- **Artifact-graph gate — per-practice enforce via `.empirica/project.yaml`.**
+  The scalar gate can read its `strictness` / `connectivity_floor` / `patience`
+  from a per-practice (gitignored) `artifact_graph` block, so a practice can opt
+  into enforce (block the noetic→praxic transition below the connectivity floor)
+  locally without changing the report-only default for everyone else.
 - **`empirica mailbox poll` / `show` / `archive` — the receive side of the mesh
   CLI.** Symmetric with `empirica mailbox reply` (send/ack). `poll` wraps the
   cortex inbox/outbox HTTP endpoints (`--ai-id`, `--status`, `--since`,
@@ -38,6 +57,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stranding the session under a phantom id. Auto-init now adopts the existing id
   (local sessions.db → registry.yaml → workspace.db) and mints only when all are
   empty.
+- **Non-proposal wake shapes (e.g. SER escalations) are now deliverable.** The
+  listener discarded the push body and the catch-up reconstructed only proposals,
+  so a non-proposal wake was structurally undeliverable. The listener now relays
+  allowlisted non-proposal shapes from the push body, and the catch-up reconciles
+  them from durable state so a dropped doorbell is recoverable on retry.
+- **SessionStart context leads with the pending mesh inbox.** The loader injected
+  the greet/goals block first, which dominated so hard that a woken practitioner
+  greeted instead of acting on a pending message. It now prepends the pending
+  inbox (bounded poll, fail-open); the monitor-arm hook is arm-by-replacement, so
+  a re-fired SessionStart no longer stacks duplicate wake delivery.
+- **Weave connectivity is degree-based.** The POSTFLIGHT connectivity count
+  treated only outgoing edges as connected, under-counting the common hub weave
+  (one decision grounded by N findings). It now counts any incident edge.
+- **`log-artifacts`: edges to non-existent artifacts are no longer silently
+  wired.** An endpoint matching no artifact (a guessed UUID or a bare id prefix)
+  was stored as a dangling row and counted as wired. Endpoints are now validated
+  — and short prefixes resolved to the full id — at write time on both the batch
+  and inline `--related-to` / `--edge` paths; a dangling endpoint is skipped with
+  a warning. An edges-only payload is now accepted so a mis-wired edge can be
+  repaired.
+- **EPP semantic-pushback check is a terse pointer, not a full block per prompt.**
+  The full multi-line check was injected on every substantive prompt — a
+  per-prompt token cost and, on some harnesses, a visible user-role prompt. It is
+  now a one-line pointer to the EPP protocol, injected the same way.
 
 ## [1.12.13] — 2026-07-04
 
