@@ -22,9 +22,9 @@
 > `empirica/cli/cli_core.py` — adding a new category means editing that
 > dictionary, then running this script.
 
-**Framework version:** 1.12.13
-**Generated:** 2026-07-05 12:02:13 UTC
-**Total commands:** 256 (across 26 categories)
+**Framework version:** 1.12.14
+**Generated:** 2026-07-05 23:13:09 UTC
+**Total commands:** 258 (across 26 categories)
 
 For the most up-to-date detail on any single command, prefer
 `empirica <command> --help` — the generator extracts the same `help`
@@ -65,7 +65,7 @@ require `--session-id` (`project-bootstrap`, `sessions-show`,
 | [session](#session) | 8 | `session-create`, `sessions-list`, `sessions-show`, … |
 | [workflow](#workflow) | 4 | `preflight-submit`, `check`, `check-submit`, … |
 | [goals](#goals) | 16 | `goals-create`, `goals-list`, `goals-search`, … |
-| [logging](#logging) | 23 | `finding-log`, `unknown-log`, `unknown-list`, … |
+| [logging](#logging) | 25 | `finding-log`, `unknown-log`, `unknown-list`, … |
 | [project](#project) | 18 | `project-init`, `project-update`, `project-create`, … |
 | [workspace](#workspace) | 20 | `workspace-init`, `workspace-map`, `workspace-list`, … |
 | [checkpoint](#checkpoint) | 7 | `checkpoint-create`, `checkpoint-load`, `checkpoint-list`, … |
@@ -1091,6 +1091,21 @@ Match local sources against the central catalogue by content identity and adopt 
 - `--verbose` — optional · flag
   Verbose output
 
+#### `empirica sources-check`
+
+Probe the http(s) URLs in this project's epistemic sources and surface link-rot (dead / auth-walled / errored). SURFACE-ONLY — reports rot, never deletes (retire a dead source via delete-artifacts or source-archive). Exit 1 if any URL is dead. The smallest mechanical slice of artifact-hygiene (docs/architecture/ARTIFACT_HYGIENE.md).
+
+**Arguments:**
+
+- `--project-id` — optional
+  Project UUID (auto-derived from active session when omitted)
+- `--timeout` — optional · type=`float` · default=`6.0`
+  Per-URL probe timeout in seconds (default: 6.0)
+- `--staleness-days` — optional · type=`int`
+  Only re-probe sources older than N days (fresh ones presumed live); 0 probes everything. Default: the practice's hygiene_policy source_staleness_days (30).
+- `--output` — optional · type=`choice` · choices={human, json} · default=`human`
+  Output format
+
 #### `empirica source-archive`
 
 Soft-delete a source. Use when the source is no longer valid (file deleted, URL dead, superseded by newer material). Edges from citing artifacts are preserved so the audit trail stays intact — the source just disappears from default listings. Pass --reason superseded + --target-id <newer-uuid> to chain forward to the replacement.
@@ -1103,6 +1118,19 @@ Soft-delete a source. Use when the source is no longer valid (file deleted, URL 
   Why this source is being archived
 - `--target-id` — optional
   Replacement source UUID (REQUIRED when --reason superseded — the chain forward)
+- `--output` — optional · type=`choice` · choices={human, json} · default=`human`
+  Output format
+- `--verbose` — optional · flag
+  Verbose output
+
+#### `empirica source-update`
+
+Re-fetch a source and recompute its content identity (content_hash / size / mime). The ACT half of the source lifecycle: run it after sources-check flags a source stale or broken. Prefers a local canonical_path, else the http(s) source_url. A failed re-fetch updates nothing — an existing content_hash is never wiped by an unreachable source.
+
+**Arguments:**
+
+- `--source-id` — **required**
+  Source UUID (or unique prefix) to re-fetch
 - `--output` — optional · type=`choice` · choices={human, json} · default=`human`
   Output format
 - `--verbose` — optional · flag
