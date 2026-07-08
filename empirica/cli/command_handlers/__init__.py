@@ -123,6 +123,7 @@ from .goal_commands import (
     handle_goals_prune_command,
     handle_goals_ready_command,
     handle_goals_refresh_command,
+    handle_goals_reopen_command,
     handle_goals_resume_command,
     handle_goals_search_command,
     handle_sessions_resume_command,
@@ -356,6 +357,7 @@ __all__ = [  # noqa: RUF022
     "handle_note_command",
     "handle_forgejo_publish_command",
     "handle_goals_activate_command",  # Activate planned goal → in_progress
+    "handle_goals_reopen_command",  # Reopen completed goal → in_progress (reversible close)
     "handle_goals_add_dependency_command",
     "handle_goals_add_task_command",
     "handle_goals_claim_command",  # Phase 3a - Git bridge
