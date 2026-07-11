@@ -21,7 +21,7 @@ import sys
 
 from ...data.repositories.workspace_db import WorkspaceDBRepository
 from ..cli_utils import handle_cli_error
-from .entity_commands import mint_entity
+from .entity_commands import _embed_entity_row, mint_entity
 
 
 def _emit_user_error(output: str, message: str, error: str = "invalid_argument") -> None:
@@ -74,6 +74,16 @@ def handle_engagement_create_command(args):
                     _emit_user_error(output, str(ve))
             if org:
                 repo.upsert_entity_membership("engagement", eid, "organization", org, role="ticket_of")
+        # §6.2: re-embed with domain+stage now that the sidecar carries them (the
+        # bare point mint_entity created is upserted in place — stable id, idempotent).
+        _embed_entity_row(
+            "engagement",
+            eid,
+            title,
+            description=getattr(args, "description", None),
+            domain=getattr(args, "domain", None),
+            stage=getattr(args, "stage", None),
+        )
         if output == "json":
             print(
                 json.dumps(

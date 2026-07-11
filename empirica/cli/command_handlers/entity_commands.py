@@ -22,6 +22,100 @@ from ...data.repositories.workspace_db import WorkspaceDBRepository
 from ..cli_utils import handle_cli_error
 
 
+def _embed_entity_row(
+    entity_type: str,
+    entity_id: str,
+    display_name: str,
+    description: str | None = None,
+    metadata: dict | None = None,
+    status: str = "active",
+    domain: str | None = None,
+    stage: str | None = None,
+    emoji_state: str | None = None,
+) -> None:
+    """ERM §6.2 hook: embed an entity row as its own searchable workspace_index
+    point after a registry write. Best-effort — a Qdrant hiccup must NEVER fail
+    the mint, so all errors are swallowed (the writer itself also never raises)."""
+    try:
+        from empirica.core.qdrant.workspace_index import embed_entity_to_workspace_index
+
+        embed_entity_to_workspace_index(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            display_name=display_name,
+            description=description or "",
+            status=status,
+            metadata=metadata,
+            domain=domain,
+            stage=stage,
+            emoji_state=emoji_state,
+        )
+    except Exception:
+        pass
+
+
+def handle_entity_reindex_command(args):
+    """entity-reindex — backfill every entity_registry ROW as a §6.2 searchable
+    workspace_index point (point_kind='entity'). The ERM §6.2 spec's
+    ``workspace-index reindex --entities``, in core's flat-verb convention.
+
+    Idempotent by construction (stable point ids → upsert). ``--dry-run`` counts
+    the rows without embedding; ``--type`` scopes to one entity_type.
+    """
+    import json as _json
+
+    try:
+        from empirica.core.qdrant.workspace_index import embed_entity_to_workspace_index
+
+        output = getattr(args, "output", "human")
+        dry_run = getattr(args, "dry_run", False)
+        type_filter = getattr(args, "type", None)
+
+        # Materialize the rows, then close the repo before the (network) embed loop.
+        with WorkspaceDBRepository.open() as repo:
+            rows = repo.list_entities(entity_type=type_filter, status="all", limit=1_000_000)
+
+        embedded = 0
+        skipped = 0
+        for r in rows:
+            et, eid = r.get("entity_type"), r.get("entity_id")
+            if not et or not eid:
+                skipped += 1
+                continue
+            if dry_run:
+                embedded += 1
+                continue
+            try:
+                meta = _json.loads(r.get("metadata") or "{}")
+            except (ValueError, TypeError):
+                meta = {}
+            ok = embed_entity_to_workspace_index(
+                entity_type=et,
+                entity_id=eid,
+                display_name=r.get("display_name") or eid,
+                description=r.get("description") or "",
+                status=r.get("status") or "active",
+                metadata=meta if isinstance(meta, dict) else {},
+                emoji_state=r.get("emoji_state"),
+            )
+            embedded += 1 if ok else 0
+            skipped += 0 if ok else 1
+
+        result = {"ok": True, "embedded": embedded, "skipped": skipped, "dry_run": dry_run, "total": len(rows)}
+        if output == "json":
+            print(_json.dumps(result, indent=2))
+        else:
+            verb = "would embed" if dry_run else "embedded"
+            print(
+                f"🔎 entity-reindex: {verb} {embedded}/{len(rows)} entity rows into workspace_index ({skipped} skipped)"
+            )
+        sys.exit(0)
+    except SystemExit:
+        raise
+    except Exception as e:
+        handle_cli_error(e, "entity-reindex", getattr(args, "verbose", False))
+
+
 def _parse_entity_arg(args) -> tuple[str | None, str | None]:
     """Resolve the entity reference from positional 'type:id' or --type/--id.
 
@@ -198,6 +292,7 @@ def mint_contact(
             description=description,
             metadata=json.dumps(metadata),
         )
+        _embed_entity_row("contact", entity_id, name, description, metadata)  # §6.2 searchable point
         return {"ok": True, "entity_id": entity_id, "created": True, "matched_by": None}
 
     if repo is not None:
@@ -266,6 +361,10 @@ def mint_entity(
             description=description,
             metadata=json.dumps(metadata),
         )
+        # §6.2 searchable point. Engagements re-embed with domain+stage in
+        # engagement-create (written to the sidecar after this mint); the stable
+        # point id makes that a clean idempotent enrichment.
+        _embed_entity_row(entity_type, eid, name, description, metadata)
         return {"ok": True, "entity_id": eid, "created": created, "matched_by": None if created else "id"}
 
     if repo is not None:
