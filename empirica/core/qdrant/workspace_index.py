@@ -175,9 +175,10 @@ def _compose_entity_text(
     et = _canon_entity_type(entity_type)
     parts: list[str] = [display_name or ""]
     if et == "contact":
-        parts += [md.get("company"), md.get("role") or md.get("title"), description]
+        # mint_contact stores company_name / role — tolerate the spec's shorthand too.
+        parts += [md.get("company") or md.get("company_name"), md.get("role") or md.get("title"), description]
     elif et == "organization":
-        parts += [description, md.get("industry") or md.get("sector")]
+        parts += [description, md.get("industry") or md.get("sector") or md.get("domain")]
     elif et == "engagement":
         parts += [domain, stage, md.get("outcome"), md.get("symptom"), md.get("resolution"), description]
     else:

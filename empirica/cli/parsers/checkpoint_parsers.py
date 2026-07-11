@@ -722,6 +722,18 @@ def add_checkpoint_parsers(subparsers):
     entity_search_parser.add_argument("--limit", type=int, default=50, help="Max results (default: 50)")
     entity_search_parser.add_argument("--output", choices=["human", "json"], default="human", help="Output format")
 
+    entity_reindex_parser = subparsers.add_parser(
+        "entity-reindex",
+        help=(
+            "Backfill: embed every entity_registry row as a searchable "
+            "workspace_index point (ERM §6.2 point_kind='entity'). Idempotent "
+            "(stable ids → upsert). Run once after upgrading, or to reindex."
+        ),
+    )
+    entity_reindex_parser.add_argument("--type", help="Optional entity_type filter (contact, organization, engagement)")
+    entity_reindex_parser.add_argument("--dry-run", action="store_true", help="Count rows without embedding")
+    entity_reindex_parser.add_argument("--output", choices=["human", "json"], default="human", help="Output format")
+
     entity_link_parser = subparsers.add_parser(
         "entity-link",
         help=(
