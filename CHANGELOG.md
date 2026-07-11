@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.12.17] — 2026-07-11
 
 ### Fixed
+- **Push listener no longer crashes on a `loop_state` write race (silent
+  mesh-connectivity loss).** `content_poll.save_state` used a *deterministic*
+  `<name>.tmp` path, so two concurrent writers on the same per-loop state file
+  (overlapping listener threads/processes) raced: one's `os.replace` unlinked the
+  other's tmp, and the loser raised an unhandled `FileNotFoundError` that took
+  down the entire `empirica loop listen` push listener — dropping mesh
+  connectivity until someone re-armed. Now each write uses a **unique**
+  `tempfile.mkstemp` tmp (matching `loop_registry`'s writer, eliminating the
+  shared-tmp contention) and the persist is wrapped best-effort so a state-write
+  hiccup can never crash the listener. Reported live by extension.
 - **Daemon `/entities` accepts `org_id` as an additive alias for `parent_org`.**
   Extension's probe reported the CRM GET routes "ignore scoping params" — the
   real cause was a param-name mismatch + FastAPI silently dropping unknown query
