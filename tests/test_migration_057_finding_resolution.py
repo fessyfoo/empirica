@@ -57,7 +57,5 @@ def test_idempotent():
     migration_057_finding_resolution(cur)  # second run must not raise
     conn.commit()
     assert "is_resolved" in _cols(conn)
-    conn.execute(
-        "INSERT INTO project_findings (id, finding, is_resolved, resolution) VALUES ('f2', 'y', 1, 'stale')"
-    )
+    conn.execute("INSERT INTO project_findings (id, finding, is_resolved, resolution) VALUES ('f2', 'y', 1, 'stale')")
     assert conn.execute("SELECT is_resolved FROM project_findings WHERE id='f2'").fetchone()[0] == 1

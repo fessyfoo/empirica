@@ -26,7 +26,9 @@ def fresh_db(tmp_path):
 
 def _row(db, fid):
     cur = db.conn.cursor()
-    cur.execute("SELECT is_resolved, resolution, resolved_timestamp, superseded_by FROM project_findings WHERE id = ?", (fid,))
+    cur.execute(
+        "SELECT is_resolved, resolution, resolved_timestamp, superseded_by FROM project_findings WHERE id = ?", (fid,)
+    )
     return cur.fetchone()
 
 
