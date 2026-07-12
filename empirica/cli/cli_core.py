@@ -377,6 +377,7 @@ _HELP_CATEGORIES = {
     ],
     "logging": [
         "finding-log",
+        "finding-resolve",
         "unknown-log",
         "unknown-list",
         "unknown-resolve",
@@ -893,6 +894,7 @@ def main(args=None):
             # Finding/unknown/deadend/assumption/decision logging
             "note": handle_note_command,
             "finding-log": handle_finding_log_command,
+            "finding-resolve": handle_finding_resolve_command,
             "unknown-log": handle_unknown_log_command,
             "unknown-resolve": handle_unknown_resolve_command,
             "unknown-list": handle_unknown_list_command,

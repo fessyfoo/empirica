@@ -1278,6 +1278,53 @@ def handle_unknown_resolve_command(args):
         return 1
 
 
+def handle_finding_resolve_command(args):
+    """Handle finding-resolve command (#307 — the prune primitive).
+
+    Marks a finding resolved/superseded: kept for history, dropped from live
+    retrieval. Findings are the fruit that must be pluckable — recency-decay only
+    knows 'old', never 'superseded'.
+    """
+    try:
+        from empirica.data.session_database import SessionDatabase
+
+        finding_id = getattr(args, "finding_id", None)
+        resolution = getattr(args, "resolution", None)
+        superseded_by = getattr(args, "superseded_by", None)
+        output_format = getattr(args, "output", "json")
+
+        if not finding_id or not resolution:
+            print(json.dumps({"ok": False, "error": "finding_id and --resolution are required"}))
+            return 1
+
+        db = SessionDatabase()
+        updated = db.resolve_finding(finding_id, resolution, superseded_by=superseded_by)
+        db.close()
+
+        if not updated:
+            print(json.dumps({"ok": False, "error": f"no finding matched {finding_id!r} (full id or 8+ char prefix)"}))
+            return 1
+
+        result = {
+            "ok": True,
+            "finding_id": finding_id,
+            "resolution": resolution,
+            "superseded_by": superseded_by,
+            "message": "Finding resolved (kept for history, dropped from live retrieval)",
+        }
+        if output_format == "json":
+            print(json.dumps(result, indent=2))
+        else:
+            print(f"✅ Finding resolved: {finding_id[:8]}... ({resolution})")
+            if superseded_by:
+                print(f"   superseded by: {superseded_by[:8]}...")
+        return 0
+
+    except Exception as e:
+        handle_cli_error(e, "Finding resolve", getattr(args, "verbose", False))
+        return 1
+
+
 def _resolve_project_id_from_context(cursor, session_id, project_id):
     """Auto-derive project_id from session_id or active context."""
     if project_id:

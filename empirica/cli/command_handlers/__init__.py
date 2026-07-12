@@ -14,6 +14,7 @@ from .artifact_log_commands import (
     handle_decision_log_command,
     handle_engagement_focus_command,
     handle_finding_log_command,
+    handle_finding_resolve_command,
     handle_mistake_log_command,
     handle_mistake_query_command,
     handle_source_add_command,
@@ -356,6 +357,7 @@ __all__ = [  # noqa: RUF022
     "handle_epistemics_stats_command",
     "handle_epp_activate_command",
     "handle_finding_log_command",
+    "handle_finding_resolve_command",
     "handle_note_command",
     "handle_forgejo_publish_command",
     "handle_goals_activate_command",  # Activate planned goal → in_progress

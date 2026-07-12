@@ -23,8 +23,8 @@
 > dictionary, then running this script.
 
 **Framework version:** 1.12.17
-**Generated:** 2026-07-11 13:11:25 UTC
-**Total commands:** 266 (across 26 categories)
+**Generated:** 2026-07-12 09:42:42 UTC
+**Total commands:** 267 (across 26 categories)
 
 For the most up-to-date detail on any single command, prefer
 `empirica <command> --help` — the generator extracts the same `help`
@@ -65,7 +65,7 @@ require `--session-id` (`project-bootstrap`, `sessions-show`,
 | [session](#session) | 8 | `session-create`, `sessions-list`, `sessions-show`, … |
 | [workflow](#workflow) | 4 | `preflight-submit`, `check`, `check-submit`, … |
 | [goals](#goals) | 16 | `goals-create`, `goals-list`, `goals-search`, … |
-| [logging](#logging) | 30 | `finding-log`, `unknown-log`, `unknown-list`, … |
+| [logging](#logging) | 31 | `finding-log`, `finding-resolve`, `unknown-log`, … |
 | [project](#project) | 18 | `project-init`, `project-update`, `project-create`, … |
 | [workspace](#workspace) | 21 | `workspace-init`, `workspace-map`, `workspace-list`, … |
 | [checkpoint](#checkpoint) | 7 | `checkpoint-create`, `checkpoint-load`, `checkpoint-list`, … |
@@ -677,6 +677,23 @@ Log a discovery — something concrete you NOW know that wasn't obvious before. 
   How this artifact was arrived at: intuition (training data + loaded context, no external retrieval since goal opened), search (external retrieval this session), or mixed.
 - `--output` — optional · type=`choice` · choices={human, json} · default=`human`
   Output format
+- `--verbose` — optional · flag
+  Show detailed operation info
+
+#### `empirica finding-resolve`
+
+Resolve/supersede a finding — kept for history, dropped from live retrieval (PREFLIGHT/CHECK relevant_findings). Findings are the fruit that must be pluckable: recency-decay only knows 'old', never 'superseded'. Run to stop a stale/superseded finding resurfacing.
+
+**Arguments:**
+
+- `finding_id` — **required**
+  Finding UUID (full or 8+ char prefix)
+- `--resolution` — **required**
+  Why resolved (e.g. stale, superseded, invalidated)
+- `--superseded-by` — optional
+  Finding ID that replaced it (superseded finding → its replacement)
+- `--output` — optional · type=`choice` · choices={human, json} · default=`json`
+  Output format (default: json)
 - `--verbose` — optional · flag
   Show detailed operation info
 

@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`finding-resolve` — the resolve/prune verb findings never had (#307).**
+  Findings were the only artifact type with no way to close them: unknowns,
+  assumptions, and goals all have resolve verbs, but a stale or superseded
+  finding could only *passively decay*. Recency-decay detects age, not
+  supersession — a two-month-old finding still semantically strong keeps
+  resurfacing high in PREFLIGHT/CHECK, and a superseded one never sinks fast
+  enough. `empirica finding-resolve <id> --resolution <why> [--superseded-by
+  <id>]` marks a finding resolved (kept for history, dropped from live
+  retrieval), mirroring `project_unknowns.is_resolved`; `--superseded-by` links
+  it to the finding that replaced it. `resolve-artifacts` batch gains a
+  `type="finding"` branch. New columns (`is_resolved`, `resolution`,
+  `resolved_timestamp`, `superseded_by`) land via migration 057 — additive,
+  nullable, idempotent.
+- **Resolved findings are dropped from both attention-injection surfaces.**
+  (1) The Qdrant PREFLIGHT/CHECK `relevant_findings` teaser reconciles against
+  live SQLite at read time (`_reconcile_findings_against_sqlite`) — Qdrant's
+  `is_resolved` payload is frozen at embed time, so a finding resolved *after*
+  embedding still reads unresolved there; the read-time reconcile is the fix
+  (same pattern as goal reconciliation), matching by `artifact_id` with a
+  text-prefix fallback for pre-#307 embeds. (2) The breadcrumbs post-compact
+  `EPISTEMIC FOCUS` block's `recent_findings` query gained an `is_resolved`
+  filter (the sibling unknowns query already had one), schema-guarded for DBs
+  predating migration 057. Both paths are best-effort — any failure returns the
+  raw set, never breaking the retrieval hot-path.
+
 ### Fixed
 - **Sentinel no longer over-gates read-only pipe chains — receiver trust
   brought to parity with standalone trust.** `is_safe_pipe_chain` kept two
