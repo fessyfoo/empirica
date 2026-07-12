@@ -275,6 +275,11 @@ test to reason about a tool you haven't seen before, rather than memorizing a li
     `grep`/`for-each-ref`/`rev-parse`…), `gh` read verbs, read-only analysis
     (`ruff check`/`pyright`/`radon`/`vulture`/`mypy`), package inspection
     (`pip show`/`list`), and `sqlite3 db "SELECT…"`/`.schema`/`PRAGMA` (read queries).
+  - **Keep noetic reads gate-recognizable.** Prefer the dedicated tools and simple
+    one-command reads over `for`-loops, `echo "$(cmd)"` wrapping, and long
+    multi-statement chains (a bare `sqlite3 db "SELECT…"` flows where the wrapped form
+    may not). If a read gates: simplify it or use the dedicated tool — never CHECK to
+    bypass a read. A clean read that still gates is an over-gating bug: `empirica note` it.
 - **Praxic (need CHECK):** `Edit`, `Write`, and any Bash that *can* mutate —
   `python3 -c` / `node -e` (arbitrary execution), a redirect to a file (`> f`),
   package installs, `git commit`/`push`, `rm`/`mv`/`cp`, **and the write/exec MODES
