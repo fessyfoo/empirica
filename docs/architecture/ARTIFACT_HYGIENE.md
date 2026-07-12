@@ -1,10 +1,13 @@
 # Artifact Hygiene — the cross-transaction, per-practice sweep
 
-> **Status: design spec.** Companion to [GATED_ARTIFACT_GRAPH.md](GATED_ARTIFACT_GRAPH.md).
-> That map governs *within-transaction* connectivity at POSTFLIGHT; this one
-> governs the *whole-practice, cross-transaction* upkeep POSTFLIGHT structurally
-> can't see. The primitives already exist — this is an **orchestration + policy**
-> problem, not a build-from-scratch.
+> **Status: design spec + operational skill.** Companion to
+> [GATED_ARTIFACT_GRAPH.md](GATED_ARTIFACT_GRAPH.md). That map governs
+> *within-transaction* connectivity at POSTFLIGHT; this one governs the
+> *whole-practice, cross-transaction* upkeep POSTFLIGHT structurally can't see. The
+> primitives already exist — this is an **orchestration + policy** problem, not a
+> build-from-scratch. The orchestration now ships as the **`/epistemic-gardening`
+> skill** — this doc is the *policy*, the skill is the *procedure* (the six-phase
+> pass + the cross-practice mesh propagation).
 
 ## 1. The problem
 
@@ -17,7 +20,9 @@ observe:
 - **Sources** whose URLs 404 or moved (link-rot), or whose *content* drifted.
 - **Edges** — orphan artifacts (0 edges), or artifacts wired to a weaker edge
   than the graph now warrants.
-- **Noise** — test-run artifacts, exact duplicates, superseded findings.
+- **Noise** — test-run artifacts, exact duplicates. (Superseded findings are
+  *resolved*, not deleted — `finding-resolve --superseded-by` keeps the trail;
+  delete is reserved for true noise with no epistemic value.)
 
 POSTFLIGHT already does the *within-transaction* half — weave-gate (orphans /
 connectivity), breadth, edge-density, sources-discipline, deferred-proposals.
@@ -29,7 +34,8 @@ cross-goal dedup, long-open-unknown triage, orphan re-wiring across transactions
 | Primitive | Does |
 |---|---|
 | `empirica goals-get-stale` | detect stale goals (dry-run detection) |
-| `empirica resolve-artifacts -` | batch-resolve unknowns / assumptions / goals |
+| `empirica finding-resolve` | resolve/supersede a **finding** (kept for history, dropped from live retrieval via read-time reconcile — #307). Findings were previously the one artifact type with no resolve verb; superseded findings are now *resolved*, not *deleted*. |
+| `empirica resolve-artifacts -` | batch-resolve unknowns / assumptions / goals / **findings** |
 | `empirica delete-artifacts -` | batch delete — **dry-run default + receipt logged as a decision for audit** |
 | `empirica log-artifacts -` | node + edge writes (edge re-wiring) |
 | `empirica sources-reconcile` | source-identity dedup vs the catalogue (`--apply`, dry-run default) |
