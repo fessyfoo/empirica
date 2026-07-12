@@ -275,16 +275,11 @@ test to reason about a tool you haven't seen before, rather than memorizing a li
     `grep`/`for-each-ref`/`rev-parse`…), `gh` read verbs, read-only analysis
     (`ruff check`/`pyright`/`radon`/`vulture`/`mypy`), package inspection
     (`pip show`/`list`), and `sqlite3 db "SELECT…"`/`.schema`/`PRAGMA` (read queries).
-  - **Keep noetic reads in a gate-recognizable form** (avoids wasted cycles). The
-    classifier errs toward gating when it can't *prove* inertness, so wrapping a read
-    in complex shell can force a spurious CHECK: prefer the dedicated tools
-    (`Read`/`Grep`/`Glob`/`noetic-batch`) and simple one-command reads over `for`-loops,
-    `echo "$(cmd)"` command-sub wrapping, and long multi-statement chains — a bare
-    `sqlite3 db "SELECT…"` flows where the same query wrapped in `echo "$(…)"` or a
-    `for t in $(…)` loop may not. If a genuinely read-only command gates: simplify the
-    form or use the dedicated tool — **never submit a CHECK just to bypass a read**
-    (that games the gate and wastes the very cycle you're saving). A clean read that
-    still gates is an over-gating bug — drop a quick `empirica note` so it gets fixed.
+  - **Keep noetic reads gate-recognizable.** Prefer the dedicated tools and simple
+    one-command reads over `for`-loops, `echo "$(cmd)"` wrapping, and long
+    multi-statement chains (a bare `sqlite3 db "SELECT…"` flows where the wrapped form
+    may not). If a read gates: simplify it or use the dedicated tool — never CHECK to
+    bypass a read. A clean read that still gates is an over-gating bug: `empirica note` it.
 - **Praxic (need CHECK):** `Edit`, `Write`, and any Bash that *can* mutate —
   `python3 -c` / `node -e` (arbitrary execution), a redirect to a file (`> f`),
   package installs, `git commit`/`push`, `rm`/`mv`/`cp`, **and the write/exec MODES
