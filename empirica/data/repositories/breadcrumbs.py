@@ -371,6 +371,35 @@ class BreadcrumbRepository(BaseRepository):
         self.commit()
         logger.info(f"✅ Unknown resolved: {unknown_id[:8]}...")
 
+    def resolve_finding(self, finding_id: str, resolution: str, superseded_by: str | None = None) -> bool:
+        """Mark a finding as resolved/superseded — kept for history, dropped from
+        live retrieval (#307, the prune primitive). Mirrors resolve_unknown.
+
+        Recency-decay only knows a finding is *old*, never that it's *superseded*;
+        this is the explicit lever. Returns True if a row was updated.
+
+        Args:
+            finding_id: Full or partial UUID (minimum 8 chars)
+            resolution: Why it's resolved/superseded (e.g. 'stale', 'superseded', 'invalidated')
+            superseded_by: Optional finding ID that replaced it (fruit → its replacement)
+        """
+        where = "id LIKE ?" if len(finding_id) < 36 else "id = ?"
+        match = f"{finding_id}%" if len(finding_id) < 36 else finding_id
+        cur = self._execute(
+            f"""
+            UPDATE project_findings
+            SET is_resolved = TRUE, resolution = ?, resolved_timestamp = ?, superseded_by = ?
+            WHERE {where}
+            """,
+            (resolution, time.time(), superseded_by, match),
+        )
+        self.commit()
+        updated = bool(getattr(cur, "rowcount", 0))
+        logger.info(
+            f"{'✅' if updated else '⚠️'} Finding resolve {finding_id[:8]}...: {'updated' if updated else 'no match'}"
+        )
+        return updated
+
     def log_dead_end(
         self,
         project_id: str,

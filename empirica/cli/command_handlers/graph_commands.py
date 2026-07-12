@@ -72,10 +72,11 @@ LOG_ARTIFACTS_SCHEMA = {
 RESOLVE_ARTIFACTS_SCHEMA = {
     "resolutions": [
         {
-            "type": "unknown | assumption | goal",
+            "type": "unknown | assumption | goal | finding",
             "id": "<UUID of the artifact to resolve>",
             "resolution": "<resolution text or status — semantics depend on type>",
             "verified": "<true/false, optional, for assumption→finding>",
+            "superseded_by": "<optional finding UUID that replaced this one — finding type only>",
         },
     ],
 }
@@ -773,6 +774,22 @@ def handle_resolve_artifacts_command(args):  # noqa: C901 — batch dispatcher f
                         resolved_count += 1
                     else:
                         resolution_errors.append(f"Unknown '{artifact_id}' not found")
+
+                elif artifact_type == "finding":
+                    # #307: resolve/supersede a finding — keep for history, drop
+                    # from live retrieval. superseded_by optionally links the replacement.
+                    import time as _tf
+
+                    cursor = db.conn.cursor()
+                    cursor.execute(
+                        "UPDATE project_findings SET is_resolved = 1, resolution = ?, "
+                        "resolved_timestamp = ?, superseded_by = ? WHERE id LIKE ?",
+                        (resolution, _tf.time(), item.get("superseded_by"), f"{artifact_id}%"),
+                    )
+                    if cursor.rowcount > 0:
+                        resolved_count += 1
+                    else:
+                        resolution_errors.append(f"Finding '{artifact_id}' not found")
 
                 elif artifact_type == "assumption":
                     cursor = db.conn.cursor()

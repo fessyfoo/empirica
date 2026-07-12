@@ -1496,6 +1496,11 @@ ALL_MIGRATIONS: list[tuple[str, str, Callable]] = [
         "Add archived/archived_at columns to goals — goal-lifecycle archive-after-X (mirrors source-archive). A completed goal older than N days can be archived (hidden from the completed list unless --include-archived) so the completed view doesn't grow unbounded; goals-reopen un-archives. Indexed. Additive + idempotent via add_column_if_missing.",
         lambda cursor: migration_056_goals_archived(cursor),
     ),
+    (
+        "057_finding_resolution",
+        "Add resolution state (is_resolved, resolution, resolved_timestamp, superseded_by) to project_findings — the finding-resolve/prune primitive (#307). Findings were the only artifact type with no resolve verb, so stale/superseded findings could only passively decay and kept resurfacing high in PREFLIGHT/CHECK. A resolved finding is kept for history but dropped from live retrieval (read-time SQLite reconcile), mirroring project_unknowns.is_resolved. superseded_by links a superseded finding → its replacement. Additive + idempotent via add_column_if_missing.",
+        lambda cursor: migration_057_finding_resolution(cursor),
+    ),
 ]
 
 
@@ -2089,6 +2094,29 @@ def migration_056_goals_archived(cursor: sqlite3.Cursor):
     add_column_if_missing(cursor, "goals", "archived_at", "REAL", "NULL")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_goals_archived ON goals(archived)")
     logger.info("✅ Migration 056 complete: archived/archived_at columns added to goals")
+
+
+def migration_057_finding_resolution(cursor: sqlite3.Cursor):
+    """Add resolution state to project_findings — the finding-resolve/prune
+    primitive (#307).
+
+    Findings were the only artifact type with no resolve verb: they could only
+    passively decay, so stale/superseded findings kept resurfacing high in
+    PREFLIGHT/CHECK's relevant_findings (recency-decay can't detect *supersession*,
+    only age). A resolved finding is kept for history but dropped from live
+    retrieval (read-time SQLite reconcile), mirroring project_unknowns.is_resolved.
+    ``superseded_by`` links the resolved finding to the finding that replaced it.
+
+    Fresh DBs get these columns inline from projects_schema.py; this backfills
+    long-lived DBs (the migration_042 pattern). Nullable, additive, idempotent
+    via add_column_if_missing; indexed for the resolved-filter.
+    """
+    add_column_if_missing(cursor, "project_findings", "is_resolved", "BOOLEAN", "0")
+    add_column_if_missing(cursor, "project_findings", "resolution", "TEXT", "NULL")
+    add_column_if_missing(cursor, "project_findings", "resolved_timestamp", "REAL", "NULL")
+    add_column_if_missing(cursor, "project_findings", "superseded_by", "TEXT", "NULL")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_project_findings_resolved ON project_findings(is_resolved)")
+    logger.info("✅ Migration 057 complete: resolution state added to project_findings")
 
 
 def migration_051_goals_engagement_id(cursor: sqlite3.Cursor):

@@ -1100,6 +1100,30 @@ def add_checkpoint_parsers(subparsers):
     )
     unknown_resolve_parser.add_argument("--verbose", action="store_true", help="Show detailed operation info")
 
+    # Finding resolve command (#307 — the prune primitive)
+    finding_resolve_parser = subparsers.add_parser(
+        "finding-resolve",
+        help=(
+            "Resolve/supersede a finding — kept for history, dropped from live "
+            "retrieval (PREFLIGHT/CHECK relevant_findings). Findings are the fruit "
+            "that must be pluckable: recency-decay only knows 'old', never "
+            "'superseded'. Run to stop a stale/superseded finding resurfacing."
+        ),
+    )
+    finding_resolve_parser.add_argument("finding_id", help="Finding UUID (full or 8+ char prefix)")
+    finding_resolve_parser.add_argument(
+        "--resolution", required=True, help="Why resolved (e.g. stale, superseded, invalidated)"
+    )
+    finding_resolve_parser.add_argument(
+        "--superseded-by",
+        dest="superseded_by",
+        help="Finding ID that replaced it (superseded finding → its replacement)",
+    )
+    finding_resolve_parser.add_argument(
+        "--output", choices=["human", "json"], default="json", help="Output format (default: json)"
+    )
+    finding_resolve_parser.add_argument("--verbose", action="store_true", help="Show detailed operation info")
+
     # Unknown list command
     unknown_list_parser = subparsers.add_parser(
         "unknown-list",
