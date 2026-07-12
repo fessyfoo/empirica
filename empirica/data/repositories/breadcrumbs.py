@@ -230,11 +230,34 @@ class BreadcrumbRepository(BaseRepository):
                 source_tag,
             ),
         )
+        self._attach_to_goal(finding_id, goal_id)
 
         self.commit()
         logger.info(f"📝 Finding logged: {finding[:50]}...")
 
         return finding_id
+
+    def _attach_to_goal(self, artifact_id: str, goal_id: str | None) -> None:
+        """Materialize the structural `attached_to` edge (artifact → its goal) in
+        artifact_edges AT LOG TIME, not only at POSTFLIGHT.
+
+        The weave-gate enforces graph connectivity at CHECK, but the goal
+        attachment was historically written only during the POSTFLIGHT/cortex-sync
+        pass — so an artifact logged under an active goal read as unconnected at
+        CHECK and the gate false-blocked the disciplined goal-per-transaction flow.
+        Writing it here makes goal-attachment live in the graph immediately, so the
+        gate counts it (real edge, no virtual crediting). Idempotent via INSERT OR
+        IGNORE; best-effort — a connectivity bookkeeping write must never fail a log.
+        """
+        if not goal_id:
+            return
+        try:
+            self._execute(
+                "INSERT OR IGNORE INTO artifact_edges (from_id, to_id, relation) VALUES (?, ?, 'attached_to')",
+                (artifact_id, goal_id),
+            )
+        except Exception as e:
+            logger.debug(f"_attach_to_goal skipped ({artifact_id}→{goal_id}): {e}")
 
     def log_unknown(
         self,
@@ -331,6 +354,7 @@ class BreadcrumbRepository(BaseRepository):
             ),
         )
 
+        self._attach_to_goal(unknown_id, goal_id)
         self.commit()
         logger.info(f"❓ Unknown logged: {unknown[:50]}...")
 
@@ -495,6 +519,7 @@ class BreadcrumbRepository(BaseRepository):
             ),
         )
 
+        self._attach_to_goal(dead_end_id, goal_id)
         self.commit()
         logger.info(f"💀 Dead end logged: {approach[:50]}...")
 
@@ -880,6 +905,7 @@ class BreadcrumbRepository(BaseRepository):
             ),
         )
 
+        self._attach_to_goal(mistake_id, goal_id)
         self.commit()
         logger.info(f"📝 Mistake logged: {mistake[:50]}...")
 
@@ -1009,6 +1035,7 @@ class BreadcrumbRepository(BaseRepository):
             ),
         )
 
+        self._attach_to_goal(assumption_id, goal_id)
         self.commit()
         return assumption_id
 
@@ -1077,6 +1104,7 @@ class BreadcrumbRepository(BaseRepository):
             ),
         )
 
+        self._attach_to_goal(decision_id, goal_id)
         self.commit()
         return decision_id
 
