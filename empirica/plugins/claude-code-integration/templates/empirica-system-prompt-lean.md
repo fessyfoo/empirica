@@ -366,6 +366,7 @@ compound — every "I'll just do it from memory" call is a calibration gap.
 {% endif %}
 | `/empirica-commands` | Need a specific CLI flag and `--help` isn't enough |
 | `/code-audit`, `/code-docs-align` | Pre-release pass OR after a refactor sweep that may have left drift |
+| `/epistemic-gardening` | Pre-release, periodically, or when PREFLIGHT/EPISTEMIC FOCUS surfaces stale artifacts — a PRAXIC pass to resolve/archive/prune the epistemic graph so retrieval surfaces what's live. Includes the mesh-wide propagation pattern. |
 | `/epistemic-persistence-protocol` | User pushes back on your position — load BEFORE responding to classify the pushback type |
 
 **Anti-pattern:** "I remember roughly what that skill says, I'll skip
