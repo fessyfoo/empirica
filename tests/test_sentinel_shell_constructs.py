@@ -590,3 +590,57 @@ class TestNoeticCompoundAndBootstrap:
         # The security invariant behind the fix: segment-classification means a
         # safe leading `cd` can't launder an unsafe tail past the gate.
         assert gate.is_safe_bash_command({"command": cmd}) is False
+
+
+# ─── pipe-target parity (read-only receivers) ───────────────────────────────
+
+
+class TestPipeTargetParity:
+    """A read-only tool the Sentinel trusts as a standalone command must be
+    trusted as a pipe RECEIVER too. Pre-fix, SAFE_PIPE_TARGETS (~20 entries)
+    was a fraction of SAFE_BASH_PREFIXES (~95), so `sqlite3 db 'SELECT…' |
+    column -t` and friends got false-gated the moment a read-only formatter sat
+    on the tail. The unified classifier reuses _matches_safe_prefix (which
+    applies _has_dangerous_tool_flags), bringing receiver trust to parity while
+    keeping mutation flags praxic in ANY pipe position.
+    """
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            "sqlite3 /x/.empirica/sessions.db \"SELECT * FROM goals\" | column -t -s '|'",
+            "grep foo file.py | nl",
+            "cat data.json | gron",
+            "git log --oneline | tac",
+            "rg pattern src/ | bat",
+            "cat f.bin | xxd | head",
+            "git log | head | column -t",  # 3-stage read chain
+            "cat f | wc -l",  # regression: previously-safe target
+            "echo '{}' | jq .",  # regression: previously-safe target
+        ],
+    )
+    def test_read_only_receivers_are_noetic(self, gate, cmd):
+        assert gate.is_safe_pipe_chain(cmd) is True
+        assert gate.is_safe_bash_command({"command": cmd}) is True
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            "find . -delete | cat",  # mutating SOURCE
+            "cat f | sort -o out.txt",  # -o write flag mid-pipe (hole closed)
+            "cat f | yq -i '.x=1'",  # in-place edit mid-pipe
+            "cat f | awk 'system(\"rm x\")'",  # awk exec mid-pipe
+            "python3 -c 'import os; os.system(\"x\")' | cat",  # exec SOURCE stays gated
+            "grep x file | xargs rm",  # destructive fan-out
+            "cat f | sh",  # shell executor
+            "grep x file | column > out.txt",  # redirect on receiver
+        ],
+    )
+    def test_mutating_or_exec_segments_stay_gated(self, gate, cmd):
+        assert gate.is_safe_pipe_chain(cmd) is False
+
+    def test_executor_receiver_stays_receiver_only(self, gate):
+        # python3 -c is a legacy SAFE_PIPE_TARGET — trusted as a RECEIVER of
+        # already-vetted data, but never as a pipe SOURCE (arbitrary exec).
+        assert gate.is_safe_pipe_chain("cat f.json | python3 -c 'import sys; print(len(sys.stdin.read()))'") is True
+        assert gate.is_safe_pipe_chain("python3 -c 'print(1)' | cat") is False

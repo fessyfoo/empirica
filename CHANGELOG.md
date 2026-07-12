@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Sentinel no longer over-gates read-only pipe chains — receiver trust
+  brought to parity with standalone trust.** `is_safe_pipe_chain` kept two
+  drifted trust lists: `SAFE_BASH_PREFIXES` (~95 read-only tools trusted as
+  standalone commands) vs `SAFE_PIPE_TARGETS` (~20 trusted as pipe receivers).
+  A tool trusted alone became *untrusted the instant it received a pipe*, so the
+  canonical read-only DB-inspection idiom `sqlite3 db 'SELECT…' | column -t`
+  (and `… | nl`, `… | bat`, `… | gron`, `… | tac`) got false-gated as praxic —
+  the flag-robust sqlite fix (#304) made the *source* noetic but the formatter
+  on the tail re-gated the whole chain. Every pipe segment now runs through the
+  same read-only classifier used for standalone commands (`_matches_safe_prefix`,
+  which applies `_has_dangerous_tool_flags`). This brings receiver trust to
+  parity **and** closes a latent hole: a mutating/exec flag mid-pipe
+  (`| sort -o out`, `| yq -i`, `| awk 'system()'`, `| fd -x`) is now rejected in
+  ANY position, and a redirect on a receiver (`| column > out`) is caught at the
+  segment level too. Executor-ish legacy receivers (`python3 -c`, `xargs`) stay
+  receiver-only — never granted to the pipe *source*, so `python3 -c '…' | cat`
+  remains praxic.
+
 ## [1.12.17] — 2026-07-11
 
 ### Fixed
