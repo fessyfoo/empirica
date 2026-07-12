@@ -18,7 +18,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **mass-policy** (filter-and-bulk, a deliberate backlog tool used only with explicit
   human sign-off on the policy, never routine).
 
+### Security
+- **Sentinel gate no longer bypassed by command substitution inside double
+  quotes.** `$(...)` and backticks execute even *inside* double quotes (only
+  single quotes suppress them), but `_has_dangerous_operators` scanned only
+  *outside* quotes — so `echo "$(rm -rf /)"`, `cat "$(rm)"`, `PAT="$(rm)"`, and
+  the backtick forms classified **noetic** and ran unguarded in the
+  single-command and pipe paths. (The chain path was already safe — it
+  extracts+validates substitutions per segment.) Every substitution's inner
+  command is now validated up front (quote-agnostic, before the pipe check so
+  `echo "$(rm)" | cat` is covered too): an unsafe inner (`rm`, `curl | sh`)
+  gates in any position, while a read-only inner (`$(date)`, `$(git log)`,
+  `$(whoami)`) still passes. Surfaced while closing over-gating gaps during the
+  gardening work.
+>>>>>>> origin/develop
+
 ### Fixed
+- **Quoted variable assignments with spaces no longer over-gate.** `PAT="a b c"`
+  / `MSG='hello world'` gated as praxic because `_is_inert_shape`'s regex forbade
+  whitespace in the RHS; now a quoted literal RHS is recognized as inert (any
+  substitution in it is caught by the security check above). Hit during the
+  gardening survey (`PAT="(finding LIKE …)"`).
 - **Sentinel classifier parity + workflow-verb completeness** (four over-gating
   gaps surfaced by the first `/epistemic-gardening` pass — all the same "read-only
   op trusted in one syntactic position but not another" class as the pipe-parity
