@@ -2556,6 +2556,46 @@ def _classify_scp(command: str) -> bool:
     return not (":" in dest and not dest.startswith("/"))
 
 
+def _is_safe_pipe_segment(segment_clean: str, *, is_first: bool) -> bool:
+    """Classify one segment of a pipe chain as read-only/noetic.
+
+    A segment is safe if it's a read-only empirica command, a sqlite READ
+    (first segment only — a mid-pipe `sqlite3` receiving stdin is unusual and
+    the read-classifier keys off the query arg), a legacy SAFE_PIPE_TARGET
+    (keeps executor-ish receivers the chain rules already trusted: python3 -c,
+    xargs echo, tee /dev/stderr, base64), OR any standalone read-only tool the
+    Sentinel already trusts as a first-class command (`_matches_safe_prefix`).
+
+    Reusing `_matches_safe_prefix` is the key move: it applies
+    `_has_dangerous_tool_flags`, so a mutating/exec flag on an otherwise-inert
+    tool (`| sort -o out`, `| yq -i`, `| awk 'system()'`, `| fd -x`) is REJECTED
+    even here — closing the mid-pipe mutation hole the old raw prefix/target
+    matching left open — while bringing pipe-receiver trust to parity with the
+    ~95 read-only tools trusted standalone (the `| column`, `| nl`, `| bat`,
+    `| gron`, `| tac` over-gating this fixes).
+    """
+    # A file redirect on any segment is a praxic side effect (`| column > out`),
+    # even though the top-level classifier also guards it before we're called.
+    if _has_dangerous_redirects(segment_clean):
+        return False
+    # A mutating/exec flag on any segment is praxic regardless of position.
+    if _has_dangerous_tool_flags(segment_clean):
+        return False
+    if is_first and segment_clean.startswith("sqlite3 ") and is_safe_sqlite_command(segment_clean):
+        return True
+    if is_safe_empirica_command(segment_clean):
+        return True
+    if _matches_safe_prefix(segment_clean):
+        return True
+    # Legacy explicit pipe-receivers (executor-ish but historically trusted for
+    # JSON parsing / fan-out: python3 -c, xargs echo, tee /dev/stderr, base64).
+    # RECEIVER-ONLY — never granted to the first segment, where they'd be an
+    # arbitrary-exec SOURCE (`python3 -c '…' | cat` must stay praxic).
+    if is_first:
+        return False
+    return any(segment_clean.startswith(target) for target in SAFE_PIPE_TARGETS)
+
+
 def is_safe_pipe_chain(command: str) -> bool:
     """
     Check if a piped command chain is safe (all segments are read-only).
@@ -2563,60 +2603,26 @@ def is_safe_pipe_chain(command: str) -> bool:
     Allows: grep pattern file | head -20 | wc -l
     Allows: echo '...' | empirica preflight-submit -  (empirica CLI)
     Allows: grep "A\\|B\\|C" file | head      (quoted | inside regex)
-    Blocks: grep pattern | xargs rm, cat file | bash
+    Allows: sqlite3 db 'SELECT…' | column -t   (read-only receiver at parity)
+    Blocks: grep pattern | xargs rm, cat file | bash, anything | sort -o out
 
     Splits on `|` *outside* quoted regions — a `|` inside a quoted regex
-    alternation is data, not a shell pipe.
+    alternation is data, not a shell pipe. EVERY segment is validated by the
+    same read-only classifier used for standalone commands, so a read-only tool
+    trusted alone is trusted as a pipe receiver too (parity), and a mutating
+    flag is rejected in any position.
     """
     segments = [s.strip() for s in _split_outside_quotes(command, "|")]
-
     if not segments:
         return False
 
-    # First segment must be a safe command
-    first_cmd = segments[0]
-    first_is_safe = False
-
-    # Check sqlite3 commands first
-    if first_cmd.startswith("sqlite3 ") and is_safe_sqlite_command(first_cmd):
-        first_is_safe = True
-
-    # Check empirica CLI whitelist — Tier 1 commands (loop status, goals-list,
-    # etc.) routinely produce JSON that gets piped to jq. The trailing-segment
-    # rule below already accepts is_safe_empirica_command; matching it for the
-    # first segment removes the asymmetry that blocked cron-body shell idioms.
-    if not first_is_safe and is_safe_empirica_command(first_cmd):
-        first_is_safe = True
-
-    # Check standard safe prefixes
-    if not first_is_safe:
-        for prefix in SAFE_BASH_PREFIXES:
-            if first_cmd.startswith(prefix) or (prefix.endswith(" ") and first_cmd == prefix.rstrip()):
-                first_is_safe = True
-                break
-
-    if not first_is_safe:
-        return False
-
-    # All subsequent segments must start with safe pipe targets OR be safe empirica commands
-    for segment in segments[1:]:
-        segment = segment.strip()
-        # Strip heredoc suffix for matching (e.g., "empirica preflight-submit - << 'EOF'")
-        segment_clean = segment.split("<<")[0].strip() if "<<" in segment else segment
-        segment_safe = False
-
-        # Check empirica CLI whitelist (tiered)
-        if is_safe_empirica_command(segment_clean):
-            segment_safe = True
-
-        # Check standard safe pipe targets
-        if not segment_safe:
-            for target in SAFE_PIPE_TARGETS:
-                if segment.startswith(target):
-                    segment_safe = True
-                    break
-
-        if not segment_safe:
+    for idx, segment in enumerate(segments):
+        # Strip heredoc suffix for matching (e.g., "… << 'EOF'") — the body is
+        # validated separately by the chain/heredoc handling upstream.
+        segment_clean = segment.split("<<")[0].strip() if "<<" in segment else segment.strip()
+        if not segment_clean:
+            return False
+        if not _is_safe_pipe_segment(segment_clean, is_first=(idx == 0)):
             return False
 
     return True
