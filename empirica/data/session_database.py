@@ -2659,6 +2659,10 @@ class SessionDatabase:
         """Mark an unknown as resolved (delegates to BreadcrumbRepository)"""
         return self.breadcrumbs.resolve_unknown(unknown_id, resolved_by, resolution_finding_id=resolution_finding_id)
 
+    def resolve_finding(self, finding_id: str, resolution: str, superseded_by: str | None = None) -> bool:
+        """Mark a finding as resolved/superseded (#307; delegates to BreadcrumbRepository)"""
+        return self.breadcrumbs.resolve_finding(finding_id, resolution, superseded_by=superseded_by)
+
     def log_dead_end(
         self,
         project_id: str,

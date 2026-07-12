@@ -92,6 +92,10 @@ SCHEMAS = [
                     subject TEXT,
                     impact REAL DEFAULT 0.5,
                     transaction_id TEXT,
+                    is_resolved BOOLEAN DEFAULT FALSE,
+                    resolution TEXT,
+                    resolved_timestamp REAL,
+                    superseded_by TEXT,
 
                     FOREIGN KEY (project_id) REFERENCES projects(id),
                     FOREIGN KEY (session_id) REFERENCES sessions(session_id),
