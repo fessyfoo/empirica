@@ -1752,9 +1752,13 @@ def _is_inert_shape(stripped: str) -> bool:
         stripped.startswith("[[ ") and stripped.endswith(" ]]")
     ):
         return True
-    # VAR=value assignment — the value here is the *placeholder* if it
-    # had a substitution (which was already validated), or a literal.
-    return bool(re.match(r"^[A-Za-z_][A-Za-z0-9_]*=\S*$", stripped))
+    # VAR=value assignment. The RHS is a bare space-free value, OR a quoted
+    # literal that may contain spaces (`PAT="a b c"`, `MSG='hello world'`) — the
+    # latter false-gated before because `\S*` forbade whitespace. Any command
+    # substitution in the RHS was already extracted+validated upstream (chain path
+    # strips subs to a placeholder before this call; single-command path validates
+    # them in is_safe_bash_command), so a quoted RHS here carries only inert data.
+    return bool(re.match(r"""^[A-Za-z_][A-Za-z0-9_]*=("[^"]*"|'[^']*'|\S*)$""", stripped))
 
 
 # Benign command wrappers that prefix a real command without altering its
@@ -2001,6 +2005,20 @@ def is_safe_bash_command(tool_input: dict) -> bool:
     chain_result = _classify_chain(command)
     if chain_result is not None:
         return chain_result
+
+    # SECURITY: command substitutions ($(...) / backticks) execute even INSIDE
+    # double quotes — only single quotes suppress them — so `_has_dangerous_operators`
+    # (which only scans OUTSIDE quotes) misses `echo "$(rm -rf /)"`. The chain path
+    # already extracts+validates subs per segment; the single-command / pipe paths
+    # did not. Validate every substitution's inner command here (quote-agnostic,
+    # so a single-quoted `'$(rm)'` literal is conservatively gated too) — this runs
+    # before the pipe check, so it also covers `echo "$(rm)" | cat`. Heredoc bodies
+    # are excluded (their delimiter governs expansion), matching _is_segment_safe.
+    _sub_body = command.split("<<")[0] if "<<" in command else command
+    for _inner in _extract_command_substitutions(_sub_body):
+        _inner_clean = _inner.strip()
+        if _inner_clean and not _is_command_text_safe(_inner_clean):
+            return False
 
     # Single command. A trailing pipe can smuggle an executor
     # (`empirica goals-list | sh`), so a piped command is NOT safe on the bare
