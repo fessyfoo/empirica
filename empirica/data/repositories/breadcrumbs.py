@@ -259,6 +259,57 @@ class BreadcrumbRepository(BaseRepository):
         except Exception as e:
             logger.debug(f"_attach_to_goal skipped ({artifact_id}→{goal_id}): {e}")
 
+    # Artifact tables whose rows carry session_id + transaction_id and participate
+    # in the weave-gate connectivity count (mirrors _retro_count_edges' by_table).
+    _GOAL_ATTACH_TABLES = (
+        "project_findings",
+        "project_unknowns",
+        "project_dead_ends",
+        "mistakes_made",
+        "assumptions",
+        "decisions",
+    )
+
+    def backfill_goal_attachment(self, goal_id: str, session_id: str, transaction_id: str | None) -> int:
+        """Backward counterpart to `_attach_to_goal`: when a goal is created MID-
+        transaction, attach this transaction's already-logged artifacts that don't
+        yet carry any `attached_to` edge.
+
+        Log-time forward-attach only fires when the goal exists BEFORE the artifact
+        is logged. The other order — log findings, then create the goal for them —
+        left those artifacts orphaned (and false-blocked the weave-gate). This wires
+        them to the new goal so both orders connect. Only artifacts with NO existing
+        `attached_to` edge are touched, so an artifact already bound to another goal
+        is left alone. Idempotent + best-effort; returns the count attached.
+        """
+        if not transaction_id:
+            return 0
+        attached = 0
+        for table in self._GOAL_ATTACH_TABLES:
+            try:
+                rows = self._execute(
+                    f"SELECT id FROM {table} t "
+                    "WHERE t.session_id = ? AND t.transaction_id = ? "
+                    "AND NOT EXISTS (SELECT 1 FROM artifact_edges e "
+                    "WHERE (e.from_id = t.id OR e.to_id = t.id) AND e.relation = 'attached_to')",
+                    (session_id, transaction_id),
+                ).fetchall()
+            except Exception:
+                continue  # table absent / no such column on an older DB — skip
+            for r in rows:
+                aid = r["id"] if hasattr(r, "keys") else r[0]
+                try:
+                    self._execute(
+                        "INSERT OR IGNORE INTO artifact_edges (from_id, to_id, relation) VALUES (?, ?, 'attached_to')",
+                        (aid, goal_id),
+                    )
+                    attached += 1
+                except Exception as e:
+                    logger.debug(f"backfill_goal_attachment skipped ({aid}→{goal_id}): {e}")
+        if attached:
+            self.commit()
+        return attached
+
     def log_unknown(
         self,
         project_id: str,

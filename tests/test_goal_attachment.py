@@ -66,3 +66,45 @@ def test_attach_noop_when_goal_none(db):
     db.breadcrumbs._attach_to_goal(fid, None)
     cnt = db.conn.execute("SELECT COUNT(*) FROM artifact_edges WHERE from_id = ?", (fid,)).fetchone()[0]
     assert cnt == 0
+
+
+def test_backfill_attaches_transaction_orphans(db):
+    # The log-then-create-goal order: a finding logged with a transaction_id but no
+    # goal is orphaned; backfill (fired by goal-create) attaches it to the new goal.
+    TX = "tx-backfill-1"
+    fid = db.log_finding(PROJECT_ID, "sess-bf", "orphan before goal", transaction_id=TX)
+    assert (
+        db.conn.execute(
+            "SELECT COUNT(*) FROM artifact_edges WHERE from_id=? AND relation='attached_to'", (fid,)
+        ).fetchone()[0]
+        == 0
+    )
+    n = db.breadcrumbs.backfill_goal_attachment("goal-bf", "sess-bf", TX)
+    assert n == 1
+    assert (
+        db.conn.execute(
+            "SELECT COUNT(*) FROM artifact_edges WHERE from_id=? AND to_id='goal-bf' AND relation='attached_to'",
+            (fid,),
+        ).fetchone()[0]
+        == 1
+    )
+
+
+def test_backfill_skips_already_attached(db):
+    # An artifact already bound to a goal is left alone (not re-attached elsewhere).
+    TX = "tx-backfill-2"
+    fid = db.log_finding(PROJECT_ID, "sess-bf2", "already attached", goal_id="goal-first", transaction_id=TX)
+    n = db.breadcrumbs.backfill_goal_attachment("goal-second", "sess-bf2", TX)
+    assert n == 0  # already has an attached_to edge → skipped
+    # still only bound to the first goal
+    tos = [
+        r[0]
+        for r in db.conn.execute(
+            "SELECT to_id FROM artifact_edges WHERE from_id=? AND relation='attached_to'", (fid,)
+        ).fetchall()
+    ]
+    assert tos == ["goal-first"]
+
+
+def test_backfill_noop_without_transaction(db):
+    assert db.breadcrumbs.backfill_goal_attachment("g", "s", None) == 0
