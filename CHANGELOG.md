@@ -31,7 +31,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   gates in any position, while a read-only inner (`$(date)`, `$(git log)`,
   `$(whoami)`) still passes. Surfaced while closing over-gating gaps during the
   gardening work.
->>>>>>> origin/develop
 
 ### Fixed
 - **Quoted variable assignments with spaces no longer over-gate.** `PAT="a b c"`
