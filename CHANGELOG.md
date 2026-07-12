@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.19] — 2026-07-12
+
 ### Changed
 - **Batch artifact verbs are now the documented default for multi-artifact work.**
   The collaborative-mode guidance shifts from a "≥3 related artifacts" threshold to
