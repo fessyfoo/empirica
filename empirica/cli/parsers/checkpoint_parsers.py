@@ -494,6 +494,22 @@ def add_checkpoint_parsers(subparsers):
     project_register_parser.add_argument(
         "--timeout", type=float, default=10.0, help="Cortex POST timeout in seconds (default: 10)"
     )
+    project_register_parser.add_argument(
+        "--reconcile",
+        action="store_true",
+        help=(
+            "If the local project_id has diverged from cortex's canonical id, "
+            "rekey EVERY local store (sessions/artifacts DBs, workspace.db, "
+            "registry.yaml, project.yaml) to the cortex id. Without this, a "
+            "divergence is only warned about. Run 'empirica rebuild --qdrant' "
+            "afterwards to re-point Qdrant collections."
+        ),
+    )
+    project_register_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Bypass the open-transaction guard on --reconcile (only if you know no live session depends on the old id).",
+    )
     project_register_parser.add_argument("--output", choices=["human", "json"], default="human", help="Output format")
 
     # Forgejo provisioning (operator / self-hosting power-user PUSH mode)
