@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.20] — 2026-07-13
+
 ### Added
+- **Media-bearing sources: `source-add --media <path>` + `source-get --id <uuid> --out <path>`.**
+  Register a local media/binary file (image, etc.) and upload it so mesh peers can fetch
+  it cross-tenant; `source-get` downloads by uuid, **verifies the SHA-256 content hash
+  before writing** to `--out` (a mismatch never writes). Image bytes retain automatically;
+  cross-tenant reads are governed by the source's `--visibility` (`shared`/`public`).
+- **`engagement-update`** — update an engagement's title, description, domain, stage, or
+  lifecycle-state from the CLI.
+- **`setup-claude-code` pre-authorizes Empirica's MCP servers** in the Claude Code
+  `permissions.allow` list it deploys, so mesh tool calls no longer trigger a per-tool
+  permission prompt. The real authorization gates (the Sentinel for local praxic tools,
+  mesh review for cross-practice work) are unchanged — this only removes redundant prompts.
 - **Inline source citation: `finding-log --cite "<title>" [--cite-url <url>] [--cite-type <type>]`.**
   Creates the source AND links it (`sourced_from` edge) in one call — killing the
   two-step `source-add` → `--source <id>` dance that kept sources under-logged
@@ -18,6 +31,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   connected, one-command act.
 
 ### Fixed
+- **Airtight project-identity convergence: `project-register --reconcile`.** A project's
+  local id could drift from its registered canonical id — invisible until the first
+  operation that passes a raw project id across the boundary (a media upload rejected with
+  "unknown project_id"). `project-register` now detects the divergence, **warns by default**,
+  and with `--reconcile` rekeys **every** local store together (session/artifact DBs,
+  workspace registry, `registry.yaml`, `project.yaml`) to the canonical id, then directs a
+  `rebuild --qdrant`. The all-stores-at-once rekey is deliberate — a partial correction is
+  what historically stranded live sessions under a phantom id. Guarded against running
+  mid-session (refuses under an open transaction unless `--force`).
+- **`source-add --media` fails loud when the blob upload fails** — non-zero exit + surfaced
+  error, instead of a silent success that left a source row with no retrievable content.
 - **`finding-log --source` now writes a canonical `sourced_from` graph edge, not
   only the `source_refs` column.** Citing a source historically serialized the ids
   into the `source_refs` column — invisible to the artifact graph (weave-gate,
