@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.21] — 2026-07-13
+
+### Fixed
+- **`source-get` handles raw binary bodies.** A media source's bytes are served as a raw
+  byte body (with the content hash in a response header), not a base64 JSON envelope.
+  `source-get` was assuming the JSON shape and crashed decoding raw image bytes as UTF-8
+  (`'utf-8' codec can't decode byte 0x89`). It now branches on the response content type:
+  raw bytes are written directly and hash-verified; the JSON-envelope path still works for
+  sources that return it. The verify-before-write guarantee is unchanged.
+
+### Added
+- **Shared sources reach the shared catalogue: `source-add --visibility shared|public`
+  registers into the catalogue mesh peers and the extension read.** Previously a non-media
+  shared source was written only to the local store, so peers never saw it — the source
+  surface split into two disconnected populations. `source-add` now registers a
+  shared/public source into the canonical catalogue at add time (local-visibility and media
+  sources are unaffected — media already registers via its body upload). Requires cortex to
+  be configured; a no-op otherwise.
+- **`sources-reconcile --register-shared`** backfills shared/public sources created before
+  the register wiring — it registers each one that lacks a catalogue id and stamps the id
+  back locally, **committing per source** so a mid-run interruption keeps prior progress.
+
 ## [1.12.20] — 2026-07-13
 
 ### Added
