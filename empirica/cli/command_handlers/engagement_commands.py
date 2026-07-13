@@ -1,6 +1,6 @@
 """Engagement Commands — CLI surface for the engagement substrate.
 
-engagement-create/list/show/walk over the engagements sidecar
+engagement-create/list/show/walk/update over the engagements sidecar
 (WorkspaceDBRepository). engagement-create rides the entities-mint path
 (``mint_entity``) and then writes the sidecar row — no parallel writer. The
 engagement is the OPERATIONAL projection (plain SQL, no confidence/epistemic
@@ -12,6 +12,12 @@ Verbs:
 - engagement-list:   list engagements, filtered by domain / lifecycle / org
 - engagement-show:   one engagement + its membership edges
 - engagement-walk:   BFS the membership graph from an engagement
+- engagement-update: update title/description/stage/domain/lifecycle_state/
+                     outcome on an existing engagement (repo.update_engagement
+                     already existed and was fully validated/tested — this
+                     verb was the missing CLI surface for it, found 2026-07-13
+                     while building a connection-detail note into an
+                     engagement's description had no path at all)
 """
 
 from __future__ import annotations
@@ -191,6 +197,51 @@ def handle_engagement_show_command(args):
                 print(f"  ← {m['entity_type']}:{m['entity_id'][:8]}{role}")
     except Exception as e:
         handle_cli_error(e, "engagement-show", getattr(args, "verbose", False))
+
+
+def handle_engagement_update_command(args):
+    """engagement-update — update mutable fields on an existing engagement.
+
+    Thin CLI wiring over WorkspaceDBRepository.update_engagement, which already
+    validates lifecycle_state/outcome against their enums and stage/domain
+    against the definition tables. Passing no field flags is a no-op read
+    (matches the repo method's own documented behavior). engagement_id accepts
+    an unambiguous prefix, same as engagement-show/-walk.
+    """
+    try:
+        output = getattr(args, "output", "human")
+        eid = args.engagement_id
+        with WorkspaceDBRepository.open() as repo:
+            existing = _resolve_engagement(repo, eid)
+            if existing is None:
+                _emit_user_error(
+                    output,
+                    f"No engagement matches {eid!r} (full id or unambiguous prefix required)",
+                    error="engagement_not_found",
+                )
+            real_id = existing["engagement_id"]
+            try:
+                updated = repo.update_engagement(
+                    real_id,
+                    title=getattr(args, "title", None),
+                    description=getattr(args, "description", None),
+                    stage=getattr(args, "stage", None),
+                    domain=getattr(args, "domain", None),
+                    lifecycle_state=getattr(args, "lifecycle_state", None),
+                    outcome=getattr(args, "outcome", None),
+                )
+            except ValueError as ve:
+                _emit_user_error(output, str(ve))
+        if output == "json":
+            print(json.dumps({"ok": True, "engagement": updated}, indent=2, default=str))
+            return
+        print(f"🤝 Engagement updated: {real_id}")
+        print(f"  lifecycle_state: {updated.get('lifecycle_state', 'open')}")
+        print(f"  domain / stage:  {updated.get('domain') or '-'} / {updated.get('stage') or '-'}")
+        if updated.get("outcome"):
+            print(f"  outcome:         {updated['outcome']}")
+    except Exception as e:
+        handle_cli_error(e, "engagement-update", getattr(args, "verbose", False))
 
 
 def handle_engagement_walk_command(args):

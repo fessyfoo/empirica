@@ -703,6 +703,30 @@ def add_checkpoint_parsers(subparsers):
     engagement_walk_parser.add_argument("--output", choices=["human", "json"], default="human", help="Output format")
     engagement_walk_parser.add_argument("--verbose", action="store_true", help="Verbose output")
 
+    engagement_update_parser = subparsers.add_parser(
+        "engagement-update",
+        help="Update mutable fields (title/description/stage/domain/lifecycle-state/outcome) "
+        "on an existing engagement. No field flags = no-op read.",
+    )
+    engagement_update_parser.add_argument("engagement_id", help="Engagement id (full value or unambiguous prefix)")
+    engagement_update_parser.add_argument("--title", help="New title")
+    engagement_update_parser.add_argument("--description", help="New free-text description")
+    engagement_update_parser.add_argument("--domain", help="New domain (must have a definition row)")
+    engagement_update_parser.add_argument("--stage", help="New stage_id (must belong to --domain, or the engagement's current domain)")
+    engagement_update_parser.add_argument(
+        "--lifecycle-state",
+        dest="lifecycle_state",
+        choices=["planned", "open", "in_progress", "blocked", "closed"],
+        help="New lifecycle_state",
+    )
+    engagement_update_parser.add_argument(
+        "--outcome",
+        choices=["won", "lost", "resolved", "wont_fix", "defer", "superseded"],
+        help="Terminal outcome (typically set alongside --lifecycle-state closed)",
+    )
+    engagement_update_parser.add_argument("--output", choices=["human", "json"], default="human", help="Output format")
+    engagement_update_parser.add_argument("--verbose", action="store_true", help="Verbose output")
+
     entity_search_parser = subparsers.add_parser(
         "entity-search",
         help=(

@@ -451,6 +451,7 @@ _HELP_CATEGORIES = {
         "engagement-list",
         "engagement-show",
         "engagement-walk",
+        "engagement-update",
     ],
     "checkpoint": [
         "checkpoint-create",
@@ -871,6 +872,7 @@ def main(args=None):
             "engagement-list": handle_engagement_list_command,
             "engagement-show": handle_engagement_show_command,
             "engagement-walk": handle_engagement_walk_command,
+            "engagement-update": handle_engagement_update_command,
             "engagement-focus": handle_engagement_focus_command,
             "save": handle_save_command,
             "history": handle_history_command,
