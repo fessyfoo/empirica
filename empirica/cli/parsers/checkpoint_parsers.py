@@ -712,7 +712,9 @@ def add_checkpoint_parsers(subparsers):
     engagement_update_parser.add_argument("--title", help="New title")
     engagement_update_parser.add_argument("--description", help="New free-text description")
     engagement_update_parser.add_argument("--domain", help="New domain (must have a definition row)")
-    engagement_update_parser.add_argument("--stage", help="New stage_id (must belong to --domain, or the engagement's current domain)")
+    engagement_update_parser.add_argument(
+        "--stage", help="New stage_id (must belong to --domain, or the engagement's current domain)"
+    )
     engagement_update_parser.add_argument(
         "--lifecycle-state",
         dest="lifecycle_state",
