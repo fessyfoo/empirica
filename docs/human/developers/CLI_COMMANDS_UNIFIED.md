@@ -22,8 +22,8 @@
 > `empirica/cli/cli_core.py` — adding a new category means editing that
 > dictionary, then running this script.
 
-**Framework version:** 1.12.21
-**Generated:** 2026-07-13 18:01:10 UTC
+**Framework version:** 1.12.22
+**Generated:** 2026-07-14 13:00:08 UTC
 **Total commands:** 269 (across 26 categories)
 
 For the most up-to-date detail on any single command, prefer
@@ -2408,9 +2408,11 @@ Generate browsable .empirica/ markdown files from git notes
 **Arguments:**
 
 - `--output-dir` — optional
-  Output directory (default: .empirica/)
+  Output directory (default: .empirica/, or .empirica/okf/ for OKF)
 - `--output` — optional · type=`choice` · choices={human, json} · default=`human`
   Output format
+- `--format` — optional · type=`choice` · choices={audit, okf} · default=`audit`
+  Bundle format: 'audit' = browsable per-type markdown (default); 'okf' = Open Knowledge Format bundle (one concept per artifact, portable/AI-friendly)
 - `--verbose` — optional · flag
   Show detailed operation info
 
