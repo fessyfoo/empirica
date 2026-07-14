@@ -25,11 +25,14 @@ never widens it) with the Brier overconfidence-floor still tightening on top.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -136,6 +139,40 @@ def _preset_layer(name: str | None) -> dict[str, dict[str, float]] | None:
     return layer
 
 
+# ── calibration-stance presets (the orthogonal axis to domain personas) ──────
+# STANCE = how strictly the practice gates (owns the two is_gate thresholds:
+# ready_uncertainty + engagement_gate). PERSONA (BUILTIN_TEMPLATES) = what the
+# practice focuses on (owns weights + the soft thresholds). The key partitions
+# don't overlap, so the two axes compose cleanly (extension prop_aablfzw5).
+# ready_uncertainty is the live CHECK gate: LOWER = stricter (proceed only at
+# lower uncertainty). 'balanced' == SCHEMA defaults (the neutral baseline).
+STANCE_PRESETS: dict[str, dict[str, dict[str, float]]] = {
+    "rigorous": {"thresholds": {"ready_uncertainty": 0.25, "engagement_gate": 0.80}},
+    "balanced": {"thresholds": {"ready_uncertainty": 0.35, "engagement_gate": 0.60}},
+    "exploratory": {"thresholds": {"ready_uncertainty": 0.45, "engagement_gate": 0.50}},
+}
+
+
+def stance_names() -> set[str]:
+    """Names of the built-in calibration-stance presets."""
+    return set(STANCE_PRESETS)
+
+
+def _stance_layer(name: str | None) -> dict[str, dict[str, float]] | None:
+    """Return {thresholds: {...}} for a stance preset, or None if unknown."""
+    if not name:
+        return None
+    tpl = STANCE_PRESETS.get(name)
+    if not isinstance(tpl, dict):
+        return None
+    layer: dict[str, dict[str, float]] = {"weights": {}, "thresholds": {}}
+    for group in ("weights", "thresholds"):
+        block = tpl.get(group)
+        if isinstance(block, dict):
+            layer[group] = {str(k): float(v) for k, v in block.items()}
+    return layer
+
+
 def _clamp(spec: FieldSpec, value: Any) -> float | None:
     """Coerce+clamp a value to the spec's range, or None if not a number."""
     try:
@@ -189,22 +226,32 @@ def resolve(
 
         {
           "weights": {...}, "thresholds": {...},
-          "preset": <effective preset name or None>,
-          "sources": {"<group>.<key>": "default|preset:<name>|global|practice"},
+          "preset": <effective persona preset name or None>,
+          "stance": <effective calibration-stance preset name or None>,
+          "sources": {"<group>.<key>": "default|preset:<name>|stance:<name>|global|practice"},
           "overridden": ["<group>.<key>", ...],   # keys set above the default
         }
     """
     resolved = default_config()
     source_map: dict[tuple[str, str], str] = {(f.group, f.key): "default" for f in SCHEMA}
     effective_preset: str | None = None
+    effective_stance: str | None = None
 
     for scope_label, override in (("global", global_override), ("practice", practice_override)):
         override = override or {}
+        # Two orthogonal preset axes, then the scope's per-key sparse override
+        # (which always wins). Persona owns weights + soft thresholds; stance
+        # owns the gate thresholds — non-overlapping, so axis order is immaterial.
         preset_name = override.get("preset")
         preset = _preset_layer(preset_name)
         if preset:
             effective_preset = preset_name
             _apply_overlay(resolved, source_map, preset, f"preset:{preset_name}")
+        stance_name = override.get("stance")
+        stance = _stance_layer(stance_name)
+        if stance:
+            effective_stance = stance_name
+            _apply_overlay(resolved, source_map, stance, f"stance:{stance_name}")
         sparse = {g: (override.get(g) or {}) for g in GROUPS}
         _apply_overlay(resolved, source_map, sparse, scope_label)
 
@@ -217,6 +264,7 @@ def resolve(
         "weights": resolved["weights"],
         "thresholds": resolved["thresholds"],
         "preset": effective_preset,
+        "stance": effective_stance,
         "sources": sources,
         "overridden": overridden,
     }
@@ -256,6 +304,13 @@ def validate_patch(patch: dict) -> tuple[dict, list[str]]:
         else:
             errors.append(f"unknown preset: {name!r}")
 
+    if "stance" in patch:
+        name = patch["stance"]
+        if name is None or (isinstance(name, str) and name in stance_names()):
+            clean["stance"] = name
+        else:
+            errors.append(f"unknown stance: {name!r}")
+
     for group in GROUPS:
         block = patch.get(group)
         if block is None:
@@ -280,18 +335,16 @@ def validate_patch(patch: dict) -> tuple[dict, list[str]]:
     return clean, errors
 
 
-def apply_patch(scope_dir: str | Path, patch: dict) -> dict[str, Any]:
-    """Merge a validated sparse patch into a scope's override file (creating it
-    if absent). A ``None`` value removes that key (reset-to-default). Returns the
-    resulting override block. Callers should ``validate_patch`` first."""
-    p = override_path(scope_dir)
-    block = read_override(scope_dir)
-
-    if "preset" in patch:
-        if patch["preset"] is None:
-            block.pop("preset", None)
-        else:
-            block["preset"] = patch["preset"]
+def _merge_patch(block: dict[str, Any], patch: dict) -> dict[str, Any]:
+    """Merge a validated sparse patch into an override block in place. A ``None``
+    value removes that key (reset-to-default). Handles the two preset axes
+    (preset/stance) + the weights/thresholds groups. Returns the block."""
+    for axis in ("preset", "stance"):
+        if axis in patch:
+            if patch[axis] is None:
+                block.pop(axis, None)
+            else:
+                block[axis] = patch[axis]
 
     for group in GROUPS:
         if group not in patch:
@@ -308,13 +361,80 @@ def apply_patch(scope_dir: str | Path, patch: dict) -> dict[str, Any]:
             block[group] = gblock
         else:
             block.pop(group, None)
-
-    p.parent.mkdir(parents=True, exist_ok=True)
-    if block:
-        p.write_text(yaml.safe_dump(block, default_flow_style=False, sort_keys=False), encoding="utf-8")
-    elif p.exists():
-        p.unlink()  # nothing left to override → remove the file
     return block
+
+
+def _write_block(path: Path, block: dict[str, Any]) -> None:
+    """Persist an override block to path (removing the file when empty)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if block:
+        path.write_text(yaml.safe_dump(block, default_flow_style=False, sort_keys=False), encoding="utf-8")
+    elif path.exists():
+        path.unlink()  # nothing left to override → remove the file
+
+
+def apply_patch(scope_dir: str | Path, patch: dict) -> dict[str, Any]:
+    """Merge a validated sparse patch into a scope's LIVE override file (creating
+    it if absent). A ``None`` value removes that key (reset-to-default). Returns
+    the resulting override block. Callers should ``validate_patch`` first."""
+    block = _merge_patch(read_override(scope_dir), patch)
+    _write_block(override_path(scope_dir), block)
+    return block
+
+
+# ── defer-to-boundary: queue a tuning override during an open transaction ─────
+# Tuning weights/thresholds mid-transaction would shift the calibration signal
+# under work already in flight. David's model (extension prop_kmnihczcx): a PATCH
+# during an open transaction is ALWAYS accepted, but QUEUED to a pending store and
+# promoted to the live override at the practice's next PREFLIGHT (transaction-
+# atomic config) — never mid-work.
+
+_PENDING_FILENAME = "calibration.pending.yaml"
+
+
+def pending_override_path(scope_dir: str | Path) -> Path:
+    """The queued-override file inside a scope's .empirica dir."""
+    return Path(scope_dir) / ".empirica" / _PENDING_FILENAME
+
+
+def read_pending(scope_dir: str | Path) -> dict[str, Any]:
+    """Read a scope's queued override ({} if absent/unreadable)."""
+    p = pending_override_path(scope_dir)
+    if not p.exists():
+        return {}
+    try:
+        data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def queue_pending(scope_dir: str | Path, patch: dict) -> dict[str, Any]:
+    """Accumulate a validated sparse patch into the PENDING store (applied at the
+    next PREFLIGHT, not live). Same merge semantics as apply_patch — multiple
+    PATCHes before the boundary accumulate. Callers should ``validate_patch``."""
+    block = _merge_patch(read_pending(scope_dir), patch)
+    _write_block(pending_override_path(scope_dir), block)
+    return block
+
+
+def promote_pending(scope_dir: str | Path) -> dict[str, Any]:
+    """Promote any queued override into the LIVE override, then clear pending.
+    Called at PREFLIGHT (the transaction boundary). Returns the promoted patch
+    ({} if nothing was queued). Best-effort clear; never raises on the unlink."""
+    pending = read_pending(scope_dir)
+    if not pending:
+        return {}
+    apply_patch(scope_dir, pending)
+    try:
+        p = pending_override_path(scope_dir)
+        if p.exists():
+            p.unlink()
+    except Exception as e:
+        # Non-fatal: the override already applied to live; a stale pending file
+        # just re-promotes (idempotently) at the next PREFLIGHT.
+        logger.debug("calibration: pending clear failed (will re-promote): %s", e)
+    return pending
 
 
 # ── runtime resolution (entry point for enforcement wiring) ──────────────────
