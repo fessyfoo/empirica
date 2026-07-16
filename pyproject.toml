@@ -98,7 +98,7 @@ vision = [
 
 # MCP server support
 mcp = [
-    "mcp>=1.0.0",
+    "mcp>=1.28.1",  # Security: CVE-2026-52869/-52870 (fix 1.27.2) + CVE-2026-59950 (fix 1.28.1)
 ]
 
 # Prose evidence grounding (non-code users)
