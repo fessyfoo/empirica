@@ -34,7 +34,6 @@ references:
   - "empirica finding-log --finding '...' --impact 0.7"
   - "empirica unknown-log --unknown '...'"
   - "empirica goals-create - (JSON stdin)"
-  - "empirica agent-spawn --session-id <ID> --task '...' --turtle"
 
 summary: |
   Empirica Epistemic Framework - Know what you know.

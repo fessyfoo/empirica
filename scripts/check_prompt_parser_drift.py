@@ -38,20 +38,55 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parent.parent
 
 # Prompt surfaces (loaded as prompts) — NOT general docs.
+#   *.md   → skills + shipped system-prompt template (code-span invocations)
+#   *.yaml → project_skills/ CASCADE fixtures — loaded into the AI's context by
+#            project-bootstrap, so a dangling `empirica <verb>` here misleads
+#            exactly like one in a skill (this is how the #348 agent-spawn ref
+#            survived: the corpus never looked at YAML).
 _IN_REPO_GLOBS = [
     "empirica/plugins/claude-code-integration/skills/**/*.md",
     "empirica/plugins/claude-code-integration/templates/*.md",
+    "project_skills/*.yaml",
 ]
 _PRIVATE_GLOB = "empirica-*.md"  # under ~/.claude/
 
-# Markdown code spans (fenced first, then inline) — the only place a real CLI
-# invocation lives; prose is excluded to avoid noun false-positives.
+# Markdown code spans (fenced first, then inline) — for .md prompts, the only
+# place a real CLI invocation lives; prose is excluded to avoid noun false-
+# positives. (.yaml fixtures are scanned raw — see mentions_in.)
 _CODE_SPAN = re.compile(r"```.*?```|`[^`\n]+`", re.DOTALL)
-# `empirica <verb>` where the verb reads as an actual invocation: it must be
-# followed by a flag (` -`), a pipe/continuation, or end-of-line. This rejects
-# prose-in-code-spans like `empirica fleet` (product name), "empirica
-# transaction is open", "from empirica side" — where a noun follows the token.
-_MENTION = re.compile(r"\bempirica\s+([a-z][a-z0-9][a-z0-9-]*)(?=\s+-|\s*[|\\]|\s*$)", re.MULTILINE)
+# `empirica <verb>` — capture the verb whenever it reads as a whole token
+# (followed by whitespace or end-of-line). The earlier form only fired on a
+# trailing flag/pipe/EOL, so it MISSED every positional-arg and two-word
+# subcommand invocation — `empirica investigate "q"`, `empirica note "x"`,
+# `empirica source-add https://…`, `empirica mesh status`, `empirica mailbox
+# poll` — the exact dangling-reference shapes the check exists to catch. We
+# broaden to any token boundary and instead suppress the handful of prose nouns
+# that can follow `empirica` inside a code span via _PROSE_NOUNS below.
+_MENTION = re.compile(r"\bempirica\s+([a-z][a-z0-9][a-z0-9-]*)(?=\s|$)", re.MULTILINE)
+# Nouns (not verbs) that legitimately follow the word "empirica" in a code span
+# — product/domain nouns, never CLI verbs. Without this guard the broadened
+# regex would flag them as drift. Grows on demand: a genuine prose false-
+# positive surfaces as a CI failure → add the noun here (self-correcting).
+_PROSE_NOUNS = frozenset(
+    {
+        "session",
+        "sessions",
+        "transaction",
+        "project",
+        "projects",
+        "instance",
+        "core",
+        "cortex",
+        "workspace",
+        "outreach",
+        "extension",
+        "autonomy",
+        "side",
+        "home",
+        "server",
+        "system",
+    }
+)
 
 # Verbs intentionally NOT part of the AI-prompt surface — coverage gaps here are
 # expected, not drift. (Aliases need no entry: they're in the live verb set, so
@@ -99,10 +134,16 @@ def corpus_files(include_private: bool) -> list[Path]:
     return files
 
 
-def mentions_in(text: str) -> set[str]:
-    """`empirica <verb>` tokens found in the code spans of `text`."""
-    code = "\n".join(_CODE_SPAN.findall(text))
-    return set(_MENTION.findall(code))
+def mentions_in(text: str, *, code_spans_only: bool = True) -> set[str]:
+    """`empirica <verb>` tokens in `text`, minus known prose nouns.
+
+    code_spans_only=True (Markdown): scan only inside `code spans`, since prose
+    freely says "your empirica session". code_spans_only=False (YAML fixtures):
+    scan the raw text — YAML string values ARE the invocation lines, there is no
+    code-span wrapper to key off.
+    """
+    scanned = "\n".join(_CODE_SPAN.findall(text)) if code_spans_only else text
+    return set(_MENTION.findall(scanned)) - _PROSE_NOUNS
 
 
 def scan(files: list[Path], verbs: set[str]) -> tuple[dict[str, list[str]], set[str]]:
@@ -115,7 +156,8 @@ def scan(files: list[Path], verbs: set[str]) -> tuple[dict[str, list[str]], set[
         except OSError:
             continue
         rel = _relpath(path)
-        for verb in mentions_in(text):
+        code_spans_only = path.suffix.lower() not in (".yaml", ".yml")
+        for verb in mentions_in(text, code_spans_only=code_spans_only):
             if verb in verbs:
                 mentioned.add(verb)
             else:
