@@ -352,12 +352,16 @@ The open-source projects are free for everyone. What the Foundation adds is a **
 
 ---
 
-## What's New in 1.12.13
+## What's New in 1.12.24
 
-- **Legacy Flask dashboard API.** `empirica serve` runs the FastAPI serve
-- **Presence: a live practitioner no longer disappears behind a stale
-- **Loops: ghost canonical-loop units guarded.** Loop enablement now refuses a
-- **Hooks: vendor-agnostic practice resolution at the post-compact boundary.**
+- **CLI surface prune: 28 dead / unwired / subsumed verbs removed (210 → 182).**
+- **CI: parser↔prompt drift check.** `scripts/check_prompt_parser_drift.py`
+- **Docs aligned to the post-prune reality (−2.6K lines):** removed references to the
+- **The *lesson* vocabulary sharpened** to a transferable cross-practice
+- **Read-only mesh lookups classified as noetic** by the Sentinel — `empirica mesh
+- **Mesh listener never falls back to the retired `orchestration-events` ntfy topic**
+- **Test isolation: a leaked subscriber daemon** in the message-store tests (its
+- **`mcp` dependency floor bumped to `>=1.28.1`** — resolves CVE-2026-52869 and
 ---
 
 ## Privacy & Data

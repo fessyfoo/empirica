@@ -22,8 +22,8 @@
 > `empirica/cli/cli_core.py` — adding a new category means editing that
 > dictionary, then running this script.
 
-**Framework version:** 1.12.23
-**Generated:** 2026-07-16 11:29:53 UTC
+**Framework version:** 1.12.24
+**Generated:** 2026-07-17 08:23:10 UTC
 **Total commands:** 241 (across 24 categories)
 
 For the most up-to-date detail on any single command, prefer
@@ -375,7 +375,7 @@ List goals in the current project. Default: active (in_progress). Use --status {
 - `--project-id` — optional
   Filter by project ID (structural scope)
 - `--all-projects` — optional · flag
-  Cross-project view (gardening): list goals across ALL project_ids, not just the active project. Adds a project column and raises the default limit. Surfaces goals stranded under other/divergent project_ids that the normal active-project scope hides.
+  See the COMPLETE backlog (default caps at 20). Cross-project view (gardening): list goals across ALL project_ids, not just the active project. Adds a project column and raises the limit to 2000. Surfaces goals stranded under other/divergent project_ids that the normal active-project scope hides. (`--all` works as a prefix abbreviation.)
 - `--scope-breadth-min` — optional · type=`float`
   Filter by minimum breadth (0.0-1.0)
 - `--scope-breadth-max` — optional · type=`float`
