@@ -114,8 +114,9 @@ class GoalRepository:
                 """
                 INSERT OR REPLACE INTO goals
                 (id, session_id, objective, description, scope, estimated_complexity,
-                 created_timestamp, completed_timestamp, is_completed, goal_data, project_id, transaction_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 created_timestamp, completed_timestamp, is_completed, goal_data, project_id, transaction_id,
+                 engagement_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     goal.id,
@@ -130,6 +131,7 @@ class GoalRepository:
                     goal_data,
                     project_id,
                     transaction_id,
+                    goal.engagement_id,
                 ),
             )
 

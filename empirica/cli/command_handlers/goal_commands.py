@@ -325,6 +325,7 @@ def _parse_goal_config(args):
         estimated_complexity = config_data.get("estimated_complexity")
         constraints = config_data.get("constraints")
         metadata = config_data.get("metadata")
+        engagement_id = config_data.get("engagement_id")
         output_format = "json"
     else:
         session_id = args.session_id
@@ -338,6 +339,7 @@ def _parse_goal_config(args):
         estimated_complexity = getattr(args, "estimated_complexity", None)
         constraints = parse_json_safely(args.constraints) if args.constraints else None
         metadata = parse_json_safely(args.metadata) if args.metadata else None
+        engagement_id = getattr(args, "engagement_id", None)
         output_format = getattr(args, "output", "json")
 
         success_criteria_list = _parse_legacy_success_criteria(args)
@@ -353,6 +355,7 @@ def _parse_goal_config(args):
         "estimated_complexity": estimated_complexity,
         "constraints": constraints,
         "metadata": metadata,
+        "engagement_id": engagement_id,
         "output_format": output_format,
         "config_data": config_data,
     }
@@ -451,6 +454,7 @@ def _build_and_save_goal(
     config_data,
     args,
     description=None,
+    engagement_id=None,
 ):
     """Build Goal object and save to database.
 
@@ -499,6 +503,7 @@ def _build_and_save_goal(
         estimated_complexity=estimated_complexity,
         constraints=constraints,
         metadata=metadata,
+        engagement_id=engagement_id,
     )
 
     # Auto-derive transaction_id
@@ -654,6 +659,7 @@ def handle_goals_create_command(args):
         estimated_complexity = cfg["estimated_complexity"]
         constraints = cfg["constraints"]
         metadata = cfg["metadata"]
+        engagement_id = cfg.get("engagement_id")
         output_format = cfg["output_format"]
         config_data = cfg["config_data"]
 
@@ -692,6 +698,7 @@ def handle_goals_create_command(args):
             config_data,
             args,
             description=description,
+            engagement_id=engagement_id,
         )
 
         # Stage 5: Post-creation integrations and result building

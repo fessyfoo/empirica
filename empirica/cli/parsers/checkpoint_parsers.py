@@ -1839,6 +1839,10 @@ Example:
         default="in_progress",
         help="Initial status: 'planned' (logged, not started), 'in_progress' (active, default), or 'blocked' (waiting on external dependency)",
     )
+    goals_create_parser.add_argument(
+        "--engagement-id",
+        help="Optional engagement id to scope this goal to (stamps goals.engagement_id — the goal↔engagement glue)",
+    )
     goals_create_parser.add_argument("--force", action="store_true", help="Create goal even if similar goal exists")
     goals_create_parser.add_argument("--output", choices=["human", "json"], default="human", help="Output format")
     goals_create_parser.add_argument("--verbose", action="store_true", help="Show detailed operation info")

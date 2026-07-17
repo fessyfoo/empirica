@@ -97,6 +97,7 @@ class Goal:
     created_timestamp: float = field(default_factory=time.time)
     completed_timestamp: float | None = None
     is_completed: bool = False
+    engagement_id: str | None = None  # Optional engagement scope (goals.engagement_id, migration 051)
 
     @staticmethod
     def create(
@@ -170,6 +171,7 @@ class Goal:
             "created_timestamp": self.created_timestamp,
             "completed_timestamp": self.completed_timestamp,
             "is_completed": self.is_completed,
+            "engagement_id": self.engagement_id,
         }
 
     @staticmethod
@@ -205,6 +207,7 @@ class Goal:
             created_timestamp=data.get("created_timestamp", time.time()),
             completed_timestamp=data.get("completed_timestamp"),
             is_completed=data.get("is_completed", False),
+            engagement_id=data.get("engagement_id"),
         )
 
     def get_subtasks(self):
