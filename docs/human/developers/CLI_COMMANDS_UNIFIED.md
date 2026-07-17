@@ -22,8 +22,8 @@
 > `empirica/cli/cli_core.py` — adding a new category means editing that
 > dictionary, then running this script.
 
-**Framework version:** 1.12.24
-**Generated:** 2026-07-17 08:23:10 UTC
+**Framework version:** 1.12.25
+**Generated:** 2026-07-17 12:01:13 UTC
 **Total commands:** 241 (across 24 categories)
 
 For the most up-to-date detail on any single command, prefer
@@ -353,6 +353,8 @@ Create a new goal — the unit of tracked work. One per coherent deliverable: a 
   Create BEADS issue and link to goal
 - `--status` — optional · type=`choice` · choices={planned, in_progress, blocked} · default=`in_progress`
   Initial status: 'planned' (logged, not started), 'in_progress' (active, default), or 'blocked' (waiting on external dependency)
+- `--engagement-id` — optional
+  Optional engagement id to scope this goal to (stamps goals.engagement_id — the goal↔engagement glue)
 - `--force` — optional · flag
   Create goal even if similar goal exists
 - `--output` — optional · type=`choice` · choices={human, json} · default=`human`
