@@ -188,6 +188,29 @@ This doc covers concepts. For how-to:
 
 ---
 
+## The mesh as a sync engine — the DAW frame
+
+If you want one image for all of the above: **the mesh is Ableton Live / Serato for epistemically-aware AIs.**
+
+A DAW isn't the music — it's the *sync engine*. It locks independently-produced tracks to one clock so they play in phase, freeing the operator to work at the creative layer because the timing is handled underneath. The mesh does that for AI work: the human (or a lead practice) steers at the intent layer while the mesh keeps everyone in phase.
+
+The load-bearing part is *what* it keeps in phase. It isn't just multiple practices — it's coordination across every axis of heterogeneity at once:
+
+| Axis | What differs | What the mesh does |
+|---|---|---|
+| **Practices** | epistemic specialization (cortex vs workspace vs outreach) | routes calibrated state between domains; each stays sovereign |
+| **Harnesses** | execution environment (CLI, cloud sandbox, Desktop, extension) | uniform wake-on-event, catch-up, and gating regardless of harness |
+| **Substrates** | where the AI runs (local, Hetzner, cloud) | substrate-agnostic addressing + routing |
+| **Model types** | the LLM behind the deck (Claude, GPT, Gemini, next) | practitioners are fungible; coordination rides the *protocol*, not model internals |
+| **Tenants** | different seats/people under one org (`david` vs `philipp`) | `org.tenant.project` addressing; ECO gates each seat's authority |
+| **Orgs** | different companies entirely (empirica, NLE, MOD, …) | cross-org routing + L3 ECO; scope is *derived* from participants, never assumed |
+
+**Calibration is the beatgrid.** A DAW can only sync heterogeneous tracks because they lock to a shared clock. The mesh's clock is the epistemic-state layer: every practice reports its own know/uncertainty/drift, gates its own moves (CHECK / ECO), and tags provenance. Because that vocabulary is shared and model-agnostic, a Claude-on-CLI practice, a cloud-sandbox practice, and a different-model practice under a *different org* can all lock into one coordinated performance — without any of them needing to know the others' internals, and without any of them being able to overstep their authority (the ECO gate is the fader nobody else can touch).
+
+That's why the coordination cost doesn't explode as you add decks. Manual coordination across practices × harnesses × substrates × models × tenants × orgs fails super-linearly; the mesh-as-sync-engine is what makes a heterogeneous, multi-party AI ensemble tractable at all.
+
+---
+
 ## A note on what this isn't
 
 The empirica mesh is not:
